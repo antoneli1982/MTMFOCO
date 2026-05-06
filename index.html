@@ -483,6 +483,45 @@ table.mtm tfoot tr.total-row td{
 ::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:2px}
 ::-webkit-scrollbar-thumb:hover{background:rgba(0,212,255,.4)}
 
+/* ═══════════════════════════════════════
+   BIBLIOTECA DE CÓDIGOS MTM — PAINEL
+   ═══════════════════════════════════════ */
+#lib-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500;display:flex;justify-content:flex-end;opacity:0;pointer-events:none;transition:opacity .25s}
+#lib-overlay.open{opacity:1;pointer-events:all}
+#lib-panel{width:100%;max-width:660px;height:100%;background:var(--surface);border-left:1px solid var(--border2);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .28s cubic-bezier(.22,1,.36,1);overflow:hidden}
+#lib-overlay.open #lib-panel{transform:translateX(0)}
+.lib-hdr{background:var(--surface2);border-bottom:1px solid var(--border2);padding:12px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;position:relative;overflow:hidden}
+.lib-hdr::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accentGrad)}
+.lib-hdr-logo{font-size:13px;font-weight:800;background:var(--accentGrad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.lib-hdr-sub{font-size:10px;color:var(--text3);-webkit-text-fill-color:var(--text3)}
+.lib-close{margin-left:auto;width:30px;height:30px;border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.lib-close:hover{background:var(--redBg);color:var(--red);border-color:var(--red)}
+.lib-filters{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;background:var(--surface2)}
+.lib-search{flex:2;min-width:160px;background:var(--surface3);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:7px 11px;color:var(--text);font-family:'Inter',sans-serif;font-size:12px;outline:none;transition:border .2s}
+.lib-search:focus{border-color:var(--accent)}
+.lib-search::placeholder{color:var(--text3)}
+.lib-sel{flex:1;min-width:130px;background:var(--surface3);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:6px 8px;color:var(--text);font-family:'Inter',sans-serif;font-size:11px;outline:none;cursor:pointer}
+.lib-sel option{background:var(--surface2)}
+.lib-body{flex:1;overflow-y:auto;scrollbar-width:thin}
+.lib-body table{width:100%;border-collapse:collapse;font-size:11.5px}
+.lib-body thead th{position:sticky;top:0;background:var(--header-bg);padding:8px 8px;text-align:left;font-size:9px;font-weight:700;color:var(--text2);border-bottom:1px solid var(--border2);white-space:nowrap;letter-spacing:.5px;text-transform:uppercase;font-family:'JetBrains Mono','Inter',monospace}
+.lib-body tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.lib-body tbody tr:nth-child(even) td{background:var(--row-even)}
+.lib-body tbody tr:nth-child(odd) td{background:var(--row-odd)}
+.lib-body tbody tr:hover td{background:var(--accentBg)!important}
+.lib-body td{padding:6px 8px;vertical-align:middle;color:var(--text)}
+.lib-code{font-family:'JetBrains Mono','Inter',monospace;font-size:11px;font-weight:700;color:var(--accent);background:var(--accentBg);padding:2px 6px;border-radius:4px;white-space:nowrap;border:1px solid rgba(0,212,255,.2)}
+.lib-desc{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px}
+.lib-tmu{font-family:'JetBrains Mono','Inter',monospace;font-weight:700;text-align:right;color:var(--green);font-size:12px;white-space:nowrap}
+.lib-cat{font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;white-space:nowrap;display:inline-block}
+.lc-comp{background:rgba(0,229,160,.1);color:var(--green);border:1px solid rgba(0,229,160,.2)}
+.lc-man{background:rgba(255,149,0,.1);color:var(--orange);border:1px solid rgba(255,149,0,.2)}
+.lc-tra{background:rgba(79,142,247,.1);color:var(--blue);border:1px solid rgba(79,142,247,.2)}
+.lib-footer{padding:10px 14px;border-top:1px solid var(--border);background:var(--surface2);font-size:10px;color:var(--text3);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.lib-hint{background:var(--accentBg);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;padding:7px 12px;font-size:10.5px;color:var(--accent);font-weight:500;margin:10px 14px;flex-shrink:0}
+.lib-no-results{text-align:center;padding:40px 20px;color:var(--text3);font-size:12px}
+@media(max-width:600px){#lib-panel{max-width:100%}}
+
 /* ===== RESULTS MODAL ===== */
 .res-overlay{
   position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:400;
@@ -1341,8 +1380,57 @@ table.mtm tfoot tr.total-row td{
 <div id="sheets-container"></div>
 
 <div class="float-nav">
+  <button class="float-btn" onclick="openLibrary()" title="📚 Biblioteca MTM Logística" style="font-size:17px">📚</button>
   <button class="float-btn" onclick="goTop()" title="Ir ao topo">▲</button>
   <button class="float-btn" onclick="goBottom()" title="Última linha">▼</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     BIBLIOTECA DE CÓDIGOS MTM LOGÍSTICA — PAINEL
+     ═══════════════════════════════════════════════ -->
+<div id="lib-overlay" onclick="libCloseOnBg(event)">
+  <div id="lib-panel">
+    <div class="lib-hdr">
+      <span class="lib-hdr-logo">📚 Biblioteca MTM Logística</span>
+      <span class="lib-hdr-sub">— Cap. 6 &amp; 7 · Clique para inserir na linha em foco</span>
+      <button class="lib-close" onclick="closeLibrary()">✕</button>
+    </div>
+    <div class="lib-filters">
+      <input type="text" class="lib-search" id="lib-q" placeholder="🔍  Buscar código ou descrição..." oninput="renderLibrary()">
+      <select class="lib-sel" id="lib-grp" onchange="renderLibrary()">
+        <option value="">Todos os grupos</option>
+        <option value="Complementares">Complementares</option>
+        <option value="Manuseio">Manuseio</option>
+        <option value="Abrir">Abrir Embalagem</option>
+        <option value="Fechar">Fechar Embalagem</option>
+        <option value="Info">Tratar Informações</option>
+        <option value="Geral">Transporte — Geral</option>
+        <option value="Frontal">Empilhadeira Frontal</option>
+        <option value="Retratil">Empilhadeira Retrátil</option>
+        <option value="Ope">Empilhadeira Op. a Pé</option>
+        <option value="Modulos">Módulos Específicos</option>
+        <option value="Rebocador">Rebocador Elétrico</option>
+        <option value="Transpaleteira">Transpaleteira Manual</option>
+        <option value="Carrinho">Carrinho de Transporte</option>
+      </select>
+    </div>
+    <div class="lib-hint">⚡ Clique em qualquer linha para preencher automaticamente o código e TMU da célula em foco na folha de processo.</div>
+    <div class="lib-body">
+      <table>
+        <thead><tr>
+          <th style="width:115px">Código</th>
+          <th>Descrição</th>
+          <th style="width:66px;text-align:right">TMU</th>
+          <th style="width:86px">Grupo</th>
+        </tr></thead>
+        <tbody id="lib-table-body"></tbody>
+      </table>
+    </div>
+    <div class="lib-footer">
+      <span id="lib-count">0 códigos</span>
+      <span>1 TMU = 0,036 s &nbsp;·&nbsp; * Inclui val. complementares</span>
+    </div>
+  </div>
 </div>
 
 <div class="modal-overlay hidden" id="rename-modal">
@@ -1490,7 +1578,252 @@ const MATRIZ = {
   "VAA":{tmu:20,desc:"Exame visual simples"},
   "VAB":{tmu:50,desc:"Exame visual"},
   "VAC":{tmu:130,desc:"Exame visual complexo"},
-  "-"  :{tmu:0,desc:"—"}
+  "-"  :{tmu:0,desc:"—"},
+  /* ── MTM LOGÍSTICA — COMPLEMENTARES ── */
+  "EH"   :{tmu:55,desc:"Apanhar e depor meio auxiliar / ferramenta (6LHEH)"},
+  /* ── MANUSEIO — REPOSICIONAR ── */
+  "HUKA" :{tmu:55,desc:"Reposicionar recip. peq. (<=30cm), vazio, individual"},
+  "HUKB" :{tmu:70,desc:"Reposicionar recip. peq. (<=30cm), vazio, aos pares"},
+  "HUKC" :{tmu:65,desc:"Reposicionar recip. peq. (<=30cm), vazio, pilha (máx. 4)"},
+  "HUKD" :{tmu:90,desc:"Reposicionar recip. peq. (<=30cm), cheio, individual"},
+  "HUGA" :{tmu:65,desc:"Reposicionar recip. grande (>30cm), vazio, individual"},
+  "HUGB" :{tmu:100,desc:"Reposicionar recip. grande (>30cm), vazio, aos pares"},
+  "HUGC" :{tmu:125,desc:"Reposicionar recip. grande (>30cm), vazio, pilha (máx. 4)"},
+  "HUGD" :{tmu:125,desc:"Reposicionar recip. grande (>30cm), cheio, individual"},
+  "HUTA" :{tmu:50,desc:"Reposicionar peça não volumosa (<=30x30/<=80cm), <=1 daN"},
+  "HUTB" :{tmu:55,desc:"Reposicionar peça não volumosa, >1 daN e <=8 daN"},
+  "HUTC" :{tmu:55,desc:"Reposicionar peça volumosa (>30x30/>80cm), <=1 daN"},
+  "HUTD" :{tmu:115,desc:"Reposicionar peça volumosa, >1 daN e <=8 daN"},
+  "HUPL" :{tmu:210,desc:"Reposicionar Euro-palete vazio (incl. val. compl.)"},
+  "HTAA" :{tmu:145,desc:"Trocar recip. pequeno (<=30cm), vazio/cheio"},
+  "HTAB" :{tmu:190,desc:"Trocar recip. grande (>30cm), vazio/cheio"},
+  "HFHV" :{tmu:65,desc:"Transvasar — Punhado (por procedimento)"},
+  "HFHS" :{tmu:65,desc:"Transvasar — Pá (por procedimento; usar EH para pegar/depor pá)"},
+  "HFSA" :{tmu:175,desc:"Transvasar — Derramar, volume pequeno <=5 L"},
+  "HFSB" :{tmu:250,desc:"Transvasar — Derramar, volume grande >5 L e <=10 L"},
+  /* ── ABRIR EMBALAGEM ── */
+  "PBFB" :{tmu:95,desc:"Abrir caixa normal — sem ferramenta, <=50x50x50 cm"},
+  "PBFC" :{tmu:170,desc:"Abrir caixa normal — sem ferramenta, <=80x80x80 cm"},
+  "PBFD" :{tmu:115,desc:"Abrir caixa normal — com ferramenta, <=30x30x30 cm"},
+  "PBFE" :{tmu:135,desc:"Abrir caixa normal — com ferramenta, <=50x50x50 cm"},
+  "PBFF" :{tmu:210,desc:"Abrir caixa normal — com ferramenta, <=80x80x80 cm"},
+  "PBFG" :{tmu:30,desc:"Corte adicional <=30 cm"},
+  "PBFH" :{tmu:40,desc:"Corte adicional <=50 cm"},
+  "PBFI" :{tmu:55,desc:"Corte adicional <=80 cm"},
+  "PBGB" :{tmu:350,desc:"Desmontar contenedor aramado (incl. val. compl.)"},
+  "PADA" :{tmu:50,desc:"Retirar tampa/cobertura intermediária, <=30x30x30 cm"},
+  "PADB" :{tmu:75,desc:"Retirar tampa/cobertura intermediária, <=50x50x50 cm"},
+  "PADC" :{tmu:95,desc:"Retirar tampa/cobertura intermediária, <=80x80x80 cm"},
+  "PAEA" :{tmu:115,desc:"Remover papel de embrulho/filme, <=30x30x30 cm"},
+  "PAEB" :{tmu:210,desc:"Remover papel de embrulho/filme, >30x30x30 cm"},
+  "PAGB" :{tmu:480,desc:"Abrir palete embrulhado (incl. val. compl.)"},
+  "PSKA" :{tmu:45,desc:"Abrir fechamento — grampo/haste/fecho"},
+  "PSSA" :{tmu:205,desc:"Cortar e retirar cinta (com ferramenta)"},
+  /* ── FECHAR EMBALAGEM ── */
+  "SBFA" :{tmu:215,desc:"Fechar caixa normal (2 int.+2 ext.), <=30x30x30 cm"},
+  "SBFB" :{tmu:335,desc:"Fechar caixa normal (2 int.+2 ext.), <=50x50x50 cm"},
+  "SBFC" :{tmu:445,desc:"Fechar caixa normal (2 int.+2 ext.), <=80x80x80 cm"},
+  "SBSA" :{tmu:155,desc:"Fechar caixa corte e vinco (2 dobras), <=30x30 cm"},
+  "SBSB" :{tmu:210,desc:"Fechar caixa corte e vinco (2 dobras), <=50x50 cm"},
+  "SBZA" :{tmu:110,desc:"Acréscimo — fita adesiva <=30 cm"},
+  "SBZB" :{tmu:145,desc:"Acréscimo — fita adesiva <=50 cm"},
+  "SBZC" :{tmu:170,desc:"Acréscimo — fita adesiva <=80 cm"},
+  "SBZD" :{tmu:35,desc:"Acréscimo — aba adicional"},
+  "SBGA" :{tmu:535,desc:"Montar contenedor aramado (incl. val. compl.)"},
+  "SBGS" :{tmu:175,desc:"Fechar contenedor aramado"},
+  "SADA" :{tmu:60,desc:"Colocar tampa/cobertura intermediária, <=30x30x30 cm"},
+  "SADB" :{tmu:90,desc:"Colocar tampa/cobertura intermediária, <=50x50x50 cm"},
+  "SADC" :{tmu:115,desc:"Colocar tampa/cobertura intermediária, <=80x80x80 cm"},
+  "SAEA" :{tmu:95,desc:"Embrulhar c/ papel/filme, <=30x30x30 cm"},
+  "SAEB" :{tmu:125,desc:"Embrulhar c/ papel/filme, >30x30x30 cm"},
+  "SAPM" :{tmu:1730,desc:"Envolver palete c/ filme mecânico (incl. val. compl.)"},
+  "SSSA" :{tmu:1200,desc:"Cinta manual Expansor+Alicate (incl. val. compl.)"},
+  "SSSB" :{tmu:155,desc:"Cinta mecânico (Strapex)"},
+  "SSKA" :{tmu:60,desc:"Fechar por grampo/haste/fecho"},
+  /* ── TRATAR INFORMAÇÕES ── */
+  "IALE" :{tmu:15,desc:"Ler — característica individual (símbolo/sinal)"},
+  "IALW" :{tmu:25,desc:"Ler — por palavra/código (máx. 6 caracteres)"},
+  "IAVE" :{tmu:30,desc:"Comparar — característica individual"},
+  "IAVW" :{tmu:45,desc:"Comparar — por palavra/código (máx. 6 caracteres)"},
+  "IAHA" :{tmu:70,desc:"Manuseio — apanhar e depor documento"},
+  "IAHT" :{tmu:85,desc:"Manuseio — trocar documento"},
+  "IAHR" :{tmu:50,desc:"Manuseio — rasgar/separar documento"},
+  "IAKK" :{tmu:40,desc:"Marcar — assinalar/ticar trecho"},
+  "IAKW" :{tmu:70,desc:"Escrever — palavra/código (máx. 6 letras)"},
+  "IAKS" :{tmu:55,desc:"Carimbo — molhar e carimbar"},
+  "IAKA" :{tmu:65,desc:"Adesivo/etiqueta — colar e alisar"},
+  "IDTE" :{tmu:25,desc:"Inserir dados — tecla única (teclado)"},
+  "IDTW" :{tmu:65,desc:"Inserir dados — palavra/código (máx. 6 teclas)"},
+  "IDES" :{tmu:60,desc:"Digitalizar — scanner (código de barras)"},
+  "IDEM" :{tmu:40,desc:"Digitalizar — cartão magnético"},
+  /* ── TRANSPORTE GERAL ── */
+  "ABH"  :{tmu:20,desc:"Acionar — comando por alavanca (6LTABH)"},
+  "ABJ"  :{tmu:10,desc:"Acionar — joystick ou semelhante (6LTABJ)"},
+  "AZM"  :{tmu:90,desc:"Ligar e desligar o motor (6LTAZM)"},
+  "AZA"  :{tmu:220,desc:"Subir e descer do assento da cabine (6LTAZA)"},
+  "AZF"  :{tmu:120,desc:"Puxar e soltar o freio de estacionamento (6LTAZF)"},
+  "AZT"  :{tmu:100,desc:"Abrir e fechar a porta da cabine (6LTAZT)"},
+  "AZS"  :{tmu:175,desc:"Pôr e soltar cinto de segurança (6LTAZS)"},
+  /* ── EMPILHADEIRA FRONTAL — DIRIGIR ── */
+  "SFISF":{tmu:13,desc:"Dirigir interno, estável/vazio, por metro (Frontal)"},
+  "SFILF":{tmu:17,desc:"Dirigir interno, instável, por metro (Frontal)"},
+  "SFIKF":{tmu:40,desc:"Dirigir velocidade mínima, por metro (Frontal)"},
+  "SFASF":{tmu:7,desc:"Dirigir área externa, estável/vazio (Frontal)"},
+  "SFKSF":{tmu:16,desc:"Curva 90°, estável/vazio, corredor 3m (Frontal)"},
+  "SFKLF":{tmu:56,desc:"Curva 90°, instável, corredor 3m (Frontal)"},
+  "SFVUF":{tmu:15,desc:"Retardamento — descarregado (Frontal)"},
+  "SFVBF":{tmu:28,desc:"Retardamento — carregado (Frontal)"},
+  "SRLSF":{tmu:80,desc:"Acertar 90° local depósito, estável (Frontal)"},
+  "SRLLF":{tmu:130,desc:"Acertar 90° local depósito, instável (Frontal)"},
+  "SRFSF":{tmu:65,desc:"Acertar 90° dir. mov. (ré), estável (Frontal)"},
+  "SRFLF":{tmu:115,desc:"Acertar 90° dir. mov. (ré), instável (Frontal)"},
+  "SHHUF":{tmu:56,desc:"Elevar por metro — descarregado (Frontal)"},
+  "SHHBF":{tmu:62,desc:"Elevar por metro — carregado (Frontal)"},
+  "SHSUF":{tmu:62,desc:"Abaixar por metro — descarregado (Frontal)"},
+  "SHSBF":{tmu:56,desc:"Abaixar por metro — carregado (Frontal)"},
+  "SHPAF":{tmu:15,desc:"Colocar no lugar/levantar do chão 10cm (Frontal)"},
+  "SGPKF":{tmu:55,desc:"Por/tirar garfo do palete — curto <=1,2m (Frontal)"},
+  "SGPLF":{tmu:75,desc:"Por/tirar garfo do palete — longo >1,2m (Frontal)"},
+  "STKSF":{tmu:65,desc:"Por/tirar obj. prateleira — garfo curto, estável (Frontal)"},
+  "STKLF":{tmu:95,desc:"Por/tirar obj. prateleira — garfo curto, instável (Frontal)"},
+  "STLSF":{tmu:105,desc:"Por/tirar obj. prateleira — garfo longo, estável (Frontal)"},
+  "STLLF":{tmu:135,desc:"Por/tirar obj. prateleira — garfo longo, instável (Frontal)"},
+  "SVGAF":{tmu:10,desc:"Procedimento garfo — abrir/fechar 10cm (Frontal)"},
+  "SVGPF":{tmu:20,desc:"Procedimento garfo — paralelo 10cm (Frontal)"},
+  "SVHNF":{tmu:36,desc:"Inclinar estrutura elevação 3° frente/trás (Frontal)"},
+  /* ── EMPILHADEIRA RETRÁTIL ── */
+  "SFISS":{tmu:13,desc:"Dirigir interno, estável/vazio, por metro (Retrátil)"},
+  "SFILS":{tmu:17,desc:"Dirigir interno, instável, por metro (Retrátil)"},
+  "SFIKS":{tmu:40,desc:"Dirigir velocidade mínima, por metro (Retrátil)"},
+  "SFASS":{tmu:9,desc:"Dirigir área externa, estável/vazio (Retrátil)"},
+  "SFKSS":{tmu:16,desc:"Curva 90°, estável/vazio (Retrátil)"},
+  "SFKLS":{tmu:56,desc:"Curva 90°, instável (Retrátil)"},
+  "SFVUS":{tmu:15,desc:"Retardamento — descarregado (Retrátil)"},
+  "SFVBS":{tmu:28,desc:"Retardamento — carregado (Retrátil)"},
+  "SRLSS":{tmu:70,desc:"Acertar 90° local depósito, estável (Retrátil)"},
+  "SRLLS":{tmu:120,desc:"Acertar 90° local depósito, instável (Retrátil)"},
+  "SRFSS":{tmu:55,desc:"Acertar 90° dir. mov. (ré), estável (Retrátil)"},
+  "SRFLS":{tmu:105,desc:"Acertar 90° dir. mov. (ré), instável (Retrátil)"},
+  "SHHUS":{tmu:56,desc:"Elevar por metro — descarregado (Retrátil)"},
+  "SHHBS":{tmu:93,desc:"Elevar por metro — carregado (Retrátil)"},
+  "SHSUS":{tmu:62,desc:"Abaixar por metro — descarregado (Retrátil)"},
+  "SHSBS":{tmu:56,desc:"Abaixar por metro — carregado (Retrátil)"},
+  "SHPAS":{tmu:15,desc:"Colocar no lugar/levantar do chão 10cm (Retrátil)"},
+  "SGPKS":{tmu:95,desc:"Por/tirar garfo do palete — curto <=1,2m (Retrátil)"},
+  "STKSS":{tmu:120,desc:"Por/tirar obj. prateleira — garfo curto, estável (Retrátil)"},
+  "STKLS":{tmu:150,desc:"Por/tirar obj. prateleira — garfo curto, instável (Retrátil)"},
+  "SVGAS":{tmu:10,desc:"Procedimento garfo — abrir/fechar 10cm (Retrátil)"},
+  "SVGPS":{tmu:20,desc:"Procedimento garfo — paralelo 10cm (Retrátil)"},
+  "SVHNS":{tmu:36,desc:"Inclinar estrutura elevação 3° frente/trás (Retrátil)"},
+  /* ── EMPILHADEIRA OPERADOR A PÉ ── */
+  "SFISG":{tmu:25,desc:"Dirigir interno, estável/vazio, por metro (Op. a pé)"},
+  "SFILG":{tmu:28,desc:"Dirigir interno, instável, por metro (Op. a pé)"},
+  "SFIKG":{tmu:40,desc:"Dirigir velocidade mínima, por metro (Op. a pé)"},
+  "SFASG":{tmu:25,desc:"Dirigir área externa (Op. a pé)"},
+  "SFKSG":{tmu:30,desc:"Curva 90°, estável/vazio (Op. a pé)"},
+  "SFKLG":{tmu:70,desc:"Curva 90°, instável (Op. a pé)"},
+  "SFVUG":{tmu:31,desc:"Retardamento — descarregado (Op. a pé)"},
+  "SFVBG":{tmu:39,desc:"Retardamento — carregado (Op. a pé)"},
+  "SRLSG":{tmu:105,desc:"Acertar 90° local depósito, estável (Op. a pé)"},
+  "SRLLG":{tmu:150,desc:"Acertar 90° local depósito, instável (Op. a pé)"},
+  "SRFSG":{tmu:105,desc:"Acertar 90° dir. mov. (ré), estável (Op. a pé)"},
+  "SRFLG":{tmu:135,desc:"Acertar 90° dir. mov. (ré), instável (Op. a pé)"},
+  "SHHUG":{tmu:139,desc:"Elevar por metro — descarregado (Op. a pé)"},
+  "SHHBG":{tmu:200,desc:"Elevar por metro — carregado (Op. a pé)"},
+  "SHSUG":{tmu:140,desc:"Abaixar por metro — descarregado (Op. a pé)"},
+  "SHSBG":{tmu:93,desc:"Abaixar por metro — carregado (Op. a pé)"},
+  "SHPAG":{tmu:20,desc:"Colocar no lugar/levantar do chão 10cm (Op. a pé)"},
+  "SGPKG":{tmu:65,desc:"Por/tirar garfo do palete — curto <=1,2m (Op. a pé)"},
+  "STKSG":{tmu:85,desc:"Por/tirar obj. prateleira — garfo curto, estável (Op. a pé)"},
+  "STKLG":{tmu:115,desc:"Por/tirar obj. prateleira — garfo curto, instável (Op. a pé)"},
+  /* ── MÓDULOS ESPECÍFICOS — FRONTAL ── */
+  "SAAAFM":{tmu:833,desc:"Apanhar chão / Colocar chão — Frontal c/ acertar"},
+  "SAAAFO":{tmu:603,desc:"Apanhar chão / Colocar chão — Frontal s/ acertar"},
+  "SAABFM":{tmu:980,desc:"Apanhar chão / Colocar 1,2m — Frontal c/ acertar"},
+  "SAABFO":{tmu:750,desc:"Apanhar chão / Colocar 1,2m — Frontal s/ acertar"},
+  "SAACFM":{tmu:1141,desc:"Apanhar chão / Colocar 2,5m — Frontal c/ acertar"},
+  "SAACFO":{tmu:911,desc:"Apanhar chão / Colocar 2,5m — Frontal s/ acertar"},
+  "SAADFM":{tmu:1326,desc:"Apanhar chão / Colocar 4,0m — Frontal c/ acertar"},
+  "SAADFO":{tmu:1096,desc:"Apanhar chão / Colocar 4,0m — Frontal s/ acertar"},
+  "SABAFM":{tmu:934,desc:"Apanhar 1,2m / Colocar chão — Frontal c/ acertar"},
+  "SABAFO":{tmu:854,desc:"Apanhar 1,2m / Colocar chão — Frontal s/ acertar"},
+  "SABBFM":{tmu:1081,desc:"Apanhar 1,2m / Colocar 1,2m — Frontal c/ acertar"},
+  "SABCFM":{tmu:1242,desc:"Apanhar 1,2m / Colocar 2,5m — Frontal c/ acertar"},
+  "SABDFM":{tmu:1427,desc:"Apanhar 1,2m / Colocar 4,0m — Frontal c/ acertar"},
+  "SACAFM":{tmu:1078,desc:"Apanhar 2,5m / Colocar chão — Frontal c/ acertar"},
+  "SACAFO":{tmu:998,desc:"Apanhar 2,5m / Colocar chão — Frontal s/ acertar"},
+  "SACCFM":{tmu:1386,desc:"Apanhar 2,5m / Colocar 2,5m — Frontal c/ acertar"},
+  "SADAFM":{tmu:1245,desc:"Apanhar 4,0m / Colocar chão — Frontal c/ acertar"},
+  "SADAFO":{tmu:1165,desc:"Apanhar 4,0m / Colocar chão — Frontal s/ acertar"},
+  "SADDFM":{tmu:1738,desc:"Apanhar 4,0m / Colocar 4,0m — Frontal c/ acertar"},
+  /* ── MÓDULOS ESPECÍFICOS — RETRÁTIL ── */
+  "SAAASM":{tmu:983,desc:"Apanhar chão / Colocar chão — Retrátil c/ acertar"},
+  "SAAASO":{tmu:718,desc:"Apanhar chão / Colocar chão — Retrátil s/ acertar"},
+  "SAABSM":{tmu:1167,desc:"Apanhar chão / Colocar 1,2m — Retrátil c/ acertar"},
+  "SAACSM":{tmu:1368,desc:"Apanhar chão / Colocar 2,5m — Retrátil c/ acertar"},
+  "SAADSM":{tmu:1600,desc:"Apanhar chão / Colocar 4,0m — Retrátil c/ acertar"},
+  "SADASM":{tmu:1395,desc:"Apanhar 4,0m / Colocar chão — Retrátil c/ acertar"},
+  "SADASO":{tmu:1325,desc:"Apanhar 4,0m / Colocar chão — Retrátil s/ acertar"},
+  "SADDSM":{tmu:2012,desc:"Apanhar 4,0m / Colocar 4,0m — Retrátil c/ acertar"},
+  /* ── MÓDULOS ESPECÍFICOS — OP. A PÉ ── */
+  "SAAAGM":{tmu:969,desc:"Apanhar chão / Colocar chão — Op. a pé c/ acertar"},
+  "SAAAGO":{tmu:644,desc:"Apanhar chão / Colocar chão — Op. a pé s/ acertar"},
+  "SAABGM":{tmu:1326,desc:"Apanhar chão / Colocar 1,2m — Op. a pé c/ acertar"},
+  "SABAGM":{tmu:1208,desc:"Apanhar 1,2m / Colocar chão — Op. a pé c/ acertar"},
+  "SACAGM":{tmu:1510,desc:"Apanhar 2,5m / Colocar chão — Op. a pé c/ acertar"},
+  "SADAGM":{tmu:1859,desc:"Apanhar 4,0m / Colocar chão — Op. a pé c/ acertar"},
+  "SADDGM":{tmu:3156,desc:"Apanhar 4,0m / Colocar 4,0m — Op. a pé c/ acertar"},
+  /* ── MÓDULOS ESPECÍFICOS — ACRÉSCIMOS ── */
+  "SZVUF" :{tmu:30,desc:"Retardamento desc. partida/parada (Frontal/Retrátil)"},
+  "SZVUG" :{tmu:62,desc:"Retardamento desc. partida/parada (Op. a pé)"},
+  "SZVBF" :{tmu:56,desc:"Retardamento carregado partida/parada (Frontal/Retrátil)"},
+  "SZVBG" :{tmu:78,desc:"Retardamento carregado partida/parada (Op. a pé)"},
+  "SZEOF" :{tmu:515,desc:"1ª partida + estacionar, sem ligar/desligar (Frontal/Retrátil)"},
+  "SZEOG" :{tmu:180,desc:"1ª partida + estacionar, sem ligar/desligar (Op. a pé)"},
+  "SZEMF" :{tmu:635,desc:"1ª partida + estacionar, com ligar/desligar (Frontal/Retrátil)"},
+  "SZEMG" :{tmu:270,desc:"1ª partida + estacionar, com ligar/desligar (Op. a pé)"},
+  "SZAWF" :{tmu:147,desc:"Acréscimo por metro extra de elevação >4m (Frontal)"},
+  "SZAWS" :{tmu:163,desc:"Acréscimo por metro extra de elevação >4m (Retrátil)"},
+  "SZAWG" :{tmu:316,desc:"Acréscimo por metro extra de elevação (Op. a pé)"},
+  "SZALF" :{tmu:260,desc:"Acréscimo — carga instável (Frontal/Retrátil)"},
+  "SZALG" :{tmu:210,desc:"Acréscimo — carga instável (Op. a pé)"},
+  "SZAGF" :{tmu:135,desc:"Acréscimo — garfo comprido >1,2m (Frontal)"},
+  "SZSKSF":{tmu:2115,desc:"Verificação diária da empilhadeira (Frontal)"},
+  "SZSKSS":{tmu:2425,desc:"Verificação diária da empilhadeira (Retrátil)"},
+  "SZSKSG":{tmu:820,desc:"Verificação diária da empilhadeira (Op. a pé)"},
+  /* ── REBOCADOR ELÉTRICO ── */
+  "EFIM"  :{tmu:13,desc:"Rebocador — dirigir interno c/ reboque, por metro"},
+  "EFIO"  :{tmu:10,desc:"Rebocador — dirigir interno s/ reboque, por metro"},
+  "EFAM"  :{tmu:13,desc:"Rebocador — dirigir externo c/ reboque, por metro"},
+  "EFAO"  :{tmu:7,desc:"Rebocador — dirigir externo s/ reboque, por metro"},
+  "EFKM"  :{tmu:92,desc:"Rebocador — curva 90° c/ reboque"},
+  "EFKO"  :{tmu:38,desc:"Rebocador — curva 90° s/ reboque"},
+  "EFVM"  :{tmu:56,desc:"Rebocador — retardamento (partida/parada) c/ reboque"},
+  "EFVO"  :{tmu:30,desc:"Rebocador — retardamento (partida/parada) s/ reboque"},
+  "EANM"  :{tmu:368,desc:"Rebocador — acoplar c/ reboque"},
+  "EANO"  :{tmu:258,desc:"Rebocador — acoplar s/ reboque"},
+  "EABM"  :{tmu:285,desc:"Rebocador — desacoplar c/ reboque"},
+  "EABO"  :{tmu:182,desc:"Rebocador — desacoplar s/ reboque"},
+  "EAZZ"  :{tmu:200,desc:"Rebocador — acréscimo reboque adicional"},
+  /* ── TRANSPALETEIRA MANUAL ── */
+  "HFFA"  :{tmu:30,desc:"Transpaleteira — dirigir por metro, <=500 kg"},
+  "HFFB"  :{tmu:35,desc:"Transpaleteira — dirigir por metro, >500 kg"},
+  "HFKA"  :{tmu:15,desc:"Transpaleteira — curva 90°, <=500 kg"},
+  "HFKB"  :{tmu:19,desc:"Transpaleteira — curva 90°, >500 kg"},
+  "HFVA"  :{tmu:80,desc:"Transpaleteira — retardamento, <=500 kg"},
+  "HFVB"  :{tmu:150,desc:"Transpaleteira — retardamento, >500 kg"},
+  "HAMA"  :{tmu:520,desc:"Transpaleteira — apanhar palete c/ acertar, <=500 kg"},
+  "HAMB"  :{tmu:615,desc:"Transpaleteira — apanhar palete c/ acertar, >500 kg"},
+  "HAOA"  :{tmu:350,desc:"Transpaleteira — apanhar palete s/ acertar, <=500 kg"},
+  "HAOB"  :{tmu:415,desc:"Transpaleteira — apanhar palete s/ acertar, >500 kg"},
+  "HRZA"  :{tmu:125,desc:"Transpaleteira — acréscimo acertar, <=500 kg"},
+  "HRZB"  :{tmu:190,desc:"Transpaleteira — acréscimo acertar, >500 kg"},
+  /* ── CARRINHO DE TRANSPORTE ── */
+  "WKD"   :{tmu:8,desc:"Carrinho — curva 90°, >200 kg"},
+  "WRA"   :{tmu:80,desc:"Carrinho — acréscimo acertar, <=50 kg"},
+  "WRB"   :{tmu:105,desc:"Carrinho — acréscimo acertar, <=100 kg"},
+  "WRC"   :{tmu:160,desc:"Carrinho — acréscimo acertar, <=200 kg"},
+  "WRD"   :{tmu:215,desc:"Carrinho — acréscimo acertar, >200 kg"}
 };
 
 let sheets=[], activeId=null, cnt=0;
@@ -5287,6 +5620,394 @@ function dbDelClient(client){
 }
 
 // (listener antigo do form de projeto removido junto com o form)
+
+// ═══════════════════════════════════════════════════
+// BIBLIOTECA DE CÓDIGOS MTM LOGÍSTICA — JAVASCRIPT
+// ═══════════════════════════════════════════════════
+
+// Definição da biblioteca com grupo e categoria para filtro
+const LIB_CODES = [
+  // COMPLEMENTARES
+  {code:"KA",  tmu:25,  desc:"Andar por metro (por metro percorrido)", grp:"Complementares", cat:"Comp"},
+  {code:"KB",  tmu:60,  desc:"Abaixar / Curvar / Ajoelhar-se (e levantar)", grp:"Complementares", cat:"Comp"},
+  {code:"KC",  tmu:110, desc:"Sentar-se e levantar-se", grp:"Complementares", cat:"Comp"},
+  {code:"EH",  tmu:55,  desc:"Apanhar e depor meio auxiliar / ferramenta", grp:"Complementares", cat:"Comp"},
+  // MANUSEIO
+  {code:"HUKA",tmu:55,  desc:"Reposicionar recip. peq. (<=30cm), vazio, individual", grp:"Manuseio", cat:"Man"},
+  {code:"HUKB",tmu:70,  desc:"Reposicionar recip. peq. (<=30cm), vazio, aos pares", grp:"Manuseio", cat:"Man"},
+  {code:"HUKC",tmu:65,  desc:"Reposicionar recip. peq. (<=30cm), vazio, pilha (máx. 4)", grp:"Manuseio", cat:"Man"},
+  {code:"HUKD",tmu:90,  desc:"Reposicionar recip. peq. (<=30cm), cheio, individual", grp:"Manuseio", cat:"Man"},
+  {code:"HUGA",tmu:65,  desc:"Reposicionar recip. grande (>30cm), vazio, individual", grp:"Manuseio", cat:"Man"},
+  {code:"HUGB",tmu:100, desc:"Reposicionar recip. grande (>30cm), vazio, aos pares", grp:"Manuseio", cat:"Man"},
+  {code:"HUGC",tmu:125, desc:"Reposicionar recip. grande (>30cm), vazio, pilha (máx. 4)", grp:"Manuseio", cat:"Man"},
+  {code:"HUGD",tmu:125, desc:"Reposicionar recip. grande (>30cm), cheio, individual", grp:"Manuseio", cat:"Man"},
+  {code:"HUTA",tmu:50,  desc:"Reposicionar peça não volumosa (<=30x30/<=80cm), <=1 daN", grp:"Manuseio", cat:"Man"},
+  {code:"HUTB",tmu:55,  desc:"Reposicionar peça não volumosa, >1 daN e <=8 daN", grp:"Manuseio", cat:"Man"},
+  {code:"HUTC",tmu:55,  desc:"Reposicionar peça volumosa (>30x30/>80cm), <=1 daN", grp:"Manuseio", cat:"Man"},
+  {code:"HUTD",tmu:115, desc:"Reposicionar peça volumosa, >1 daN e <=8 daN", grp:"Manuseio", cat:"Man"},
+  {code:"HUPL",tmu:210, desc:"Reposicionar Euro-palete vazio* (incl. val. compl.)", grp:"Manuseio", cat:"Man"},
+  {code:"HTAA",tmu:145, desc:"Trocar recip. pequeno (<=30cm), vazio/cheio", grp:"Manuseio", cat:"Man"},
+  {code:"HTAB",tmu:190, desc:"Trocar recip. grande (>30cm), vazio/cheio", grp:"Manuseio", cat:"Man"},
+  {code:"HFHV",tmu:65,  desc:"Transvasar — Punhado (por procedimento)", grp:"Manuseio", cat:"Man"},
+  {code:"HFHS",tmu:65,  desc:"Transvasar — Pá (usar EH para pegar/depor pá)", grp:"Manuseio", cat:"Man"},
+  {code:"HFSA",tmu:175, desc:"Transvasar — Derramar, volume pequeno <=5 L", grp:"Manuseio", cat:"Man"},
+  {code:"HFSB",tmu:250, desc:"Transvasar — Derramar, volume grande >5 L e <=10 L", grp:"Manuseio", cat:"Man"},
+  // ABRIR EMBALAGEM
+  {code:"PBFA",tmu:80,  desc:"Abrir caixa normal — sem ferramenta, <=30x30x30 cm", grp:"Abrir", cat:"Man"},
+  {code:"PBFB",tmu:95,  desc:"Abrir caixa normal — sem ferramenta, <=50x50x50 cm", grp:"Abrir", cat:"Man"},
+  {code:"PBFC",tmu:170, desc:"Abrir caixa normal — sem ferramenta, <=80x80x80 cm", grp:"Abrir", cat:"Man"},
+  {code:"PBFD",tmu:115, desc:"Abrir caixa normal — com ferramenta, <=30x30x30 cm", grp:"Abrir", cat:"Man"},
+  {code:"PBFE",tmu:135, desc:"Abrir caixa normal — com ferramenta, <=50x50x50 cm", grp:"Abrir", cat:"Man"},
+  {code:"PBFF",tmu:210, desc:"Abrir caixa normal — com ferramenta, <=80x80x80 cm", grp:"Abrir", cat:"Man"},
+  {code:"PBFG",tmu:30,  desc:"Corte adicional <=30 cm", grp:"Abrir", cat:"Man"},
+  {code:"PBFH",tmu:40,  desc:"Corte adicional <=50 cm", grp:"Abrir", cat:"Man"},
+  {code:"PBFI",tmu:55,  desc:"Corte adicional <=80 cm", grp:"Abrir", cat:"Man"},
+  {code:"PBBA",tmu:95,  desc:"Abrir saco — sem ferramenta", grp:"Abrir", cat:"Man"},
+  {code:"PBBB",tmu:140, desc:"Abrir saco — com ferramenta", grp:"Abrir", cat:"Man"},
+  {code:"PBGA",tmu:135, desc:"Abrir contenedor aramado (Gitterbox)", grp:"Abrir", cat:"Man"},
+  {code:"PBGB",tmu:350, desc:"Desmontar contenedor aramado* (incl. val. compl.)", grp:"Abrir", cat:"Man"},
+  {code:"PADA",tmu:50,  desc:"Retirar tampa / cobertura intermediária, <=30x30x30 cm", grp:"Abrir", cat:"Man"},
+  {code:"PADB",tmu:75,  desc:"Retirar tampa / cobertura intermediária, <=50x50x50 cm", grp:"Abrir", cat:"Man"},
+  {code:"PADC",tmu:95,  desc:"Retirar tampa / cobertura intermediária, <=80x80x80 cm", grp:"Abrir", cat:"Man"},
+  {code:"PAEA",tmu:115, desc:"Remover papel de embrulho / filme, <=30x30x30 cm", grp:"Abrir", cat:"Man"},
+  {code:"PAEB",tmu:210, desc:"Remover papel de embrulho / filme, >30x30x30 cm", grp:"Abrir", cat:"Man"},
+  {code:"PAGB",tmu:480, desc:"Abrir palete embrulhado* (incl. val. compl.)", grp:"Abrir", cat:"Man"},
+  {code:"PSKA",tmu:45,  desc:"Abrir fechamento — grampo / haste / fecho", grp:"Abrir", cat:"Man"},
+  {code:"PSSA",tmu:205, desc:"Cortar e retirar cinta (com ferramenta)", grp:"Abrir", cat:"Man"},
+  // FECHAR EMBALAGEM
+  {code:"SBFA",tmu:215, desc:"Fechar caixa normal (2 int. + 2 ext.), <=30x30x30 cm", grp:"Fechar", cat:"Man"},
+  {code:"SBFB",tmu:335, desc:"Fechar caixa normal (2 int. + 2 ext.), <=50x50x50 cm", grp:"Fechar", cat:"Man"},
+  {code:"SBFC",tmu:445, desc:"Fechar caixa normal (2 int. + 2 ext.), <=80x80x80 cm", grp:"Fechar", cat:"Man"},
+  {code:"SBSA",tmu:155, desc:"Fechar caixa corte e vinco (2 dobras), <=30x30 cm", grp:"Fechar", cat:"Man"},
+  {code:"SBSB",tmu:210, desc:"Fechar caixa corte e vinco (2 dobras), <=50x50 cm", grp:"Fechar", cat:"Man"},
+  {code:"SBZA",tmu:110, desc:"Acréscimo — fita adesiva <=30 cm", grp:"Fechar", cat:"Man"},
+  {code:"SBZB",tmu:145, desc:"Acréscimo — fita adesiva <=50 cm", grp:"Fechar", cat:"Man"},
+  {code:"SBZC",tmu:170, desc:"Acréscimo — fita adesiva <=80 cm", grp:"Fechar", cat:"Man"},
+  {code:"SBZD",tmu:35,  desc:"Acréscimo — aba adicional", grp:"Fechar", cat:"Man"},
+  {code:"SBGA",tmu:535, desc:"Montar contenedor aramado* (incl. val. compl.)", grp:"Fechar", cat:"Man"},
+  {code:"SBGS",tmu:175, desc:"Fechar contenedor aramado", grp:"Fechar", cat:"Man"},
+  {code:"SADA",tmu:60,  desc:"Colocar tampa / cobertura intermediária, <=30x30x30 cm", grp:"Fechar", cat:"Man"},
+  {code:"SADB",tmu:90,  desc:"Colocar tampa / cobertura intermediária, <=50x50x50 cm", grp:"Fechar", cat:"Man"},
+  {code:"SADC",tmu:115, desc:"Colocar tampa / cobertura intermediária, <=80x80x80 cm", grp:"Fechar", cat:"Man"},
+  {code:"SAEA",tmu:95,  desc:"Embrulhar com papel / filme, <=30x30x30 cm", grp:"Fechar", cat:"Man"},
+  {code:"SAEB",tmu:125, desc:"Embrulhar com papel / filme, >30x30x30 cm", grp:"Fechar", cat:"Man"},
+  {code:"SAPM",tmu:1730,desc:"Envolver palete com filme mecânico* (incl. val. compl.)", grp:"Fechar", cat:"Man"},
+  {code:"SSSA",tmu:1200,desc:"Cinta manual (Expansor + Alicate)* (incl. val. compl.)", grp:"Fechar", cat:"Man"},
+  {code:"SSSB",tmu:155, desc:"Cinta mecânico (Strapex)", grp:"Fechar", cat:"Man"},
+  {code:"SSKA",tmu:60,  desc:"Fechar por grampo / haste / fecho", grp:"Fechar", cat:"Man"},
+  // TRATAR INFORMAÇÕES
+  {code:"IALE",tmu:15,  desc:"Ler — característica individual (símbolo/sinal)", grp:"Info", cat:"Man"},
+  {code:"IALW",tmu:25,  desc:"Ler — por palavra/código (máx. 6 caracteres)", grp:"Info", cat:"Man"},
+  {code:"IAVE",tmu:30,  desc:"Comparar — característica individual", grp:"Info", cat:"Man"},
+  {code:"IAVW",tmu:45,  desc:"Comparar — por palavra/código (máx. 6 caracteres)", grp:"Info", cat:"Man"},
+  {code:"IAHA",tmu:70,  desc:"Manuseio — apanhar e depor documento", grp:"Info", cat:"Man"},
+  {code:"IAHT",tmu:85,  desc:"Manuseio — trocar documento", grp:"Info", cat:"Man"},
+  {code:"IAHR",tmu:50,  desc:"Manuseio — rasgar / separar documento", grp:"Info", cat:"Man"},
+  {code:"IAKK",tmu:40,  desc:"Marcar — assinalar / ticar trecho", grp:"Info", cat:"Man"},
+  {code:"IAKW",tmu:70,  desc:"Escrever — palavra/código (máx. 6 letras)", grp:"Info", cat:"Man"},
+  {code:"IAKS",tmu:55,  desc:"Carimbo — molhar e carimbar", grp:"Info", cat:"Man"},
+  {code:"IAKA",tmu:65,  desc:"Adesivo / etiqueta — colar e alisar", grp:"Info", cat:"Man"},
+  {code:"IDTE",tmu:25,  desc:"Inserir dados — tecla única (teclado)", grp:"Info", cat:"Man"},
+  {code:"IDTW",tmu:65,  desc:"Inserir dados — palavra/código (máx. 6 teclas)", grp:"Info", cat:"Man"},
+  {code:"IDES",tmu:60,  desc:"Digitalizar — scanner (código de barras)", grp:"Info", cat:"Man"},
+  {code:"IDEM",tmu:40,  desc:"Digitalizar — cartão magnético", grp:"Info", cat:"Man"},
+  // TRANSPORTE — GERAL
+  {code:"ABH", tmu:20,  desc:"Acionar — comando por alavanca", grp:"Geral", cat:"Tra"},
+  {code:"ABJ", tmu:10,  desc:"Acionar — joystick ou semelhante", grp:"Geral", cat:"Tra"},
+  {code:"AZM", tmu:90,  desc:"Ligar e desligar o motor", grp:"Geral", cat:"Tra"},
+  {code:"AZA", tmu:220, desc:"Subir e descer do assento da cabine", grp:"Geral", cat:"Tra"},
+  {code:"AZF", tmu:120, desc:"Puxar e soltar o freio de estacionamento", grp:"Geral", cat:"Tra"},
+  {code:"AZT", tmu:100, desc:"Abrir e fechar a porta da cabine", grp:"Geral", cat:"Tra"},
+  {code:"AZS", tmu:175, desc:"Pôr e soltar cinto de segurança", grp:"Geral", cat:"Tra"},
+  // EMPILHADEIRA FRONTAL
+  {code:"SFISF",tmu:13, desc:"Dirigir interno, estável/vazio, por metro (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SFILF",tmu:17, desc:"Dirigir interno, instável, por metro (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SFIKF",tmu:40, desc:"Dirigir velocidade mínima, por metro (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SFASF",tmu:7,  desc:"Dirigir área externa, estável/vazio (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SFKSF",tmu:16, desc:"Curva 90°, estável/vazio, corredor 3m (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SFKLF",tmu:56, desc:"Curva 90°, instável, corredor 3m (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SFVUF",tmu:15, desc:"Retardamento — descarregado (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SFVBF",tmu:28, desc:"Retardamento — carregado (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SRLSF",tmu:80, desc:"Acertar 90° — local depósito, estável (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SRLLF",tmu:130,desc:"Acertar 90° — local depósito, instável (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SRFSF",tmu:65, desc:"Acertar 90° — dir. mov. (ré), estável (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SRFLF",tmu:115,desc:"Acertar 90° — dir. mov. (ré), instável (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SHHUF",tmu:56, desc:"Elevar por metro — descarregado (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SHHBF",tmu:62, desc:"Elevar por metro — carregado (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SHSUF",tmu:62, desc:"Abaixar por metro — descarregado (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SHSBF",tmu:56, desc:"Abaixar por metro — carregado (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SHPAF",tmu:15, desc:"Colocar no lugar / levantar do chão 10cm (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SGPKF",tmu:55, desc:"Por/tirar garfo do palete — curto <=1,2m (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SGPLF",tmu:75, desc:"Por/tirar garfo do palete — longo >1,2m (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"STKSF",tmu:65, desc:"Por/tirar obj. da prateleira — garfo curto, estável (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"STKLF",tmu:95, desc:"Por/tirar obj. da prateleira — garfo curto, instável (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"STLSF",tmu:105,desc:"Por/tirar obj. da prateleira — garfo longo, estável (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"STLLF",tmu:135,desc:"Por/tirar obj. da prateleira — garfo longo, instável (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SVGAF",tmu:10, desc:"Procedimento garfo — abrir/fechar 10cm (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SVGPF",tmu:20, desc:"Procedimento garfo — paralelo 10cm (Frontal)", grp:"Frontal", cat:"Tra"},
+  {code:"SVHNF",tmu:36, desc:"Inclinar estrutura elevação 3° frente/trás (Frontal)", grp:"Frontal", cat:"Tra"},
+  // EMPILHADEIRA RETRÁTIL
+  {code:"SFISS",tmu:13, desc:"Dirigir interno, estável/vazio, por metro (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"SFILS",tmu:17, desc:"Dirigir interno, instável, por metro (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"SFIKS",tmu:40, desc:"Dirigir velocidade mínima, por metro (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"SFASS",tmu:9,  desc:"Dirigir área externa, estável/vazio (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"SFKSS",tmu:16, desc:"Curva 90°, estável/vazio (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"SFKLS",tmu:56, desc:"Curva 90°, instável (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"SFVUS",tmu:15, desc:"Retardamento — descarregado (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"SFVBS",tmu:28, desc:"Retardamento — carregado (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"SRLSS",tmu:70, desc:"Acertar 90° — local depósito, estável (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"SRLLS",tmu:120,desc:"Acertar 90° — local depósito, instável (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"SRFSS",tmu:55, desc:"Acertar 90° — dir. mov. (ré), estável (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"SRFLS",tmu:105,desc:"Acertar 90° — dir. mov. (ré), instável (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"SHHUS",tmu:56, desc:"Elevar por metro — descarregado (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"SHHBS",tmu:93, desc:"Elevar por metro — carregado (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"SHSUS",tmu:62, desc:"Abaixar por metro — descarregado (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"SHSBS",tmu:56, desc:"Abaixar por metro — carregado (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"SHPAS",tmu:15, desc:"Colocar no lugar / levantar do chão 10cm (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"SGPKS",tmu:95, desc:"Por/tirar garfo do palete — curto <=1,2m (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"STKSS",tmu:120,desc:"Por/tirar obj. da prateleira — garfo curto, estável (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"STKLS",tmu:150,desc:"Por/tirar obj. da prateleira — garfo curto, instável (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"SVGAS",tmu:10, desc:"Procedimento garfo — abrir/fechar 10cm (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"SVGPS",tmu:20, desc:"Procedimento garfo — paralelo 10cm (Retrátil)", grp:"Retratil", cat:"Tra"},
+  {code:"SVHNS",tmu:36, desc:"Inclinar estrutura elevação 3° frente/trás (Retrátil)", grp:"Retratil", cat:"Tra"},
+  // EMPILHADEIRA OP. A PÉ
+  {code:"SFISG",tmu:25, desc:"Dirigir interno, estável/vazio, por metro (Op. a pé)", grp:"Ope", cat:"Tra"},
+  {code:"SFILG",tmu:28, desc:"Dirigir interno, instável, por metro (Op. a pé)", grp:"Ope", cat:"Tra"},
+  {code:"SFIKG",tmu:40, desc:"Dirigir velocidade mínima, por metro (Op. a pé)", grp:"Ope", cat:"Tra"},
+  {code:"SFASG",tmu:25, desc:"Dirigir área externa (Op. a pé)", grp:"Ope", cat:"Tra"},
+  {code:"SFKSG",tmu:30, desc:"Curva 90°, estável/vazio (Op. a pé)", grp:"Ope", cat:"Tra"},
+  {code:"SFKLG",tmu:70, desc:"Curva 90°, instável (Op. a pé)", grp:"Ope", cat:"Tra"},
+  {code:"SFVUG",tmu:31, desc:"Retardamento — descarregado (Op. a pé)", grp:"Ope", cat:"Tra"},
+  {code:"SFVBG",tmu:39, desc:"Retardamento — carregado (Op. a pé)", grp:"Ope", cat:"Tra"},
+  {code:"SRLSG",tmu:105,desc:"Acertar 90° — local depósito, estável (Op. a pé)", grp:"Ope", cat:"Tra"},
+  {code:"SRLLG",tmu:150,desc:"Acertar 90° — local depósito, instável (Op. a pé)", grp:"Ope", cat:"Tra"},
+  {code:"SRFSG",tmu:105,desc:"Acertar 90° — dir. mov. (ré), estável (Op. a pé)", grp:"Ope", cat:"Tra"},
+  {code:"SRFLG",tmu:135,desc:"Acertar 90° — dir. mov. (ré), instável (Op. a pé)", grp:"Ope", cat:"Tra"},
+  {code:"SHHUG",tmu:139,desc:"Elevar por metro — descarregado (Op. a pé)", grp:"Ope", cat:"Tra"},
+  {code:"SHHBG",tmu:200,desc:"Elevar por metro — carregado (Op. a pé)", grp:"Ope", cat:"Tra"},
+  {code:"SHSUG",tmu:140,desc:"Abaixar por metro — descarregado (Op. a pé)", grp:"Ope", cat:"Tra"},
+  {code:"SHSBG",tmu:93, desc:"Abaixar por metro — carregado (Op. a pé)", grp:"Ope", cat:"Tra"},
+  {code:"SHPAG",tmu:20, desc:"Colocar no lugar / levantar do chão 10cm (Op. a pé)", grp:"Ope", cat:"Tra"},
+  {code:"SGPKG",tmu:65, desc:"Por/tirar garfo do palete — curto <=1,2m (Op. a pé)", grp:"Ope", cat:"Tra"},
+  {code:"STKSG",tmu:85, desc:"Por/tirar obj. da prateleira — garfo curto, estável (Op. a pé)", grp:"Ope", cat:"Tra"},
+  {code:"STKLG",tmu:115,desc:"Por/tirar obj. da prateleira — garfo curto, instável (Op. a pé)", grp:"Ope", cat:"Tra"},
+  // MÓDULOS ESPECÍFICOS
+  {code:"SAAAFM",tmu:833, desc:"Apanhar chão / Colocar chão — Frontal c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SAAAFO",tmu:603, desc:"Apanhar chão / Colocar chão — Frontal s/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SAABFM",tmu:980, desc:"Apanhar chão / Colocar 1,2m — Frontal c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SAABFO",tmu:750, desc:"Apanhar chão / Colocar 1,2m — Frontal s/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SAACFM",tmu:1141,desc:"Apanhar chão / Colocar 2,5m — Frontal c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SAACFO",tmu:911, desc:"Apanhar chão / Colocar 2,5m — Frontal s/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SAADFM",tmu:1326,desc:"Apanhar chão / Colocar 4,0m — Frontal c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SAADFO",tmu:1096,desc:"Apanhar chão / Colocar 4,0m — Frontal s/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SABAFM",tmu:934, desc:"Apanhar 1,2m / Colocar chão — Frontal c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SABAFO",tmu:854, desc:"Apanhar 1,2m / Colocar chão — Frontal s/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SABBFM",tmu:1081,desc:"Apanhar 1,2m / Colocar 1,2m — Frontal c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SABCFM",tmu:1242,desc:"Apanhar 1,2m / Colocar 2,5m — Frontal c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SABDFM",tmu:1427,desc:"Apanhar 1,2m / Colocar 4,0m — Frontal c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SACAFM",tmu:1078,desc:"Apanhar 2,5m / Colocar chão — Frontal c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SACAFO",tmu:998, desc:"Apanhar 2,5m / Colocar chão — Frontal s/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SACCFM",tmu:1386,desc:"Apanhar 2,5m / Colocar 2,5m — Frontal c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SADAFM",tmu:1245,desc:"Apanhar 4,0m / Colocar chão — Frontal c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SADAFO",tmu:1165,desc:"Apanhar 4,0m / Colocar chão — Frontal s/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SADDFM",tmu:1738,desc:"Apanhar 4,0m / Colocar 4,0m — Frontal c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SAAASM",tmu:983, desc:"Apanhar chão / Colocar chão — Retrátil c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SAAASO",tmu:718, desc:"Apanhar chão / Colocar chão — Retrátil s/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SAABSM",tmu:1167,desc:"Apanhar chão / Colocar 1,2m — Retrátil c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SAACSM",tmu:1368,desc:"Apanhar chão / Colocar 2,5m — Retrátil c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SAADSM",tmu:1600,desc:"Apanhar chão / Colocar 4,0m — Retrátil c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SADASM",tmu:1395,desc:"Apanhar 4,0m / Colocar chão — Retrátil c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SADASO",tmu:1325,desc:"Apanhar 4,0m / Colocar chão — Retrátil s/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SADDSM",tmu:2012,desc:"Apanhar 4,0m / Colocar 4,0m — Retrátil c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SAAAGM",tmu:969, desc:"Apanhar chão / Colocar chão — Op. a pé c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SAAAGO",tmu:644, desc:"Apanhar chão / Colocar chão — Op. a pé s/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SAABGM",tmu:1326,desc:"Apanhar chão / Colocar 1,2m — Op. a pé c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SABAGM",tmu:1208,desc:"Apanhar 1,2m / Colocar chão — Op. a pé c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SACAGM",tmu:1510,desc:"Apanhar 2,5m / Colocar chão — Op. a pé c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SADAGM",tmu:1859,desc:"Apanhar 4,0m / Colocar chão — Op. a pé c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SADDGM",tmu:3156,desc:"Apanhar 4,0m / Colocar 4,0m — Op. a pé c/ acertar", grp:"Modulos", cat:"Tra"},
+  {code:"SZVUF", tmu:30,  desc:"Retardamento desc. partida/parada (Frontal/Retrátil)", grp:"Modulos", cat:"Tra"},
+  {code:"SZVUG", tmu:62,  desc:"Retardamento desc. partida/parada (Op. a pé)", grp:"Modulos", cat:"Tra"},
+  {code:"SZVBF", tmu:56,  desc:"Retardamento carregado partida/parada (Frontal/Retrátil)", grp:"Modulos", cat:"Tra"},
+  {code:"SZVBG", tmu:78,  desc:"Retardamento carregado partida/parada (Op. a pé)", grp:"Modulos", cat:"Tra"},
+  {code:"SZEOF", tmu:515, desc:"1ª partida + estacionar, sem ligar/desligar (Frontal/Retrátil)", grp:"Modulos", cat:"Tra"},
+  {code:"SZEOG", tmu:180, desc:"1ª partida + estacionar, sem ligar/desligar (Op. a pé)", grp:"Modulos", cat:"Tra"},
+  {code:"SZEMF", tmu:635, desc:"1ª partida + estacionar, com ligar/desligar (Frontal/Retrátil)", grp:"Modulos", cat:"Tra"},
+  {code:"SZEMG", tmu:270, desc:"1ª partida + estacionar, com ligar/desligar (Op. a pé)", grp:"Modulos", cat:"Tra"},
+  {code:"SZAWF", tmu:147, desc:"Acréscimo por metro extra de elevação >4m (Frontal)", grp:"Modulos", cat:"Tra"},
+  {code:"SZAWS", tmu:163, desc:"Acréscimo por metro extra de elevação >4m (Retrátil)", grp:"Modulos", cat:"Tra"},
+  {code:"SZAWG", tmu:316, desc:"Acréscimo por metro extra de elevação (Op. a pé)", grp:"Modulos", cat:"Tra"},
+  {code:"SZALF", tmu:260, desc:"Acréscimo — carga instável (Frontal/Retrátil)", grp:"Modulos", cat:"Tra"},
+  {code:"SZALG", tmu:210, desc:"Acréscimo — carga instável (Op. a pé)", grp:"Modulos", cat:"Tra"},
+  {code:"SZAGF", tmu:135, desc:"Acréscimo — garfo comprido >1,2m (Frontal)", grp:"Modulos", cat:"Tra"},
+  {code:"SZSKSF",tmu:2115,desc:"Verificação diária da empilhadeira (Frontal)", grp:"Modulos", cat:"Tra"},
+  {code:"SZSKSS",tmu:2425,desc:"Verificação diária da empilhadeira (Retrátil)", grp:"Modulos", cat:"Tra"},
+  {code:"SZSKSG",tmu:820, desc:"Verificação diária da empilhadeira (Op. a pé)", grp:"Modulos", cat:"Tra"},
+  // REBOCADOR
+  {code:"EFIM",tmu:13, desc:"Rebocador — dirigir interno c/ reboque, por metro", grp:"Rebocador", cat:"Tra"},
+  {code:"EFIO",tmu:10, desc:"Rebocador — dirigir interno s/ reboque, por metro", grp:"Rebocador", cat:"Tra"},
+  {code:"EFAM",tmu:13, desc:"Rebocador — dirigir externo c/ reboque, por metro", grp:"Rebocador", cat:"Tra"},
+  {code:"EFAO",tmu:7,  desc:"Rebocador — dirigir externo s/ reboque, por metro", grp:"Rebocador", cat:"Tra"},
+  {code:"EFKM",tmu:92, desc:"Rebocador — curva 90° c/ reboque", grp:"Rebocador", cat:"Tra"},
+  {code:"EFKO",tmu:38, desc:"Rebocador — curva 90° s/ reboque", grp:"Rebocador", cat:"Tra"},
+  {code:"EFVM",tmu:56, desc:"Rebocador — retardamento c/ reboque", grp:"Rebocador", cat:"Tra"},
+  {code:"EFVO",tmu:30, desc:"Rebocador — retardamento s/ reboque", grp:"Rebocador", cat:"Tra"},
+  {code:"EANM",tmu:368,desc:"Rebocador — acoplar c/ reboque", grp:"Rebocador", cat:"Tra"},
+  {code:"EANO",tmu:258,desc:"Rebocador — acoplar s/ reboque", grp:"Rebocador", cat:"Tra"},
+  {code:"EABM",tmu:285,desc:"Rebocador — desacoplar c/ reboque", grp:"Rebocador", cat:"Tra"},
+  {code:"EABO",tmu:182,desc:"Rebocador — desacoplar s/ reboque", grp:"Rebocador", cat:"Tra"},
+  {code:"EAZZ",tmu:200,desc:"Rebocador — acréscimo reboque adicional", grp:"Rebocador", cat:"Tra"},
+  // TRANSPALETEIRA
+  {code:"HFFA",tmu:30, desc:"Transpaleteira — dirigir por metro, <=500 kg", grp:"Transpaleteira", cat:"Tra"},
+  {code:"HFFB",tmu:35, desc:"Transpaleteira — dirigir por metro, >500 kg", grp:"Transpaleteira", cat:"Tra"},
+  {code:"HFKA",tmu:15, desc:"Transpaleteira — curva 90°, <=500 kg", grp:"Transpaleteira", cat:"Tra"},
+  {code:"HFKB",tmu:19, desc:"Transpaleteira — curva 90°, >500 kg", grp:"Transpaleteira", cat:"Tra"},
+  {code:"HFVA",tmu:80, desc:"Transpaleteira — retardamento, <=500 kg", grp:"Transpaleteira", cat:"Tra"},
+  {code:"HFVB",tmu:150,desc:"Transpaleteira — retardamento, >500 kg", grp:"Transpaleteira", cat:"Tra"},
+  {code:"HAMA",tmu:520,desc:"Transpaleteira — apanhar palete c/ acertar, <=500 kg", grp:"Transpaleteira", cat:"Tra"},
+  {code:"HAMB",tmu:615,desc:"Transpaleteira — apanhar palete c/ acertar, >500 kg", grp:"Transpaleteira", cat:"Tra"},
+  {code:"HAOA",tmu:350,desc:"Transpaleteira — apanhar palete s/ acertar, <=500 kg", grp:"Transpaleteira", cat:"Tra"},
+  {code:"HAOB",tmu:415,desc:"Transpaleteira — apanhar palete s/ acertar, >500 kg", grp:"Transpaleteira", cat:"Tra"},
+  {code:"HPMA",tmu:295,desc:"Transpaleteira — colocar c/ acertar, <=500 kg", grp:"Transpaleteira", cat:"Tra"},
+  {code:"HPMB",tmu:310,desc:"Transpaleteira — colocar c/ acertar, >500 kg", grp:"Transpaleteira", cat:"Tra"},
+  {code:"HPOA",tmu:125,desc:"Transpaleteira — colocar s/ acertar, <=500 kg", grp:"Transpaleteira", cat:"Tra"},
+  {code:"HPOB",tmu:130,desc:"Transpaleteira — colocar s/ acertar, >500 kg", grp:"Transpaleteira", cat:"Tra"},
+  {code:"HRZA",tmu:125,desc:"Transpaleteira — acréscimo acertar, <=500 kg", grp:"Transpaleteira", cat:"Tra"},
+  {code:"HRZB",tmu:190,desc:"Transpaleteira — acréscimo acertar, >500 kg", grp:"Transpaleteira", cat:"Tra"},
+  // CARRINHO
+  {code:"WFA",tmu:25, desc:"Carrinho de transporte — dirigir, <=50 kg", grp:"Carrinho", cat:"Tra"},
+  {code:"WFB",tmu:28, desc:"Carrinho de transporte — dirigir, <=100 kg", grp:"Carrinho", cat:"Tra"},
+  {code:"WFC",tmu:30, desc:"Carrinho de transporte — dirigir, <=200 kg", grp:"Carrinho", cat:"Tra"},
+  {code:"WFD",tmu:35, desc:"Carrinho de transporte — dirigir, >200 kg", grp:"Carrinho", cat:"Tra"},
+  {code:"WKA",tmu:15, desc:"Carrinho de transporte — curva 90°, <=50 kg", grp:"Carrinho", cat:"Tra"},
+  {code:"WKB",tmu:11, desc:"Carrinho de transporte — curva 90°, <=100 kg", grp:"Carrinho", cat:"Tra"},
+  {code:"WKC",tmu:8,  desc:"Carrinho de transporte — curva 90°, <=200 kg", grp:"Carrinho", cat:"Tra"},
+  {code:"WKD",tmu:8,  desc:"Carrinho de transporte — curva 90°, >200 kg", grp:"Carrinho", cat:"Tra"},
+  {code:"WVA",tmu:35, desc:"Carrinho de transporte — retardamento, <=50 kg", grp:"Carrinho", cat:"Tra"},
+  {code:"WVB",tmu:45, desc:"Carrinho de transporte — retardamento, <=100 kg", grp:"Carrinho", cat:"Tra"},
+  {code:"WVC",tmu:80, desc:"Carrinho de transporte — retardamento, <=200 kg", grp:"Carrinho", cat:"Tra"},
+  {code:"WVD",tmu:105,desc:"Carrinho de transporte — retardamento, >200 kg", grp:"Carrinho", cat:"Tra"},
+  {code:"WRA",tmu:80, desc:"Carrinho de transporte — acréscimo acertar, <=50 kg", grp:"Carrinho", cat:"Tra"},
+  {code:"WRB",tmu:105,desc:"Carrinho de transporte — acréscimo acertar, <=100 kg", grp:"Carrinho", cat:"Tra"},
+  {code:"WRC",tmu:160,desc:"Carrinho de transporte — acréscimo acertar, <=200 kg", grp:"Carrinho", cat:"Tra"},
+  {code:"WRD",tmu:215,desc:"Carrinho de transporte — acréscimo acertar, >200 kg", grp:"Carrinho", cat:"Tra"}
+];
+
+// Referência ao último input de código em foco
+var _libLastCodeInput = null;
+var _libLastRow = null;
+
+// Intercepta o foco em qualquer input de código na tabela
+document.addEventListener('focusin', function(e){
+  if(e.target && e.target.classList.contains('ci-code')){
+    _libLastCodeInput = e.target;
+    // Atualizar hint no painel
+    var hint = document.getElementById('lib-target-hint');
+    if(hint) hint.textContent = '⚡ Célula em foco: coluna CÓDIGO da linha ativa. Clique em qualquer linha para inserir.';
+  }
+});
+
+function openLibrary(){
+  document.getElementById('lib-overlay').classList.add('open');
+  renderLibrary();
+}
+
+function closeLibrary(){
+  document.getElementById('lib-overlay').classList.remove('open');
+}
+
+function libCloseOnBg(e){
+  if(e.target === document.getElementById('lib-overlay')) closeLibrary();
+}
+
+function getCatClass(cat){
+  if(cat==='Comp') return 'lc-comp';
+  if(cat==='Man')  return 'lc-man';
+  return 'lc-tra';
+}
+
+function renderLibrary(){
+  var q   = (document.getElementById('lib-q').value||'').toLowerCase();
+  var grp = document.getElementById('lib-grp').value;
+
+  var data = LIB_CODES;
+  if(grp)  data = data.filter(function(c){ return c.grp === grp; });
+  if(q)    data = data.filter(function(c){
+    return c.code.toLowerCase().includes(q) || c.desc.toLowerCase().includes(q);
+  });
+
+  var tb = document.getElementById('lib-table-body');
+  var cnt = document.getElementById('lib-count');
+  cnt.textContent = data.length + ' código' + (data.length!==1?'s':'');
+
+  if(!data.length){
+    tb.innerHTML = '<tr><td colspan="4" class="lib-no-results">🔍 Nenhum código encontrado.<br>Tente outro filtro ou busca.</td></tr>';
+    return;
+  }
+
+  var grpLabels = {
+    Complementares:'Comp.', Manuseio:'Manuseio', Abrir:'Abrir Emb.',
+    Fechar:'Fechar Emb.', Info:'Tratar Info.', Geral:'T. Geral',
+    Frontal:'Empilh. F.', Retratil:'Empilh. R.', Ope:'Empilh. Pé',
+    Modulos:'Mód. Esp.', Rebocador:'Rebocador', Transpaleteira:'Transpal.',
+    Carrinho:'Carrinho'
+  };
+
+  tb.innerHTML = data.map(function(c){
+    var lbl = grpLabels[c.grp] || c.grp;
+    var cls = getCatClass(c.cat);
+    var d = c.desc.replace(/"/g,'&quot;');
+    return '<tr onclick="libInsertCode(\''+c.code.replace(/'/g,"\\'")+'\',' + c.tmu + ',\''+d.replace(/'/g,"\\'")+'\')"'
+         + ' title="Clique para inserir: '+c.code+' — '+d+'">'
+         + '<td><span class="lib-code">'+c.code+'</span></td>'
+         + '<td class="lib-desc" title="'+d+'">'+c.desc+'</td>'
+         + '<td class="lib-tmu">'+c.tmu+'</td>'
+         + '<td><span class="lib-cat '+cls+'">'+lbl+'</span></td>'
+         + '</tr>';
+  }).join('');
+}
+
+function libInsertCode(code, tmu, desc){
+  // Tentar inserir na célula de código em foco
+  var input = _libLastCodeInput;
+  if(input && document.contains(input)){
+    input.value = code;
+    input.dispatchEvent(new Event('input', {bubbles:true}));
+    // Preencher TMU automaticamente se campo TMU estiver vazio
+    var tr = input.closest('tr');
+    if(tr){
+      var tmuInput = tr.querySelector('[data-f="tmu"]');
+      if(tmuInput && !tmuInput.value){
+        tmuInput.value = tmu;
+        tmuInput.dispatchEvent(new Event('input', {bubbles:true}));
+      }
+      // Preencher descrição se estiver vazia
+      var descInput = tr.querySelector('[data-f="desc"]');
+      if(descInput && !descInput.value && desc){
+        descInput.value = desc;
+        descInput.dispatchEvent(new Event('input', {bubbles:true}));
+      }
+    }
+    // Fechar painel e dar foco de volta ao campo
+    closeLibrary();
+    setTimeout(function(){ input.focus(); }, 80);
+  } else {
+    // Nenhuma célula em foco — avisar e manter painel aberto
+    var hint = document.getElementById('lib-target-hint');
+    if(hint){
+      hint.style.background = 'var(--redBg)';
+      hint.style.borderColor = 'var(--red)';
+      hint.style.color = 'var(--red)';
+      hint.textContent = '⚠️ Nenhuma célula de código em foco. Clique em um campo CÓDIGO na folha de processo e depois abra a biblioteca novamente, ou deixe a biblioteca aberta e clique no campo desejado.';
+      setTimeout(function(){
+        hint.style.background = '';
+        hint.style.borderColor = '';
+        hint.style.color = '';
+        hint.textContent = '⚡ Clique em qualquer linha para preencher automaticamente o código e TMU da célula em foco na folha de processo.';
+      }, 3500);
+    }
+  }
+}
 </script>
 </body>
 </html>
