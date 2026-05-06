@@ -1361,6 +1361,7 @@ table.mtm tfoot tr.total-row td{
   <div class="toolbar-actions" style="display:flex;align-items:center;gap:6px">
     <button class="btn btn-ghost" onclick="showDashboard()" title="Voltar ao início" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(0,212,255,.25)">🏠<span class="btn-lbl"> Início</span></button>
     <button class="btn btn-ghost" onclick="addSheet()" title="Nova Folha">＋<span class="btn-lbl"> Nova Folha</span></button>
+    <button class="btn btn-ghost" onclick="openLibrary()" title="📚 Biblioteca MTM" style="letter-spacing:.2px">📚<span class="btn-lbl"> Biblioteca</span></button>
     <button class="btn btn-ghost" onclick="renameCurrentSheet()" title="Renomear">✏️<span class="btn-lbl"> Renomear</span></button>
     <button class="btn btn-danger" onclick="deleteCurrentSheet()" title="Excluir">✕<span class="btn-lbl"> Excluir</span></button>
     <button class="btn btn-green" onclick="exportPDF()" title="Gerar PDF">⬇<span class="btn-lbl"> PDF</span></button>
@@ -1380,7 +1381,6 @@ table.mtm tfoot tr.total-row td{
 <div id="sheets-container"></div>
 
 <div class="float-nav">
-  <button class="float-btn" onclick="openLibrary()" title="📚 Biblioteca MTM Logística" style="font-size:17px">📚</button>
   <button class="float-btn" onclick="goTop()" title="Ir ao topo">▲</button>
   <button class="float-btn" onclick="goBottom()" title="Última linha">▼</button>
 </div>
@@ -4102,7 +4102,13 @@ function pmNewSheet(){
   const p = pmGetProject();
   closeProjectManager();
   hideDashboard();
-  const sid = addSheet(true);
+  // Se hideDashboard acabou de criar uma FOLHA 1 vazia, reutilizá-la em vez de criar FOLHA 2
+  var sid;
+  if(sheets.length === 1 && sheets[0].rows.length === 0){
+    sid = sheets[0].id;
+  } else {
+    sid = addSheet(true);
+  }
   if(!p.sheets) p.sheets = [];
   p.sheets.push(sid);
   pmSave();
