@@ -1365,6 +1365,7 @@ table.mtm tfoot tr.total-row td{
     <button class="btn btn-ghost" onclick="renameCurrentSheet()" title="Renomear">✏️<span class="btn-lbl"> Renomear</span></button>
     <button class="btn btn-danger" onclick="deleteCurrentSheet()" title="Excluir">✕<span class="btn-lbl"> Excluir</span></button>
     <button class="btn btn-green" onclick="exportPDF()" title="Gerar PDF">⬇<span class="btn-lbl"> PDF</span></button>
+    <button class="btn btn-primary" onclick="showFinalReport()" title="Relatório consolidado de todas as folhas" style="background:linear-gradient(135deg,#00e5a0,#00b87a);border:none;color:#001a12;font-weight:700">📋<span class="btn-lbl"> Relatório Final</span></button>
     <button class="btn btn-primary" onclick="openProjectManager()" title="Gerenciador de Projetos" style="background:linear-gradient(135deg,#4f8ef7,#6366f1);border:none;color:#fff">📁<span class="btn-lbl"> Projetos</span></button>
     <div class="theme-toggle" onclick="toggleTheme()" title="Alternar tema">
       <span class="t-icon">☀️</span>
@@ -2396,8 +2397,8 @@ function showResults(sid){
         const util = m.takt > 0 ? Math.min(+(m.stdSec/m.takt*100).toFixed(1), 100) : null;
         return `<tr>
           <td style="padding:6px 8px;font-weight:600;color:var(--text)">${j.lbl}</td>
-          <td class="jor-pcs" data-pcs-base="${pcs}" style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--purple);font-weight:700">${pcs}</td>
-          <td class="jor-pph" data-pph-base="${pph}" style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--accent)">${pph}</td>
+          <td style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--purple);font-weight:700">${pcs}</td>
+          <td style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--accent)">${pph}</td>
           ${util!==null ? `<td style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:${util>95?'var(--red)':util>80?'var(--orange)':'var(--green)'};font-weight:700">${util}%</td>` : '<td style="padding:6px 8px;text-align:center;color:var(--text3)">—</td>'}
         </tr>`;
       }).join('');
@@ -2469,9 +2470,7 @@ function showResults(sid){
             <tr style="background:var(--header-bg);border-bottom:1px solid var(--border2)">
               <th style="padding:8px 8px;text-align:left;font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.8px;text-transform:uppercase">Jornada</th>
               <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--purple);letter-spacing:.8px;text-transform:uppercase">Peças / turno</th>
-              <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.8px;text-transform:uppercase;cursor:pointer;user-select:none" onclick="toggleEficienciaBar()" title="Clique para simular eficiência">
-                Peças / hora <span style="font-size:8px;background:var(--accentBg);border:1px solid rgba(0,212,255,.3);border-radius:3px;padding:1px 4px;margin-left:4px;color:var(--accent)">% ▾</span>
-              </th>
+              <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.8px;text-transform:uppercase">Peças / hora</th>
               <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:${m.takt>0?'var(--green)':'var(--text3)'};letter-spacing:.8px;text-transform:uppercase">% Ocupação${m.takt<=0?' (sem takt)':''}</th>
             </tr>
           </thead>
@@ -2479,36 +2478,6 @@ function showResults(sid){
             ${jornadasHtml}
           </tbody>
         </table>
-
-        <!-- ═══ SIMULADOR DE EFICIÊNCIA ═══ -->
-        <div id="eficiencia-bar" style="display:none;background:linear-gradient(135deg,rgba(0,212,255,.06),rgba(124,58,237,.06));border-top:2px solid rgba(0,212,255,.25);padding:14px 16px">
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-            <div style="font-size:10px;font-weight:700;color:var(--accent);letter-spacing:.8px;text-transform:uppercase;white-space:nowrap">
-              🎯 Simular % Eficiência
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:200px">
-              <input id="efic-slider" type="range" min="10" max="100" value="85" step="1"
-                style="flex:1;accent-color:var(--accent);cursor:pointer"
-                oninput="sincEfic(this.value,'slider')">
-              <div style="display:flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:4px 8px">
-                <input id="efic-num" type="number" min="10" max="100" value="85"
-                  style="width:46px;background:transparent;border:none;outline:none;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;text-align:right"
-                  oninput="sincEfic(this.value,'num')">
-                <span style="font-size:13px;font-weight:700;color:var(--accent)">%</span>
-              </div>
-              <button onclick="aplicarEficiencia()" style="background:var(--accentGrad);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">Aplicar</button>
-              <button onclick="limparEficiencia()" style="background:transparent;color:var(--text2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;font-size:11px;cursor:pointer" title="Limpar">✕</button>
-            </div>
-          </div>
-          <div id="efic-resultado" style="display:none;margin-top:10px;padding:10px 12px;background:var(--surface2);border:1px solid rgba(0,212,255,.2);border-radius:8px">
-            <div style="font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px">Resultado com eficiência aplicada</div>
-            <div id="efic-linhas" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;font-size:11px"></div>
-            <div style="margin-top:8px;font-size:9px;color:var(--text3)">
-              Fórmula: Peças/hora base × (<span id="efic-pct-label" style="color:var(--accent);font-weight:700">85</span>% ÷ 100)
-            </div>
-          </div>
-        </div>
-
         <div style="padding:8px 12px;background:var(--surface2);border-top:1px solid var(--border);font-size:10px;color:var(--text3)">
           Base: Tempo Padrão = <strong style="color:var(--green)">${m.stdSec.toFixed(3)}s</strong>
           ${m.takt > 0 ? ` · Takt = <strong style="color:var(--accent)">${m.takt}s</strong> · % Ocupação = Std / Takt × 100` : ' · Informe o Takt Time para exibir % Ocupação'}
@@ -6032,95 +6001,199 @@ const LIB_CODES = [
   {code:"WRD",tmu:215,desc:"Carrinho de transporte — acréscimo acertar, >200 kg", grp:"Carrinho", cat:"Tra"}
 ];
 
-// ══════════════════════════════════════════════
-// SIMULADOR DE EFICIÊNCIA — TABELA DE JORNADAS
-// ══════════════════════════════════════════════
-function toggleEficienciaBar(){
-  var bar = document.getElementById('eficiencia-bar');
-  if(!bar) return;
-  var showing = bar.style.display !== 'none';
-  bar.style.display = showing ? 'none' : 'block';
-  if(!showing){
-    // ao abrir, já aplica com o valor atual
-    var num = document.getElementById('efic-num');
-    if(num) aplicarEficiencia();
+// ══════════════════════════════════════════════════════
+// RELATÓRIO FINAL — CONSOLIDADO DE TODAS AS FOLHAS
+// ══════════════════════════════════════════════════════
+function showFinalReport(){
+  if(!sheets || sheets.length === 0){
+    alert('Nenhuma folha disponível para gerar o relatório.');
+    return;
   }
-}
 
-function sincEfic(val, origem){
-  var v = Math.max(10, Math.min(100, parseInt(val)||85));
-  var slider = document.getElementById('efic-slider');
-  var num    = document.getElementById('efic-num');
-  if(origem !== 'slider' && slider) slider.value = v;
-  if(origem !== 'num'    && num)    num.value    = v;
-  aplicarEficiencia(v);
-}
-
-function aplicarEficiencia(pctArg){
-  var pct = pctArg !== undefined ? parseInt(pctArg) : parseInt((document.getElementById('efic-num')||{value:'85'}).value) || 85;
-  pct = Math.max(10, Math.min(100, pct));
-
-  // Atualiza células pph
-  var pphCells = document.querySelectorAll('.jor-pph');
-  pphCells.forEach(function(td){
-    var base = parseFloat(td.dataset.pphBase) || 0;
-    var adj  = (base * pct / 100).toFixed(2);
-    td.innerHTML = '<span style="color:var(--text3);font-size:10px;text-decoration:line-through">' + base + '</span>'
-                 + ' <span style="color:var(--accent);font-weight:700">→ ' + adj + '</span>';
+  // Coleta métricas de todas as folhas
+  var allMetrics = sheets.map(function(s){
+    var m = computeSheetMetrics(s);
+    return { sheet: s, m: m,
+      pph:    m.stdSec > 0 ? +(3600/m.stdSec).toFixed(2) : 0,
+      pphInt: m.stdSec > 0 ? Math.floor(3600/m.stdSec) : 0,
+      ocup:   m.takt > 0   ? +(m.stdSec/m.takt*100).toFixed(1) : null
+    };
   });
 
-  // Atualiza células pcs/turno
-  var pcsCells = document.querySelectorAll('.jor-pcs');
-  pcsCells.forEach(function(td){
-    var base = parseInt(td.dataset.pcsBase) || 0;
-    var adj  = Math.floor(base * pct / 100);
-    td.innerHTML = '<span style="color:var(--text3);font-size:10px;text-decoration:line-through">' + base + '</span>'
-                 + ' <span style="color:var(--purple);font-weight:700">→ ' + adj + '</span>';
-  });
+  var totalStdSec = allMetrics.reduce(function(a,x){ return a + x.m.stdSec; }, 0);
+  var totalTmuSum = allMetrics.reduce(function(a,x){ return a + x.m.totalTmu; }, 0);
+  var combinedPph = totalStdSec > 0 ? +(3600/totalStdSec).toFixed(2) : 0;
 
-  // Resultado resumido
-  var resDiv   = document.getElementById('efic-resultado');
-  var linhasEl = document.getElementById('efic-linhas');
-  var pctLabel = document.getElementById('efic-pct-label');
-  if(resDiv)   resDiv.style.display = 'block';
-  if(pctLabel) pctLabel.textContent = pct;
+  var jornadas = [
+    {h:7,   lbl:'7 h'},
+    {h:7.5, lbl:'7,5 h'},
+    {h:8,   lbl:'8 h'},
+    {h:8.5, lbl:'8,5 h'},
+    {h:9,   lbl:'9 h'}
+  ];
 
-  if(linhasEl && pphCells.length > 0){
-    var jornadas = ['7 h','7,5 h','8 h','8,5 h','9 h'];
-    var html = '';
-    var pcsArr = document.querySelectorAll('.jor-pcs');
-    pphCells.forEach(function(td, i){
-      var basePph = parseFloat(td.dataset.pphBase) || 0;
-      var adjPph  = (basePph * pct / 100).toFixed(2);
-      var basePcs = pcsArr[i] ? parseInt(pcsArr[i].dataset.pcsBase)||0 : 0;
-      var adjPcs  = Math.floor(basePcs * pct / 100);
-      var lbl     = jornadas[i] || (i+1)+'ª jornada';
-      html += '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:8px;text-align:center">'
-            + '<div style="font-size:9px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px">' + lbl + '</div>'
-            + '<div style="font-size:15px;font-weight:800;color:var(--accent);font-family:\'JetBrains Mono\',monospace;margin-top:2px">' + adjPph + '<span style="font-size:9px;color:var(--text3)"> pc/h</span></div>'
-            + '<div style="font-size:11px;color:var(--purple);font-family:\'JetBrains Mono\',monospace">' + adjPcs + '<span style="font-size:9px;color:var(--text3)"> pc/turno</span></div>'
-            + '</div>';
-    });
-    linhasEl.innerHTML = html;
-  }
-}
+  // ── Cards por folha ──
+  var cardsHtml = allMetrics.map(function(x){
+    var s = x.sheet; var m = x.m;
+    var ocupColor = x.ocup !== null ? (x.ocup>100?'var(--red)':x.ocup>95?'var(--orange)':x.ocup>80?'var(--yellow)':'var(--green)') : 'var(--text3)';
+    var pphColor  = x.pph > 0 ? 'var(--purple)' : 'var(--text3)';
+    return `<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--accentGrad)"></div>
+      <div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.sheet.label}</div>
+      ${s.header.processo ? `<div style="font-size:10px;color:var(--text3);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.header.processo}</div>` : ''}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 4px">
+          <div style="font-size:16px;font-weight:800;color:var(--accent);font-family:'JetBrains Mono',monospace">${m.totalTmu ? m.totalTmu.toFixed(0) : '—'}</div>
+          <div style="font-size:8px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-top:2px">TMU Total</div>
+        </div>
+        <div style="text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 4px">
+          <div style="font-size:16px;font-weight:800;color:var(--green);font-family:'JetBrains Mono',monospace">${m.stdSec ? m.stdSec.toFixed(2) : '—'}<span style="font-size:9px">s</span></div>
+          <div style="font-size:8px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-top:2px">Tempo Padrão</div>
+        </div>
+        <div style="text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 4px">
+          <div style="font-size:16px;font-weight:800;color:${pphColor};font-family:'JetBrains Mono',monospace">${x.pph || '—'}</div>
+          <div style="font-size:8px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-top:2px">Peças/hora</div>
+        </div>
+        <div style="text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 4px">
+          <div style="font-size:16px;font-weight:800;color:${ocupColor};font-family:'JetBrains Mono',monospace">${x.ocup !== null ? x.ocup+'%' : '—'}</div>
+          <div style="font-size:8px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-top:2px">% Ocupação</div>
+        </div>
+      </div>
+      ${m.takt > 0 ? `<div style="font-size:9px;color:var(--text3);margin-top:8px;text-align:right">Takt: ${m.takt}s · Allow: ${m.allowPct.toFixed(1)}%</div>` : ''}
+    </div>`;
+  }).join('');
 
-function limparEficiencia(){
-  // Restaura valores originais
-  document.querySelectorAll('.jor-pph').forEach(function(td){
-    td.textContent = td.dataset.pphBase;
-  });
-  document.querySelectorAll('.jor-pcs').forEach(function(td){
-    td.textContent = td.dataset.pcsBase;
-  });
-  var resDiv = document.getElementById('efic-resultado');
-  if(resDiv) resDiv.style.display = 'none';
-  var slider = document.getElementById('efic-slider');
-  var num    = document.getElementById('efic-num');
-  if(slider) slider.value = 85;
-  if(num)    num.value    = 85;
-  var bar = document.getElementById('eficiencia-bar');
-  if(bar) bar.style.display = 'none';
+  // ── Tabela consolidada ──
+  var theadOcup = allMetrics.some(function(x){ return x.m.takt > 0; });
+  var tableRows = jornadas.map(function(j){
+    var jorSec = j.h * 3600;
+    var cells = allMetrics.map(function(x){
+      var pcs = x.m.stdSec > 0 ? Math.floor(jorSec/x.m.stdSec) : '—';
+      return `<td style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--purple);font-weight:700;border-right:1px solid var(--border)">${pcs}</td>`;
+    }).join('');
+    var totalPcs = totalStdSec > 0 ? Math.floor(jorSec/totalStdSec) : '—';
+    return `<tr>
+      <td style="padding:6px 10px;font-weight:700;color:var(--text);border-right:1px solid var(--border2)">${j.lbl}</td>
+      ${cells}
+      <td style="padding:6px 10px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--accent);font-weight:800;background:var(--accentBg)">${totalPcs}</td>
+    </tr>`;
+  }).join('');
+
+  var theadCells = allMetrics.map(function(x){
+    return `<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--purple);letter-spacing:.6px;border-right:1px solid var(--border2);max-width:100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.sheet.label}</th>`;
+  }).join('');
+
+  var tableHtml = allMetrics.length > 1 ? `
+    <div class="res-section-title" style="margin-top:24px">⚙️ Capacidade por Jornada — Todas as Folhas</div>
+    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;overflow:auto;margin-bottom:20px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:400px">
+        <thead>
+          <tr style="background:var(--header-bg);border-bottom:2px solid var(--accent)">
+            <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.8px;text-transform:uppercase;border-right:1px solid var(--border2)">Jornada</th>
+            ${theadCells}
+            <th style="padding:8px 10px;text-align:right;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.8px;background:var(--accentBg)">SOMA (pc/turno)</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+      <div style="padding:8px 12px;background:var(--surface2);border-top:1px solid var(--border);font-size:10px;color:var(--text3)">
+        SOMA = todos os operadores produzindo simultaneamente · Baseado nos Tempos Padrão individuais
+      </div>
+    </div>` : '';
+
+  // ── Tabela comparativa de métricas ──
+  var compRows = allMetrics.map(function(x){
+    var ocupColor = x.ocup !== null ? (x.ocup>100?'var(--red)':x.ocup>95?'var(--orange)':x.ocup>80?'var(--yellow)':'var(--green)') : 'var(--text3)';
+    var ocupIcon  = x.ocup !== null ? (x.ocup>100?'🔴':x.ocup>95?'🟠':x.ocup>80?'🟡':'🟢') : '';
+    return `<tr>
+      <td style="padding:7px 10px;font-weight:700;color:var(--accent)">${x.sheet.label}</td>
+      <td style="padding:7px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--text2)">${x.sheet.header.operador||'—'}</td>
+      <td style="padding:7px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--text)">${x.m.totalTmu ? x.m.totalTmu.toFixed(1) : '—'}</td>
+      <td style="padding:7px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--green)">${x.m.stdSec ? x.m.stdSec.toFixed(3) : '—'}s</td>
+      <td style="padding:7px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--purple)">${x.pph||'—'}</td>
+      <td style="padding:7px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:${ocupColor}">${ocupIcon} ${x.ocup !== null ? x.ocup+'%' : '—'}</td>
+      <td style="padding:7px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--text3)">${x.m.takt > 0 ? x.m.takt+'s' : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  var compTable = `
+    <div class="res-section-title">📊 Comparativo de Folhas</div>
+    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;overflow:auto;margin-bottom:20px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px">
+        <thead>
+          <tr style="background:var(--header-bg);border-bottom:2px solid var(--accent)">
+            <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.8px;text-transform:uppercase">Folha</th>
+            <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.6px;text-transform:uppercase">Operador/Posto</th>
+            <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.6px;text-transform:uppercase">TMU Total</th>
+            <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--green);letter-spacing:.6px;text-transform:uppercase">Tempo Padrão</th>
+            <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--purple);letter-spacing:.6px;text-transform:uppercase">Peças/hora</th>
+            <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--green);letter-spacing:.6px;text-transform:uppercase">% Ocupação</th>
+            <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.6px;text-transform:uppercase">Takt</th>
+          </tr>
+        </thead>
+        <tbody>${compRows}</tbody>
+        <tfoot>
+          <tr style="background:var(--total-bg);border-top:2px solid var(--accent)">
+            <td colspan="2" style="padding:8px 10px;font-weight:800;color:var(--accent);font-size:11px;letter-spacing:.8px;text-transform:uppercase">TOTAL / SOMA</td>
+            <td style="padding:8px 8px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:800;color:var(--text)">${totalTmuSum.toFixed(1)}</td>
+            <td style="padding:8px 8px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:800;color:var(--green)">${totalStdSec.toFixed(3)}s</td>
+            <td style="padding:8px 8px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:800;color:var(--purple)">${combinedPph||'—'}<span style="font-size:9px;color:var(--text3);font-weight:400"> pc/h</span></td>
+            <td colspan="2" style="padding:8px 8px;text-align:right;font-size:10px;color:var(--text3)">—</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>`;
+
+  // ── KPI Cards de topo ──
+  var kpiHtml = `
+    <div class="res-kpis" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+      <div class="res-kpi"><div class="res-kpi-val" style="color:var(--accent)">${sheets.length}</div><div class="res-kpi-lbl">Folhas</div></div>
+      <div class="res-kpi"><div class="res-kpi-val" style="color:var(--text)">${totalTmuSum.toFixed(0)}</div><div class="res-kpi-lbl">TMU Total</div></div>
+      <div class="res-kpi" style="background:var(--greenBg);border-color:var(--green)"><div class="res-kpi-val" style="color:var(--green)">${totalStdSec.toFixed(2)}<span style="font-size:12px">s</span></div><div class="res-kpi-lbl" style="color:var(--green)">Σ Tempo Padrão</div></div>
+      <div class="res-kpi" style="background:var(--purpleBg);border-color:var(--purple)"><div class="res-kpi-val" style="color:var(--purple)">${combinedPph||'—'}</div><div class="res-kpi-lbl" style="color:var(--purple)">Σ Peças/hora</div></div>
+    </div>`;
+
+  // ── Monta modal usando overlay existente ──
+  var overlay = document.getElementById('res-overlay');
+  overlay.className = 'res-overlay';
+  overlay.innerHTML = `
+    <div class="res-modal" style="max-width:900px">
+      <div class="res-modal::before"></div>
+      <div class="res-header">
+        <div>
+          <div class="res-title" style="color:var(--green)">📋 Relatório Final Consolidado</div>
+          <div class="res-subtitle">${sheets.length} folha${sheets.length!==1?'s':''} · ${new Date().toLocaleDateString('pt-BR')}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-green" onclick="window.print()" style="font-size:11px">⬇ PDF</button>
+          <button class="res-close" onclick="document.getElementById('res-overlay').className='res-overlay hidden'">✕</button>
+        </div>
+      </div>
+      ${kpiHtml}
+      <div class="res-body">
+        <!-- Linha do tempo / cards -->
+        <div class="res-section-title">🗂️ Visão Geral por Folha</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:20px">
+          ${cardsHtml}
+        </div>
+        ${compTable}
+        ${tableHtml}
+        <div style="padding:12px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;font-size:10px;color:var(--text3);line-height:1.7">
+          <strong style="color:var(--text2)">Notas:</strong><br>
+          • Tempo Padrão já inclui allowance (fadiga + pessoal + contingência) de cada folha.<br>
+          • "Σ Peças/hora" = 3600 ÷ Σ Tempos Padrão de todas as folhas (produção encadeada).<br>
+          • A coluna "SOMA" na tabela de jornadas representa a produção conjunta de todos os postos operando em paralelo.<br>
+          • % Ocupação requer Takt Time preenchido no cabeçalho de cada folha.
+        </div>
+      </div>
+      <div class="res-footer">
+        <button class="btn btn-green" onclick="window.print()">⬇ Gerar PDF</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('res-overlay').className='res-overlay hidden'">Fechar</button>
+      </div>
+    </div>`;
+
+  // Fechar ao clicar fora
+  overlay.onclick = function(e){ if(e.target===overlay) overlay.className='res-overlay hidden'; };
 }
 
 var _libLastCodeInput = null;
