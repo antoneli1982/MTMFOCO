@@ -2396,8 +2396,8 @@ function showResults(sid){
         const util = m.takt > 0 ? Math.min(+(m.stdSec/m.takt*100).toFixed(1), 100) : null;
         return `<tr>
           <td style="padding:6px 8px;font-weight:600;color:var(--text)">${j.lbl}</td>
-          <td style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--purple);font-weight:700">${pcs}</td>
-          <td style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--accent)">${pph}</td>
+          <td class="jor-pcs" data-pcs-base="${pcs}" style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--purple);font-weight:700">${pcs}</td>
+          <td class="jor-pph" data-pph-base="${pph}" style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--accent)">${pph}</td>
           ${util!==null ? `<td style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:${util>95?'var(--red)':util>80?'var(--orange)':'var(--green)'};font-weight:700">${util}%</td>` : '<td style="padding:6px 8px;text-align:center;color:var(--text3)">—</td>'}
         </tr>`;
       }).join('');
@@ -2469,7 +2469,9 @@ function showResults(sid){
             <tr style="background:var(--header-bg);border-bottom:1px solid var(--border2)">
               <th style="padding:8px 8px;text-align:left;font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.8px;text-transform:uppercase">Jornada</th>
               <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--purple);letter-spacing:.8px;text-transform:uppercase">Peças / turno</th>
-              <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.8px;text-transform:uppercase">Peças / hora</th>
+              <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.8px;text-transform:uppercase;cursor:pointer;user-select:none" onclick="toggleEficienciaBar()" title="Clique para simular eficiência">
+                Peças / hora <span style="font-size:8px;background:var(--accentBg);border:1px solid rgba(0,212,255,.3);border-radius:3px;padding:1px 4px;margin-left:4px;color:var(--accent)">% ▾</span>
+              </th>
               <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:${m.takt>0?'var(--green)':'var(--text3)'};letter-spacing:.8px;text-transform:uppercase">% Ocupação${m.takt<=0?' (sem takt)':''}</th>
             </tr>
           </thead>
@@ -2477,6 +2479,36 @@ function showResults(sid){
             ${jornadasHtml}
           </tbody>
         </table>
+
+        <!-- ═══ SIMULADOR DE EFICIÊNCIA ═══ -->
+        <div id="eficiencia-bar" style="display:none;background:linear-gradient(135deg,rgba(0,212,255,.06),rgba(124,58,237,.06));border-top:2px solid rgba(0,212,255,.25);padding:14px 16px">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div style="font-size:10px;font-weight:700;color:var(--accent);letter-spacing:.8px;text-transform:uppercase;white-space:nowrap">
+              🎯 Simular % Eficiência
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:200px">
+              <input id="efic-slider" type="range" min="10" max="100" value="85" step="1"
+                style="flex:1;accent-color:var(--accent);cursor:pointer"
+                oninput="sincEfic(this.value,'slider')">
+              <div style="display:flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:4px 8px">
+                <input id="efic-num" type="number" min="10" max="100" value="85"
+                  style="width:46px;background:transparent;border:none;outline:none;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;text-align:right"
+                  oninput="sincEfic(this.value,'num')">
+                <span style="font-size:13px;font-weight:700;color:var(--accent)">%</span>
+              </div>
+              <button onclick="aplicarEficiencia()" style="background:var(--accentGrad);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">Aplicar</button>
+              <button onclick="limparEficiencia()" style="background:transparent;color:var(--text2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;font-size:11px;cursor:pointer" title="Limpar">✕</button>
+            </div>
+          </div>
+          <div id="efic-resultado" style="display:none;margin-top:10px;padding:10px 12px;background:var(--surface2);border:1px solid rgba(0,212,255,.2);border-radius:8px">
+            <div style="font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px">Resultado com eficiência aplicada</div>
+            <div id="efic-linhas" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;font-size:11px"></div>
+            <div style="margin-top:8px;font-size:9px;color:var(--text3)">
+              Fórmula: Peças/hora base × (<span id="efic-pct-label" style="color:var(--accent);font-weight:700">85</span>% ÷ 100)
+            </div>
+          </div>
+        </div>
+
         <div style="padding:8px 12px;background:var(--surface2);border-top:1px solid var(--border);font-size:10px;color:var(--text3)">
           Base: Tempo Padrão = <strong style="color:var(--green)">${m.stdSec.toFixed(3)}s</strong>
           ${m.takt > 0 ? ` · Takt = <strong style="color:var(--accent)">${m.takt}s</strong> · % Ocupação = Std / Takt × 100` : ' · Informe o Takt Time para exibir % Ocupação'}
@@ -6000,7 +6032,97 @@ const LIB_CODES = [
   {code:"WRD",tmu:215,desc:"Carrinho de transporte — acréscimo acertar, >200 kg", grp:"Carrinho", cat:"Tra"}
 ];
 
-// Referência ao último input de código em foco
+// ══════════════════════════════════════════════
+// SIMULADOR DE EFICIÊNCIA — TABELA DE JORNADAS
+// ══════════════════════════════════════════════
+function toggleEficienciaBar(){
+  var bar = document.getElementById('eficiencia-bar');
+  if(!bar) return;
+  var showing = bar.style.display !== 'none';
+  bar.style.display = showing ? 'none' : 'block';
+  if(!showing){
+    // ao abrir, já aplica com o valor atual
+    var num = document.getElementById('efic-num');
+    if(num) aplicarEficiencia();
+  }
+}
+
+function sincEfic(val, origem){
+  var v = Math.max(10, Math.min(100, parseInt(val)||85));
+  var slider = document.getElementById('efic-slider');
+  var num    = document.getElementById('efic-num');
+  if(origem !== 'slider' && slider) slider.value = v;
+  if(origem !== 'num'    && num)    num.value    = v;
+  aplicarEficiencia(v);
+}
+
+function aplicarEficiencia(pctArg){
+  var pct = pctArg !== undefined ? parseInt(pctArg) : parseInt((document.getElementById('efic-num')||{value:'85'}).value) || 85;
+  pct = Math.max(10, Math.min(100, pct));
+
+  // Atualiza células pph
+  var pphCells = document.querySelectorAll('.jor-pph');
+  pphCells.forEach(function(td){
+    var base = parseFloat(td.dataset.pphBase) || 0;
+    var adj  = (base * pct / 100).toFixed(2);
+    td.innerHTML = '<span style="color:var(--text3);font-size:10px;text-decoration:line-through">' + base + '</span>'
+                 + ' <span style="color:var(--accent);font-weight:700">→ ' + adj + '</span>';
+  });
+
+  // Atualiza células pcs/turno
+  var pcsCells = document.querySelectorAll('.jor-pcs');
+  pcsCells.forEach(function(td){
+    var base = parseInt(td.dataset.pcsBase) || 0;
+    var adj  = Math.floor(base * pct / 100);
+    td.innerHTML = '<span style="color:var(--text3);font-size:10px;text-decoration:line-through">' + base + '</span>'
+                 + ' <span style="color:var(--purple);font-weight:700">→ ' + adj + '</span>';
+  });
+
+  // Resultado resumido
+  var resDiv   = document.getElementById('efic-resultado');
+  var linhasEl = document.getElementById('efic-linhas');
+  var pctLabel = document.getElementById('efic-pct-label');
+  if(resDiv)   resDiv.style.display = 'block';
+  if(pctLabel) pctLabel.textContent = pct;
+
+  if(linhasEl && pphCells.length > 0){
+    var jornadas = ['7 h','7,5 h','8 h','8,5 h','9 h'];
+    var html = '';
+    var pcsArr = document.querySelectorAll('.jor-pcs');
+    pphCells.forEach(function(td, i){
+      var basePph = parseFloat(td.dataset.pphBase) || 0;
+      var adjPph  = (basePph * pct / 100).toFixed(2);
+      var basePcs = pcsArr[i] ? parseInt(pcsArr[i].dataset.pcsBase)||0 : 0;
+      var adjPcs  = Math.floor(basePcs * pct / 100);
+      var lbl     = jornadas[i] || (i+1)+'ª jornada';
+      html += '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:8px;text-align:center">'
+            + '<div style="font-size:9px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px">' + lbl + '</div>'
+            + '<div style="font-size:15px;font-weight:800;color:var(--accent);font-family:\'JetBrains Mono\',monospace;margin-top:2px">' + adjPph + '<span style="font-size:9px;color:var(--text3)"> pc/h</span></div>'
+            + '<div style="font-size:11px;color:var(--purple);font-family:\'JetBrains Mono\',monospace">' + adjPcs + '<span style="font-size:9px;color:var(--text3)"> pc/turno</span></div>'
+            + '</div>';
+    });
+    linhasEl.innerHTML = html;
+  }
+}
+
+function limparEficiencia(){
+  // Restaura valores originais
+  document.querySelectorAll('.jor-pph').forEach(function(td){
+    td.textContent = td.dataset.pphBase;
+  });
+  document.querySelectorAll('.jor-pcs').forEach(function(td){
+    td.textContent = td.dataset.pcsBase;
+  });
+  var resDiv = document.getElementById('efic-resultado');
+  if(resDiv) resDiv.style.display = 'none';
+  var slider = document.getElementById('efic-slider');
+  var num    = document.getElementById('efic-num');
+  if(slider) slider.value = 85;
+  if(num)    num.value    = 85;
+  var bar = document.getElementById('eficiencia-bar');
+  if(bar) bar.style.display = 'none';
+}
+
 var _libLastCodeInput = null;
 var _libLastRow = null;
 
