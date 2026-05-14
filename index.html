@@ -927,7 +927,139 @@ table.mtm tfoot tr.total-row td{
   .folha-title{-webkit-text-fill-color:#e07b00!important;color:#e07b00!important}
 }
 
+/* ═══════════════════════════════════════════════════════════
+   LIVRO DE INFORMAÇÕES — Editor Rich Text estilo Word
+   ═══════════════════════════════════════════════════════════ */
+.book-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:350;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+}
+.book-overlay.hidden{display:none}
+.book-modal{
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:var(--radius);
+  width:min(960px,calc(100vw - 40px));
+  height:min(720px,calc(100vh - 60px));
+  display:flex;flex-direction:column;
+  box-shadow:var(--shadow),var(--shadow-glow);
+  position:relative;overflow:hidden;
+}
+.book-modal::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:var(--accentGrad);
+}
+.book-header{
+  padding:14px 20px;display:flex;align-items:center;gap:14px;
+  border-bottom:1px solid var(--border);background:var(--surface2);
+}
+.book-title{font-size:15px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px}
+.book-title-grad{
+  background:var(--accentGrad);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.book-sub{font-size:11px;color:var(--text2);font-weight:500}
+.book-saved{
+  font-size:10px;color:var(--green);
+  background:var(--greenBg);padding:3px 9px;border-radius:5px;
+  font-weight:600;letter-spacing:.3px;
+}
+.book-toolbar{
+  padding:9px 14px;display:flex;align-items:center;gap:3px;flex-wrap:wrap;
+  background:var(--surface2);border-bottom:1px solid var(--border);
+}
+.bt-btn{
+  background:transparent;border:1px solid transparent;
+  color:var(--text2);font-family:'Inter',sans-serif;font-weight:600;
+  font-size:12px;padding:5px 9px;border-radius:6px;cursor:pointer;
+  transition:all .15s;min-width:30px;display:inline-flex;align-items:center;justify-content:center;gap:4px;
+}
+.bt-btn:hover{background:var(--surface3);color:var(--text);border-color:var(--border2)}
+.bt-btn.bold{font-weight:800}
+.bt-btn.italic{font-style:italic}
+.bt-btn.under{text-decoration:underline}
+.bt-btn.strike{text-decoration:line-through}
+.bt-sep{width:1px;height:20px;background:var(--border2);margin:0 4px}
+.bt-select{
+  background:var(--surface);border:1px solid var(--border2);
+  color:var(--text);font-family:'Inter',sans-serif;
+  font-size:11px;padding:4px 7px;border-radius:5px;cursor:pointer;outline:none;
+}
+.bt-color{
+  width:28px;height:24px;padding:0;border:1px solid var(--border2);
+  border-radius:5px;cursor:pointer;background:var(--surface);
+}
+#book-editor{
+  flex:1;overflow-y:auto;padding:30px 44px;background:var(--surface);
+  color:var(--text);font-family:'Inter',sans-serif;font-size:14px;line-height:1.75;
+  outline:none;
+}
+#book-editor:focus{outline:none}
+#book-editor h1{font-size:26px;font-weight:800;margin:18px 0 12px;color:var(--text);letter-spacing:-.3px}
+#book-editor h2{font-size:21px;font-weight:700;margin:16px 0 10px;color:var(--text)}
+#book-editor h3{font-size:17px;font-weight:700;margin:14px 0 8px;color:var(--accent)}
+#book-editor h4{font-size:14px;font-weight:700;margin:12px 0 6px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px}
+#book-editor p{margin:0 0 10px}
+#book-editor ul,#book-editor ol{margin:8px 0 12px 24px}
+#book-editor li{margin:4px 0}
+#book-editor blockquote{
+  border-left:4px solid var(--accent);
+  background:var(--accentBg);
+  margin:12px 0;padding:10px 16px;border-radius:0 6px 6px 0;
+  color:var(--text2);font-style:italic;
+}
+#book-editor a{color:var(--accent);text-decoration:underline}
+#book-editor hr{border:none;border-top:1px solid var(--border2);margin:18px 0}
+#book-editor table{border-collapse:collapse;margin:10px 0;width:100%}
+#book-editor table td,#book-editor table th{border:1px solid var(--border2);padding:6px 9px;font-size:13px}
+#book-editor table th{background:var(--surface2);font-weight:700}
+#book-editor code{background:var(--surface3);padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent)}
+#book-editor img{max-width:100%;border-radius:6px;margin:8px 0}
+.book-footer{
+  padding:12px 18px;display:flex;align-items:center;gap:10px;
+  border-top:1px solid var(--border);background:var(--surface2);
+}
+.book-stat{font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.4px;text-transform:uppercase}
+.book-close-x{
+  background:transparent;border:none;color:var(--text2);
+  font-size:22px;cursor:pointer;width:32px;height:32px;border-radius:6px;
+  display:inline-flex;align-items:center;justify-content:center;transition:all .15s;
+}
+.book-close-x:hover{background:var(--redBg);color:var(--red)}
+
+@media(max-width:768px){
+  .book-modal{width:calc(100vw - 16px);height:calc(100vh - 30px);border-radius:8px}
+  #book-editor{padding:18px 18px}
+  .book-toolbar{padding:7px 8px;gap:2px}
+  .bt-btn{padding:6px 8px;font-size:13px;min-width:34px}
+  .bt-btn .bt-lbl{display:none}
+  .bt-sep{margin:0 2px}
+  .book-header{padding:10px 14px;flex-wrap:wrap;gap:8px}
+  .book-title{font-size:13px}
+  .book-sub{display:none}
+}
+
+/* ═══ Excel toast/feedback ═══ */
+.xl-toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:var(--surface);border:1px solid var(--green);
+  color:var(--green);font-size:12px;font-weight:700;
+  padding:11px 20px;border-radius:9px;
+  box-shadow:var(--shadow);z-index:400;
+  display:flex;align-items:center;gap:8px;letter-spacing:.3px;
+  animation:xlToastIn .25s ease-out;
+}
+@keyframes xlToastIn{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
+.xl-toast.err{border-color:var(--red);color:var(--red)}
+
+@media print{
+  .book-overlay,.xl-toast{display:none!important}
+}
+
 </style>
+<!-- SheetJS (xlsx) — biblioteca para importar e exportar Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -1362,8 +1494,12 @@ table.mtm tfoot tr.total-row td{
     <button class="btn btn-ghost" onclick="showDashboard()" title="Voltar ao início" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(0,212,255,.25)">🏠<span class="btn-lbl"> Início</span></button>
     <button class="btn btn-ghost" onclick="addSheet()" title="Nova Folha">＋<span class="btn-lbl"> Nova Folha</span></button>
     <button class="btn btn-ghost" onclick="openLibrary()" title="📚 Biblioteca MTM" style="letter-spacing:.2px">📚<span class="btn-lbl"> Biblioteca</span></button>
+    <button class="btn btn-ghost" onclick="openBook()" title="Livro de Informações — Anote tudo sobre o processo" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(124,58,237,.28)">📖<span class="btn-lbl"> Livro</span></button>
     <button class="btn btn-ghost" onclick="renameCurrentSheet()" title="Renomear">✏️<span class="btn-lbl"> Renomear</span></button>
     <button class="btn btn-danger" onclick="deleteCurrentSheet()" title="Excluir">✕<span class="btn-lbl"> Excluir</span></button>
+    <button class="btn btn-ghost" onclick="importExcelPrompt()" title="Importar planilha Excel (.xlsx)" style="background:rgba(0,229,160,.08);color:var(--green);border-color:rgba(0,229,160,.3)">📥<span class="btn-lbl"> Excel</span></button>
+    <button class="btn btn-ghost" onclick="exportExcel()" title="Exportar todas as folhas para Excel (.xlsx)" style="background:rgba(0,229,160,.08);color:var(--green);border-color:rgba(0,229,160,.3)">📤<span class="btn-lbl"> Excel</span></button>
+    <input type="file" id="xlsx-import-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="importExcelHandle(this)">
     <button class="btn btn-green" onclick="exportPDF()" title="Gerar PDF">⬇<span class="btn-lbl"> PDF</span></button>
     <button class="btn btn-primary" onclick="showFinalReport()" title="Relatório consolidado de todas as folhas" style="background:linear-gradient(135deg,#00e5a0,#00b87a);border:none;color:#001a12;font-weight:700">📋<span class="btn-lbl"> Relatório Final</span></button>
     <button class="btn btn-primary" onclick="openProjectManager()" title="Gerenciador de Projetos" style="background:linear-gradient(135deg,#4f8ef7,#6366f1);border:none;color:#fff">📁<span class="btn-lbl"> Projetos</span></button>
@@ -1442,6 +1578,86 @@ table.mtm tfoot tr.total-row td{
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('rename-modal')">Cancelar</button>
       <button class="btn btn-primary" onclick="confirmRename()">Renomear</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     LIVRO DE INFORMAÇÕES — Editor estilo Word por folha
+     ═══════════════════════════════════════════════════════════ -->
+<div class="book-overlay hidden" id="book-overlay" onclick="bookCloseOnBg(event)">
+  <div class="book-modal">
+    <div class="book-header">
+      <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1">
+        <div class="book-title">
+          <span style="font-size:18px">📖</span>
+          <span class="book-title-grad">Livro de Informações</span>
+          <span style="color:var(--text3);font-weight:500;font-size:12px">·</span>
+          <span id="book-folha-name" style="color:var(--text);font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">—</span>
+        </div>
+        <div class="book-sub">Anote tudo que for relevante sobre o processo: análises, observações, padrões, ações, decisões, premissas, contatos…</div>
+      </div>
+      <span class="book-saved" id="book-saved" style="display:none">💾 Salvo</span>
+      <button class="book-close-x" onclick="closeBook()" title="Fechar">✕</button>
+    </div>
+
+    <div class="book-toolbar">
+      <select class="bt-select" onchange="bookBlock(this.value);this.value=''" title="Estilo do parágrafo">
+        <option value="">Estilo…</option>
+        <option value="h1">Título 1</option>
+        <option value="h2">Título 2</option>
+        <option value="h3">Subtítulo</option>
+        <option value="h4">Etiqueta</option>
+        <option value="p">Texto normal</option>
+        <option value="blockquote">Citação</option>
+        <option value="pre">Pré-formatado</option>
+      </select>
+      <select class="bt-select" onchange="bookCmd('fontSize',this.value);this.value=''" title="Tamanho">
+        <option value="">Tam…</option>
+        <option value="1">XS</option>
+        <option value="2">P</option>
+        <option value="3">M</option>
+        <option value="4">G</option>
+        <option value="5">GG</option>
+        <option value="6">XG</option>
+        <option value="7">XXG</option>
+      </select>
+      <span class="bt-sep"></span>
+      <button class="bt-btn bold" onclick="bookCmd('bold')" title="Negrito (Ctrl+B)">B</button>
+      <button class="bt-btn italic" onclick="bookCmd('italic')" title="Itálico (Ctrl+I)">I</button>
+      <button class="bt-btn under" onclick="bookCmd('underline')" title="Sublinhado (Ctrl+U)">U</button>
+      <button class="bt-btn strike" onclick="bookCmd('strikeThrough')" title="Tachado">S</button>
+      <span class="bt-sep"></span>
+      <input type="color" class="bt-color" oninput="bookCmd('foreColor',this.value)" title="Cor do texto" value="#00d4ff">
+      <input type="color" class="bt-color" oninput="bookCmd('hiliteColor',this.value)" title="Cor de fundo" value="#ffd60a">
+      <span class="bt-sep"></span>
+      <button class="bt-btn" onclick="bookCmd('insertUnorderedList')" title="Lista">• Lista</button>
+      <button class="bt-btn" onclick="bookCmd('insertOrderedList')" title="Lista numerada">1. Lista</button>
+      <span class="bt-sep"></span>
+      <button class="bt-btn" onclick="bookCmd('justifyLeft')" title="Alinhar à esquerda">⯇</button>
+      <button class="bt-btn" onclick="bookCmd('justifyCenter')" title="Centralizar">≡</button>
+      <button class="bt-btn" onclick="bookCmd('justifyRight')" title="Alinhar à direita">⯈</button>
+      <button class="bt-btn" onclick="bookCmd('justifyFull')" title="Justificar">☷</button>
+      <span class="bt-sep"></span>
+      <button class="bt-btn" onclick="bookInsertLink()" title="Inserir link">🔗<span class="bt-lbl"> Link</span></button>
+      <button class="bt-btn" onclick="bookInsertTable()" title="Inserir tabela 3×3">▦<span class="bt-lbl"> Tabela</span></button>
+      <button class="bt-btn" onclick="bookCmd('insertHorizontalRule')" title="Linha horizontal">―<span class="bt-lbl"> HR</span></button>
+      <span class="bt-sep"></span>
+      <button class="bt-btn" onclick="bookCmd('undo')" title="Desfazer (Ctrl+Z)">↶</button>
+      <button class="bt-btn" onclick="bookCmd('redo')" title="Refazer (Ctrl+Y)">↷</button>
+      <span class="bt-sep"></span>
+      <button class="bt-btn" onclick="bookCmd('removeFormat')" title="Limpar formatação">⌧<span class="bt-lbl"> Limpar</span></button>
+    </div>
+
+    <div id="book-editor" contenteditable="true" spellcheck="true" oninput="bookOnInput()"></div>
+
+    <div class="book-footer">
+      <span class="book-stat" id="book-stats">— palavras · — caracteres</span>
+      <span style="flex:1"></span>
+      <button class="btn btn-ghost" onclick="bookClearAll()" style="font-size:11px">🗑️ Limpar Tudo</button>
+      <button class="btn btn-ghost" onclick="bookExportHtml()" style="font-size:11px">⬇ HTML</button>
+      <button class="btn btn-ghost" onclick="bookExportDocx()" style="font-size:11px">⬇ Word</button>
+      <button class="btn btn-primary" onclick="closeBook()" style="font-size:11px">✓ Concluído</button>
     </div>
   </div>
 </div>
@@ -1843,6 +2059,7 @@ function saveSheets(){
     try{
       const payload = sheets.map(s=>({
         id: s.id, label: s.label, header: s.header || {},
+        book: s.book || '',
         rows: (s.rows||[]).map(r=>({
           id:r.id, desc:r.desc||'', agrega:r.agrega||'', code:r.code||'',
           tmu:r.tmu||'', q:r.q||'', f:r.f||'',
@@ -1873,7 +2090,7 @@ function toggleTheme(){
 function addSheet(silent){
   const name = (typeof silent === 'string') ? silent : null;
   const id=gid(), label=name||`FOLHA ${sheets.length+1}`;
-  sheets.push({id,label,rows:[],header:{}});
+  sheets.push({id,label,rows:[],header:{},book:''});
   if(silent===true){
     renderTabs();
   } else {
@@ -5636,6 +5853,7 @@ function bootSheetsOnce(){
         id: s.id,
         label: s.label || 'Folha',
         header: s.header || {},
+        book: s.book || '',
         rows: (s.rows||[]).map(function(r){
           return {
             id: r.id, desc: r.desc||'', agrega: r.agrega||'', code: r.code||'',
@@ -6310,6 +6528,610 @@ function libInsertCode(code, tmu, desc){
     }
   }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   LIVRO DE INFORMAÇÕES — editor rich-text por folha (estilo Word)
+   ════════════════════════════════════════════════════════════════════ */
+var _bookSaveTimer = null;
+var _bookActiveSheetId = null;
+
+function openBook(){
+  if(!activeId){
+    showToast('Selecione ou crie uma folha primeiro.', true);
+    return;
+  }
+  var s = get(activeId);
+  if(!s){ showToast('Folha não encontrada.', true); return; }
+  if(typeof s.book !== 'string') s.book = '';
+
+  _bookActiveSheetId = s.id;
+  document.getElementById('book-folha-name').textContent = s.label || 'Folha';
+
+  var editor = document.getElementById('book-editor');
+  if(s.book && s.book.trim()){
+    editor.innerHTML = s.book;
+  } else {
+    editor.innerHTML = '<h2>📝 ' + esc(s.label || 'Folha') + ' — Livro de Informações</h2>'
+      + '<p style="color:var(--text2)">Use este espaço para registrar <b>tudo o que for relevante</b> sobre o processo:</p>'
+      + '<ul>'
+      + '<li>Premissas e condições de contorno</li>'
+      + '<li>Layout do posto, equipamentos e ferramentas</li>'
+      + '<li>Riscos ergonômicos e ações tomadas</li>'
+      + '<li>Hipóteses validadas e descartadas</li>'
+      + '<li>Decisões tomadas, responsáveis e datas</li>'
+      + '<li>Pendências e próximos passos</li>'
+      + '</ul>'
+      + '<p><i>Esta caixa de texto suporta formatação, listas, links, tabelas e mais. Use a barra de ferramentas acima.</i></p>';
+  }
+
+  document.getElementById('book-overlay').classList.remove('hidden');
+  setTimeout(function(){
+    bookUpdateStats();
+    editor.focus();
+    // Posiciona cursor no fim
+    try{
+      var range = document.createRange();
+      range.selectNodeContents(editor);
+      range.collapse(false);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }catch(e){}
+  }, 80);
+}
+
+function closeBook(){
+  bookPersistNow();
+  document.getElementById('book-overlay').classList.add('hidden');
+  _bookActiveSheetId = null;
+}
+
+function bookCloseOnBg(e){
+  if(e.target && e.target.id === 'book-overlay') closeBook();
+}
+
+function bookOnInput(){
+  var s = _bookActiveSheetId ? get(_bookActiveSheetId) : null;
+  if(!s) return;
+  s.book = document.getElementById('book-editor').innerHTML;
+  bookUpdateStats();
+
+  // Indicador visual de salvamento
+  var badge = document.getElementById('book-saved');
+  badge.style.display = '';
+  badge.textContent = '✏️ Editando…';
+  badge.style.color = 'var(--orange)';
+  badge.style.background = 'var(--orangeBg)';
+  badge.style.borderColor = 'var(--orange)';
+
+  clearTimeout(_bookSaveTimer);
+  _bookSaveTimer = setTimeout(function(){
+    saveSheets();
+    badge.textContent = '💾 Salvo · ' + new Date().toLocaleTimeString('pt-BR');
+    badge.style.color = 'var(--green)';
+    badge.style.background = 'var(--greenBg)';
+    badge.style.borderColor = '';
+  }, 500);
+}
+
+function bookPersistNow(){
+  var s = _bookActiveSheetId ? get(_bookActiveSheetId) : null;
+  if(!s) return;
+  s.book = document.getElementById('book-editor').innerHTML;
+  clearTimeout(_bookSaveTimer);
+  saveSheets();
+}
+
+function bookCmd(cmd, value){
+  document.getElementById('book-editor').focus();
+  try{ document.execCommand(cmd, false, value == null ? null : value); }catch(e){}
+  bookOnInput();
+}
+
+function bookBlock(tag){
+  if(!tag) return;
+  document.getElementById('book-editor').focus();
+  try{ document.execCommand('formatBlock', false, tag); }catch(e){}
+  bookOnInput();
+}
+
+function bookClearAll(){
+  if(!confirm('Limpar todo o conteúdo do livro desta folha? Esta ação não pode ser desfeita pelo Ctrl+Z.')) return;
+  document.getElementById('book-editor').innerHTML = '';
+  bookOnInput();
+}
+
+function bookInsertLink(){
+  var url = prompt('Cole o endereço do link (URL):', 'https://');
+  if(!url || url === 'https://') return;
+  bookCmd('createLink', url);
+}
+
+function bookInsertTable(){
+  var rows = parseInt(prompt('Quantas linhas?', '3'), 10) || 3;
+  var cols = parseInt(prompt('Quantas colunas?', '3'), 10) || 3;
+  rows = Math.max(1, Math.min(20, rows));
+  cols = Math.max(1, Math.min(10, cols));
+  var html = '<table><thead><tr>';
+  for(var c=0;c<cols;c++) html += '<th>Col ' + (c+1) + '</th>';
+  html += '</tr></thead><tbody>';
+  for(var r=0;r<rows;r++){
+    html += '<tr>';
+    for(var cc=0;cc<cols;cc++) html += '<td>&nbsp;</td>';
+    html += '</tr>';
+  }
+  html += '</tbody></table><p><br></p>';
+  bookCmd('insertHTML', html);
+}
+
+function bookUpdateStats(){
+  var editor = document.getElementById('book-editor');
+  if(!editor) return;
+  var text = editor.innerText || editor.textContent || '';
+  var chars = text.length;
+  var words = (text.trim().match(/\S+/g) || []).length;
+  document.getElementById('book-stats').textContent =
+    words + ' palavra' + (words!==1?'s':'') + ' · ' + chars + ' caractere' + (chars!==1?'s':'');
+}
+
+function bookExportHtml(){
+  var s = _bookActiveSheetId ? get(_bookActiveSheetId) : null;
+  if(!s) return;
+  bookPersistNow();
+  var h = s.header || {};
+  var headerInfo = '';
+  if(h.processo) headerInfo += '<p><b>Processo:</b> ' + esc(h.processo) + '</p>';
+  if(h.codigo)   headerInfo += '<p><b>Código:</b> '   + esc(h.codigo)   + '</p>';
+  if(h.data)     headerInfo += '<p><b>Data:</b> '     + esc(h.data)     + '</p>';
+  if(h.planta)   headerInfo += '<p><b>Planta:</b> '   + esc(h.planta)   + '</p>';
+  if(h.eng)      headerInfo += '<p><b>Engenheiro:</b> '+ esc(h.eng)     + '</p>';
+  if(h.operator) headerInfo += '<p><b>Operador/Posto:</b> ' + esc(h.operator) + '</p>';
+
+  var doc = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">'
+    + '<title>' + esc(s.label) + ' — Livro de Informações</title>'
+    + '<style>'
+    + 'body{font-family:Arial,Helvetica,sans-serif;max-width:820px;margin:32px auto;padding:0 24px;line-height:1.65;color:#222}'
+    + 'h1{color:#0066cc;border-bottom:3px solid #0066cc;padding-bottom:8px}'
+    + 'h2{color:#0066cc;margin-top:24px}'
+    + 'h3{color:#444}'
+    + 'blockquote{border-left:4px solid #0066cc;background:#f4f8ff;padding:10px 16px;margin:12px 0;color:#333;font-style:italic}'
+    + 'table{border-collapse:collapse;width:100%;margin:10px 0}'
+    + 'table td,table th{border:1px solid #aaa;padding:6px 10px}'
+    + 'table th{background:#f0f4ff}'
+    + '.hdr-info{background:#f8faff;padding:14px 18px;border:1px solid #e0e6f0;border-radius:8px;margin:14px 0;font-size:13px}'
+    + '.hdr-info p{margin:3px 0}'
+    + '</style></head><body>'
+    + '<h1>📖 ' + esc(s.label) + ' — Livro de Informações</h1>'
+    + (headerInfo ? '<div class="hdr-info">' + headerInfo + '</div>' : '')
+    + '<hr>' + (s.book || '<p><i>Sem conteúdo.</i></p>')
+    + '<hr><p style="font-size:11px;color:#888;margin-top:30px">Gerado pela Ferramenta MTM em ' + new Date().toLocaleString('pt-BR') + '</p>'
+    + '</body></html>';
+  var blob = new Blob([doc], {type:'text/html;charset=utf-8'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (s.label||'livro').replace(/[^\w\-]+/g,'_').substring(0,60) + '_livro.html';
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 200);
+  showToast('Livro exportado como HTML.');
+}
+
+function bookExportDocx(){
+  // Truque conhecido: gera um .doc HTML-based, que o Word abre nativamente
+  var s = _bookActiveSheetId ? get(_bookActiveSheetId) : null;
+  if(!s) return;
+  bookPersistNow();
+  var h = s.header || {};
+  var headerInfo = '';
+  if(h.processo) headerInfo += '<p><b>Processo:</b> ' + esc(h.processo) + '</p>';
+  if(h.codigo)   headerInfo += '<p><b>Código:</b> '   + esc(h.codigo)   + '</p>';
+  if(h.data)     headerInfo += '<p><b>Data:</b> '     + esc(h.data)     + '</p>';
+  if(h.planta)   headerInfo += '<p><b>Planta:</b> '   + esc(h.planta)   + '</p>';
+  if(h.eng)      headerInfo += '<p><b>Engenheiro:</b> '+ esc(h.eng)     + '</p>';
+  if(h.operator) headerInfo += '<p><b>Operador/Posto:</b> ' + esc(h.operator) + '</p>';
+
+  var html =
+    '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
+    + '<head><meta charset="UTF-8">'
+    + '<title>' + esc(s.label) + '</title>'
+    + '<style>'
+    + 'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;line-height:1.5}'
+    + 'h1{color:#0066cc;font-size:18pt}'
+    + 'h2{color:#0066cc;font-size:14pt}'
+    + 'h3{font-size:12pt}'
+    + 'table{border-collapse:collapse;width:100%}'
+    + 'table td,table th{border:1px solid #888;padding:5px 9px}'
+    + 'table th{background:#e6efff}'
+    + 'blockquote{border-left:3px solid #0066cc;padding:6px 12px;margin:10px 0;color:#444;font-style:italic;background:#f4f8ff}'
+    + '</style></head><body>'
+    + '<h1>' + esc(s.label) + ' — Livro de Informações</h1>'
+    + headerInfo
+    + '<hr>' + (s.book || '<p><i>Sem conteúdo.</i></p>')
+    + '<hr><p style="font-size:9pt;color:#777">Gerado pela Ferramenta MTM em ' + new Date().toLocaleString('pt-BR') + '</p>'
+    + '</body></html>';
+  var blob = new Blob(['\ufeff', html], {type:'application/msword'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (s.label||'livro').replace(/[^\w\-]+/g,'_').substring(0,60) + '_livro.doc';
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 200);
+  showToast('Livro exportado como Word (.doc).');
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   IMPORTAR / EXPORTAR EXCEL (XLSX) — gestão de folhas
+   ════════════════════════════════════════════════════════════════════ */
+
+function showToast(msg, isErr){
+  var t = document.createElement('div');
+  t.className = 'xl-toast' + (isErr ? ' err' : '');
+  t.innerHTML = (isErr ? '⚠️ ' : '✅ ') + esc(msg);
+  document.body.appendChild(t);
+  setTimeout(function(){
+    t.style.transition = 'opacity .3s, transform .3s';
+    t.style.opacity = '0';
+    t.style.transform = 'translate(-50%,12px)';
+    setTimeout(function(){ t.remove(); }, 320);
+  }, 2600);
+}
+
+function _xlCalcSheetMetrics(s){
+  var h = s.header || {};
+  var rows = s.rows || [];
+  var tmu = 0;
+  rows.forEach(function(r){
+    var q = parseFloat(r.q)||1, f = parseFloat(r.f)||1, t = parseFloat(r.tmu)||0;
+    tmu += t * q * f;
+  });
+  var aP = parseFloat(h.allowPersonal)||0;
+  var aF = parseFloat(h.allowFatigue)||0;
+  var aC = parseFloat(h.allowContingency)||0;
+  var allowTotal = aP+aF+aC;
+  var stdSec = (tmu * 0.036) * (1 + allowTotal/100);
+  var pph = stdSec > 0 ? Math.floor(3600/stdSec) : 0;
+  return {tmu:tmu, stdSec:stdSec, pph:pph, allow:allowTotal};
+}
+
+function _xlSafeSheetName(name, taken){
+  // Excel: max 31 chars, no \ / ? * [ ]
+  var clean = String(name||'Folha').replace(/[\\\/\?\*\[\]\:]/g,'_').trim().substring(0,28) || 'Folha';
+  var base = clean, i = 1;
+  while(taken[clean]){ clean = (base + '_' + (++i)).substring(0,28); }
+  taken[clean] = true;
+  return clean;
+}
+
+function exportExcel(){
+  if(typeof XLSX === 'undefined'){
+    showToast('Biblioteca XLSX ainda não carregou. Aguarde a página terminar de abrir.', true);
+    return;
+  }
+  if(!sheets.length){
+    showToast('Nenhuma folha para exportar.', true);
+    return;
+  }
+
+  try{
+    var wb = XLSX.utils.book_new();
+    var taken = {};
+
+    /* ─── 1) Aba RESUMO ─── */
+    var resumoAoa = [
+      ['MTM_RESUMO_V1'],
+      ['Ferramenta MTM — Relatório Consolidado'],
+      ['Gerado em', new Date().toLocaleString('pt-BR')],
+      ['Total de folhas', sheets.length],
+      [],
+      ['Folha','Processo','Código','Data','Planta','Engenheiro','Operador/Posto',
+       'TMU Total','Tempo Padrão (s)','Peças/h','Takt (s)','Allow Total (%)','Linhas']
+    ];
+    var grandTmu = 0, grandStd = 0;
+    sheets.forEach(function(s){
+      var h = s.header || {};
+      var m = _xlCalcSheetMetrics(s);
+      grandTmu += m.tmu; grandStd += m.stdSec;
+      resumoAoa.push([
+        s.label, h.processo||'', h.codigo||'', h.data||'',
+        h.planta||'', h.eng||'', h.operator||'',
+        +m.tmu.toFixed(2), +m.stdSec.toFixed(3), m.pph,
+        parseFloat(h.takt)||'', m.allow, (s.rows||[]).length
+      ]);
+    });
+    resumoAoa.push([]);
+    var grandPph = grandStd > 0 ? Math.floor(3600/grandStd) : 0;
+    resumoAoa.push(['SOMA / TOTAL','','','','','','', +grandTmu.toFixed(2), +grandStd.toFixed(3), grandPph,'','','']);
+
+    var wsResumo = XLSX.utils.aoa_to_sheet(resumoAoa);
+    wsResumo['!cols'] = [
+      {wch:22},{wch:24},{wch:14},{wch:11},{wch:14},{wch:18},{wch:18},
+      {wch:12},{wch:14},{wch:9},{wch:9},{wch:13},{wch:8}
+    ];
+    XLSX.utils.book_append_sheet(wb, wsResumo, _xlSafeSheetName('Resumo', taken));
+
+    /* ─── 2) Uma aba por folha ─── */
+    sheets.forEach(function(s, idx){
+      var h = s.header || {};
+      var aoa = [
+        ['MTM_FOLHA_V1'],
+        ['Nome da Folha', s.label],
+        ['Processo', h.processo||''],
+        ['Código', h.codigo||''],
+        ['Data', h.data||''],
+        ['Início', h.inicio||''],
+        ['Fim', h.fim||''],
+        ['Planta', h.planta||''],
+        ['Engenheiro', h.eng||''],
+        ['Operador/Posto', h.operator||''],
+        ['Takt (s)', parseFloat(h.takt)||''],
+        ['Demanda (peças)', parseFloat(h.demand)||''],
+        ['Allow Pessoal (%)', parseFloat(h.allowPersonal)||0],
+        ['Allow Fadiga (%)', parseFloat(h.allowFatigue)||0],
+        ['Allow Contingência (%)', parseFloat(h.allowContingency)||0],
+        [],
+        ['===TABELA==='],
+        ['Descrição','Agrega Valor','Código','TMU','Quantidade','Frequência','TMU Total','Tempo (s)']
+      ];
+      (s.rows||[]).forEach(function(r){
+        aoa.push([
+          r.desc||'', r.agrega||'', r.code||'',
+          r.tmu===''||r.tmu==null?'':(parseFloat(r.tmu)||0),
+          r.q  ===''||r.q  ==null?'':(parseFloat(r.q)  ||0),
+          r.f  ===''||r.f  ==null?'':(parseFloat(r.f)  ||0),
+          parseFloat(r.ttmu)||0, parseFloat(r.tsec)||0
+        ]);
+      });
+      // Linha de totais
+      var m = _xlCalcSheetMetrics(s);
+      aoa.push([]);
+      aoa.push(['===TOTAIS===']);
+      aoa.push(['TMU Total', +m.tmu.toFixed(2)]);
+      aoa.push(['Tempo Padrão (s)', +m.stdSec.toFixed(3)]);
+      aoa.push(['Peças/h', m.pph]);
+      aoa.push(['Allowance Total (%)', m.allow]);
+
+      var ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws['!cols'] = [{wch:42},{wch:14},{wch:12},{wch:9},{wch:11},{wch:11},{wch:11},{wch:11}];
+      XLSX.utils.book_append_sheet(wb, ws, _xlSafeSheetName(s.label || ('Folha'+(idx+1)), taken));
+    });
+
+    /* ─── 3) Aba LIVROS (Livro de Informações) ─── */
+    var anyBook = sheets.some(function(s){ return s.book && s.book.trim(); });
+    if(anyBook){
+      var livrosAoa = [
+        ['MTM_LIVROS_V1'],
+        ['Livro de Informações por Folha'],
+        [],
+        ['Folha','Conteúdo (texto plano)','Conteúdo (HTML — não editar)']
+      ];
+      sheets.forEach(function(s){
+        if(s.book && s.book.trim()){
+          var tmp = document.createElement('div');
+          tmp.innerHTML = s.book;
+          var plain = (tmp.innerText || tmp.textContent || '').trim();
+          livrosAoa.push([s.label, plain, s.book]);
+        }
+      });
+      var wsLivros = XLSX.utils.aoa_to_sheet(livrosAoa);
+      wsLivros['!cols'] = [{wch:22},{wch:70},{wch:80}];
+      XLSX.utils.book_append_sheet(wb, wsLivros, _xlSafeSheetName('Livros', taken));
+    }
+
+    /* ─── 4) Salvar ─── */
+    var stamp = new Date().toISOString().slice(0,10);
+    var fname = 'MTM_Folhas_' + stamp + '.xlsx';
+    XLSX.writeFile(wb, fname);
+    showToast('Exportado: ' + fname + ' (' + sheets.length + ' folhas)');
+  }catch(e){
+    console.error(e);
+    showToast('Erro ao exportar: ' + e.message, true);
+  }
+}
+
+function importExcelPrompt(){
+  if(typeof XLSX === 'undefined'){
+    showToast('Biblioteca XLSX ainda não carregou. Aguarde a página terminar de abrir.', true);
+    return;
+  }
+  document.getElementById('xlsx-import-input').click();
+}
+
+function importExcelHandle(input){
+  var file = input.files && input.files[0];
+  if(!file) return;
+  if(typeof XLSX === 'undefined'){
+    showToast('Biblioteca XLSX não carregada.', true);
+    input.value=''; return;
+  }
+
+  var mode = confirm(
+    'Como deseja importar "' + file.name + '"?\n\n' +
+    '  • OK = SUBSTITUIR todas as folhas atuais\n' +
+    '  • Cancelar = ADICIONAR às folhas existentes'
+  ) ? 'replace' : 'append';
+
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      var data = new Uint8Array(e.target.result);
+      var wb = XLSX.read(data, {type:'array'});
+      var newSheets = [];
+      var livrosMap = {};
+
+      var headerKeyMap = {
+        'processo':'processo',
+        'codigo':'codigo','código':'codigo',
+        'data':'data',
+        'inicio':'inicio','início':'inicio',
+        'fim':'fim',
+        'planta':'planta',
+        'engenheiro':'eng','eng':'eng','engenheira':'eng',
+        'operador':'operator','operador/posto':'operator','posto':'operator',
+        'takt':'takt','takt (s)':'takt','takt time':'takt',
+        'demanda':'demand','demanda (peças)':'demand','demanda (pecas)':'demand',
+        'allow pessoal':'allowPersonal','allow pessoal (%)':'allowPersonal','allowance pessoal':'allowPersonal',
+        'allow fadiga':'allowFatigue','allow fadiga (%)':'allowFatigue','allowance fadiga':'allowFatigue',
+        'allow contingencia':'allowContingency','allow contingência':'allowContingency',
+        'allow contingência (%)':'allowContingency','allow contingencia (%)':'allowContingency',
+        'allowance contingência':'allowContingency'
+      };
+
+      wb.SheetNames.forEach(function(sheetName){
+        var ws = wb.Sheets[sheetName];
+        if(!ws) return;
+        var aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true});
+        if(!aoa || !aoa.length) return;
+        var marker = String((aoa[0]||[])[0] || '').trim();
+
+        /* Aba de Livros */
+        if(marker === 'MTM_LIVROS_V1'){
+          for(var i=1;i<aoa.length;i++){
+            var row = aoa[i];
+            if(!row || row.length < 2) continue;
+            var lbl  = String(row[0]||'').trim();
+            var html = String(row[2]||'').trim();
+            if(!html) html = String(row[1]||'').trim(); // fallback texto plano
+            if(lbl && html && lbl.toLowerCase() !== 'folha') livrosMap[lbl] = html;
+          }
+          return;
+        }
+
+        /* Aba Resumo — ignorar */
+        if(marker === 'MTM_RESUMO_V1') return;
+
+        /* Aba de Folha — formato estrito */
+        if(marker === 'MTM_FOLHA_V1'){
+          var header = {};
+          var label = sheetName;
+          var tableHeaderIdx = -1;
+          for(var j=1;j<aoa.length;j++){
+            var r = aoa[j];
+            var k = String((r||[])[0]||'').trim();
+            if(k === '===TABELA==='){
+              tableHeaderIdx = j+1;
+              break;
+            }
+            if(k === '===TOTAIS===') break;
+            if(k === 'Nome da Folha'){
+              label = String(r[1]||sheetName).trim() || sheetName;
+            } else if(k){
+              var key = headerKeyMap[k.toLowerCase()];
+              if(key) header[key] = (r[1]==null?'':String(r[1])).trim();
+            }
+          }
+          var rows = [];
+          if(tableHeaderIdx > 0){
+            for(var k2=tableHeaderIdx+1;k2<aoa.length;k2++){
+              var rr = aoa[k2];
+              if(!rr) continue;
+              var first = String(rr[0]||'').trim();
+              if(first === '===TOTAIS===' || first.toLowerCase() === 'tmu total' ||
+                 first.toLowerCase() === 'tempo padrão (s)' || first.toLowerCase() === 'peças/h' ||
+                 first.toLowerCase() === 'allowance total (%)') break;
+              // pular linhas vazias
+              if(!first && !rr[2] && (rr[3]==='' || rr[3]==null)) continue;
+              rows.push({
+                id: 'r_imp_'+Date.now()+'_'+Math.floor(Math.random()*99999)+'_'+k2,
+                desc: String(rr[0]||''),
+                agrega: String(rr[1]||''),
+                code: String(rr[2]||''),
+                tmu: (rr[3]===''||rr[3]==null)?'':String(rr[3]),
+                q:   (rr[4]===''||rr[4]==null)?'':String(rr[4]),
+                f:   (rr[5]===''||rr[5]==null)?'':String(rr[5]),
+                ttmu: parseFloat(rr[6])||0,
+                tsec: parseFloat(rr[7])||0
+              });
+            }
+          }
+          newSheets.push({
+            id: gid(), label: label, header: header, book: '', rows: rows
+          });
+          return;
+        }
+
+        /* Fallback: tentar achar uma linha de cabeçalho "Descrição" */
+        var hdrIdx = -1;
+        for(var z=0;z<aoa.length;z++){
+          var firstCell = String((aoa[z]||[])[0]||'').trim().toLowerCase();
+          if(firstCell === 'descrição' || firstCell === 'descricao'){ hdrIdx = z; break; }
+        }
+        if(hdrIdx < 0) return; // não parece ser uma folha MTM
+        var rowsF = [];
+        for(var zz=hdrIdx+1; zz<aoa.length; zz++){
+          var rrf = aoa[zz];
+          if(!rrf) continue;
+          var firstF = String(rrf[0]||'').trim();
+          if(!firstF && !rrf[2] && (rrf[3]==='' || rrf[3]==null)) continue;
+          if(firstF.toLowerCase().indexOf('total') === 0) break;
+          rowsF.push({
+            id: 'r_imp_'+Date.now()+'_'+Math.floor(Math.random()*99999)+'_'+zz,
+            desc: String(rrf[0]||''),
+            agrega: String(rrf[1]||''),
+            code: String(rrf[2]||''),
+            tmu: (rrf[3]===''||rrf[3]==null)?'':String(rrf[3]),
+            q:   (rrf[4]===''||rrf[4]==null)?'':String(rrf[4]),
+            f:   (rrf[5]===''||rrf[5]==null)?'':String(rrf[5]),
+            ttmu: parseFloat(rrf[6])||0,
+            tsec: parseFloat(rrf[7])||0
+          });
+        }
+        if(rowsF.length){
+          newSheets.push({
+            id: gid(), label: sheetName, header: {}, book: '', rows: rowsF
+          });
+        }
+      });
+
+      if(!newSheets.length){
+        showToast('Nenhuma folha MTM válida encontrada no arquivo.', true);
+        input.value = '';
+        return;
+      }
+
+      // Associar livros pelos rótulos
+      newSheets.forEach(function(s){
+        if(livrosMap[s.label]) s.book = livrosMap[s.label];
+      });
+
+      // Aplicar
+      if(mode === 'replace'){
+        // Remover DOM antiga
+        document.querySelectorAll('.folha-content').forEach(function(el){ el.remove(); });
+        sheets = newSheets;
+      } else {
+        // Append — DOM existente permanece
+        sheets = sheets.concat(newSheets);
+      }
+      activeId = null;
+      renderTabs();
+      var targetId = (mode === 'replace') ? newSheets[0].id : newSheets[0].id;
+      setActive(targetId);
+      // Recalcular após render
+      setTimeout(function(){
+        newSheets.forEach(function(s){
+          if(typeof recalc === 'function'){ try{ recalc(s.id); }catch(e){} }
+        });
+        saveSheets();
+      }, 120);
+
+      showToast('Importado: ' + newSheets.length + ' folha(s) de "' + file.name + '"');
+    }catch(err){
+      console.error(err);
+      showToast('Erro ao importar: ' + err.message, true);
+    }
+    input.value = '';
+  };
+  reader.onerror = function(){
+    showToast('Erro ao ler o arquivo.', true);
+    input.value = '';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// Atalhos teclado dentro do editor do Livro
+document.addEventListener('keydown', function(e){
+  if(document.getElementById('book-overlay') && !document.getElementById('book-overlay').classList.contains('hidden')){
+    if(e.key === 'Escape'){ closeBook(); }
+  }
+});
 </script>
 </body>
 </html>
