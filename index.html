@@ -1460,6 +1460,231 @@ table.mtm tfoot tr.total-row td{
   .db-body{padding:16px}
   .db-proj-img{width:52px}
 }
+
+/* ═══════════════════════════════════════════════════════════
+   FADIGA & OCIOSIDADE — TV + TER (Tabela Ivan Antoneli)
+   ═══════════════════════════════════════════════════════════ */
+.fad-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:360;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+  padding:20px;
+}
+.fad-overlay.hidden{display:none}
+.fad-modal{
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:var(--radius);
+  width:min(1200px,100%);height:min(820px,calc(100vh - 40px));
+  display:flex;flex-direction:column;
+  box-shadow:var(--shadow),var(--shadow-glow);
+  position:relative;overflow:hidden;
+}
+.fad-modal::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(135deg,#ff9500,#ff4d6d,#7c3aed);
+}
+.fad-header{
+  padding:14px 20px;display:flex;align-items:center;gap:14px;
+  border-bottom:1px solid var(--border);background:var(--surface2);
+}
+.fad-title{font-size:15px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px}
+.fad-title-grad{
+  background:linear-gradient(135deg,#ff9500,#ff4d6d,#7c3aed);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.fad-sub{font-size:11px;color:var(--text2);font-weight:500}
+.fad-close{
+  width:28px;height:28px;border-radius:6px;border:1px solid var(--border2);
+  background:transparent;color:var(--text2);cursor:pointer;font-size:14px;
+  margin-left:auto;
+}
+.fad-close:hover{background:var(--redBg);color:var(--red);border-color:var(--red)}
+.fad-tabs{
+  display:flex;gap:4px;padding:10px 14px 0;background:var(--surface2);
+  border-bottom:1px solid var(--border);
+}
+.fad-tab{
+  padding:8px 16px;background:transparent;border:1px solid transparent;
+  border-radius:8px 8px 0 0;border-bottom:none;
+  color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;
+  display:flex;align-items:center;gap:6px;transition:all .2s;
+}
+.fad-tab:hover{background:var(--surface3);color:var(--text)}
+.fad-tab.active{
+  background:var(--surface);color:var(--orange);
+  border-color:var(--border2);
+  border-bottom:1px solid var(--surface);
+  margin-bottom:-1px;
+}
+.fad-body{
+  flex:1;overflow-y:auto;padding:18px 20px;
+}
+.fad-section{display:none}
+.fad-section.active{display:block}
+
+.fad-info{
+  background:var(--orangeBg);border:1px solid rgba(255,149,0,.3);
+  border-left:3px solid var(--orange);
+  border-radius:8px;padding:10px 14px;margin-bottom:14px;
+  font-size:11px;color:var(--text2);line-height:1.55;
+}
+.fad-info b{color:var(--orange)}
+.fad-info code{
+  background:var(--surface3);padding:1px 6px;border-radius:4px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);
+}
+
+.fad-grid-tv{
+  display:grid;
+  grid-template-columns:38px 1fr 110px 110px 90px;
+  gap:6px 10px;align-items:center;
+  background:var(--surface2);border:1px solid var(--border2);
+  border-radius:8px;padding:12px;
+}
+.fad-grid-tv .fad-row-h{
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+  color:var(--text2);padding:4px 0;border-bottom:1px solid var(--border);
+}
+.fad-grid-tv .fad-num{
+  font-size:11px;font-weight:700;color:var(--accent);text-align:center;
+  background:var(--accentBg);border-radius:4px;padding:5px 0;
+}
+.fad-grid-tv .fad-desc{font-size:12px;color:var(--text);line-height:1.4}
+.fad-grid-tv .fad-desc small{display:block;color:var(--text3);font-size:10px;margin-top:2px}
+.fad-grid-tv input,
+.fad-grid-tv select{
+  width:100%;padding:6px 8px;font-size:12px;
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:6px;color:var(--text);font-family:'Inter',sans-serif;
+}
+.fad-grid-tv input:focus,
+.fad-grid-tv select:focus{
+  outline:none;border-color:var(--orange);
+  box-shadow:0 0 0 2px rgba(255,149,0,.18);
+}
+.fad-pct-cell{
+  font-family:'JetBrains Mono',monospace;font-size:12px;
+  font-weight:700;text-align:right;color:var(--green);
+  background:var(--greenBg);padding:6px 10px;border-radius:6px;
+}
+.fad-pct-cell.zero{color:var(--text3);background:var(--surface3)}
+
+.fad-tv-totals{
+  margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;
+}
+.fad-tv-tot{
+  background:var(--surface2);border:1px solid var(--border2);
+  border-radius:8px;padding:14px;text-align:center;
+}
+.fad-tv-tot .l{font-size:10px;color:var(--text2);font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+.fad-tv-tot .v{
+  font-size:26px;font-weight:800;margin-top:6px;font-family:'JetBrains Mono',monospace;
+  background:linear-gradient(135deg,var(--orange),#ff4d6d);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.fad-tv-tot .s{font-size:10px;color:var(--text3);margin-top:2px}
+
+/* TER */
+.fad-ter-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;
+}
+@media(max-width:780px){.fad-ter-grid{grid-template-columns:1fr}}
+.fad-card{
+  background:var(--surface2);border:1px solid var(--border2);
+  border-radius:8px;padding:12px 14px;
+}
+.fad-card-t{
+  font-size:11px;font-weight:800;letter-spacing:.6px;
+  text-transform:uppercase;color:var(--accent);
+  display:flex;align-items:center;gap:6px;margin-bottom:10px;
+  padding-bottom:8px;border-bottom:1px solid var(--border);
+}
+.fad-card-t .badge{
+  font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;
+  background:var(--accentBg);color:var(--accent);
+  font-family:'JetBrains Mono',monospace;
+}
+.fad-field{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.fad-field label{font-size:11px;color:var(--text2);font-weight:600}
+.fad-field select,.fad-field input{
+  padding:7px 9px;font-size:12px;
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:6px;color:var(--text);font-family:'Inter',sans-serif;
+}
+.fad-field select:focus,.fad-field input:focus{
+  outline:none;border-color:var(--orange);
+  box-shadow:0 0 0 2px rgba(255,149,0,.18);
+}
+
+.fad-formula{
+  background:linear-gradient(135deg,rgba(255,149,0,.08),rgba(124,58,237,.08));
+  border:1px solid rgba(255,149,0,.3);
+  border-radius:8px;padding:14px 18px;margin-top:14px;
+}
+.fad-formula-l{
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+  color:var(--text2);margin-bottom:8px;
+}
+.fad-formula-eq{
+  font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text);
+  line-height:1.8;
+}
+.fad-formula-eq .var{color:var(--accent);font-weight:700}
+.fad-formula-eq .val{color:var(--orange);font-weight:700}
+.fad-formula-r{
+  margin-top:10px;padding-top:10px;border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+}
+.fad-formula-r .lbl{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px}
+.fad-formula-r .val{
+  font-size:28px;font-weight:800;font-family:'JetBrains Mono',monospace;
+  background:linear-gradient(135deg,var(--orange),#ff4d6d,#7c3aed);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+
+/* Análise final */
+.fad-ana-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px}
+.fad-ana-card{
+  background:var(--surface2);border:1px solid var(--border2);
+  border-radius:8px;padding:14px;text-align:center;
+}
+.fad-ana-card .l{font-size:10px;color:var(--text2);font-weight:600;letter-spacing:.4px;text-transform:uppercase}
+.fad-ana-card .v{
+  font-size:22px;font-weight:800;margin-top:4px;font-family:'JetBrains Mono',monospace;color:var(--text);
+}
+.fad-ana-card.tv .v{color:var(--blue)}
+.fad-ana-card.ter .v{color:var(--orange)}
+.fad-ana-card.total .v{color:var(--red)}
+.fad-ana-card.tn .v{color:var(--text)}
+.fad-ana-card.ts .v{color:var(--green)}
+.fad-ana-card.ocio .v.pos{color:var(--green)}
+.fad-ana-card.ocio .v.neg{color:var(--red)}
+.fad-ana-table{
+  width:100%;border-collapse:collapse;font-size:12px;
+  background:var(--surface2);border:1px solid var(--border2);border-radius:8px;overflow:hidden;
+}
+.fad-ana-table th{
+  background:var(--header-bg);color:var(--text2);
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;
+  padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);
+}
+.fad-ana-table td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text)}
+.fad-ana-table tr:last-child td{border-bottom:none}
+.fad-ana-table td.num{
+  font-family:'JetBrains Mono',monospace;font-weight:700;text-align:right;
+}
+
+.fad-footer{
+  padding:12px 20px;display:flex;align-items:center;gap:8px;
+  border-top:1px solid var(--border);background:var(--surface2);
+}
+.fad-footer .sp{flex:1}
+
+@media(max-width:780px){
+  .fad-grid-tv{grid-template-columns:32px 1fr 90px 90px 76px;font-size:11px}
+  .fad-grid-tv .fad-desc{font-size:11px}
+  .fad-modal{height:calc(100vh - 20px);max-height:100vh}
+}
 </style>
 
 <div id="dashboard">
@@ -1495,8 +1720,12 @@ table.mtm tfoot tr.total-row td{
     <button class="btn btn-ghost" onclick="addSheet()" title="Nova Folha">＋<span class="btn-lbl"> Nova Folha</span></button>
     <button class="btn btn-ghost" onclick="openLibrary()" title="📚 Biblioteca MTM" style="letter-spacing:.2px">📚<span class="btn-lbl"> Biblioteca</span></button>
     <button class="btn btn-ghost" onclick="openBook()" title="Livro de Informações — Anote tudo sobre o processo" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(124,58,237,.28)">📖<span class="btn-lbl"> Livro</span></button>
+    <button class="btn btn-ghost" onclick="openFadiga()" title="Análise de Fadiga & Ociosidade (TV + TER) — Tabela Ivan Antoneli" style="background:rgba(255,149,0,.10);color:var(--orange);border-color:rgba(255,149,0,.35)">🛌<span class="btn-lbl"> Fadiga</span></button>
     <button class="btn btn-ghost" onclick="renameCurrentSheet()" title="Renomear">✏️<span class="btn-lbl"> Renomear</span></button>
     <button class="btn btn-danger" onclick="deleteCurrentSheet()" title="Excluir">✕<span class="btn-lbl"> Excluir</span></button>
+    <button class="btn btn-ghost" onclick="saveProjectFile()" title="Salvar como — baixa arquivo MTM (.mtm.json) no computador, guardando TUDO: folhas, linhas, livros, projetos, logos" style="background:rgba(255,149,0,.10);color:var(--orange);border-color:rgba(255,149,0,.35)">💾<span class="btn-lbl"> Salvar como</span></button>
+    <button class="btn btn-ghost" onclick="openProjectFilePrompt()" title="Abrir arquivo MTM salvo (.mtm.json)" style="background:rgba(255,149,0,.10);color:var(--orange);border-color:rgba(255,149,0,.35)">📂<span class="btn-lbl"> Abrir</span></button>
+    <input type="file" id="mtm-file-input" accept=".mtm,.json,.mtm.json,application/json" style="display:none" onchange="openProjectFileHandle(this)">
     <button class="btn btn-ghost" onclick="importExcelPrompt()" title="Importar planilha Excel (.xlsx)" style="background:rgba(0,229,160,.08);color:var(--green);border-color:rgba(0,229,160,.3)">📥<span class="btn-lbl"> Excel</span></button>
     <button class="btn btn-ghost" onclick="exportExcel()" title="Exportar todas as folhas para Excel (.xlsx)" style="background:rgba(0,229,160,.08);color:var(--green);border-color:rgba(0,229,160,.3)">📤<span class="btn-lbl"> Excel</span></button>
     <input type="file" id="xlsx-import-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="importExcelHandle(this)">
@@ -1658,6 +1887,457 @@ table.mtm tfoot tr.total-row td{
       <button class="btn btn-ghost" onclick="bookExportHtml()" style="font-size:11px">⬇ HTML</button>
       <button class="btn btn-ghost" onclick="bookExportDocx()" style="font-size:11px">⬇ Word</button>
       <button class="btn btn-primary" onclick="closeBook()" style="font-size:11px">✓ Concluído</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     FADIGA & OCIOSIDADE — Modal completo (TV + TER + Análise)
+     ════════════════════════════════════════════════════════════ -->
+<div class="fad-overlay hidden" id="fad-overlay" onclick="fadCloseOnBg(event)">
+  <div class="fad-modal">
+    <div class="fad-header">
+      <div class="fad-title">🛌 <span class="fad-title-grad">Análise de Fadiga & Ociosidade</span></div>
+      <div class="fad-sub" id="fad-sub">— Folha: —</div>
+      <button class="fad-close" onclick="closeFadiga()">✕</button>
+    </div>
+
+    <div class="fad-tabs">
+      <button class="fad-tab active" data-fadtab="tv" onclick="fadShowTab('tv')">📋 TV — Tempo de Distribuição</button>
+      <button class="fad-tab" data-fadtab="ter" onclick="fadShowTab('ter')">😓 TER — Recuperação Fadiga</button>
+      <button class="fad-tab" data-fadtab="analise" onclick="fadShowTab('analise')">📊 Análise Final</button>
+    </div>
+
+    <div class="fad-body">
+
+      <!-- TAB TV -->
+      <section class="fad-section active" id="fad-sec-tv">
+        <div class="fad-info">
+          <b>📋 Tempo de Distribuição (TV) — Ociosidade de Rotina</b><br>
+          Atividades acíclicas consideradas no Tempo Verbatil. Critérios para inclusão:
+          <b>(1)</b> relacionadas ao processo e mensuráveis; <b>(2)</b> necessária atuação do homem;
+          <b>(3)</b> no mínimo 1 ocorrência a cada 2 horas.<br>
+          Base de cálculo: <code>turno = 480 min</code> · <code>dia = 1440 min</code> (3 turnos) · <code>semana = 10080 min</code>.
+          Resultado é convertido para % do tempo total.
+        </div>
+
+        <div class="fad-grid-tv">
+          <div class="fad-row-h">Nº</div>
+          <div class="fad-row-h">Descrição da atividade</div>
+          <div class="fad-row-h">Quantidade</div>
+          <div class="fad-row-h">Base</div>
+          <div class="fad-row-h" style="text-align:right">%</div>
+
+          <!-- 1 - Pausa Pessoal -->
+          <div class="fad-num">1</div>
+          <div class="fad-desc">Pausa Pessoal <small>Necessidades pessoais (água, banheiro, etc). Norma 2.6: 3,75% a 5,00%</small></div>
+          <div><input type="number" step="0.01" min="0" max="10" id="tv-pausa" value="3.75" onchange="fadRecalc()"></div>
+          <div style="font-size:10px;color:var(--text2);text-align:center">% direto</div>
+          <div class="fad-pct-cell" id="tv-pct-1">3.75 %</div>
+
+          <!-- 2 - Limpeza Superficial Pessoal -->
+          <div class="fad-num">2</div>
+          <div class="fad-desc">Limpeza Superficial Pessoal <small>Limpeza pesada, ir ao lavatório</small></div>
+          <div><input type="number" step="0.1" min="0" id="tv-limpPes-min" value="15" onchange="fadRecalc()" placeholder="minutos"></div>
+          <div>
+            <select id="tv-limpPes-base" onchange="fadRecalc()">
+              <option value="turno">por turno</option>
+              <option value="dia" selected>por dia</option>
+              <option value="semana">por semana</option>
+            </select>
+          </div>
+          <div class="fad-pct-cell" id="tv-pct-2">— %</div>
+
+          <!-- 3 - Limpeza Superficial Posto -->
+          <div class="fad-num">3</div>
+          <div class="fad-desc">Limpeza Superficial do Posto <small>Limpeza do local de trabalho</small></div>
+          <div><input type="number" step="0.1" min="0" id="tv-limpPos-min" value="30" onchange="fadRecalc()" placeholder="minutos"></div>
+          <div>
+            <select id="tv-limpPos-base" onchange="fadRecalc()">
+              <option value="turno">por turno</option>
+              <option value="dia" selected>por dia</option>
+              <option value="semana">por semana</option>
+            </select>
+          </div>
+          <div class="fad-pct-cell" id="tv-pct-3">— %</div>
+
+          <!-- 4 - Limpeza Geral -->
+          <div class="fad-num">4</div>
+          <div class="fad-desc">Limpeza Geral Semanal Coletiva</div>
+          <div><input type="number" step="0.1" min="0" id="tv-limpGer-min" value="210" onchange="fadRecalc()" placeholder="minutos"></div>
+          <div>
+            <select id="tv-limpGer-base" onchange="fadRecalc()">
+              <option value="turno">por turno</option>
+              <option value="dia">por dia</option>
+              <option value="semana" selected>por semana</option>
+            </select>
+          </div>
+          <div class="fad-pct-cell" id="tv-pct-4">— %</div>
+
+          <!-- 5 - Troca de Ferramenta -->
+          <div class="fad-num">5</div>
+          <div class="fad-desc">Troca de Ferramenta <small>min/troca × frequência</small></div>
+          <div style="display:flex;gap:4px">
+            <input type="number" step="0.1" min="0" id="tv-troca-min" value="0" onchange="fadRecalc()" placeholder="min/troca" title="minutos por troca">
+            <input type="number" step="1" min="0" id="tv-troca-pcs" value="0" onchange="fadRecalc()" placeholder="pç/troca" title="peças entre trocas">
+          </div>
+          <div style="display:flex;gap:4px">
+            <input type="number" step="1" min="0" id="tv-troca-prodH" value="0" onchange="fadRecalc()" placeholder="prod/h" title="produção horária do equipamento">
+            <span style="font-size:10px;color:var(--text3);align-self:center">pç/h</span>
+          </div>
+          <div class="fad-pct-cell" id="tv-pct-5">— %</div>
+
+          <!-- 6 - Caderno -->
+          <div class="fad-num">6</div>
+          <div class="fad-desc">Preenchimento do Caderno de Liberação <small>Na troca de turno</small></div>
+          <div><input type="number" step="0.1" min="0" id="tv-caderno-min" value="15" onchange="fadRecalc()" placeholder="minutos"></div>
+          <div>
+            <select id="tv-caderno-base" onchange="fadRecalc()">
+              <option value="turno">por turno</option>
+              <option value="dia" selected>por dia</option>
+              <option value="semana">por semana</option>
+            </select>
+          </div>
+          <div class="fad-pct-cell" id="tv-pct-6">— %</div>
+
+          <!-- 7 - Temperatura -->
+          <div class="fad-num">7</div>
+          <div class="fad-desc">Atingir Temperatura de Trabalho</div>
+          <div><input type="number" step="0.1" min="0" id="tv-temp-min" value="0" onchange="fadRecalc()" placeholder="minutos"></div>
+          <div>
+            <select id="tv-temp-base" onchange="fadRecalc()">
+              <option value="turno">por turno</option>
+              <option value="dia" selected>por dia</option>
+              <option value="semana">por semana</option>
+            </select>
+          </div>
+          <div class="fad-pct-cell" id="tv-pct-7">— %</div>
+
+          <!-- 8a - Manutenção Autônoma (parada) -->
+          <div class="fad-num">8a</div>
+          <div class="fad-desc">Manutenção Autônoma — máquina parada <small>Lubrificação, troca de fluidos</small></div>
+          <div><input type="number" step="0.1" min="0" id="tv-manPar-min" value="0" onchange="fadRecalc()" placeholder="minutos"></div>
+          <div>
+            <select id="tv-manPar-base" onchange="fadRecalc()">
+              <option value="turno">por turno</option>
+              <option value="dia" selected>por dia</option>
+              <option value="semana">por semana</option>
+            </select>
+          </div>
+          <div class="fad-pct-cell" id="tv-pct-8a">— %</div>
+
+          <!-- 8b - Manutenção Autônoma (funcionando) -->
+          <div class="fad-num">8b</div>
+          <div class="fad-desc">Manutenção Autônoma — máquina em funcionamento</div>
+          <div><input type="number" step="0.1" min="0" id="tv-manFunc-min" value="0" onchange="fadRecalc()" placeholder="minutos"></div>
+          <div>
+            <select id="tv-manFunc-base" onchange="fadRecalc()">
+              <option value="turno">por turno</option>
+              <option value="dia" selected>por dia</option>
+              <option value="semana">por semana</option>
+            </select>
+          </div>
+          <div class="fad-pct-cell" id="tv-pct-8b">— %</div>
+
+          <!-- 9 - Interrupção peça não mensurável -->
+          <div class="fad-num">9</div>
+          <div class="fad-desc">Interrupção devido à peça não mensurável <small>Ex: quebra do fio no carretel</small></div>
+          <div><input type="number" step="0.1" min="0" id="tv-interr-min" value="0" onchange="fadRecalc()" placeholder="minutos"></div>
+          <div>
+            <select id="tv-interr-base" onchange="fadRecalc()">
+              <option value="turno">por turno</option>
+              <option value="dia" selected>por dia</option>
+              <option value="semana">por semana</option>
+            </select>
+          </div>
+          <div class="fad-pct-cell" id="tv-pct-9">— %</div>
+
+          <!-- 10 - Revezamento -->
+          <div class="fad-num">10</div>
+          <div class="fad-desc">Revezamento <small>Freq (h) · Passos (max) · TMU</small></div>
+          <div style="display:flex;gap:4px">
+            <input type="number" step="0.1" min="0" id="tv-rev-freq" value="0" onchange="fadRecalc()" placeholder="Freq/h" title="frequência por hora">
+            <input type="number" step="1" min="0" id="tv-rev-passos" value="0" onchange="fadRecalc()" placeholder="passos" title="passos máximos">
+          </div>
+          <div>
+            <input type="number" step="1" min="0" id="tv-rev-tmu" value="0" onchange="fadRecalc()" placeholder="TMU" title="TMU do revezamento">
+          </div>
+          <div class="fad-pct-cell" id="tv-pct-10">— %</div>
+
+          <!-- 11a - Ginástica Preparatória -->
+          <div class="fad-num">11a</div>
+          <div class="fad-desc">Ginástica Preparatória</div>
+          <div><input type="number" step="0.1" min="0" id="tv-ginPrep-min" value="0" onchange="fadRecalc()" placeholder="minutos"></div>
+          <div>
+            <select id="tv-ginPrep-base" onchange="fadRecalc()">
+              <option value="turno" selected>por turno</option>
+              <option value="dia">por dia</option>
+              <option value="semana">por semana</option>
+            </select>
+          </div>
+          <div class="fad-pct-cell" id="tv-pct-11a">— %</div>
+
+          <!-- 11b - Ginástica Compensatória -->
+          <div class="fad-num">11b</div>
+          <div class="fad-desc">Ginástica Compensatória</div>
+          <div><input type="number" step="0.1" min="0" id="tv-ginComp-min" value="0" onchange="fadRecalc()" placeholder="minutos"></div>
+          <div>
+            <select id="tv-ginComp-base" onchange="fadRecalc()">
+              <option value="turno" selected>por turno</option>
+              <option value="dia">por dia</option>
+              <option value="semana">por semana</option>
+            </select>
+          </div>
+          <div class="fad-pct-cell" id="tv-pct-11b">— %</div>
+
+          <!-- 12a - Reunião Produção -->
+          <div class="fad-num">12a</div>
+          <div class="fad-desc">Reunião — Produção</div>
+          <div><input type="number" step="0.1" min="0" id="tv-reuProd-min" value="32" onchange="fadRecalc()" placeholder="minutos"></div>
+          <div>
+            <select id="tv-reuProd-base" onchange="fadRecalc()">
+              <option value="turno">por turno</option>
+              <option value="dia" selected>por dia</option>
+              <option value="semana">por semana</option>
+            </select>
+          </div>
+          <div class="fad-pct-cell" id="tv-pct-12a">— %</div>
+
+          <!-- 12b - Reunião Qualidade/Segurança -->
+          <div class="fad-num">12b</div>
+          <div class="fad-desc">Reunião — Qualidade / Segurança</div>
+          <div><input type="number" step="0.1" min="0" id="tv-reuQS-min" value="6.4" onchange="fadRecalc()" placeholder="minutos"></div>
+          <div>
+            <select id="tv-reuQS-base" onchange="fadRecalc()">
+              <option value="turno">por turno</option>
+              <option value="dia" selected>por dia</option>
+              <option value="semana">por semana</option>
+            </select>
+          </div>
+          <div class="fad-pct-cell" id="tv-pct-12b">— %</div>
+        </div>
+
+        <div class="fad-tv-totals">
+          <div class="fad-tv-tot">
+            <div class="l">Σ tv (ts + tp) → Aplicar (%)</div>
+            <div class="v" id="tv-total">0,00 %</div>
+            <div class="s">Total da ociosidade de rotina (estática + paradas)</div>
+          </div>
+          <div class="fad-tv-tot">
+            <div class="l">Σ tvB (só ts) → Aplicar (%)</div>
+            <div class="v" id="tvB-total">0,00 %</div>
+            <div class="s">Só tempos estáticos (pausa, refeição, reunião, ginástica)</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB TER -->
+      <section class="fad-section" id="fad-sec-ter">
+        <div class="fad-info">
+          <b>😓 TER — Tempo de Recuperação da Fadiga</b><br>
+          Fórmula: <code>Fadiga = (Fator A × Fator B) + M + CA</code><br>
+          <b>Fator A</b> = Esforço Físico + Esforço Mental · <b>Fator B</b> = função do % de tempo recuperado ·
+          <b>M</b> = Monotonia (função do ciclo) · <b>CA</b> = Σ Condições Ambientais
+        </div>
+
+        <div class="fad-ter-grid">
+          <!-- Fator A -->
+          <div class="fad-card">
+            <div class="fad-card-t">FATOR A — Esforços <span class="badge" id="fad-fa">0,000</span></div>
+            <div class="fad-field">
+              <label>Esforço Físico</label>
+              <select id="ter-fisico" onchange="fadRecalc()">
+                <option value="0.018">ML — Sentado, manual, pesos minúsculos (0,018)</option>
+                <option value="0.036">L — Sentado, pequena movimentação, pequeno esforço (0,036)</option>
+                <option value="0.054" selected>M — Em pé, pequena movim., pesos médios &lt;8 kg (0,054)</option>
+                <option value="0.072">P — Em pé, carregar/puxar, 8 a 18 kg (0,072)</option>
+                <option value="0.090">MP — Contínuo c/ pesos grandes, até 20 kg (0,090)</option>
+              </select>
+            </div>
+            <div class="fad-field">
+              <label>Esforço Mental</label>
+              <select id="ter-mental" onchange="fadRecalc()">
+                <option value="0.006">L — Repetitivo invariável, pequena resp. (0,006)</option>
+                <option value="0.018" selected>M — Resp. segurança/qualidade, pequenas decisões (0,018)</option>
+                <option value="0.030">P — Grande resp., decisões importantes (0,030)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Fator B -->
+          <div class="fad-card">
+            <div class="fad-card-t">FATOR B — Recuperação <span class="badge" id="fad-fb">0,00</span></div>
+            <div class="fad-field">
+              <label>% Tempo de Recuperação <small style="color:var(--text3)">(tempo parado / tempo total da máquina × 100)</small></label>
+              <select id="ter-recup" onchange="fadRecalc()">
+                <option value="1.00">0% — sem recuperação (B = 1,00)</option>
+                <option value="0.90">10% recuperado (B = 0,90)</option>
+                <option value="0.80">20% recuperado (B = 0,80)</option>
+                <option value="0.71" selected>30% recuperado (B = 0,71)</option>
+                <option value="0.62">40% recuperado (B = 0,62)</option>
+                <option value="0.54">50% recuperado (B = 0,54)</option>
+                <option value="0.46">60% recuperado (B = 0,46)</option>
+                <option value="0.39">70% recuperado (B = 0,39)</option>
+                <option value="0.32">80% recuperado (B = 0,32)</option>
+                <option value="0.26">90% recuperado (B = 0,26)</option>
+                <option value="0.20">100% recuperado (B = 0,20)</option>
+                <option value="0.15">&gt;100% recuperado (B = 0,15)</option>
+              </select>
+            </div>
+            <div class="fad-field">
+              <label>% Recuperação calculado (referência)</label>
+              <input type="text" id="ter-recup-calc" placeholder="ex: 19,26% (3 turnos típico)" value="">
+              <small style="font-size:10px;color:var(--text3);line-height:1.4">
+                3 turnos típico: Refeição 7,64% + Paradas tv 8,96% + Outras 2,67% ≈ <b>19,26%</b>
+              </small>
+            </div>
+          </div>
+
+          <!-- M Monotonia -->
+          <div class="fad-card">
+            <div class="fad-card-t">M — MONOTONIA <span class="badge" id="fad-m">0,000</span></div>
+            <div class="fad-field">
+              <label>Duração do ciclo</label>
+              <select id="ter-monot" onchange="fadRecalc()">
+                <option value="0.078">Ciclo muito curto / repetitivo extremo (0,078)</option>
+                <option value="0.054">Ciclo curto (0,054)</option>
+                <option value="0.036">Ciclo curto-médio (0,036)</option>
+                <option value="0.021" selected>Ciclo médio (0,021)</option>
+                <option value="0.010">Ciclo médio-longo (0,010)</option>
+                <option value="0.005">Ciclo longo (0,005)</option>
+                <option value="0.002">Ciclo muito longo / variado (0,002)</option>
+              </select>
+              <small style="font-size:10px;color:var(--text3)">CaW2: considerar <code>teB</code> como tempo do ciclo</small>
+            </div>
+          </div>
+
+          <!-- CA -->
+          <div class="fad-card">
+            <div class="fad-card-t">CA — CONDIÇÕES AMBIENTAIS <span class="badge" id="fad-ca">0,000</span></div>
+            <div class="fad-field">
+              <label>Térmicas <small style="color:var(--text3)">(região média 20°C)</small></label>
+              <select id="ter-termica" onchange="fadRecalc()">
+                <option value="0" selected>15 a 26°C — confortável (0)</option>
+                <option value="0.018">7 a 15°C (0,018)</option>
+                <option value="0.036">0 a 7°C — frio (0,036)</option>
+                <option value="0.018">26 a 34°C (0,018)</option>
+                <option value="0.036">34 a 40°C — calor (0,036)</option>
+              </select>
+            </div>
+            <div class="fad-field">
+              <label>Atmosféricas</label>
+              <select id="ter-atmosf" onchange="fadRecalc()">
+                <option value="0" selected>Bem ventilado / ar fresco (0)</option>
+                <option value="0.024">Mal ventilado, mau cheiro ou fumaça tóxica (0,024)</option>
+                <option value="0.056">Alta concentração de pós / máscara obrigatória (0,056)</option>
+              </select>
+            </div>
+            <div class="fad-field">
+              <label>Ruído</label>
+              <select id="ter-ruido" onchange="fadRecalc()">
+                <option value="0" selected>Nenhum ou baixo ruído (0)</option>
+                <option value="0.018">Obrigatório uso de protetor auricular (0,018)</option>
+              </select>
+            </div>
+            <div class="fad-field">
+              <label>Umidade</label>
+              <select id="ter-umid" onchange="fadRecalc()">
+                <option value="0" selected>Seco e agradável (0)</option>
+                <option value="0.018">Excessiva até 26°C (0,018)</option>
+                <option value="0.036">Excessiva até 40°C (0,036)</option>
+              </select>
+            </div>
+            <div class="fad-field">
+              <label>Vibração</label>
+              <select id="ter-vibr" onchange="fadRecalc()">
+                <option value="0" selected>Nenhuma vibração (0)</option>
+                <option value="0.018">Vibração do solo ou máquina (0,018)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="fad-formula">
+          <div class="fad-formula-l">Fórmula aplicada</div>
+          <div class="fad-formula-eq">
+            Fadiga = ( <span class="var">A</span> × <span class="var">B</span> ) + <span class="var">M</span> + <span class="var">CA</span>
+            <br>
+            Fadiga = ( <span class="val" id="eq-a">0,000</span> × <span class="val" id="eq-b">0,000</span> ) + <span class="val" id="eq-m">0,000</span> + <span class="val" id="eq-ca">0,000</span>
+          </div>
+          <div class="fad-formula-r">
+            <span class="lbl">Coeficiente de Fadiga (TER)</span>
+            <span class="val" id="ter-result">0,000</span>
+            <span class="lbl">≡ <span id="ter-pct">0,00 %</span></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB ANÁLISE -->
+      <section class="fad-section" id="fad-sec-analise">
+        <div class="fad-info">
+          <b>📊 Análise de Ociosidade — Tempo Padrão Final</b><br>
+          Combina <b>TV</b> (rotina) + <b>TER</b> (fadiga) para chegar ao <b>Tempo Padrão (TS)</b> e calcular a ociosidade vs Takt.<br>
+          <code>TS = TN × (1 + (TV% + TER%) / 100)</code> · <code>Ociosidade % = (Takt - TS) / Takt × 100</code>
+        </div>
+
+        <div class="fad-ana-grid">
+          <div class="fad-ana-card tv">
+            <div class="l">TV (Distribuição)</div>
+            <div class="v" id="ana-tv">0,00 %</div>
+          </div>
+          <div class="fad-ana-card ter">
+            <div class="l">TER (Fadiga)</div>
+            <div class="v" id="ana-ter">0,00 %</div>
+          </div>
+          <div class="fad-ana-card total">
+            <div class="l">Allowance Total</div>
+            <div class="v" id="ana-total">0,00 %</div>
+          </div>
+          <div class="fad-ana-card tn">
+            <div class="l">TN — Tempo Normal</div>
+            <div class="v" id="ana-tn">0,00 s</div>
+          </div>
+          <div class="fad-ana-card ts">
+            <div class="l">TS — Tempo Padrão</div>
+            <div class="v" id="ana-ts">0,00 s</div>
+          </div>
+          <div class="fad-ana-card ocio">
+            <div class="l">Ociosidade vs Takt</div>
+            <div class="v" id="ana-ocio">— %</div>
+          </div>
+        </div>
+
+        <table class="fad-ana-table">
+          <thead><tr><th>Parâmetro</th><th style="text-align:right">Valor</th><th>Observação</th></tr></thead>
+          <tbody id="ana-body">
+            <tr><td>TMU total da folha</td><td class="num" id="ana-tmu">0</td><td>Σ TMU × Q × F das linhas da folha ativa</td></tr>
+            <tr><td>TN — Tempo Normal</td><td class="num" id="ana-tn-row">0,00 s</td><td>TMU × 0,036</td></tr>
+            <tr><td>TV — Tempo de Distribuição</td><td class="num" id="ana-tv-row">0,00 %</td><td>Ociosidade de rotina (aba TV)</td></tr>
+            <tr><td>TER — Recuperação da Fadiga</td><td class="num" id="ana-ter-row">0,00 %</td><td>Coeficiente convertido em %</td></tr>
+            <tr><td>Allowance Total aplicado</td><td class="num" id="ana-allow-row">0,00 %</td><td>TV + TER</td></tr>
+            <tr><td>TS — Tempo Padrão</td><td class="num" id="ana-ts-row">0,00 s</td><td>TN × (1 + Allowance / 100)</td></tr>
+            <tr><td>Takt Time</td><td class="num" id="ana-takt-row">— s</td><td>Do cabeçalho da folha</td></tr>
+            <tr><td>Ociosidade absoluta</td><td class="num" id="ana-ocio-abs">— s</td><td>Takt − TS (positivo = folga, negativo = sobrecarga)</td></tr>
+            <tr><td>Ociosidade relativa</td><td class="num" id="ana-ocio-rel">— %</td><td>(Takt − TS) / Takt × 100</td></tr>
+            <tr><td>Peças/hora teóricas</td><td class="num" id="ana-pph">0</td><td>3600 / TS</td></tr>
+          </tbody>
+        </table>
+
+        <div class="fad-info" style="margin-top:14px">
+          💡 <b>Como interpretar:</b><br>
+          • <b>Ociosidade positiva</b>: o posto tem folga em relação ao Takt — pode absorver mais conteúdo ou tem reserva para variabilidade.<br>
+          • <b>Ociosidade negativa</b>: o posto está <b>sobrecarregado</b> (gargalo) — não atende ao Takt; rever conteúdo, redistribuir ou desdobrar.<br>
+          • Cuidado: a planilha do Ivan adverte que <b>fadiga "não pode ser substituída"</b> — esse valor entra como perda do tempo disponível e deve sempre ser respeitado.
+        </div>
+      </section>
+    </div>
+
+    <div class="fad-footer">
+      <span style="font-size:11px;color:var(--text3)">Fonte: Manual de Tempos e Métodos (Argens Valente / R. Coimbra · Editora Hemus) + MTM-UAS · Planilha Engº Ivan Antoneli</span>
+      <div class="sp"></div>
+      <button class="btn btn-ghost" onclick="fadResetDefaults()" title="Restaurar valores padrão">↺ Resetar</button>
+      <button class="btn btn-green" onclick="fadAplicarFolha()" title="Aplicar TV+TER como allowances no cabeçalho da folha">✓ Aplicar à Folha</button>
+      <button class="btn btn-primary" onclick="closeFadiga()">Fechar</button>
     </div>
   </div>
 </div>
@@ -2060,6 +2740,7 @@ function saveSheets(){
       const payload = sheets.map(s=>({
         id: s.id, label: s.label, header: s.header || {},
         book: s.book || '',
+        fadiga: s.fadiga || null,
         rows: (s.rows||[]).map(r=>({
           id:r.id, desc:r.desc||'', agrega:r.agrega||'', code:r.code||'',
           tmu:r.tmu||'', q:r.q||'', f:r.f||'',
@@ -2090,7 +2771,7 @@ function toggleTheme(){
 function addSheet(silent){
   const name = (typeof silent === 'string') ? silent : null;
   const id=gid(), label=name||`FOLHA ${sheets.length+1}`;
-  sheets.push({id,label,rows:[],header:{},book:''});
+  sheets.push({id,label,rows:[],header:{},book:'',fadiga:null});
   if(silent===true){
     renderTabs();
   } else {
@@ -5836,6 +6517,7 @@ function bootSheetsOnce(){
         label: s.label || 'Folha',
         header: s.header || {},
         book: s.book || '',
+        fadiga: s.fadiga || null,
         rows: (s.rows||[]).map(function(r){
           return {
             id: r.id, desc: r.desc||'', agrega: r.agrega||'', code: r.code||'',
@@ -6796,7 +7478,87 @@ function exportExcel(){
     var wb = XLSX.utils.book_new();
     var taken = {};
 
-    /* ─── 1) Aba RESUMO ─── */
+    // ─── Helpers internos ───
+    function rotuloFisico(v){
+      var map = {0.018:'ML (sentado, manual, pesos minúsculos)',0.036:'L (sentado, peq. movim., peq. esforço)',
+                 0.054:'M (em pé, peq. movim., pesos <8 kg)',0.072:'P (em pé, 8 a 18 kg)',
+                 0.090:'MP (contínuo c/ pesos grandes, até 20 kg)'};
+      return map[v] || '—';
+    }
+    function rotuloMental(v){
+      var map = {0.006:'L (repetitivo invariável, pequena resp.)',
+                 0.018:'M (resp. seg./qual., pequenas decisões)',
+                 0.030:'P (grande resp., decisões importantes)'};
+      return map[v] || '—';
+    }
+    function rotuloRecup(v){
+      var map = {1.00:'0% — sem recuperação',0.90:'10%',0.80:'20%',0.71:'30%',0.62:'40%',
+                 0.54:'50%',0.46:'60%',0.39:'70%',0.32:'80%',0.26:'90%',0.20:'100%',0.15:'>100%'};
+      return map[parseFloat(v).toFixed(2)] || map[v] || '—';
+    }
+    function rotuloMonot(v){
+      var map = {0.078:'Ciclo muito curto (repetição extrema)',0.054:'Ciclo curto',
+                 0.036:'Ciclo curto-médio',0.021:'Ciclo médio',0.010:'Ciclo médio-longo',
+                 0.005:'Ciclo longo',0.002:'Ciclo muito longo/variado'};
+      return map[v] || '—';
+    }
+    function fmtMin(b){
+      return ({turno:'por turno',dia:'por dia',semana:'por semana'})[b] || b || '';
+    }
+    function fadMinToPct(min, base){
+      var m = parseFloat(min)||0; if(m<=0) return 0;
+      if(base==='turno') return (m*3)/1440*100;
+      if(base==='semana') return m/(1440*7)*100;
+      return m/1440*100;
+    }
+    // Calcula TV e TER a partir do s.fadiga salvo
+    function calcFadiga(f){
+      if(!f) return null;
+      var pcts = {};
+      pcts['1']  = parseFloat(f.tvPausa)||0;
+      pcts['2']  = fadMinToPct(f.tvLimpPesMin, f.tvLimpPesBase);
+      pcts['3']  = fadMinToPct(f.tvLimpPosMin, f.tvLimpPosBase);
+      pcts['4']  = fadMinToPct(f.tvLimpGerMin, f.tvLimpGerBase);
+      var trMin=parseFloat(f.tvTrocaMin)||0, trPcs=parseFloat(f.tvTrocaPcs)||0, trProdH=parseFloat(f.tvTrocaProdH)||0;
+      var trMinDia=0;
+      if(trMin>0 && trPcs>0 && trProdH>0){ trMinDia = trMin * ((trProdH*24)/trPcs); }
+      pcts['5']  = (trMinDia/1440)*100;
+      pcts['6']  = fadMinToPct(f.tvCadernoMin, f.tvCadernoBase);
+      pcts['7']  = fadMinToPct(f.tvTempMin, f.tvTempBase);
+      pcts['8a'] = fadMinToPct(f.tvManParMin, f.tvManParBase);
+      pcts['8b'] = fadMinToPct(f.tvManFuncMin, f.tvManFuncBase);
+      pcts['9']  = fadMinToPct(f.tvInterrMin, f.tvInterrBase);
+      var freqH=parseFloat(f.tvRevFreq)||0, tmu=parseFloat(f.tvRevTmu)||0;
+      var minDia = (freqH*tmu)*24*0.036/60;
+      pcts['10'] = (minDia/1440)*100;
+      pcts['11a']= fadMinToPct(f.tvGinPrepMin, f.tvGinPrepBase);
+      pcts['11b']= fadMinToPct(f.tvGinCompMin, f.tvGinCompBase);
+      pcts['12a']= fadMinToPct(f.tvReuProdMin, f.tvReuProdBase);
+      pcts['12b']= fadMinToPct(f.tvReuQSMin, f.tvReuQSBase);
+      var tvTotal=0; Object.keys(pcts).forEach(function(k){ tvTotal += pcts[k]||0; });
+      var tvB = (pcts['1']||0)+(pcts['6']||0)+(pcts['11a']||0)+(pcts['11b']||0)+(pcts['12a']||0)+(pcts['12b']||0);
+      var fa = (parseFloat(f.terFisico)||0)+(parseFloat(f.terMental)||0);
+      var fb = parseFloat(f.terRecup)||0;
+      var mM = parseFloat(f.terMonot)||0;
+      var ca = (parseFloat(f.terTermica)||0)+(parseFloat(f.terAtmosf)||0)+(parseFloat(f.terRuido)||0)+(parseFloat(f.terUmid)||0)+(parseFloat(f.terVibr)||0);
+      var fadigaCoef = (fa*fb)+mM+ca;
+      return {pcts:pcts, tvTotal:tvTotal, tvB:tvB, fa:fa, fb:fb, mM:mM, ca:ca, fadigaCoef:fadigaCoef, fadigaPct:fadigaCoef*100};
+    }
+    function bookPlainText(html){
+      if(!html) return '';
+      var tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      return (tmp.innerText || tmp.textContent || '').trim();
+    }
+    // Nome curto para a aba (XLSX limita 31 chars)
+    function nomeAba(label, sufixo){
+      var s = String(label||'Folha').trim();
+      var maxBase = 31 - sufixo.length;
+      if(s.length > maxBase) s = s.substring(0, maxBase-1).trim() + '~';
+      return _xlSafeSheetName(s + sufixo, taken);
+    }
+
+    /* ─── 1) Aba RESUMO (geral, todas folhas) ─── */
     var resumoAoa = [
       ['MTM_RESUMO_V1'],
       ['Ferramenta MTM — Relatório Consolidado'],
@@ -6821,7 +7583,6 @@ function exportExcel(){
     resumoAoa.push([]);
     var grandPph = grandStd > 0 ? Math.floor(3600/grandStd) : 0;
     resumoAoa.push(['SOMA / TOTAL','','','','','','', +grandTmu.toFixed(2), +grandStd.toFixed(3), grandPph,'','','']);
-
     var wsResumo = XLSX.utils.aoa_to_sheet(resumoAoa);
     wsResumo['!cols'] = [
       {wch:22},{wch:24},{wch:14},{wch:11},{wch:14},{wch:18},{wch:18},
@@ -6829,79 +7590,174 @@ function exportExcel(){
     ];
     XLSX.utils.book_append_sheet(wb, wsResumo, _xlSafeSheetName('Resumo', taken));
 
-    /* ─── 2) Uma aba por folha ─── */
+    /* ─── 2) Para CADA folha: 2 abas (Geral + MTM) ─── */
     sheets.forEach(function(s, idx){
       var h = s.header || {};
-      var aoa = [
-        ['MTM_FOLHA_V1'],
-        ['Nome da Folha', s.label],
-        ['Processo', h.processo||''],
-        ['Código', h.codigo||''],
-        ['Data', h.data||''],
-        ['Início', h.inicio||''],
-        ['Fim', h.fim||''],
-        ['Planta', h.planta||''],
-        ['Engenheiro', h.eng||''],
-        ['Operador/Posto', h.operator||''],
-        ['Takt (s)', parseFloat(h.takt)||''],
-        ['Demanda (peças)', parseFloat(h.demand)||''],
-        ['Allow Pessoal (%)', parseFloat(h.allowPersonal)||0],
-        ['Allow Fadiga (%)', parseFloat(h.allowFatigue)||0],
-        ['Allow Contingência (%)', parseFloat(h.allowContingency)||0],
-        [],
-        ['===TABELA==='],
-        ['Descrição','Agrega Valor','Código','TMU','Quantidade','Frequência','TMU Total','Tempo (s)']
-      ];
+      var m = _xlCalcSheetMetrics(s);
+      var fad = calcFadiga(s.fadiga);
+
+      /* ═══════════════ ABA "<Folha> · Geral" ═══════════════
+         Concentra TUDO: header, allowances, fadiga TV+TER detalhada,
+         resultados consolidados e livro de informações. */
+      var aoaG = [];
+      aoaG.push(['FOLHA DE PROCESSO MTM — INFORMAÇÕES GERAIS']);
+      aoaG.push(['Folha', s.label]);
+      aoaG.push([]);
+
+      aoaG.push(['╔ INFORMAÇÕES DO PROCESSO ╗']);
+      aoaG.push(['Processo',        h.processo||'']);
+      aoaG.push(['Código',          h.codigo||'']);
+      aoaG.push(['Data',            h.data||'']);
+      aoaG.push(['Início',          h.inicio||'']);
+      aoaG.push(['Fim',             h.fim||'']);
+      aoaG.push(['Planta',          h.planta||'']);
+      aoaG.push(['Engenheiro',      h.eng||'']);
+      aoaG.push(['Operador/Posto',  h.operator||'']);
+      aoaG.push(['Takt (s)',        parseFloat(h.takt)||'']);
+      aoaG.push(['Demanda (peças)', parseFloat(h.demand)||'']);
+      aoaG.push([]);
+
+      aoaG.push(['╔ ALLOWANCES APLICADAS ╗']);
+      aoaG.push(['Pessoal (%)',      parseFloat(h.allowPersonal)||0]);
+      aoaG.push(['Fadiga (%)',       parseFloat(h.allowFatigue)||0]);
+      aoaG.push(['Contingência (%)', parseFloat(h.allowContingency)||0]);
+      aoaG.push(['Total (%)',        m.allow]);
+      aoaG.push([]);
+
+      // Fadiga detalhada (se foi preenchida)
+      if(fad){
+        aoaG.push(['╔ TV — TEMPO DE DISTRIBUIÇÃO (Ociosidade de Rotina) ╗']);
+        aoaG.push(['Item','Descrição','Valor informado','Base','% calculado']);
+        aoaG.push(['1',   'Pausa Pessoal',                       (parseFloat(s.fadiga.tvPausa)||0)+' %', '% direto',           +(fad.pcts['1']||0).toFixed(4)+' %']);
+        aoaG.push(['2',   'Limpeza Superficial Pessoal',          (parseFloat(s.fadiga.tvLimpPesMin)||0)+' min', fmtMin(s.fadiga.tvLimpPesBase), +(fad.pcts['2']||0).toFixed(4)+' %']);
+        aoaG.push(['3',   'Limpeza Superficial do Posto',          (parseFloat(s.fadiga.tvLimpPosMin)||0)+' min', fmtMin(s.fadiga.tvLimpPosBase), +(fad.pcts['3']||0).toFixed(4)+' %']);
+        aoaG.push(['4',   'Limpeza Geral Semanal Coletiva',        (parseFloat(s.fadiga.tvLimpGerMin)||0)+' min', fmtMin(s.fadiga.tvLimpGerBase), +(fad.pcts['4']||0).toFixed(4)+' %']);
+        aoaG.push(['5',   'Troca de Ferramenta',
+                          (parseFloat(s.fadiga.tvTrocaMin)||0)+' min/troca · ' +
+                          (parseFloat(s.fadiga.tvTrocaPcs)||0)+' pç/troca · ' +
+                          (parseFloat(s.fadiga.tvTrocaProdH)||0)+' pç/h',
+                          'cálculo',
+                          +(fad.pcts['5']||0).toFixed(4)+' %']);
+        aoaG.push(['6',   'Preenchimento Caderno de Liberação',    (parseFloat(s.fadiga.tvCadernoMin)||0)+' min', fmtMin(s.fadiga.tvCadernoBase), +(fad.pcts['6']||0).toFixed(4)+' %']);
+        aoaG.push(['7',   'Atingir Temperatura de Trabalho',       (parseFloat(s.fadiga.tvTempMin)||0)+' min',    fmtMin(s.fadiga.tvTempBase),    +(fad.pcts['7']||0).toFixed(4)+' %']);
+        aoaG.push(['8a',  'Manut. Autônoma — máquina parada',      (parseFloat(s.fadiga.tvManParMin)||0)+' min',  fmtMin(s.fadiga.tvManParBase),  +(fad.pcts['8a']||0).toFixed(4)+' %']);
+        aoaG.push(['8b',  'Manut. Autônoma — máquina funcionando', (parseFloat(s.fadiga.tvManFuncMin)||0)+' min', fmtMin(s.fadiga.tvManFuncBase), +(fad.pcts['8b']||0).toFixed(4)+' %']);
+        aoaG.push(['9',   'Interrupção peça não mensurável',       (parseFloat(s.fadiga.tvInterrMin)||0)+' min',  fmtMin(s.fadiga.tvInterrBase),  +(fad.pcts['9']||0).toFixed(4)+' %']);
+        aoaG.push(['10',  'Revezamento',
+                          'Freq '+(parseFloat(s.fadiga.tvRevFreq)||0)+'/h · ' +
+                          (parseFloat(s.fadiga.tvRevPassos)||0)+' passos · ' +
+                          (parseFloat(s.fadiga.tvRevTmu)||0)+' TMU',
+                          'cálculo',
+                          +(fad.pcts['10']||0).toFixed(4)+' %']);
+        aoaG.push(['11a', 'Ginástica Preparatória',                (parseFloat(s.fadiga.tvGinPrepMin)||0)+' min', fmtMin(s.fadiga.tvGinPrepBase), +(fad.pcts['11a']||0).toFixed(4)+' %']);
+        aoaG.push(['11b', 'Ginástica Compensatória',               (parseFloat(s.fadiga.tvGinCompMin)||0)+' min', fmtMin(s.fadiga.tvGinCompBase), +(fad.pcts['11b']||0).toFixed(4)+' %']);
+        aoaG.push(['12a', 'Reunião — Produção',                    (parseFloat(s.fadiga.tvReuProdMin)||0)+' min', fmtMin(s.fadiga.tvReuProdBase), +(fad.pcts['12a']||0).toFixed(4)+' %']);
+        aoaG.push(['12b', 'Reunião — Qualidade/Segurança',         (parseFloat(s.fadiga.tvReuQSMin)||0)+' min',   fmtMin(s.fadiga.tvReuQSBase),   +(fad.pcts['12b']||0).toFixed(4)+' %']);
+        aoaG.push([]);
+        aoaG.push(['','Σ tv (ts + tp) total',  '','', +fad.tvTotal.toFixed(2)+' %']);
+        aoaG.push(['','Σ tvB (só ts estáticos)','','', +fad.tvB.toFixed(2)+' %']);
+        aoaG.push([]);
+
+        aoaG.push(['╔ TER — TEMPO DE RECUPERAÇÃO DA FADIGA ╗']);
+        aoaG.push(['Fórmula','Fadiga = (Fator A × Fator B) + M + CA']);
+        aoaG.push([]);
+        aoaG.push(['Fator','Descrição','Valor','Coeficiente']);
+        aoaG.push(['Físico',     rotuloFisico(parseFloat(s.fadiga.terFisico)), '', +(parseFloat(s.fadiga.terFisico)||0).toFixed(3)]);
+        aoaG.push(['Mental',     rotuloMental(parseFloat(s.fadiga.terMental)), '', +(parseFloat(s.fadiga.terMental)||0).toFixed(3)]);
+        aoaG.push(['Fator A',    'Esforço Físico + Esforço Mental',           '', +fad.fa.toFixed(3)]);
+        aoaG.push(['Fator B',    rotuloRecup(parseFloat(s.fadiga.terRecup)),  '% recuperação', +fad.fb.toFixed(2)]);
+        aoaG.push(['M',          rotuloMonot(parseFloat(s.fadiga.terMonot)),  'Monotonia',     +fad.mM.toFixed(3)]);
+        aoaG.push(['CA',         'Térmicas+Atmosf+Ruído+Umid+Vibração',       'Cond. Ambientais', +fad.ca.toFixed(3)]);
+        aoaG.push([]);
+        aoaG.push(['','Fadiga = (',+fad.fa.toFixed(3),'×',+fad.fb.toFixed(2),') +',+fad.mM.toFixed(3),'+',+fad.ca.toFixed(3),'=',+fad.fadigaCoef.toFixed(4)]);
+        aoaG.push(['','Coeficiente de Fadiga','','', +fad.fadigaCoef.toFixed(4)]);
+        aoaG.push(['','Equivalente em %','','', +fad.fadigaPct.toFixed(2)+' %']);
+        aoaG.push([]);
+
+        aoaG.push(['╔ ANÁLISE DE OCIOSIDADE ╗']);
+        var allowTotalFad = fad.tvTotal + fad.fadigaPct;
+        var tnFad = m.tmu * 0.036;
+        var tsFad = tnFad * (1 + allowTotalFad/100);
+        var takt  = parseFloat(h.takt)||0;
+        aoaG.push(['TMU total da folha',          +m.tmu.toFixed(2)]);
+        aoaG.push(['TN — Tempo Normal (s)',       +tnFad.toFixed(3)]);
+        aoaG.push(['TV — Distribuição (%)',       +fad.tvTotal.toFixed(2)]);
+        aoaG.push(['TER — Fadiga (%)',            +fad.fadigaPct.toFixed(2)]);
+        aoaG.push(['Allowance Total (%)',         +allowTotalFad.toFixed(2)]);
+        aoaG.push(['TS — Tempo Padrão (s)',       +tsFad.toFixed(3)]);
+        aoaG.push(['Takt Time (s)',               takt>0 ? +takt.toFixed(3) : '—']);
+        if(takt > 0){
+          var ocioAbs = takt - tsFad;
+          var ocioRel = (ocioAbs/takt)*100;
+          aoaG.push(['Ociosidade absoluta (s)',   +ocioAbs.toFixed(3)]);
+          aoaG.push(['Ociosidade relativa (%)',   +ocioRel.toFixed(2)]);
+          aoaG.push(['Status', ocioRel>=0 ? 'FOLGA — posto atende ao Takt' : 'GARGALO — posto sobrecarregado']);
+        }
+        aoaG.push(['Peças/hora teóricas',         tsFad>0 ? Math.floor(3600/tsFad) : 0]);
+        aoaG.push([]);
+      }
+
+      aoaG.push(['╔ RESULTADOS CONSOLIDADOS DA FOLHA ╗']);
+      aoaG.push(['TMU Total',           +m.tmu.toFixed(2)]);
+      aoaG.push(['Tempo Padrão (s)',    +m.stdSec.toFixed(3)]);
+      aoaG.push(['Peças/hora',          m.pph]);
+      aoaG.push(['Allowance Total (%)', m.allow]);
+      aoaG.push(['Linhas da análise',   (s.rows||[]).length]);
+      aoaG.push([]);
+
+      // Livro de Informações (texto plano)
+      var bookTxt = bookPlainText(s.book);
+      if(bookTxt){
+        aoaG.push(['╔ LIVRO DE INFORMAÇÕES ╗']);
+        // Quebra em parágrafos por \n para múltiplas linhas
+        var paras = bookTxt.split(/\r?\n/);
+        paras.forEach(function(p){
+          aoaG.push([p]);
+        });
+        aoaG.push([]);
+      }
+
+      aoaG.push(['(gerado em ' + new Date().toLocaleString('pt-BR') + ')']);
+
+      var wsG = XLSX.utils.aoa_to_sheet(aoaG);
+      wsG['!cols'] = [{wch:18},{wch:46},{wch:24},{wch:18},{wch:18},{wch:14},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10}];
+      XLSX.utils.book_append_sheet(wb, wsG, nomeAba(s.label, ' · Geral'));
+
+      /* ═══════════════ ABA "<Folha> · MTM" ═══════════════
+         Só a análise MTM, enxuta. Cabeçalho mínimo + tabela + total. */
+      var aoaM = [];
+      // Cabeçalho mínimo (4 linhas)
+      aoaM.push(['ANÁLISE MTM', s.label]);
+      aoaM.push(['Processo',    h.processo||'',   'Operador', h.operator||'']);
+      aoaM.push(['Takt (s)',    parseFloat(h.takt)||'', 'Tempo Padrão (s)', +m.stdSec.toFixed(3)]);
+      aoaM.push([]);
+      // Tabela
+      aoaM.push(['Descrição','Agrega Valor','Código','TMU','Q','F','TMU Total','Tempo (s)']);
       (s.rows||[]).forEach(function(r){
-        aoa.push([
-          r.desc||'', r.agrega||'', r.code||'',
-          r.tmu===''||r.tmu==null?'':(parseFloat(r.tmu)||0),
-          r.q  ===''||r.q  ==null?'':(parseFloat(r.q)  ||0),
-          r.f  ===''||r.f  ==null?'':(parseFloat(r.f)  ||0),
-          parseFloat(r.ttmu)||0, parseFloat(r.tsec)||0
+        aoaM.push([
+          r.desc||'',
+          r.agrega||'',
+          r.code||'',
+          r.tmu===''||r.tmu==null ? '' : (parseFloat(r.tmu)||0),
+          r.q  ===''||r.q  ==null ? '' : (parseFloat(r.q)  ||0),
+          r.f  ===''||r.f  ==null ? '' : (parseFloat(r.f)  ||0),
+          parseFloat(r.ttmu)||0,
+          parseFloat(r.tsec)||0
         ]);
       });
-      // Linha de totais
-      var m = _xlCalcSheetMetrics(s);
-      aoa.push([]);
-      aoa.push(['===TOTAIS===']);
-      aoa.push(['TMU Total', +m.tmu.toFixed(2)]);
-      aoa.push(['Tempo Padrão (s)', +m.stdSec.toFixed(3)]);
-      aoa.push(['Peças/h', m.pph]);
-      aoa.push(['Allowance Total (%)', m.allow]);
+      aoaM.push([]);
+      aoaM.push(['','','','','','TOTAL', +m.tmu.toFixed(2), +m.stdSec.toFixed(3)]);
 
-      var ws = XLSX.utils.aoa_to_sheet(aoa);
-      ws['!cols'] = [{wch:42},{wch:14},{wch:12},{wch:9},{wch:11},{wch:11},{wch:11},{wch:11}];
-      XLSX.utils.book_append_sheet(wb, ws, _xlSafeSheetName(s.label || ('Folha'+(idx+1)), taken));
+      var wsM = XLSX.utils.aoa_to_sheet(aoaM);
+      wsM['!cols'] = [{wch:46},{wch:14},{wch:12},{wch:9},{wch:9},{wch:9},{wch:11},{wch:11}];
+      XLSX.utils.book_append_sheet(wb, wsM, nomeAba(s.label, ' · MTM'));
     });
 
-    /* ─── 3) Aba LIVROS (Livro de Informações) ─── */
-    var anyBook = sheets.some(function(s){ return s.book && s.book.trim(); });
-    if(anyBook){
-      var livrosAoa = [
-        ['MTM_LIVROS_V1'],
-        ['Livro de Informações por Folha'],
-        [],
-        ['Folha','Conteúdo (texto plano)','Conteúdo (HTML — não editar)']
-      ];
-      sheets.forEach(function(s){
-        if(s.book && s.book.trim()){
-          var tmp = document.createElement('div');
-          tmp.innerHTML = s.book;
-          var plain = (tmp.innerText || tmp.textContent || '').trim();
-          livrosAoa.push([s.label, plain, s.book]);
-        }
-      });
-      var wsLivros = XLSX.utils.aoa_to_sheet(livrosAoa);
-      wsLivros['!cols'] = [{wch:22},{wch:70},{wch:80}];
-      XLSX.utils.book_append_sheet(wb, wsLivros, _xlSafeSheetName('Livros', taken));
-    }
-
-    /* ─── 4) Salvar ─── */
+    /* ─── 3) Salvar ─── */
     var stamp = new Date().toISOString().slice(0,10);
     var fname = 'MTM_Folhas_' + stamp + '.xlsx';
     XLSX.writeFile(wb, fname);
-    showToast('Exportado: ' + fname + ' (' + sheets.length + ' folhas)');
+    showToast('Exportado: ' + fname + ' · ' + sheets.length + ' folha(s) × 2 abas (Geral + MTM)');
   }catch(e){
     console.error(e);
     showToast('Erro ao exportar: ' + e.message, true);
@@ -6935,8 +7791,6 @@ function importExcelHandle(input){
     try{
       var data = new Uint8Array(e.target.result);
       var wb = XLSX.read(data, {type:'array'});
-      var newSheets = [];
-      var livrosMap = {};
 
       var headerKeyMap = {
         'processo':'processo',
@@ -6949,6 +7803,10 @@ function importExcelHandle(input){
         'operador':'operator','operador/posto':'operator','posto':'operator',
         'takt':'takt','takt (s)':'takt','takt time':'takt',
         'demanda':'demand','demanda (peças)':'demand','demanda (pecas)':'demand',
+        'pessoal':'allowPersonal','pessoal (%)':'allowPersonal',
+        'fadiga':'allowFatigue','fadiga (%)':'allowFatigue',
+        'contingência':'allowContingency','contingencia':'allowContingency',
+        'contingência (%)':'allowContingency','contingencia (%)':'allowContingency',
         'allow pessoal':'allowPersonal','allow pessoal (%)':'allowPersonal','allowance pessoal':'allowPersonal',
         'allow fadiga':'allowFatigue','allow fadiga (%)':'allowFatigue','allowance fadiga':'allowFatigue',
         'allow contingencia':'allowContingency','allow contingência':'allowContingency',
@@ -6956,94 +7814,222 @@ function importExcelHandle(input){
         'allowance contingência':'allowContingency'
       };
 
+      // Mapa label → {header,rows,book}  (acumula entre abas Geral/MTM com mesmo label)
+      var folhasMap = {};
+      var ordem = []; // preserva ordem de aparição
+      var livrosMap = {}; // formato antigo
+
+      function getOrCreate(label){
+        if(!folhasMap[label]){
+          folhasMap[label] = {label: label, header: {}, rows: [], book: ''};
+          ordem.push(label);
+        }
+        return folhasMap[label];
+      }
+
+      // Extrai o "label base" do nome da aba — remove sufixos " · Geral" / " · MTM"
+      function labelDaAba(sheetName){
+        var s = String(sheetName||'').trim();
+        // sufixos do novo formato
+        s = s.replace(/\s*[·•\-—]\s*Geral\s*$/i, '');
+        s = s.replace(/\s*[·•\-—]\s*MTM\s*$/i, '');
+        return s;
+      }
+      // Tipo: 'mtm', 'geral', ou null
+      function tipoDaAba(sheetName){
+        var s = String(sheetName||'').trim();
+        if(/\s*[·•\-—]\s*MTM\s*$/i.test(s))   return 'mtm';
+        if(/\s*[·•\-—]\s*Geral\s*$/i.test(s)) return 'geral';
+        return null;
+      }
+
       wb.SheetNames.forEach(function(sheetName){
         var ws = wb.Sheets[sheetName];
         if(!ws) return;
         var aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true});
         if(!aoa || !aoa.length) return;
-        var marker = String((aoa[0]||[])[0] || '').trim();
+        var firstCell = String((aoa[0]||[])[0] || '').trim();
+        var marker = firstCell.toUpperCase();
+        var tipo = tipoDaAba(sheetName);
+        var labelBase = labelDaAba(sheetName);
 
-        /* Aba de Livros */
+        /* === Formato antigo: aba Resumo === */
+        if(marker === 'MTM_RESUMO_V1') return;
+
+        /* === Formato antigo: aba LIVROS === */
         if(marker === 'MTM_LIVROS_V1'){
           for(var i=1;i<aoa.length;i++){
             var row = aoa[i];
             if(!row || row.length < 2) continue;
             var lbl  = String(row[0]||'').trim();
             var html = String(row[2]||'').trim();
-            if(!html) html = String(row[1]||'').trim(); // fallback texto plano
+            if(!html) html = String(row[1]||'').trim();
             if(lbl && html && lbl.toLowerCase() !== 'folha') livrosMap[lbl] = html;
           }
           return;
         }
 
-        /* Aba Resumo — ignorar */
-        if(marker === 'MTM_RESUMO_V1') return;
+        /* === Novo formato: aba "· MTM" (análise enxuta) === */
+        if(tipo === 'mtm' || (firstCell === 'ANÁLISE MTM' || firstCell === 'ANALISE MTM')){
+          var folha = getOrCreate(labelBase || sheetName);
+          // Header mínimo da aba MTM
+          for(var hi=1; hi<Math.min(6, aoa.length); hi++){
+            var hr = aoa[hi] || [];
+            for(var col=0; col<hr.length-1; col+=2){
+              var k = String(hr[col]||'').trim().toLowerCase();
+              var v = hr[col+1];
+              if(!k) continue;
+              var key = headerKeyMap[k];
+              if(key && (folha.header[key]===undefined || folha.header[key]==='')){
+                folha.header[key] = (v==null?'':String(v)).trim();
+              }
+            }
+          }
+          // Encontrar linha de header da tabela: "Descrição"
+          var thIdx = -1;
+          for(var z=0; z<aoa.length; z++){
+            var fc = String((aoa[z]||[])[0]||'').trim().toLowerCase();
+            if(fc === 'descrição' || fc === 'descricao'){ thIdx = z; break; }
+          }
+          if(thIdx < 0) return;
+          for(var k2=thIdx+1; k2<aoa.length; k2++){
+            var rr = aoa[k2];
+            if(!rr) continue;
+            var first = String(rr[0]||'').trim();
+            // Parar em linhas de total ou cabeçalhos de seção
+            if(/^total/i.test(first) || /^=/.test(first) || /^╔/.test(first)) break;
+            if(!first && !rr[2] && (rr[3]==='' || rr[3]==null)) continue;
+            folha.rows.push({
+              id: 'r_imp_'+Date.now()+'_'+Math.floor(Math.random()*99999)+'_'+k2,
+              desc: String(rr[0]||''),
+              agrega: String(rr[1]||''),
+              code: String(rr[2]||''),
+              tmu: (rr[3]===''||rr[3]==null)?'':String(rr[3]),
+              q:   (rr[4]===''||rr[4]==null)?'':String(rr[4]),
+              f:   (rr[5]===''||rr[5]==null)?'':String(rr[5]),
+              ttmu: parseFloat(rr[6])||0,
+              tsec: parseFloat(rr[7])||0
+            });
+          }
+          return;
+        }
 
-        /* Aba de Folha — formato estrito */
+        /* === Novo formato: aba "· Geral" (informações + fadiga + livro) === */
+        if(tipo === 'geral' || firstCell === 'FOLHA DE PROCESSO MTM — INFORMAÇÕES GERAIS'){
+          var folha2 = getOrCreate(labelBase || sheetName);
+          // Detectar label real do conteúdo
+          for(var ai=0; ai<aoa.length; ai++){
+            var ar = aoa[ai];
+            if(!ar) continue;
+            var fk = String(ar[0]||'').trim();
+            if(fk === 'Folha' && ar[1]){
+              var realLbl = String(ar[1]).trim();
+              if(realLbl && realLbl !== folha2.label){
+                // Renomear no mapa
+                delete folhasMap[folha2.label];
+                var idx = ordem.indexOf(folha2.label);
+                if(idx>=0) ordem[idx] = realLbl;
+                folha2.label = realLbl;
+                folhasMap[realLbl] = folha2;
+              }
+              break;
+            }
+          }
+          // Percorrer e capturar header + livro
+          var emLivro = false;
+          var livroLinhas = [];
+          for(var p=0; p<aoa.length; p++){
+            var pr = aoa[p];
+            if(!pr) continue;
+            var pk = String(pr[0]||'').trim();
+            // Detectar seções pelo cabeçalho ╔ TÍTULO ╗
+            if(/^╔/.test(pk)){
+              emLivro = /LIVRO DE INFORMAÇÕES/i.test(pk);
+              continue;
+            }
+            if(emLivro){
+              // Tudo até a próxima seção é livro
+              if(pk) livroLinhas.push(pk);
+              continue;
+            }
+            // Header e allowances
+            var keyMap = headerKeyMap[pk.toLowerCase()];
+            if(keyMap && pr[1]!==''){
+              folha2.header[keyMap] = (pr[1]==null?'':String(pr[1])).trim();
+            }
+          }
+          if(livroLinhas.length){
+            // Converter para HTML simples (parágrafos)
+            folha2.book = livroLinhas.map(function(l){
+              return '<p>' + l.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</p>';
+            }).join('');
+          }
+          return;
+        }
+
+        /* === Formato antigo: aba MTM_FOLHA_V1 === */
         if(marker === 'MTM_FOLHA_V1'){
-          var header = {};
-          var label = sheetName;
+          var folhaOld = getOrCreate(sheetName);
           var tableHeaderIdx = -1;
           for(var j=1;j<aoa.length;j++){
             var r = aoa[j];
             var k = String((r||[])[0]||'').trim();
-            if(k === '===TABELA==='){
-              tableHeaderIdx = j+1;
-              break;
-            }
+            if(k === '===TABELA==='){ tableHeaderIdx = j+1; break; }
             if(k === '===TOTAIS===') break;
             if(k === 'Nome da Folha'){
-              label = String(r[1]||sheetName).trim() || sheetName;
+              var nl = String(r[1]||sheetName).trim() || sheetName;
+              if(nl !== folhaOld.label){
+                delete folhasMap[folhaOld.label];
+                var oi = ordem.indexOf(folhaOld.label);
+                if(oi>=0) ordem[oi] = nl;
+                folhaOld.label = nl;
+                folhasMap[nl] = folhaOld;
+              }
             } else if(k){
-              var key = headerKeyMap[k.toLowerCase()];
-              if(key) header[key] = (r[1]==null?'':String(r[1])).trim();
+              var oldKey = headerKeyMap[k.toLowerCase()];
+              if(oldKey) folhaOld.header[oldKey] = (r[1]==null?'':String(r[1])).trim();
             }
           }
-          var rows = [];
           if(tableHeaderIdx > 0){
-            for(var k2=tableHeaderIdx+1;k2<aoa.length;k2++){
-              var rr = aoa[k2];
-              if(!rr) continue;
-              var first = String(rr[0]||'').trim();
-              if(first === '===TOTAIS===' || first.toLowerCase() === 'tmu total' ||
-                 first.toLowerCase() === 'tempo padrão (s)' || first.toLowerCase() === 'peças/h' ||
-                 first.toLowerCase() === 'allowance total (%)') break;
-              // pular linhas vazias
-              if(!first && !rr[2] && (rr[3]==='' || rr[3]==null)) continue;
-              rows.push({
-                id: 'r_imp_'+Date.now()+'_'+Math.floor(Math.random()*99999)+'_'+k2,
-                desc: String(rr[0]||''),
-                agrega: String(rr[1]||''),
-                code: String(rr[2]||''),
-                tmu: (rr[3]===''||rr[3]==null)?'':String(rr[3]),
-                q:   (rr[4]===''||rr[4]==null)?'':String(rr[4]),
-                f:   (rr[5]===''||rr[5]==null)?'':String(rr[5]),
-                ttmu: parseFloat(rr[6])||0,
-                tsec: parseFloat(rr[7])||0
+            for(var u=tableHeaderIdx+1;u<aoa.length;u++){
+              var rru = aoa[u];
+              if(!rru) continue;
+              var firstU = String(rru[0]||'').trim();
+              if(firstU === '===TOTAIS===' || firstU.toLowerCase() === 'tmu total' ||
+                 firstU.toLowerCase() === 'tempo padrão (s)' || firstU.toLowerCase() === 'peças/h' ||
+                 firstU.toLowerCase() === 'allowance total (%)') break;
+              if(!firstU && !rru[2] && (rru[3]==='' || rru[3]==null)) continue;
+              folhaOld.rows.push({
+                id: 'r_imp_'+Date.now()+'_'+Math.floor(Math.random()*99999)+'_'+u,
+                desc: String(rru[0]||''),
+                agrega: String(rru[1]||''),
+                code: String(rru[2]||''),
+                tmu: (rru[3]===''||rru[3]==null)?'':String(rru[3]),
+                q:   (rru[4]===''||rru[4]==null)?'':String(rru[4]),
+                f:   (rru[5]===''||rru[5]==null)?'':String(rru[5]),
+                ttmu: parseFloat(rru[6])||0,
+                tsec: parseFloat(rru[7])||0
               });
             }
           }
-          newSheets.push({
-            id: gid(), label: label, header: header, book: '', rows: rows
-          });
           return;
         }
 
-        /* Fallback: tentar achar uma linha de cabeçalho "Descrição" */
+        /* === Fallback: tentar achar linha "Descrição" === */
         var hdrIdx = -1;
-        for(var z=0;z<aoa.length;z++){
-          var firstCell = String((aoa[z]||[])[0]||'').trim().toLowerCase();
-          if(firstCell === 'descrição' || firstCell === 'descricao'){ hdrIdx = z; break; }
+        for(var w=0;w<aoa.length;w++){
+          var fwc = String((aoa[w]||[])[0]||'').trim().toLowerCase();
+          if(fwc === 'descrição' || fwc === 'descricao'){ hdrIdx = w; break; }
         }
-        if(hdrIdx < 0) return; // não parece ser uma folha MTM
-        var rowsF = [];
+        if(hdrIdx < 0) return;
+        var fbFolha = getOrCreate(sheetName);
         for(var zz=hdrIdx+1; zz<aoa.length; zz++){
           var rrf = aoa[zz];
           if(!rrf) continue;
           var firstF = String(rrf[0]||'').trim();
           if(!firstF && !rrf[2] && (rrf[3]==='' || rrf[3]==null)) continue;
           if(firstF.toLowerCase().indexOf('total') === 0) break;
-          rowsF.push({
+          fbFolha.rows.push({
             id: 'r_imp_'+Date.now()+'_'+Math.floor(Math.random()*99999)+'_'+zz,
             desc: String(rrf[0]||''),
             agrega: String(rrf[1]||''),
@@ -7055,11 +8041,27 @@ function importExcelHandle(input){
             tsec: parseFloat(rrf[7])||0
           });
         }
-        if(rowsF.length){
-          newSheets.push({
-            id: gid(), label: sheetName, header: {}, book: '', rows: rowsF
-          });
-        }
+      });
+
+      // Construir lista final, ignorando entradas vazias
+      var newSheets = [];
+      ordem.forEach(function(lbl){
+        var f = folhasMap[lbl];
+        if(!f) return;
+        // Aplicar livro do formato antigo, se houver
+        if(!f.book && livrosMap[f.label]) f.book = livrosMap[f.label];
+        // Aceita folha mesmo só com header (caso usuário tenha exportado e apenas conferido)
+        // mas se NÃO tem nem linhas nem header útil, ignora
+        var temConteudo = (f.rows && f.rows.length>0) || (Object.keys(f.header||{}).length>0);
+        if(!temConteudo) return;
+        newSheets.push({
+          id: gid(),
+          label: f.label,
+          header: f.header,
+          book: f.book || '',
+          fadiga: null,
+          rows: f.rows
+        });
       });
 
       if(!newSheets.length){
@@ -7068,25 +8070,16 @@ function importExcelHandle(input){
         return;
       }
 
-      // Associar livros pelos rótulos
-      newSheets.forEach(function(s){
-        if(livrosMap[s.label]) s.book = livrosMap[s.label];
-      });
-
       // Aplicar
       if(mode === 'replace'){
-        // Remover DOM antiga
         document.querySelectorAll('.folha-content').forEach(function(el){ el.remove(); });
         sheets = newSheets;
       } else {
-        // Append — DOM existente permanece
         sheets = sheets.concat(newSheets);
       }
       activeId = null;
       renderTabs();
-      var targetId = (mode === 'replace') ? newSheets[0].id : newSheets[0].id;
-      setActive(targetId);
-      // Recalcular após render
+      setActive(newSheets[0].id);
       setTimeout(function(){
         newSheets.forEach(function(s){
           if(typeof recalc === 'function'){ try{ recalc(s.id); }catch(e){} }
@@ -7106,6 +8099,674 @@ function importExcelHandle(input){
     input.value = '';
   };
   reader.readAsArrayBuffer(file);
+}
+
+// ============================================================
+// FADIGA & OCIOSIDADE — Módulo TV + TER (Tabela Ivan Antoneli)
+// ------------------------------------------------------------
+// TV  = Tempo de Distribuição (ociosidade de rotina), 12 itens
+// TER = Tempo de Recuperação da Fadiga: (A × B) + M + CA
+// Tudo persiste em s.fadiga e é restaurado quando abre a folha
+// ============================================================
+const FAD_DEFAULTS = {
+  // TV
+  tvPausa: 3.75,
+  tvLimpPesMin: 15,    tvLimpPesBase: 'dia',
+  tvLimpPosMin: 30,    tvLimpPosBase: 'dia',
+  tvLimpGerMin: 210,   tvLimpGerBase: 'semana',
+  tvTrocaMin: 0,       tvTrocaPcs: 0,       tvTrocaProdH: 0,
+  tvCadernoMin: 15,    tvCadernoBase: 'dia',
+  tvTempMin: 0,        tvTempBase: 'dia',
+  tvManParMin: 0,      tvManParBase: 'dia',
+  tvManFuncMin: 0,     tvManFuncBase: 'dia',
+  tvInterrMin: 0,      tvInterrBase: 'dia',
+  tvRevFreq: 0,        tvRevPassos: 0,      tvRevTmu: 0,
+  tvGinPrepMin: 0,     tvGinPrepBase: 'turno',
+  tvGinCompMin: 0,     tvGinCompBase: 'turno',
+  tvReuProdMin: 32,    tvReuProdBase: 'dia',
+  tvReuQSMin: 6.4,     tvReuQSBase: 'dia',
+  // TER
+  terFisico: 0.054,
+  terMental: 0.018,
+  terRecup: 0.71,
+  terMonot: 0.021,
+  terTermica: 0,
+  terAtmosf: 0,
+  terRuido: 0,
+  terUmid: 0,
+  terVibr: 0
+};
+
+// Conversão de minutos por base de tempo → % do dia (1440 min)
+function fadMinToPct(min, base){
+  var m = parseFloat(min) || 0;
+  if(m <= 0) return 0;
+  // Base de referência = dia (3 turnos = 1440 min)
+  if(base === 'turno')  return (m * 3) / 1440 * 100;  // 1 turno × 3 turnos no dia
+  if(base === 'semana') return m / (1440 * 7) * 100;
+  /* dia */              return m / 1440 * 100;
+}
+
+// Lê 1 input e retorna número, defaultando se vazio
+function fadV(id, def){
+  var el = document.getElementById(id);
+  if(!el) return def;
+  var v = parseFloat(el.value);
+  return isNaN(v) ? def : v;
+}
+function fadS(id){
+  var el = document.getElementById(id);
+  return el ? el.value : '';
+}
+
+// Cálculo TV — devolve {pcts:{}, tvTotal, tvB}
+function fadCalcTV(){
+  var pcts = {};
+  // 1 - Pausa pessoal (% direto)
+  pcts['1']  = fadV('tv-pausa', 3.75);
+  // 2-4 limpezas (min × base)
+  pcts['2']  = fadMinToPct(fadV('tv-limpPes-min',0), fadS('tv-limpPes-base'));
+  pcts['3']  = fadMinToPct(fadV('tv-limpPos-min',0), fadS('tv-limpPos-base'));
+  pcts['4']  = fadMinToPct(fadV('tv-limpGer-min',0), fadS('tv-limpGer-base'));
+  // 5 - Troca de ferramenta:
+  // tempo por dia = (min/troca) × (trocas por dia)
+  // trocas por dia = (produção horária × 24h) / peças entre trocas
+  var trMin = fadV('tv-troca-min',0);
+  var trPcs = fadV('tv-troca-pcs',0);
+  var trProdH = fadV('tv-troca-prodH',0);
+  var trMinDia = 0;
+  if(trMin > 0 && trPcs > 0 && trProdH > 0){
+    var trocasDia = (trProdH * 24) / trPcs;
+    trMinDia = trMin * trocasDia;
+  }
+  pcts['5'] = (trMinDia / 1440) * 100;
+  // 6-9 - min/base
+  pcts['6']  = fadMinToPct(fadV('tv-caderno-min',0), fadS('tv-caderno-base'));
+  pcts['7']  = fadMinToPct(fadV('tv-temp-min',0),    fadS('tv-temp-base'));
+  pcts['8a'] = fadMinToPct(fadV('tv-manPar-min',0),  fadS('tv-manPar-base'));
+  pcts['8b'] = fadMinToPct(fadV('tv-manFunc-min',0), fadS('tv-manFunc-base'));
+  pcts['9']  = fadMinToPct(fadV('tv-interr-min',0),  fadS('tv-interr-base'));
+  // 10 - Revezamento: freq/h × TMU = TMU/h → min/dia = TMU/h × 24 × 0,036/60
+  var freqH = fadV('tv-rev-freq',0);
+  var tmu   = fadV('tv-rev-tmu',0);
+  // TMU/h × 24h = TMU/dia ; TMU em segundos = ×0,036 ; min = /60
+  var minDia = (freqH * tmu) * 24 * 0.036 / 60;
+  pcts['10'] = (minDia / 1440) * 100;
+  // 11 ginásticas
+  pcts['11a'] = fadMinToPct(fadV('tv-ginPrep-min',0), fadS('tv-ginPrep-base'));
+  pcts['11b'] = fadMinToPct(fadV('tv-ginComp-min',0), fadS('tv-ginComp-base'));
+  // 12 reuniões
+  pcts['12a'] = fadMinToPct(fadV('tv-reuProd-min',0), fadS('tv-reuProd-base'));
+  pcts['12b'] = fadMinToPct(fadV('tv-reuQS-min',0),   fadS('tv-reuQS-base'));
+
+  // tv (ts + tp) = TUDO
+  var tvTotal = 0;
+  Object.keys(pcts).forEach(function(k){ tvTotal += (pcts[k]||0); });
+
+  // tvB (só ts — tempos estáticos): pausa pessoal, caderno, ginástica, reunião
+  var tvB = (pcts['1']||0) + (pcts['6']||0) + (pcts['11a']||0) +
+            (pcts['11b']||0) + (pcts['12a']||0) + (pcts['12b']||0);
+
+  return {pcts: pcts, tvTotal: tvTotal, tvB: tvB};
+}
+
+// Cálculo TER — devolve {fa, fb, m, ca, fadiga, pct}
+function fadCalcTER(){
+  var fisico = fadV('ter-fisico', 0.054);
+  var mental = fadV('ter-mental', 0.018);
+  var fa = fisico + mental;
+  var fb = fadV('ter-recup', 0.71);
+  var m  = fadV('ter-monot', 0.021);
+  var ca = fadV('ter-termica',0) + fadV('ter-atmosf',0) +
+           fadV('ter-ruido',0)   + fadV('ter-umid',0) +
+           fadV('ter-vibr',0);
+  var fadiga = (fa * fb) + m + ca;
+  return {fa: fa, fb: fb, m: m, ca: ca, fadiga: fadiga, pct: fadiga * 100};
+}
+
+// Soma TMU da folha ativa (igual ao usado no Excel)
+function fadCalcTMUFolha(){
+  if(!activeId) return 0;
+  var s = get(activeId);
+  if(!s) return 0;
+  var tmu = 0;
+  (s.rows||[]).forEach(function(r){
+    var q = parseFloat(r.q)||1, f = parseFloat(r.f)||1, t = parseFloat(r.tmu)||0;
+    tmu += t * q * f;
+  });
+  return tmu;
+}
+
+// Formatação BR de número
+function fadFmt(v, dec){
+  if(!isFinite(v)) v = 0;
+  dec = (dec==null) ? 2 : dec;
+  return v.toLocaleString('pt-BR', {minimumFractionDigits:dec, maximumFractionDigits:dec});
+}
+
+// Recalcula tudo e atualiza UI
+function fadRecalc(){
+  var tv  = fadCalcTV();
+  var ter = fadCalcTER();
+
+  // ---- pintar cada % da TV ----
+  var ids = {
+    '1':'tv-pct-1','2':'tv-pct-2','3':'tv-pct-3','4':'tv-pct-4','5':'tv-pct-5',
+    '6':'tv-pct-6','7':'tv-pct-7','8a':'tv-pct-8a','8b':'tv-pct-8b','9':'tv-pct-9',
+    '10':'tv-pct-10','11a':'tv-pct-11a','11b':'tv-pct-11b',
+    '12a':'tv-pct-12a','12b':'tv-pct-12b'
+  };
+  Object.keys(ids).forEach(function(k){
+    var el = document.getElementById(ids[k]);
+    if(!el) return;
+    var v = tv.pcts[k] || 0;
+    el.textContent = fadFmt(v, 3) + ' %';
+    if(v <= 0.0001) el.classList.add('zero'); else el.classList.remove('zero');
+  });
+
+  // ---- totais TV ----
+  var tt = document.getElementById('tv-total');
+  if(tt) tt.textContent = fadFmt(tv.tvTotal, 2) + ' %';
+  var tb = document.getElementById('tvB-total');
+  if(tb) tb.textContent = fadFmt(tv.tvB, 2) + ' %';
+
+  // ---- TER ----
+  var faEl = document.getElementById('fad-fa'); if(faEl) faEl.textContent = fadFmt(ter.fa,3);
+  var fbEl = document.getElementById('fad-fb'); if(fbEl) fbEl.textContent = fadFmt(ter.fb,2);
+  var mEl  = document.getElementById('fad-m');  if(mEl)  mEl.textContent  = fadFmt(ter.m,3);
+  var caEl = document.getElementById('fad-ca'); if(caEl) caEl.textContent = fadFmt(ter.ca,3);
+
+  var eqA = document.getElementById('eq-a'); if(eqA) eqA.textContent = fadFmt(ter.fa,3);
+  var eqB = document.getElementById('eq-b'); if(eqB) eqB.textContent = fadFmt(ter.fb,2);
+  var eqM = document.getElementById('eq-m'); if(eqM) eqM.textContent = fadFmt(ter.m,3);
+  var eqCa= document.getElementById('eq-ca'); if(eqCa) eqCa.textContent = fadFmt(ter.ca,3);
+
+  var trEl = document.getElementById('ter-result'); if(trEl) trEl.textContent = fadFmt(ter.fadiga,3);
+  var tpEl = document.getElementById('ter-pct');    if(tpEl) tpEl.textContent = fadFmt(ter.pct,2) + ' %';
+
+  // ---- Análise final ----
+  var tmuTotal = fadCalcTMUFolha();
+  var tn = tmuTotal * 0.036;               // s
+  var allowTotal = tv.tvTotal + ter.pct;    // %
+  var ts = tn * (1 + allowTotal/100);       // s
+
+  var takt = activeId ? parseFloat((get(activeId)||{}).header && (get(activeId)||{}).header.takt) : NaN;
+  var hasTakt = isFinite(takt) && takt > 0;
+  var ocioAbs = hasTakt ? (takt - ts) : null;
+  var ocioRel = hasTakt ? ((takt - ts) / takt * 100) : null;
+  var pph     = ts > 0 ? Math.floor(3600 / ts) : 0;
+
+  function setT(id, txt){ var e = document.getElementById(id); if(e) e.textContent = txt; }
+  setT('ana-tv', fadFmt(tv.tvTotal,2)+' %');
+  setT('ana-ter', fadFmt(ter.pct,2)+' %');
+  setT('ana-total', fadFmt(allowTotal,2)+' %');
+  setT('ana-tn', fadFmt(tn,2)+' s');
+  setT('ana-ts', fadFmt(ts,2)+' s');
+
+  var ocioEl = document.getElementById('ana-ocio');
+  if(ocioEl){
+    if(hasTakt){
+      ocioEl.innerHTML = '<span class="v ' + (ocioRel>=0?'pos':'neg') + '">' + fadFmt(ocioRel,2) + ' %</span>';
+      // Ajeitar classe da card para tonalizar
+      var card = ocioEl.closest('.fad-ana-card');
+      if(card){
+        card.classList.remove('pos','neg');
+        ocioEl.classList.remove('pos','neg');
+        ocioEl.classList.add(ocioRel>=0?'pos':'neg');
+      }
+    } else {
+      ocioEl.textContent = '— (sem Takt)';
+    }
+  }
+
+  setT('ana-tmu', fadFmt(tmuTotal,0));
+  setT('ana-tn-row', fadFmt(tn,2)+' s');
+  setT('ana-tv-row', fadFmt(tv.tvTotal,2)+' %');
+  setT('ana-ter-row', fadFmt(ter.pct,2)+' %');
+  setT('ana-allow-row', fadFmt(allowTotal,2)+' %');
+  setT('ana-ts-row', fadFmt(ts,2)+' s');
+  setT('ana-takt-row', hasTakt ? (fadFmt(takt,2)+' s') : '— s');
+  setT('ana-ocio-abs', hasTakt ? (fadFmt(ocioAbs,2)+' s') : '— s');
+  setT('ana-ocio-rel', hasTakt ? (fadFmt(ocioRel,2)+' %') : '— %');
+  setT('ana-pph', fadFmt(pph,0));
+
+  // ---- Persistir nos dados da folha ----
+  if(activeId){
+    var s = get(activeId);
+    if(s){
+      s.fadiga = fadColetarEstado();
+      if(typeof saveSheets === 'function') saveSheets();
+    }
+  }
+}
+
+// Coleta o estado completo dos campos
+function fadColetarEstado(){
+  return {
+    // TV
+    tvPausa:        fadV('tv-pausa', 3.75),
+    tvLimpPesMin:   fadV('tv-limpPes-min',0),  tvLimpPesBase:  fadS('tv-limpPes-base'),
+    tvLimpPosMin:   fadV('tv-limpPos-min',0),  tvLimpPosBase:  fadS('tv-limpPos-base'),
+    tvLimpGerMin:   fadV('tv-limpGer-min',0),  tvLimpGerBase:  fadS('tv-limpGer-base'),
+    tvTrocaMin:     fadV('tv-troca-min',0),
+    tvTrocaPcs:     fadV('tv-troca-pcs',0),
+    tvTrocaProdH:   fadV('tv-troca-prodH',0),
+    tvCadernoMin:   fadV('tv-caderno-min',0),  tvCadernoBase:  fadS('tv-caderno-base'),
+    tvTempMin:      fadV('tv-temp-min',0),     tvTempBase:     fadS('tv-temp-base'),
+    tvManParMin:    fadV('tv-manPar-min',0),   tvManParBase:   fadS('tv-manPar-base'),
+    tvManFuncMin:   fadV('tv-manFunc-min',0),  tvManFuncBase:  fadS('tv-manFunc-base'),
+    tvInterrMin:    fadV('tv-interr-min',0),   tvInterrBase:   fadS('tv-interr-base'),
+    tvRevFreq:      fadV('tv-rev-freq',0),
+    tvRevPassos:    fadV('tv-rev-passos',0),
+    tvRevTmu:       fadV('tv-rev-tmu',0),
+    tvGinPrepMin:   fadV('tv-ginPrep-min',0),  tvGinPrepBase:  fadS('tv-ginPrep-base'),
+    tvGinCompMin:   fadV('tv-ginComp-min',0),  tvGinCompBase:  fadS('tv-ginComp-base'),
+    tvReuProdMin:   fadV('tv-reuProd-min',0),  tvReuProdBase:  fadS('tv-reuProd-base'),
+    tvReuQSMin:     fadV('tv-reuQS-min',0),    tvReuQSBase:    fadS('tv-reuQS-base'),
+    // TER
+    terFisico:      fadV('ter-fisico', 0.054),
+    terMental:      fadV('ter-mental', 0.018),
+    terRecup:       fadV('ter-recup', 0.71),
+    terMonot:       fadV('ter-monot', 0.021),
+    terTermica:     fadV('ter-termica',0),
+    terAtmosf:      fadV('ter-atmosf',0),
+    terRuido:       fadV('ter-ruido',0),
+    terUmid:        fadV('ter-umid',0),
+    terVibr:        fadV('ter-vibr',0)
+  };
+}
+
+// Aplica estado salvo aos campos da UI
+function fadAplicarEstado(st){
+  if(!st) st = FAD_DEFAULTS;
+  function setVal(id, v){
+    var el = document.getElementById(id);
+    if(!el) return;
+    if(v === undefined || v === null) return;
+    el.value = v;
+  }
+  // TV inputs
+  setVal('tv-pausa',         st.tvPausa);
+  setVal('tv-limpPes-min',   st.tvLimpPesMin);  setVal('tv-limpPes-base',  st.tvLimpPesBase);
+  setVal('tv-limpPos-min',   st.tvLimpPosMin);  setVal('tv-limpPos-base',  st.tvLimpPosBase);
+  setVal('tv-limpGer-min',   st.tvLimpGerMin);  setVal('tv-limpGer-base',  st.tvLimpGerBase);
+  setVal('tv-troca-min',     st.tvTrocaMin);
+  setVal('tv-troca-pcs',     st.tvTrocaPcs);
+  setVal('tv-troca-prodH',   st.tvTrocaProdH);
+  setVal('tv-caderno-min',   st.tvCadernoMin);  setVal('tv-caderno-base',  st.tvCadernoBase);
+  setVal('tv-temp-min',      st.tvTempMin);     setVal('tv-temp-base',     st.tvTempBase);
+  setVal('tv-manPar-min',    st.tvManParMin);   setVal('tv-manPar-base',   st.tvManParBase);
+  setVal('tv-manFunc-min',   st.tvManFuncMin);  setVal('tv-manFunc-base',  st.tvManFuncBase);
+  setVal('tv-interr-min',    st.tvInterrMin);   setVal('tv-interr-base',   st.tvInterrBase);
+  setVal('tv-rev-freq',      st.tvRevFreq);
+  setVal('tv-rev-passos',    st.tvRevPassos);
+  setVal('tv-rev-tmu',       st.tvRevTmu);
+  setVal('tv-ginPrep-min',   st.tvGinPrepMin);  setVal('tv-ginPrep-base',  st.tvGinPrepBase);
+  setVal('tv-ginComp-min',   st.tvGinCompMin);  setVal('tv-ginComp-base',  st.tvGinCompBase);
+  setVal('tv-reuProd-min',   st.tvReuProdMin);  setVal('tv-reuProd-base',  st.tvReuProdBase);
+  setVal('tv-reuQS-min',     st.tvReuQSMin);    setVal('tv-reuQS-base',    st.tvReuQSBase);
+  // TER
+  setVal('ter-fisico',  st.terFisico);
+  setVal('ter-mental',  st.terMental);
+  setVal('ter-recup',   st.terRecup);
+  setVal('ter-monot',   st.terMonot);
+  setVal('ter-termica', st.terTermica);
+  setVal('ter-atmosf',  st.terAtmosf);
+  setVal('ter-ruido',   st.terRuido);
+  setVal('ter-umid',    st.terUmid);
+  setVal('ter-vibr',    st.terVibr);
+}
+
+// Abrir / fechar modal
+function openFadiga(){
+  if(!activeId){
+    if(typeof showToast === 'function') showToast('Selecione ou crie uma folha primeiro.', true);
+    else alert('Selecione ou crie uma folha primeiro.');
+    return;
+  }
+  var s = get(activeId);
+  if(!s) return;
+  // Atualiza sub-título
+  var sub = document.getElementById('fad-sub');
+  if(sub) sub.textContent = '— Folha: ' + (s.label || '');
+  // Aplica estado salvo (ou defaults se primeira vez)
+  fadAplicarEstado(s.fadiga || FAD_DEFAULTS);
+  // Mostra modal
+  document.getElementById('fad-overlay').classList.remove('hidden');
+  // Aba inicial = TV
+  fadShowTab('tv');
+  // Recalcula
+  setTimeout(fadRecalc, 50);
+}
+
+function closeFadiga(){
+  // Persistir antes de fechar
+  if(activeId){
+    var s = get(activeId);
+    if(s){
+      s.fadiga = fadColetarEstado();
+      if(typeof saveSheets === 'function') saveSheets();
+    }
+  }
+  document.getElementById('fad-overlay').classList.add('hidden');
+}
+
+function fadCloseOnBg(e){
+  if(e.target && e.target.id === 'fad-overlay') closeFadiga();
+}
+
+function fadShowTab(name){
+  document.querySelectorAll('.fad-tab').forEach(function(t){
+    t.classList.toggle('active', t.getAttribute('data-fadtab') === name);
+  });
+  document.querySelectorAll('.fad-section').forEach(function(s){
+    s.classList.toggle('active', s.id === 'fad-sec-' + name);
+  });
+  // Recalcular ao mudar de aba (em especial para a aba de análise)
+  if(name === 'analise') fadRecalc();
+}
+
+function fadResetDefaults(){
+  if(!confirm('Restaurar todos os valores para os padrões da tabela do Ivan Antoneli?')) return;
+  fadAplicarEstado(FAD_DEFAULTS);
+  fadRecalc();
+  if(typeof showToast === 'function') showToast('Valores padrão restaurados.');
+}
+
+// Aplica os valores calculados como allowance no cabeçalho da folha ativa
+function fadAplicarFolha(){
+  if(!activeId){ if(typeof showToast === 'function') showToast('Sem folha ativa.', true); return; }
+  var s = get(activeId);
+  if(!s) return;
+  if(!s.header) s.header = {};
+
+  var tv  = fadCalcTV();
+  var ter = fadCalcTER();
+
+  // Mapeia: TV (estáticos só - tvB) → "Pessoal" + (restante TV) → "Contingência"
+  // TER → "Fadiga"
+  // Não há mapeamento 1:1 perfeito; usamos a interpretação mais limpa:
+  //  • allowPersonal     = tvB (pausa, caderno, ginástica, reunião - rotina estática)
+  //  • allowFatigue      = TER % (recuperação física/mental)
+  //  • allowContingency  = tv - tvB (limpezas, trocas, manutenção, interrupções - rotina dinâmica)
+  var pPersonal    = tv.tvB;
+  var pFatigue     = ter.pct;
+  var pContingency = Math.max(0, tv.tvTotal - tv.tvB);
+
+  // Arredondar para 2 casas
+  function r2(v){ return Math.round(v*100)/100; }
+  s.header.allowPersonal    = r2(pPersonal);
+  s.header.allowFatigue     = r2(pFatigue);
+  s.header.allowContingency = r2(pContingency);
+
+  // Atualizar campos visuais no header (se existirem)
+  function setHF(field, val){
+    var inp = document.querySelector('#c-'+activeId+' [data-hf="'+field+'"]');
+    if(inp){ inp.value = val; }
+  }
+  setHF('allowPersonal',    r2(pPersonal));
+  setHF('allowFatigue',     r2(pFatigue));
+  setHF('allowContingency', r2(pContingency));
+
+  // Recalcular folha
+  if(typeof recalc === 'function'){ try{ recalc(activeId); }catch(e){} }
+  if(typeof saveSheets === 'function') saveSheets();
+
+  if(typeof showToast === 'function')
+    showToast('Aplicado: Pessoal ' + fadFmt(pPersonal,2) + '% · Fadiga ' + fadFmt(pFatigue,2) + '% · Conting. ' + fadFmt(pContingency,2) + '%');
+}
+
+// Tecla ESC para fechar
+document.addEventListener('keydown', function(e){
+  var ov = document.getElementById('fad-overlay');
+  if(ov && !ov.classList.contains('hidden') && e.key === 'Escape'){
+    closeFadiga();
+  }
+});
+
+// ============================================================
+// SALVAR / ABRIR ARQUIVO NATIVO MTM (.mtm.json)
+// ------------------------------------------------------------
+// Salva TUDO em um único arquivo JSON que o usuário pode guardar
+// no PC, mandar por e-mail, levar em pen drive, etc.
+// Inclui: folhas (linhas, headers, livros) + gerenciador de
+// projetos + logos de cliente. Tudo embutido.
+// ============================================================
+function saveProjectFile(){
+  try{
+    // Se o Livro está aberto e sendo editado, persiste antes de exportar
+    var bookOv = document.getElementById('book-overlay');
+    if(bookOv && !bookOv.classList.contains('hidden') && typeof bookPersistNow === 'function'){
+      try{ bookPersistNow(); }catch(e){}
+    }
+    // Se o modal Fadiga está aberto, captura o estado atual antes de exportar
+    var fadOv = document.getElementById('fad-overlay');
+    if(fadOv && !fadOv.classList.contains('hidden') && activeId){
+      var sAtual = get(activeId);
+      if(sAtual && typeof fadColetarEstado === 'function'){
+        try{ sAtual.fadiga = fadColetarEstado(); }catch(e){}
+      }
+    }
+
+    // ---- 1) Folhas (mesma estrutura do autosave + book + fadiga) ----
+    var sheetsPayload = (sheets||[]).map(function(s){
+      return {
+        id: s.id,
+        label: s.label,
+        header: s.header || {},
+        book: s.book || '',
+        fadiga: s.fadiga || null,
+        rows: (s.rows||[]).map(function(r){
+          return {
+            id:   r.id,
+            desc: r.desc   || '',
+            agrega: r.agrega || '',
+            code: r.code   || '',
+            tmu:  r.tmu    || '',
+            q:    r.q      || '',
+            f:    r.f      || '',
+            ttmu: r.ttmu   || 0,
+            tsec: r.tsec   || 0
+          };
+        })
+      };
+    });
+
+    // ---- 2) Gerenciador de Projetos (opcional) ----
+    var pmPayload = null;
+    try{
+      var pmRaw = localStorage.getItem('pmgr_v3');
+      if(pmRaw) pmPayload = JSON.parse(pmRaw);
+    }catch(e){ pmPayload = null; }
+
+    // ---- 3) Logos de cliente (opcional) ----
+    var logosPayload = null;
+    try{
+      var lgRaw = localStorage.getItem('mtm_client_logos_v1');
+      if(lgRaw) logosPayload = JSON.parse(lgRaw);
+    }catch(e){ logosPayload = null; }
+
+    // ---- 4) Montar arquivo ----
+    var fileObj = {
+      format:    'MTM_FILE',
+      version:   1,
+      app:       'Folha de Processo MTM',
+      author:    'Engº Ivan Carlos Antoneli',
+      createdAt: new Date().toISOString(),
+      sheetsCount: sheetsPayload.length,
+      sheets:    sheetsPayload,
+      projectManager: pmPayload,
+      clientLogos:    logosPayload
+    };
+
+    // ---- 5) Sugerir nome de arquivo ----
+    var actSheet = activeId ? get(activeId) : (sheets && sheets[0]);
+    var baseName = (actSheet && (actSheet.header && actSheet.header.processo)) ||
+                   (actSheet && actSheet.label) ||
+                   'Projeto_MTM';
+    baseName = String(baseName).trim().replace(/[\\\/\?\*\[\]\:"<>\|]/g,'_').substring(0,60) || 'Projeto_MTM';
+    var stamp = new Date().toISOString().slice(0,10);
+    var defaultName = baseName + '_' + stamp + '.mtm.json';
+
+    var userName = prompt('Nome do arquivo para salvar:', defaultName);
+    if(userName === null){ return; }            // usuário cancelou
+    userName = String(userName).trim();
+    if(!userName) userName = defaultName;
+    if(!/\.(mtm|json|mtm\.json)$/i.test(userName)) userName += '.mtm.json';
+
+    // ---- 6) Download ----
+    var blob = new Blob([JSON.stringify(fileObj, null, 2)], {type:'application/json;charset=utf-8'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = userName;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 200);
+
+    showToast('Arquivo salvo: ' + userName + ' (' + sheetsPayload.length + ' folha(s))');
+  }catch(e){
+    console.error(e);
+    showToast('Erro ao salvar arquivo: ' + e.message, true);
+  }
+}
+
+function openProjectFilePrompt(){
+  var inp = document.getElementById('mtm-file-input');
+  if(!inp){ showToast('Campo de upload não encontrado.', true); return; }
+  inp.value = '';
+  inp.click();
+}
+
+function openProjectFileHandle(input){
+  var file = input.files && input.files[0];
+  if(!file){ return; }
+
+  var mode = confirm(
+    'Como deseja abrir "' + file.name + '"?\n\n' +
+    '  • OK = SUBSTITUIR todas as folhas atuais\n' +
+    '  • Cancelar = ADICIONAR às folhas existentes'
+  ) ? 'replace' : 'append';
+
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      var txt = e.target.result;
+      var obj = JSON.parse(txt);
+
+      // Validação: aceita formato nativo OU array puro de folhas (compat. autosave)
+      var incomingSheets = null;
+      var incomingPM     = null;
+      var incomingLogos  = null;
+
+      if(obj && obj.format === 'MTM_FILE' && Array.isArray(obj.sheets)){
+        incomingSheets = obj.sheets;
+        incomingPM     = obj.projectManager || null;
+        incomingLogos  = obj.clientLogos    || null;
+      } else if(Array.isArray(obj)){
+        // Compat: dump bruto do autosave (array de folhas)
+        incomingSheets = obj;
+      } else {
+        showToast('Arquivo não é um projeto MTM válido (.mtm.json).', true);
+        input.value = '';
+        return;
+      }
+
+      if(!incomingSheets.length){
+        showToast('O arquivo não contém nenhuma folha.', true);
+        input.value = '';
+        return;
+      }
+
+      // Sanitizar folhas (gerar ids novos para evitar colisão em modo append)
+      var rebuilt = incomingSheets.map(function(s, idx){
+        var newId = gid();
+        var rows = Array.isArray(s.rows) ? s.rows.map(function(r, ri){
+          return {
+            id:    'r_imp_' + Date.now() + '_' + idx + '_' + ri,
+            desc:  String(r.desc || ''),
+            agrega:String(r.agrega || ''),
+            code:  String(r.code || ''),
+            tmu:   (r.tmu==null?'':String(r.tmu)),
+            q:     (r.q  ==null?'':String(r.q)),
+            f:     (r.f  ==null?'':String(r.f)),
+            ttmu:  parseFloat(r.ttmu)||0,
+            tsec:  parseFloat(r.tsec)||0
+          };
+        }) : [];
+        return {
+          id:    newId,
+          label: String(s.label || ('FOLHA ' + (idx+1))),
+          header: (s.header && typeof s.header === 'object') ? s.header : {},
+          book:  String(s.book || ''),
+          fadiga: (s.fadiga && typeof s.fadiga === 'object') ? s.fadiga : null,
+          rows:  rows
+        };
+      });
+
+      // ---- Aplicar ----
+      if(mode === 'replace'){
+        // remover DOM das folhas atuais
+        document.querySelectorAll('.folha-content').forEach(function(el){ el.remove(); });
+        sheets = rebuilt;
+      } else {
+        sheets = (sheets || []).concat(rebuilt);
+      }
+      activeId = null;
+      renderTabs();
+      setActive(rebuilt[0].id);
+
+      // Recalcular após render
+      setTimeout(function(){
+        rebuilt.forEach(function(s){
+          if(typeof recalc === 'function'){
+            try{ recalc(s.id); }catch(e){}
+          }
+        });
+        if(typeof saveSheets === 'function') saveSheets();
+      }, 120);
+
+      // ---- Gerenciador de Projetos (só restaura em modo "substituir") ----
+      if(mode === 'replace' && incomingPM && typeof incomingPM === 'object'){
+        try{
+          localStorage.setItem('pmgr_v3', JSON.stringify(incomingPM));
+          // Se a variável global pmData existir, atualiza
+          if(typeof pmData !== 'undefined'){ pmData = incomingPM; }
+        }catch(e){ console.warn('PM restore falhou', e); }
+      }
+
+      // ---- Logos de cliente ----
+      if(incomingLogos && typeof incomingLogos === 'object'){
+        try{
+          if(mode === 'replace'){
+            localStorage.setItem('mtm_client_logos_v1', JSON.stringify(incomingLogos));
+          } else {
+            // merge: mantém os atuais e adiciona os novos sem sobrescrever existentes
+            var cur = {};
+            try{ cur = JSON.parse(localStorage.getItem('mtm_client_logos_v1')||'{}') || {}; }catch(e){ cur = {}; }
+            Object.keys(incomingLogos).forEach(function(k){
+              if(!(k in cur)) cur[k] = incomingLogos[k];
+            });
+            localStorage.setItem('mtm_client_logos_v1', JSON.stringify(cur));
+          }
+        }catch(e){ console.warn('logos restore falhou', e); }
+      }
+
+      showToast('Arquivo aberto: ' + rebuilt.length + ' folha(s) de "' + file.name + '"');
+    }catch(err){
+      console.error(err);
+      showToast('Erro ao abrir arquivo: ' + err.message, true);
+    }
+    input.value = '';
+  };
+  reader.onerror = function(){
+    showToast('Erro ao ler o arquivo.', true);
+    input.value = '';
+  };
+  reader.readAsText(file, 'utf-8');
 }
 
 // Atalhos teclado dentro do editor do Livro
