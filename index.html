@@ -1057,6 +1057,132 @@ table.mtm tfoot tr.total-row td{
   .book-overlay,.xl-toast{display:none!important}
 }
 
+/* ═══════════════════════════════════════════════════════════
+   IMPRESSÃO COMPLETA — Folha + Fadiga & Ociosidade
+   Área dedicada para o PDF, oculta na tela
+   ═══════════════════════════════════════════════════════════ */
+#print-area{display:none}
+
+@page{
+  size:A4 portrait;
+  margin:10mm 8mm 10mm 8mm;
+}
+
+@media print{
+  /* Esconde TUDO da UI */
+  body > *{display:none !important}
+  /* Mostra só a área de impressão */
+  #print-area{
+    display:block !important;
+    background:#fff !important;color:#000 !important;
+    font-family:Arial,Helvetica,sans-serif;font-size:9pt;line-height:1.3;
+    width:100%;margin:0;padding:0;
+  }
+  /* Reset de cores forçando preto sobre branco */
+  #print-area *{
+    color:#000 !important;
+    -webkit-print-color-adjust:exact !important;
+    print-color-adjust:exact !important;
+  }
+  /* Quebra de página entre folhas/seções */
+  .pa-folha{page-break-after:always}
+  .pa-folha:last-child{page-break-after:auto}
+  .pa-section{page-break-inside:avoid;margin-bottom:8pt}
+  .pa-table{page-break-inside:auto}
+  .pa-table tr{page-break-inside:avoid;page-break-after:auto}
+  /* Cabeçalho da folha */
+  .pa-h1{
+    font-size:14pt;font-weight:800;text-align:center;
+    background:#e8e8e8 !important;padding:6pt;border:1px solid #000;
+    margin-bottom:4pt;
+  }
+  .pa-h2{
+    font-size:11pt;font-weight:800;background:#d4d4d4 !important;
+    padding:4pt 8pt;border:1px solid #000;margin-top:6pt;margin-bottom:2pt;
+  }
+  .pa-h3{
+    font-size:10pt;font-weight:800;background:#ececec !important;
+    padding:3pt 6pt;border:1px solid #000;margin-top:4pt;margin-bottom:2pt;
+  }
+  /* Bloco de info do processo (3 colunas) */
+  .pa-info{
+    display:table;width:100%;border-collapse:collapse;
+    border:1px solid #000;margin-bottom:6pt;font-size:8.5pt;
+  }
+  .pa-info-row{display:table-row}
+  .pa-info-cell{
+    display:table-cell;border:1px solid #888;padding:3pt 5pt;
+    vertical-align:top;
+  }
+  .pa-info-cell .lbl{
+    font-size:7pt;font-weight:700;text-transform:uppercase;
+    color:#555 !important;letter-spacing:.3px;
+  }
+  .pa-info-cell .val{font-size:9.5pt;font-weight:700;color:#000 !important}
+  /* Tabelas */
+  .pa-table{
+    width:100%;border-collapse:collapse;font-size:8.5pt;
+    border:1px solid #000;margin-bottom:6pt;
+  }
+  .pa-table th, .pa-table td{
+    border:1px solid #888;padding:2.5pt 4pt;vertical-align:middle;
+  }
+  .pa-table thead th{
+    background:#d4d4d4 !important;font-weight:700;font-size:8pt;
+    text-align:center;text-transform:uppercase;letter-spacing:.3px;
+  }
+  .pa-table .num{text-align:right;font-family:'Courier New',monospace}
+  .pa-table .ctr{text-align:center}
+  .pa-table .item{
+    text-align:center;background:#f0f0f0 !important;font-weight:700;
+    width:30pt;
+  }
+  .pa-table .total-row td{
+    background:#d4d4d4 !important;font-weight:800;font-size:9pt;
+    border-top:2px solid #000 !important;
+  }
+  .pa-table tbody tr:nth-child(even) td{background:#fafafa !important}
+  /* Card de resultados consolidados */
+  .pa-results{
+    display:table;width:100%;border-collapse:collapse;margin:4pt 0;
+    border:1.5px solid #000;
+  }
+  .pa-results-row{display:table-row}
+  .pa-results-cell{
+    display:table-cell;border:1px solid #888;padding:4pt 6pt;
+    text-align:center;width:16.66%;
+  }
+  .pa-results-cell .l{
+    font-size:7pt;font-weight:700;text-transform:uppercase;
+    letter-spacing:.3px;color:#555 !important;
+  }
+  .pa-results-cell .v{font-size:11pt;font-weight:800;margin-top:2pt}
+  /* Rodapé com data + assinatura */
+  .pa-footer{
+    margin-top:6pt;font-size:8pt;border-top:1px solid #888;padding-top:3pt;
+    display:table;width:100%;
+  }
+  .pa-footer-l{display:table-cell;width:60%}
+  .pa-footer-r{display:table-cell;width:40%;text-align:right}
+  /* Fórmulas e notas */
+  .pa-formula{
+    background:#f0f0f0 !important;border:1px solid #888;
+    padding:4pt 8pt;font-size:9pt;font-weight:700;margin:4pt 0;
+  }
+  .pa-formula .res{
+    background:#000 !important;color:#fff !important;
+    padding:1pt 6pt;border-radius:3px;
+  }
+  .pa-formula .res *{color:#fff !important}
+  /* Texto pequeno informativo */
+  .pa-note{font-size:7.5pt;font-style:italic;color:#555 !important;margin:2pt 0}
+  /* Status final colorido */
+  .pa-status.ok{background:#d4f0d4 !important;color:#0a5a0a !important;font-weight:800;padding:2pt 6pt;border:1px solid #0a5a0a}
+  .pa-status.bad{background:#f4d4d4 !important;color:#8a0a0a !important;font-weight:800;padding:2pt 6pt;border:1px solid #8a0a0a}
+  .pa-status.ok *{color:#0a5a0a !important}
+  .pa-status.bad *{color:#8a0a0a !important}
+}
+
 </style>
 <!-- SheetJS (xlsx) — biblioteca para importar e exportar Excel -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1462,8 +1588,7 @@ table.mtm tfoot tr.total-row td{
 }
 
 /* ═══════════════════════════════════════════════════════════
-   FADIGA & OCIOSIDADE — Layout idêntico à planilha do Ivan Antoneli
-   Estilo "papel/Excel" — funciona em tema claro e escuro
+   FADIGA & OCIOSIDADE — Layout estrutura da planilha + cores do sistema
    ═══════════════════════════════════════════════════════════ */
 .fad-overlay{
   position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:360;
@@ -1473,330 +1598,371 @@ table.mtm tfoot tr.total-row td{
 }
 .fad-overlay.hidden{display:none}
 .fad-modal{
-  background:#fafaf7;border:1px solid #1a1a1a;
+  background:var(--surface);border:1px solid var(--border2);
   width:min(1180px,100%);height:min(860px,calc(100vh - 40px));
   display:flex;flex-direction:column;
-  box-shadow:0 25px 70px rgba(0,0,0,.55);
-  position:relative;overflow:hidden;border-radius:6px;
-  color:#1a1a1a;
+  box-shadow:var(--shadow),var(--shadow-glow);
+  position:relative;overflow:hidden;border-radius:var(--radius);
+  color:var(--text);
+}
+.fad-modal::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(135deg,#ff9500,#ff4d6d,#7c3aed);
+  z-index:2;
 }
 .fad-header{
-  padding:10px 16px;display:flex;align-items:center;gap:14px;
-  border-bottom:1px solid #2a2a2a;background:#e9f4d8;
+  padding:12px 18px;display:flex;align-items:center;gap:14px;
+  border-bottom:1px solid var(--border);background:var(--surface2);
 }
-.fad-title{font-size:14px;font-weight:800;color:#1a1a1a;display:flex;align-items:center;gap:8px}
-.fad-sub{font-size:11px;color:#4a5a3a;font-weight:600;font-style:italic}
+.fad-title{font-size:14px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px}
+.fad-sub{font-size:11px;color:var(--text2);font-weight:500;font-style:italic}
 .fad-close{
-  width:28px;height:28px;border-radius:4px;border:1px solid #555;
-  background:#fff;color:#333;cursor:pointer;font-size:14px;font-weight:700;
+  width:28px;height:28px;border-radius:6px;border:1px solid var(--border2);
+  background:transparent;color:var(--text2);cursor:pointer;font-size:14px;font-weight:700;
   margin-left:auto;
 }
-.fad-close:hover{background:#ffe5e5;color:#c00;border-color:#c00}
+.fad-close:hover{background:var(--redBg);color:var(--red);border-color:var(--red)}
 
 .fad-tabs{
-  display:flex;gap:2px;padding:6px 12px 0;background:#e9f4d8;
-  border-bottom:1px solid #2a2a2a;
+  display:flex;gap:4px;padding:8px 14px 0;background:var(--surface2);
+  border-bottom:1px solid var(--border);
 }
 .fad-tab{
-  padding:7px 16px;background:#d4e9b8;border:1px solid #2a2a2a;border-bottom:none;
-  border-radius:5px 5px 0 0;
-  color:#2a3a1a;font-size:11px;font-weight:700;cursor:pointer;
-  display:flex;align-items:center;gap:5px;letter-spacing:.3px;
+  padding:7px 16px;background:transparent;border:1px solid transparent;border-bottom:none;
+  border-radius:8px 8px 0 0;
+  color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;gap:5px;letter-spacing:.3px;transition:all .15s;
 }
-.fad-tab:hover{background:#c7dca8}
+.fad-tab:hover{background:var(--surface3);color:var(--text)}
 .fad-tab.active{
-  background:#fafaf7;color:#1a1a1a;
-  border-bottom:1px solid #fafaf7;margin-bottom:-1px;
-  box-shadow:0 -2px 0 #4a8b1f inset;
+  background:var(--surface);color:var(--orange);
+  border-color:var(--border2);border-bottom:1px solid var(--surface);
+  margin-bottom:-1px;
 }
 
-.fad-body{flex:1;overflow-y:auto;padding:0;background:#fafaf7}
+.fad-body{flex:1;overflow-y:auto;padding:0;background:var(--surface)}
 .fad-section{display:none;padding:14px}
 .fad-section.active{display:block}
 
 /* Sheet header (Tempo de Distribuição (tv)/Folha de Cálculo) */
 .fad-sheethead{
   display:grid;grid-template-columns:120px 1fr 220px;
-  border:1.5px solid #1a1a1a;background:#fff;
+  border:1px solid var(--border2);background:var(--surface2);
+  border-radius:8px 8px 0 0;
 }
 .fad-sh-logo{
-  border-right:1.5px solid #1a1a1a;
+  border-right:1px solid var(--border2);
   display:flex;align-items:center;justify-content:center;
-  background:#fafaf7;padding:8px;
+  padding:8px;
 }
 .fad-sh-logo .mtm-mini{
-  width:62px;height:36px;border:1.5px solid #1a1a1a;border-radius:4px;
+  width:62px;height:36px;border:1px solid var(--border2);border-radius:4px;
   display:flex;align-items:center;justify-content:center;
-  background:#fff;font-weight:900;color:#1a1a1a;font-size:13px;letter-spacing:1px;
+  background:var(--surface3);font-weight:900;color:var(--orange);font-size:13px;letter-spacing:1px;
 }
 .fad-sh-title{
-  background:#e9f4d8;text-align:center;padding:8px 14px;
+  background:var(--orangeBg);text-align:center;padding:8px 14px;
   display:flex;flex-direction:column;justify-content:center;
+  border-left:1px solid var(--border2);border-right:1px solid var(--border2);
 }
-.fad-sh-title .t1{font-size:18px;font-weight:800;color:#1a1a1a;line-height:1.15}
-.fad-sh-title .t2{font-size:13px;font-weight:700;color:#1a1a1a;margin-top:2px}
+.fad-sh-title .t1{font-size:17px;font-weight:800;color:var(--text);line-height:1.15}
+.fad-sh-title .t2{font-size:12px;font-weight:700;color:var(--text2);margin-top:2px}
 .fad-sh-meta{
-  border-left:1.5px solid #1a1a1a;background:#fff;
-  display:grid;grid-template-rows:auto auto;font-size:11px;color:#1a1a1a;
+  display:grid;grid-template-rows:auto auto;font-size:11px;color:var(--text);
 }
 .fad-sh-meta-row{
-  display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #aaa;
+  display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border);
 }
 .fad-sh-meta-row:last-child{border-bottom:none}
-.fad-sh-meta-row > div{padding:5px 8px;border-right:1px solid #aaa}
+.fad-sh-meta-row > div{padding:5px 8px;border-right:1px solid var(--border)}
 .fad-sh-meta-row > div:last-child{border-right:none}
-.fad-sh-meta-row label{font-weight:600;display:block;color:#333;font-size:10px}
+.fad-sh-meta-row label{font-weight:600;display:block;color:var(--text2);font-size:10px;text-transform:uppercase;letter-spacing:.3px}
 .fad-sh-meta-row input{
-  border:none;background:transparent;width:100%;color:#1a4a8a;
+  border:none;background:transparent;width:100%;color:var(--accent);
   font-weight:700;font-size:12px;padding:1px 0;font-family:inherit;outline:none;
 }
+.fad-sh-meta-row input:focus{background:var(--surface3);padding:1px 4px;border-radius:3px}
 
 /* Faixa "Descrição da Linha / Produto / Operação" */
 .fad-desc-linha{
-  border:1.5px solid #1a1a1a;border-top:none;background:#fff;
-  padding:5px 10px;font-size:11px;color:#1a1a1a;display:flex;gap:10px;align-items:center;
+  border:1px solid var(--border2);border-top:none;background:var(--surface2);
+  padding:6px 12px;font-size:11px;color:var(--text);display:flex;gap:10px;align-items:center;
 }
-.fad-desc-linha label{font-weight:600;color:#333;flex-shrink:0}
+.fad-desc-linha label{font-weight:600;color:var(--text2);flex-shrink:0;text-transform:uppercase;font-size:10px;letter-spacing:.3px}
 .fad-desc-linha input{
-  flex:1;border:none;background:transparent;color:#1a4a8a;
+  flex:1;border:none;background:transparent;color:var(--accent);
   font-weight:600;font-size:12px;outline:none;padding:1px 4px;font-family:inherit;
 }
-.fad-desc-linha input:focus{background:#fffce6}
+.fad-desc-linha input:focus{background:var(--surface3);border-radius:3px}
 
-/* Tabela TV (planilha) */
+/* Tabela TV */
 .fad-tvtable{
-  width:100%;border-collapse:collapse;background:#fff;
-  border:1.5px solid #1a1a1a;border-top:none;
-  font-size:11px;color:#1a1a1a;
+  width:100%;border-collapse:collapse;background:var(--surface2);
+  border:1px solid var(--border2);border-top:none;
+  font-size:11px;color:var(--text);
 }
 .fad-tvtable th, .fad-tvtable td{
-  border:1px solid #888;padding:4px 6px;vertical-align:middle;
+  border:1px solid var(--border);padding:5px 7px;vertical-align:middle;
 }
 .fad-tvtable thead th{
-  background:#fafaf7;font-weight:700;font-size:10.5px;
-  text-align:center;color:#1a1a1a;
+  background:var(--surface3);font-weight:700;font-size:10px;
+  text-align:center;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;
 }
 .fad-tvtable .tv-num{
-  width:32px;text-align:center;font-weight:700;
-  background:#fafaf7;
+  width:32px;text-align:center;font-weight:800;
+  background:var(--accentBg);color:var(--accent);font-family:'JetBrains Mono',monospace;
 }
-.fad-tvtable .tv-desc{font-weight:700;color:#1a1a1a}
-.fad-tvtable .tv-desc small{display:block;font-weight:400;font-style:italic;color:#555;margin-top:1px}
+.fad-tvtable .tv-desc{font-weight:600;color:var(--text)}
+.fad-tvtable .tv-desc small{display:block;font-weight:400;font-style:italic;color:var(--text3);margin-top:2px;font-size:10px}
 .fad-tvtable .tv-input{width:80px}
 .fad-tvtable .tv-base{width:90px}
-.fad-tvtable .tv-hint{font-size:10px;font-style:italic;color:#555;width:200px}
+.fad-tvtable .tv-hint{font-size:10px;font-style:italic;color:var(--text3);width:200px}
 .fad-tvtable .tv-pct{
-  width:60px;text-align:right;font-weight:700;
-  background:#e9f4d8;font-family:'Consolas',monospace;
+  width:60px;text-align:right;font-weight:800;
+  background:var(--greenBg);color:var(--green);font-family:'JetBrains Mono',monospace;
 }
 .fad-tvtable .tv-pct-avalia{
-  width:60px;text-align:right;font-weight:700;color:#c00;
-  background:#fff5e6;font-family:'Consolas',monospace;
+  width:60px;text-align:right;font-weight:800;color:var(--red);
+  background:var(--redBg);font-family:'JetBrains Mono',monospace;
 }
 .fad-tvtable input[type=number], .fad-tvtable input[type=text]{
-  width:100%;border:1px solid #aaa;background:#fffce6;padding:2px 4px;
-  font-size:11px;color:#1a4a8a;font-weight:700;font-family:inherit;outline:none;
-  text-align:right;border-radius:2px;
+  width:100%;border:1px solid var(--border);background:var(--surface);
+  padding:3px 5px;font-size:11px;color:var(--accent);font-weight:700;
+  font-family:'JetBrains Mono',monospace;outline:none;
+  text-align:right;border-radius:3px;
 }
-.fad-tvtable input:focus{background:#ffec80;border-color:#4a8b1f}
+.fad-tvtable input:focus{background:var(--accentBg);border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,212,255,.15)}
 .fad-tvtable select{
-  width:100%;border:1px solid #aaa;background:#fff;padding:2px 4px;
-  font-size:11px;color:#1a4a8a;font-weight:600;font-family:inherit;outline:none;
-  border-radius:2px;
+  width:100%;border:1px solid var(--border);background:var(--surface);
+  padding:3px 5px;font-size:11px;color:var(--text);font-weight:600;
+  font-family:inherit;outline:none;border-radius:3px;cursor:pointer;
 }
-.fad-tvtable select:focus{background:#fffce6;border-color:#4a8b1f}
+.fad-tvtable select:focus{background:var(--accentBg);border-color:var(--accent)}
 .fad-tvtable .tv-cat{
-  background:#fafaf7;font-weight:700;font-size:11px;font-style:italic;
+  background:var(--surface3);font-weight:700;font-size:11px;font-style:italic;
 }
 .fad-tvtable .tv-total-row td{
-  background:#a3c97a !important;font-weight:800;font-size:11.5px;color:#1a1a1a;
+  background:linear-gradient(135deg,var(--orangeBg),var(--accentBg)) !important;
+  font-weight:800;font-size:11.5px;color:var(--text);
+  border-color:var(--border2) !important;
+}
+.fad-tvtable .tv-total-row .tv-pct{
+  background:var(--greenBg) !important;color:var(--green);font-size:13px;
 }
 .fad-tvtable .tv-total-row .tv-pct-avalia{
-  background:#fff5e6 !important;color:#c00;font-size:12px;
+  background:var(--redBg) !important;color:var(--red);font-size:13px;
 }
 
 /* Rodapé "Data | Elaborado por | Verificado por" */
 .fad-foot-info{
   display:grid;grid-template-columns:140px 1fr 1fr;
-  border:1.5px solid #1a1a1a;border-top:none;background:#fff;font-size:11px;
+  border:1px solid var(--border2);border-top:none;background:var(--surface2);font-size:11px;
+  border-radius:0 0 8px 8px;
 }
-.fad-foot-info > div{padding:5px 8px;border-right:1px solid #aaa;color:#1a1a1a}
+.fad-foot-info > div{padding:6px 10px;border-right:1px solid var(--border);color:var(--text)}
 .fad-foot-info > div:last-child{border-right:none}
-.fad-foot-info label{font-weight:600;font-size:10px;color:#333;display:block}
+.fad-foot-info label{font-weight:600;font-size:10px;color:var(--text2);display:block;text-transform:uppercase;letter-spacing:.3px}
 .fad-foot-info input{
-  border:none;background:transparent;width:100%;color:#1a4a8a;
-  font-weight:700;font-size:12px;outline:none;font-family:inherit;
+  border:none;background:transparent;width:100%;color:var(--accent);
+  font-weight:700;font-size:12px;outline:none;font-family:inherit;padding:1px 0;
 }
+.fad-foot-info input:focus{background:var(--surface3);padding:1px 4px;border-radius:3px}
 
-/* ==================== TER — blocos estilo planilha ==================== */
+/* ==================== TER — blocos ==================== */
 .fad-formula-box{
-  border:1.5px solid #1a1a1a;border-top:none;background:#e9f4d8;
-  padding:12px 16px;margin-bottom:0;
+  border:1px solid var(--border2);background:var(--orangeBg);
+  border-top:none;padding:12px 16px;margin-bottom:0;
 }
 .fad-formula-box .fb-tit{
-  font-weight:700;color:#1a1a1a;font-size:12px;margin-bottom:8px;
+  font-weight:700;color:var(--orange);font-size:11px;
+  text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;
 }
 .fad-formula-box .fb-eq{
-  font-size:14px;font-weight:700;color:#1a1a1a;
+  font-size:13px;font-weight:700;color:var(--text);
   display:flex;align-items:center;gap:8px;flex-wrap:wrap;
 }
 .fad-formula-box .fb-eq .res{
-  background:#a3c97a;color:#1a1a1a;padding:3px 10px;border-radius:3px;
-  font-family:'Consolas',monospace;font-size:14px;border:1px solid #1a1a1a;
+  background:linear-gradient(135deg,var(--orange),#ff4d6d);color:#fff;
+  padding:4px 12px;border-radius:6px;
+  font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:800;
+  box-shadow:0 2px 8px rgba(255,149,0,.3);
 }
-.fad-formula-box .fb-eq .hint{font-size:11px;color:#555;font-style:italic;font-weight:400}
+.fad-formula-box .fb-eq .hint{font-size:11px;color:var(--text2);font-style:italic;font-weight:400}
 .fad-formula-box .fb-notes{
-  margin-top:8px;display:grid;grid-template-columns:1fr 1fr;
-  font-size:11px;color:#1a1a1a;gap:4px;
+  margin-top:10px;display:grid;grid-template-columns:1fr 1fr;
+  font-size:11px;color:var(--text2);gap:4px;
 }
 
 .fad-tblock{
-  border:1.5px solid #1a1a1a;border-top:none;background:#fff;
-  display:grid;grid-template-columns:1fr 90px;
+  border:1px solid var(--border2);border-top:none;background:var(--surface2);
+  display:grid;grid-template-columns:1fr 100px;
 }
-.fad-tblock-main{border-right:1.5px solid #1a1a1a}
+.fad-tblock-main{border-right:1px solid var(--border2)}
 .fad-tblock-head{
-  background:#a3c97a;padding:6px 12px;font-size:11px;font-weight:800;
-  color:#1a1a1a;letter-spacing:.5px;text-transform:uppercase;
-  border-bottom:1px solid #1a1a1a;
+  background:var(--accentBg);padding:7px 12px;font-size:11px;font-weight:800;
+  color:var(--accent);letter-spacing:.6px;text-transform:uppercase;
+  border-bottom:1px solid var(--border2);
 }
 .fad-tblock-fator{
-  background:#fafaf7;text-align:center;display:flex;
+  background:var(--surface3);text-align:center;display:flex;
   flex-direction:column;justify-content:flex-start;
 }
 .fad-tblock-fator .ft-lbl{
-  background:#a3c97a;padding:6px;font-size:11px;font-weight:800;
-  color:#1a1a1a;letter-spacing:.5px;border-bottom:1px solid #1a1a1a;
+  background:var(--accentBg);padding:7px;font-size:11px;font-weight:800;
+  color:var(--accent);letter-spacing:.5px;border-bottom:1px solid var(--border2);
 }
 .fad-tblock-fator .ft-val{
   flex:1;display:flex;align-items:center;justify-content:center;
-  font-size:18px;font-weight:800;font-family:'Consolas',monospace;
-  color:#c00;background:#fff;padding:14px 0;
+  font-size:18px;font-weight:800;font-family:'JetBrains Mono',monospace;
+  color:var(--red);padding:14px 0;
+  background:var(--surface2);
 }
 
 .fad-optrow{
   display:grid;grid-template-columns:60px 60px 1fr;
-  border-bottom:1px solid #ccc;cursor:pointer;
+  border-bottom:1px solid var(--border);cursor:pointer;
   transition:background .12s;
 }
 .fad-optrow:last-child{border-bottom:none}
-.fad-optrow:hover{background:#fffce6}
-.fad-optrow.selected{background:#e9f4d8}
+.fad-optrow:hover{background:var(--surface3)}
+.fad-optrow.selected{background:var(--greenBg)}
 .fad-optrow .op-val{
-  text-align:center;padding:5px 4px;font-size:11px;font-weight:700;
-  color:#1a4a8a;border-right:1px solid #ccc;font-family:'Consolas',monospace;
+  text-align:center;padding:6px 4px;font-size:11px;font-weight:700;
+  color:var(--accent);border-right:1px solid var(--border);font-family:'JetBrains Mono',monospace;
 }
 .fad-optrow .op-sel{
-  text-align:center;padding:5px 4px;font-size:11px;font-weight:700;
-  color:#c00;border-right:1px solid #ccc;font-family:'Consolas',monospace;
+  text-align:center;padding:6px 4px;font-size:11px;font-weight:700;
+  color:var(--text3);border-right:1px solid var(--border);font-family:'JetBrains Mono',monospace;
 }
-.fad-optrow.selected .op-sel{background:#a3c97a}
+.fad-optrow.selected .op-sel{
+  background:linear-gradient(135deg,var(--green),#00b380);color:#fff;
+  box-shadow:inset 0 0 0 1px rgba(0,229,160,.3);
+}
 .fad-optrow .op-desc{
-  padding:5px 10px;font-size:11px;color:#1a1a1a;line-height:1.35;
+  padding:6px 12px;font-size:11px;color:var(--text);line-height:1.4;
 }
-.fad-optrow .op-desc b{font-weight:700;color:#1a1a1a}
+.fad-optrow .op-desc b{font-weight:700;color:var(--orange)}
 
 /* Recuperação - tabela com cabeçalho */
 .fad-recup-head{
   display:grid;grid-template-columns:60px 60px 1fr;
-  background:#fafaf7;border-bottom:1px solid #1a1a1a;
-  font-size:10px;font-weight:700;color:#333;text-align:center;
+  background:var(--surface3);border-bottom:1px solid var(--border2);
+  font-size:10px;font-weight:700;color:var(--text2);text-align:center;
+  text-transform:uppercase;letter-spacing:.3px;
 }
-.fad-recup-head > div{padding:4px;border-right:1px solid #ccc}
-.fad-recup-head > div:last-child{border-right:none;text-align:left;padding-left:10px}
+.fad-recup-head > div{padding:5px 4px;border-right:1px solid var(--border)}
+.fad-recup-head > div:last-child{border-right:none;text-align:left;padding-left:12px}
 
 /* CA - subgrupos */
-.fad-ca-sub{
-  border-bottom:1px solid #1a1a1a;
-}
+.fad-ca-sub{border-bottom:1px solid var(--border2)}
 .fad-ca-sub:last-child{border-bottom:none}
 .fad-ca-subhead{
   display:grid;grid-template-columns:120px 60px 1fr;
-  background:#d4e9b8;font-size:10.5px;font-weight:800;color:#1a1a1a;
-  border-bottom:1px solid #1a1a1a;
+  background:var(--accentBg);font-size:10.5px;font-weight:800;color:var(--accent);
+  border-bottom:1px solid var(--border2);text-transform:uppercase;letter-spacing:.4px;
 }
-.fad-ca-subhead > div{padding:5px 8px;border-right:1px solid #1a1a1a}
+.fad-ca-subhead > div{padding:6px 10px;border-right:1px solid var(--border2)}
 .fad-ca-subhead > div:last-child{border-right:none}
 .fad-ca-optrow{
   display:grid;grid-template-columns:120px 60px 1fr;
-  border-bottom:1px solid #ccc;cursor:pointer;background:#fff;
+  border-bottom:1px solid var(--border);cursor:pointer;background:var(--surface2);
+  transition:background .12s;
 }
 .fad-ca-optrow:last-child{border-bottom:none}
-.fad-ca-optrow:hover{background:#fffce6}
-.fad-ca-optrow.selected{background:#e9f4d8}
-.fad-ca-optrow > div:first-child{border-right:1px solid #ccc}
+.fad-ca-optrow:hover{background:var(--surface3)}
+.fad-ca-optrow.selected{background:var(--greenBg)}
+.fad-ca-optrow > div:first-child{border-right:1px solid var(--border)}
 .fad-ca-optrow .op-val{
-  text-align:center;padding:5px 4px;font-size:11px;font-weight:700;
-  color:#1a4a8a;border-right:1px solid #ccc;font-family:'Consolas',monospace;
+  text-align:center;padding:6px 4px;font-size:11px;font-weight:700;
+  color:var(--accent);border-right:1px solid var(--border);font-family:'JetBrains Mono',monospace;
 }
-.fad-ca-optrow.selected .op-val{background:#a3c97a;color:#1a1a1a}
-.fad-ca-optrow .op-desc{padding:5px 10px;font-size:11px;color:#1a1a1a;line-height:1.35}
+.fad-ca-optrow.selected .op-val{
+  background:linear-gradient(135deg,var(--green),#00b380);color:#fff;
+}
+.fad-ca-optrow .op-desc{padding:6px 12px;font-size:11px;color:var(--text);line-height:1.4}
 
 /* Fonte/footer com referência */
 .fad-source-box{
-  margin-top:10px;padding:8px 12px;background:#fafaf7;
-  border:1px dashed #888;font-size:11px;color:#1a1a1a;
+  margin-top:12px;padding:10px 14px;background:var(--surface2);
+  border:1px dashed var(--border2);border-radius:8px;font-size:11px;color:var(--text);
+  line-height:1.5;
 }
-.fad-source-box b{color:#1a1a1a}
+.fad-source-box b{color:var(--orange)}
 
-/* Análise final — mantém visual */
-.fad-ana-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-bottom:12px}
+/* Análise final */
+.fad-ana-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px}
 .fad-ana-card{
-  background:#fff;border:1.5px solid #1a1a1a;padding:10px 14px;text-align:center;
+  background:var(--surface2);border:1px solid var(--border2);
+  padding:12px 14px;text-align:center;border-radius:8px;
 }
-.fad-ana-card .l{font-size:10px;color:#555;font-weight:700;letter-spacing:.4px;text-transform:uppercase}
+.fad-ana-card .l{font-size:10px;color:var(--text2);font-weight:700;letter-spacing:.4px;text-transform:uppercase}
 .fad-ana-card .v{
-  font-size:20px;font-weight:800;margin-top:4px;font-family:'Consolas',monospace;color:#1a4a8a;
+  font-size:22px;font-weight:800;margin-top:4px;font-family:'JetBrains Mono',monospace;color:var(--text);
 }
-.fad-ana-card.tv .v{color:#1a4a8a}
-.fad-ana-card.ter .v{color:#c00}
-.fad-ana-card.total .v{color:#a64500}
-.fad-ana-card.tn .v{color:#1a1a1a}
-.fad-ana-card.ts .v{color:#4a8b1f}
-.fad-ana-card.ocio .v.pos{color:#4a8b1f}
-.fad-ana-card.ocio .v.neg{color:#c00}
+.fad-ana-card.tv .v{color:var(--accent)}
+.fad-ana-card.ter .v{color:var(--red)}
+.fad-ana-card.total .v{color:var(--orange)}
+.fad-ana-card.tn .v{color:var(--text)}
+.fad-ana-card.ts .v{color:var(--green)}
+.fad-ana-card.ocio .v.pos{color:var(--green)}
+.fad-ana-card.ocio .v.neg{color:var(--red)}
 .fad-ana-table{
-  width:100%;border-collapse:collapse;font-size:11px;color:#1a1a1a;
-  background:#fff;border:1.5px solid #1a1a1a;
+  width:100%;border-collapse:collapse;font-size:11px;color:var(--text);
+  background:var(--surface2);border:1px solid var(--border2);border-radius:8px;overflow:hidden;
 }
 .fad-ana-table th{
-  background:#a3c97a;color:#1a1a1a;font-size:10px;font-weight:700;
-  text-transform:uppercase;letter-spacing:.4px;padding:5px 8px;
-  text-align:left;border-bottom:1px solid #1a1a1a;border-right:1px solid #1a1a1a;
+  background:var(--surface3);color:var(--text2);font-size:10px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.4px;padding:8px 10px;
+  text-align:left;border-bottom:1px solid var(--border2);border-right:1px solid var(--border);
 }
 .fad-ana-table th:last-child{border-right:none}
-.fad-ana-table td{padding:5px 8px;border-bottom:1px solid #aaa;border-right:1px solid #aaa;color:#1a1a1a}
+.fad-ana-table td{padding:7px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);color:var(--text)}
 .fad-ana-table td:last-child{border-right:none}
 .fad-ana-table tr:last-child td{border-bottom:none}
-.fad-ana-table td.num{font-family:'Consolas',monospace;font-weight:700;text-align:right}
+.fad-ana-table td.num{font-family:'JetBrains Mono',monospace;font-weight:700;text-align:right;color:var(--accent)}
 
 .fad-info{
-  background:#fffce6;border:1px solid #c4a000;
-  border-left:3px solid #c4a000;
-  padding:9px 12px;margin-bottom:10px;
-  font-size:11px;color:#1a1a1a;line-height:1.5;
+  background:var(--orangeBg);border:1px solid rgba(255,149,0,.3);
+  border-left:3px solid var(--orange);border-radius:8px;
+  padding:10px 14px;margin-bottom:12px;
+  font-size:11px;color:var(--text);line-height:1.55;
 }
-.fad-info b{color:#1a1a1a}
+.fad-info b{color:var(--orange)}
 .fad-info code{
-  background:#e9f4d8;padding:1px 5px;border-radius:3px;
-  font-family:'Consolas',monospace;font-size:11px;color:#1a4a8a;
+  background:var(--surface3);padding:1px 6px;border-radius:4px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);
 }
 
 .fad-footer{
   padding:10px 16px;display:flex;align-items:center;gap:8px;
-  border-top:1px solid #1a1a1a;background:#e9f4d8;
-  font-size:11px;color:#1a1a1a;
+  border-top:1px solid var(--border);background:var(--surface2);
+  font-size:11px;color:var(--text2);
 }
 .fad-footer .sp{flex:1}
 .fad-footer button{
-  padding:6px 12px;font-size:12px;border-radius:4px;border:1px solid #1a1a1a;
-  background:#fff;color:#1a1a1a;cursor:pointer;font-weight:600;
+  padding:6px 14px;font-size:12px;border-radius:6px;border:1px solid var(--border2);
+  background:transparent;color:var(--text);cursor:pointer;font-weight:600;
+  transition:all .15s;
 }
-.fad-footer button:hover{background:#fafaf7}
-.fad-footer .btn-apply{background:#a3c97a;font-weight:700}
-.fad-footer .btn-apply:hover{background:#8fb964}
-.fad-footer .btn-close{background:#1a1a1a;color:#fff}
-.fad-footer .btn-close:hover{background:#333}
+.fad-footer button:hover{background:var(--surface3);border-color:var(--orange);color:var(--orange)}
+.fad-footer .btn-apply{
+  background:linear-gradient(135deg,var(--green),#00b380);
+  color:#fff;font-weight:700;border-color:transparent;
+}
+.fad-footer .btn-apply:hover{
+  background:linear-gradient(135deg,#00b380,var(--green));
+  border-color:transparent;color:#fff;
+  box-shadow:0 2px 10px rgba(0,229,160,.3);
+}
+.fad-footer .btn-close{
+  background:linear-gradient(135deg,var(--orange),#ff4d6d);
+  color:#fff;font-weight:700;border-color:transparent;
+}
+.fad-footer .btn-close:hover{
+  background:linear-gradient(135deg,#ff4d6d,var(--orange));
+  border-color:transparent;color:#fff;
+  box-shadow:0 2px 10px rgba(255,77,109,.3);
+}
 
 @media(max-width:780px){
   .fad-sheethead{grid-template-columns:60px 1fr 180px}
@@ -2677,11 +2843,11 @@ table.mtm tfoot tr.total-row td{
         </span>
 
         <div class="fad-source-box">
-          <b style="color:#c4a000">📚 Fonte:</b>
+          <b style="color:var(--orange)">📚 Fonte:</b>
           Manual de Tempos e Métodos
-          <b style="color:#c00">(Argens Valente da Silva / Rubens R. C. Coimbra — Editora Hemus)</b>
-          + MTM-UAS · Planilha Engº <b style="color:#c00">Ivan Antoneli</b><br>
-          <span style="font-size:10px;color:#555">
+          <b style="color:var(--red)">(Argens Valente da Silva / Rubens R. C. Coimbra — Editora Hemus)</b>
+          + MTM-UAS · Planilha Engº <b style="color:var(--red)">Ivan Antoneli</b><br>
+          <span style="font-size:10px;color:var(--text2)">
             <b>FADIGA</b> (Biológica, Trabalho e Motora): cansaço = perda da capacidade de rendimento, equilibrada pelo repouso.
             <b>Trabalho</b>: dispêndio de energia, reduzida com pausas.
             <b>Motora</b>: reduzida com enriquecimento ou troca de tarefas.
@@ -2733,7 +2899,7 @@ table.mtm tfoot tr.total-row td{
     </div>
 
     <div class="fad-footer">
-      <span>* Fonte: Manual de Tempos e Métodos · Planilha Engº <b style="color:#c00">Ivan Antoneli</b></span>
+      <span>* Fonte: Manual de Tempos e Métodos · Planilha Engº <b style="color:var(--orange)">Ivan Antoneli</b></span>
       <span class="sp"></span>
       <button onclick="fadResetDefaults()" title="Restaurar valores padrão">↺ Resetar</button>
       <button class="btn-apply" onclick="fadAplicarFolha()" title="Aplicar TV+TER ao cabeçalho da folha">✓ Aplicar à Folha</button>
@@ -3586,7 +3752,328 @@ function goBottom(){
   if(last)last.scrollIntoView({behavior:'smooth',block:'center'});
   else window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
 }
-function exportPDF(){window.print()}
+function exportPDF(){
+  try{
+    prepararPrint();
+    // Pequeno delay para o DOM renderizar antes do print
+    setTimeout(function(){ window.print(); }, 80);
+  }catch(e){
+    console.error('Erro ao preparar PDF:', e);
+    window.print();
+  }
+}
+
+// Monta TODO o conteúdo formatado para impressão dentro de #print-area
+// Filtra linhas vazias (TV com 0, MTM com desc/code/tmu vazios, CA zerado)
+function prepararPrint(){
+  var box = document.getElementById('print-area');
+  if(!box) return;
+  if(!sheets || !sheets.length){ box.innerHTML = ''; return; }
+
+  // ─── Helpers locais ───
+  function esc(s){
+    return String(s==null?'':s).replace(/[&<>"]/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];
+    });
+  }
+  function fmtN(v, d){
+    var n = parseFloat(v);
+    if(!isFinite(n)) return '—';
+    return n.toLocaleString('pt-BR',{minimumFractionDigits:(d!=null?d:2), maximumFractionDigits:(d!=null?d:2)});
+  }
+  function fmtMin(b){ return ({turno:'por turno',dia:'por dia',semana:'por semana'})[b]||b||''; }
+  function fadMinToPct(min, base){
+    var m = parseFloat(min)||0; if(m<=0) return 0;
+    if(base==='turno') return (m*3)/1440*100;
+    if(base==='semana') return m/(1440*7)*100;
+    return m/1440*100;
+  }
+  function rotuloFisico(v){
+    var map={0.018:'ML — sentado, peças minúsculas',0.036:'L — sentado, peq. movim.',
+             0.054:'M — em pé, pesos abaixo de 8 kg',0.072:'P — em pé, 8 a 18 kg',
+             0.090:'MP — operação contínua, até 20 kg'};
+    return map[+(parseFloat(v)||0).toFixed(3)] || '—';
+  }
+  function rotuloMental(v){
+    var map={0.006:'L — repetitivo invariável',
+             0.018:'M — pequenas decisões',
+             0.030:'P — grandes decisões'};
+    return map[+(parseFloat(v)||0).toFixed(3)] || '—';
+  }
+  function rotuloRecup(v){
+    var map={1.00:'0% — sem recuperação',0.90:'10%',0.80:'20%',0.71:'30%',
+             0.62:'40%',0.54:'50%',0.46:'60%',0.39:'70%',0.32:'80%',
+             0.26:'90%',0.20:'100%',0.15:'>100%'};
+    return map[parseFloat(parseFloat(v).toFixed(2))] || '—';
+  }
+  function rotuloMonot(v){
+    var map={0.078:'Ciclo muito curto',0.054:'Ciclo curto',0.036:'Ciclo curto-médio',
+             0.021:'Ciclo médio (2 a 4 min)',0.010:'Ciclo médio-longo',
+             0.005:'Ciclo longo',0.002:'Ciclo muito longo'};
+    return map[+(parseFloat(v)||0).toFixed(3)] || '—';
+  }
+  function calcFad(f){
+    if(!f) return null;
+    var pcts={};
+    pcts['1']=parseFloat(f.tvPausa)||0;
+    pcts['2']=fadMinToPct(f.tvLimpPesMin, f.tvLimpPesBase);
+    pcts['3']=fadMinToPct(f.tvLimpPosMin, f.tvLimpPosBase);
+    pcts['4']=fadMinToPct(f.tvLimpGerMin, f.tvLimpGerBase);
+    var trMin=parseFloat(f.tvTrocaMin)||0, trPcs=parseFloat(f.tvTrocaPcs)||0, trProdH=parseFloat(f.tvTrocaProdH)||0;
+    var trMinDia=0; if(trMin>0 && trPcs>0 && trProdH>0){ trMinDia = trMin*((trProdH*24)/trPcs); }
+    pcts['5']=(trMinDia/1440)*100;
+    pcts['6']=fadMinToPct(f.tvCadernoMin, f.tvCadernoBase);
+    pcts['7']=fadMinToPct(f.tvTempMin, f.tvTempBase);
+    pcts['8a']=fadMinToPct(f.tvManParMin, f.tvManParBase);
+    pcts['8b']=fadMinToPct(f.tvManFuncMin, f.tvManFuncBase);
+    pcts['9']=fadMinToPct(f.tvInterrMin, f.tvInterrBase);
+    var freqH=parseFloat(f.tvRevFreq)||0, tmu=parseFloat(f.tvRevTmu)||0;
+    var minDia=(freqH*tmu)*24*0.036/60;
+    pcts['10']=(minDia/1440)*100;
+    pcts['11a']=fadMinToPct(f.tvGinPrepMin, f.tvGinPrepBase);
+    pcts['11b']=fadMinToPct(f.tvGinCompMin, f.tvGinCompBase);
+    pcts['12a']=fadMinToPct(f.tvReuProdMin, f.tvReuProdBase);
+    pcts['12b']=fadMinToPct(f.tvReuQSMin, f.tvReuQSBase);
+    var tvTotal=0; Object.keys(pcts).forEach(function(k){ tvTotal+=pcts[k]||0; });
+    var tvB=(pcts['1']||0)+(pcts['6']||0)+(pcts['11a']||0)+(pcts['11b']||0)+(pcts['12a']||0)+(pcts['12b']||0);
+    var fa=(parseFloat(f.terFisico)||0)+(parseFloat(f.terMental)||0);
+    var fb=parseFloat(f.terRecup)||0;
+    var mM=parseFloat(f.terMonot)||0;
+    var ca=(parseFloat(f.terTermica)||0)+(parseFloat(f.terAtmosf)||0)+(parseFloat(f.terRuido)||0)+(parseFloat(f.terUmid)||0)+(parseFloat(f.terVibr)||0);
+    var fadigaCoef=(fa*fb)+mM+ca;
+    return {pcts:pcts, tvTotal:tvTotal, tvB:tvB, fa:fa, fb:fb, mM:mM, ca:ca, fadigaCoef:fadigaCoef, fadigaPct:fadigaCoef*100};
+  }
+  // Métricas básicas da folha
+  function calcMetrics(s){
+    var tmu=0;
+    (s.rows||[]).forEach(function(r){ tmu += parseFloat(r.ttmu)||0; });
+    var tn = tmu * 0.036;
+    var h = s.header||{};
+    var allow = (parseFloat(h.allowPersonal)||0) + (parseFloat(h.allowFatigue)||0) + (parseFloat(h.allowContingency)||0);
+    var ts = tn * (1 + allow/100);
+    var pph = ts > 0 ? Math.floor(3600/ts) : 0;
+    return {tmu:tmu, tn:tn, ts:ts, allow:allow, pph:pph};
+  }
+
+  var html = '';
+  var dataGer = new Date().toLocaleString('pt-BR');
+
+  sheets.forEach(function(s, idx){
+    var h = s.header||{};
+    var m = calcMetrics(s);
+    var fad = calcFad(s.fadiga);
+
+    html += '<div class="pa-folha">';
+
+    // ═══ TÍTULO ═══
+    html += '<div class="pa-h1">📋 FOLHA DE PROCESSO MTM — '+esc(s.label)+'</div>';
+
+    // ═══ CABEÇALHO DA FOLHA — info do processo ═══
+    html += '<div class="pa-h2">Informações do Processo</div>';
+    html += '<div class="pa-info">';
+    html +=   '<div class="pa-info-row">';
+    html +=     '<div class="pa-info-cell"><div class="lbl">Processo</div><div class="val">'+esc(h.processo||'—')+'</div></div>';
+    html +=     '<div class="pa-info-cell"><div class="lbl">Código</div><div class="val">'+esc(h.codigo||'—')+'</div></div>';
+    html +=     '<div class="pa-info-cell"><div class="lbl">Data</div><div class="val">'+esc(h.data||'—')+'</div></div>';
+    html +=     '<div class="pa-info-cell"><div class="lbl">Planta</div><div class="val">'+esc(h.planta||'—')+'</div></div>';
+    html +=   '</div>';
+    html +=   '<div class="pa-info-row">';
+    html +=     '<div class="pa-info-cell"><div class="lbl">Engenheiro</div><div class="val">'+esc(h.eng||'—')+'</div></div>';
+    html +=     '<div class="pa-info-cell"><div class="lbl">Operador / Posto</div><div class="val">'+esc(h.operator||'—')+'</div></div>';
+    html +=     '<div class="pa-info-cell"><div class="lbl">Takt (s)</div><div class="val">'+ (h.takt ? fmtN(h.takt,2) : '—') +'</div></div>';
+    html +=     '<div class="pa-info-cell"><div class="lbl">Demanda (peças)</div><div class="val">'+ (h.demand ? fmtN(h.demand,0) : '—') +'</div></div>';
+    html +=   '</div>';
+    html += '</div>';
+
+    // ═══ TABELA MTM (filtrando linhas vazias) ═══
+    var linhas = (s.rows||[]).filter(function(r){
+      var desc = (r.desc||'').trim();
+      var code = (r.code||'').trim();
+      var tmu = parseFloat(r.tmu)||0;
+      var ttmu = parseFloat(r.ttmu)||0;
+      return desc || code || tmu > 0 || ttmu > 0;
+    });
+
+    html += '<div class="pa-h2">Análise MTM — '+linhas.length+' operação(ões)</div>';
+    html += '<table class="pa-table">';
+    html += '<thead><tr>';
+    html +=   '<th style="width:25pt">#</th>';
+    html +=   '<th>Descrição</th>';
+    html +=   '<th style="width:55pt">Agrega</th>';
+    html +=   '<th style="width:55pt">Código</th>';
+    html +=   '<th style="width:40pt">TMU</th>';
+    html +=   '<th style="width:30pt">Q</th>';
+    html +=   '<th style="width:30pt">F</th>';
+    html +=   '<th style="width:50pt">TMU Total</th>';
+    html +=   '<th style="width:50pt">Tempo (s)</th>';
+    html += '</tr></thead><tbody>';
+    linhas.forEach(function(r, i){
+      html += '<tr>';
+      html +=   '<td class="item">'+(i+1)+'</td>';
+      html +=   '<td>'+esc(r.desc||'')+'</td>';
+      html +=   '<td class="ctr">'+esc(r.agrega||'')+'</td>';
+      html +=   '<td class="ctr">'+esc(r.code||'')+'</td>';
+      html +=   '<td class="num">'+(r.tmu==null||r.tmu===''?'':fmtN(r.tmu,2))+'</td>';
+      html +=   '<td class="num">'+(r.q==null||r.q===''?'':fmtN(r.q,2))+'</td>';
+      html +=   '<td class="num">'+(r.f==null||r.f===''?'':fmtN(r.f,2))+'</td>';
+      html +=   '<td class="num">'+fmtN(r.ttmu,2)+'</td>';
+      html +=   '<td class="num">'+fmtN(r.tsec,3)+'</td>';
+      html += '</tr>';
+    });
+    html += '<tr class="total-row"><td colspan="7" style="text-align:right">TOTAL</td>';
+    html += '<td class="num">'+fmtN(m.tmu,2)+'</td>';
+    html += '<td class="num">'+fmtN(m.tn,3)+'</td></tr>';
+    html += '</tbody></table>';
+
+    // ═══ RESULTADOS CONSOLIDADOS ═══
+    html += '<div class="pa-h2">Resultados Consolidados</div>';
+    html += '<div class="pa-results">';
+    html +=   '<div class="pa-results-row">';
+    html +=     '<div class="pa-results-cell"><div class="l">TMU Total</div><div class="v">'+fmtN(m.tmu,2)+'</div></div>';
+    html +=     '<div class="pa-results-cell"><div class="l">Allowance (%)</div><div class="v">'+fmtN(m.allow,2)+'</div></div>';
+    html +=     '<div class="pa-results-cell"><div class="l">TN (s)</div><div class="v">'+fmtN(m.tn,3)+'</div></div>';
+    html +=     '<div class="pa-results-cell"><div class="l">TS — Padrão (s)</div><div class="v">'+fmtN(m.ts,3)+'</div></div>';
+    html +=     '<div class="pa-results-cell"><div class="l">Takt (s)</div><div class="v">'+ (h.takt ? fmtN(h.takt,3) : '—') +'</div></div>';
+    html +=     '<div class="pa-results-cell"><div class="l">Peças/hora</div><div class="v">'+fmtN(m.pph,0)+'</div></div>';
+    html +=   '</div>';
+    html += '</div>';
+
+    // ═══ FADIGA & OCIOSIDADE (se preenchida) ═══
+    if(fad){
+      html += '<div class="pa-h2">🛌 Análise de Fadiga & Ociosidade</div>';
+
+      // Cabeçalho da planilha de fadiga (Tipo/Seção/Operação/Descrição)
+      if(s.fadiga.tipo || s.fadiga.secao || s.fadiga.operacao || s.fadiga.descLinha){
+        html += '<div class="pa-info">';
+        html +=   '<div class="pa-info-row">';
+        html +=     '<div class="pa-info-cell"><div class="lbl">Nº de Tipo</div><div class="val">'+esc(s.fadiga.tipo||'—')+'</div></div>';
+        html +=     '<div class="pa-info-cell"><div class="lbl">Seção</div><div class="val">'+esc(s.fadiga.secao||'—')+'</div></div>';
+        html +=     '<div class="pa-info-cell"><div class="lbl">Operação</div><div class="val">'+esc(s.fadiga.operacao||'—')+'</div></div>';
+        html +=   '</div>';
+        if(s.fadiga.descLinha){
+          html += '<div class="pa-info-row"><div class="pa-info-cell" style="width:100%" colspan="3">'+
+                  '<div class="lbl">Descrição da Linha / Produto / Operação</div>'+
+                  '<div class="val">'+esc(s.fadiga.descLinha)+'</div></div></div>';
+        }
+        html += '</div>';
+      }
+
+      // ── TV — Tempo de Distribuição (filtrando linhas vazias) ──
+      html += '<div class="pa-h3">TV — Tempo de Distribuição (Ociosidade de Rotina)</div>';
+      html += '<table class="pa-table"><thead><tr>';
+      html += '<th style="width:30pt">Item</th><th>Descrição</th><th style="width:80pt">Valor informado</th><th style="width:50pt">Base</th><th style="width:50pt">% do dia</th>';
+      html += '</tr></thead><tbody>';
+
+      var f = s.fadiga;
+      function tvRow(item, desc, valor, base, pctKey){
+        var pct = fad.pcts[pctKey] || 0;
+        var vNum = parseFloat(valor.replace(/[^0-9.,-]/g,'').replace(',','.')) || 0;
+        if(vNum <= 0 && pct <= 0.0001) return;
+        html += '<tr>';
+        html +=   '<td class="item">'+item+'</td>';
+        html +=   '<td>'+esc(desc)+'</td>';
+        html +=   '<td class="ctr">'+esc(valor)+'</td>';
+        html +=   '<td class="ctr">'+esc(base)+'</td>';
+        html +=   '<td class="num"><b>'+fmtN(pct,3)+' %</b></td>';
+        html += '</tr>';
+      }
+      var pausa = parseFloat(f.tvPausa)||0;
+      if(pausa > 0){
+        html += '<tr><td class="item">1</td><td>Pausa Pessoal</td><td class="ctr">'+pausa+' %</td><td class="ctr">% direto</td><td class="num"><b>'+fmtN(fad.pcts['1'],3)+' %</b></td></tr>';
+      }
+      tvRow('2',  'Limpeza Superficial Pessoal',        (parseFloat(f.tvLimpPesMin)||0)+' min', fmtMin(f.tvLimpPesBase), '2');
+      tvRow('3',  'Limpeza Superficial do Posto',        (parseFloat(f.tvLimpPosMin)||0)+' min', fmtMin(f.tvLimpPosBase), '3');
+      tvRow('4',  'Limpeza Geral Semanal Coletiva',      (parseFloat(f.tvLimpGerMin)||0)+' min', fmtMin(f.tvLimpGerBase), '4');
+      var trMin=parseFloat(f.tvTrocaMin)||0;
+      if(trMin > 0 || (fad.pcts['5']||0) > 0){
+        html += '<tr><td class="item">5</td><td>Troca de Ferramenta</td><td class="ctr">'+trMin+' min/troca · '+(parseFloat(f.tvTrocaPcs)||0)+' pç · '+(parseFloat(f.tvTrocaProdH)||0)+' pç/h</td><td class="ctr">cálculo</td><td class="num"><b>'+fmtN(fad.pcts['5'],3)+' %</b></td></tr>';
+      }
+      tvRow('6',  'Preenchimento Caderno Liberação',     (parseFloat(f.tvCadernoMin)||0)+' min', fmtMin(f.tvCadernoBase), '6');
+      tvRow('7',  'Atingir Temperatura de Trabalho',     (parseFloat(f.tvTempMin)||0)+' min',    fmtMin(f.tvTempBase),    '7');
+      tvRow('8a', 'Manut. Autônoma — máquina parada',    (parseFloat(f.tvManParMin)||0)+' min',  fmtMin(f.tvManParBase),  '8a');
+      tvRow('8b', 'Manut. Autônoma — máquina funcionando',(parseFloat(f.tvManFuncMin)||0)+' min',fmtMin(f.tvManFuncBase), '8b');
+      tvRow('9',  'Interrupção peça não mensurável',     (parseFloat(f.tvInterrMin)||0)+' min',  fmtMin(f.tvInterrBase),  '9');
+      var rvF=parseFloat(f.tvRevFreq)||0;
+      if(rvF > 0 || (fad.pcts['10']||0) > 0){
+        html += '<tr><td class="item">10</td><td>Revezamento</td><td class="ctr">Freq '+rvF+'/h · '+(parseFloat(f.tvRevPassos)||0)+' passos · '+(parseFloat(f.tvRevTmu)||0)+' TMU</td><td class="ctr">cálculo</td><td class="num"><b>'+fmtN(fad.pcts['10'],3)+' %</b></td></tr>';
+      }
+      tvRow('11a','Ginástica Preparatória',              (parseFloat(f.tvGinPrepMin)||0)+' min', fmtMin(f.tvGinPrepBase), '11a');
+      tvRow('11b','Ginástica Compensatória',             (parseFloat(f.tvGinCompMin)||0)+' min', fmtMin(f.tvGinCompBase), '11b');
+      tvRow('12a','Reunião — Produção',                  (parseFloat(f.tvReuProdMin)||0)+' min', fmtMin(f.tvReuProdBase), '12a');
+      tvRow('12b','Reunião — Qualidade/Segurança',       (parseFloat(f.tvReuQSMin)||0)+' min',   fmtMin(f.tvReuQSBase),   '12b');
+
+      html += '<tr class="total-row"><td colspan="4" style="text-align:right">Σ TV (ts + tp) — TOTAL</td><td class="num">'+fmtN(fad.tvTotal,2)+' %</td></tr>';
+      html += '<tr class="total-row"><td colspan="4" style="text-align:right">Σ TVB (só estáticos)</td><td class="num">'+fmtN(fad.tvB,2)+' %</td></tr>';
+      html += '</tbody></table>';
+
+      // ── TER — Recuperação da Fadiga ──
+      html += '<div class="pa-h3">TER — Tempo de Recuperação da Fadiga</div>';
+      html += '<table class="pa-table"><thead><tr>';
+      html += '<th style="width:60pt">Fator</th><th>Descrição</th><th style="width:60pt">Coeficiente</th>';
+      html += '</tr></thead><tbody>';
+      html += '<tr><td><b>Esforço Físico</b></td><td>'+esc(rotuloFisico(f.terFisico))+'</td><td class="num">'+fmtN((parseFloat(f.terFisico)||0)*100,1)+' %</td></tr>';
+      html += '<tr><td><b>Esforço Mental</b></td><td>'+esc(rotuloMental(f.terMental))+'</td><td class="num">'+fmtN((parseFloat(f.terMental)||0)*100,1)+' %</td></tr>';
+      html += '<tr><td><b>Fator A</b></td><td><i>Esforço Físico + Esforço Mental</i></td><td class="num">'+fmtN(fad.fa*100,1)+' %</td></tr>';
+      html += '<tr><td><b>Fator B</b></td><td>Recuperação: '+esc(rotuloRecup(f.terRecup))+'</td><td class="num">'+fmtN(fad.fb,2)+'</td></tr>';
+      html += '<tr><td><b>M — Monotonia</b></td><td>'+esc(rotuloMonot(f.terMonot))+'</td><td class="num">'+fmtN(fad.mM*100,1)+' %</td></tr>';
+      // CA — só sub-itens > 0
+      var caItens = [];
+      var caT=parseFloat(f.terTermica)||0, caA=parseFloat(f.terAtmosf)||0, caR=parseFloat(f.terRuido)||0, caU=parseFloat(f.terUmid)||0, caV=parseFloat(f.terVibr)||0;
+      if(caT>0) caItens.push('Térmica '+fmtN(caT*100,1)+'%');
+      if(caA>0) caItens.push('Atmosférica '+fmtN(caA*100,1)+'%');
+      if(caR>0) caItens.push('Ruído '+fmtN(caR*100,1)+'%');
+      if(caU>0) caItens.push('Umidade '+fmtN(caU*100,1)+'%');
+      if(caV>0) caItens.push('Vibração '+fmtN(caV*100,1)+'%');
+      var caDesc = caItens.length ? caItens.join(' + ') : 'sem ônus ambiental';
+      html += '<tr><td><b>CA — Cond. Ambientais</b></td><td>'+esc(caDesc)+'</td><td class="num">'+fmtN(fad.ca*100,1)+' %</td></tr>';
+      html += '</tbody></table>';
+
+      // ── Fórmula final da Fadiga ──
+      html += '<div class="pa-formula">Fadiga = ('+fmtN(fad.fa,3)+' × '+fmtN(fad.fb,2)+') + '+fmtN(fad.mM,3)+' + '+fmtN(fad.ca,3)+' = <span class="res">'+fmtN(fad.fadigaCoef,4)+' = <b>'+fmtN(fad.fadigaPct,2)+' %</b></span></div>';
+
+      // ── Análise de Ociosidade final ──
+      var allowFad = fad.tvTotal + fad.fadigaPct;
+      var tnFad = m.tmu * 0.036;
+      var tsFad = tnFad * (1 + allowFad/100);
+      var taktV = parseFloat(h.takt)||0;
+      html += '<div class="pa-h3">Análise Final — Tempo Padrão vs Takt</div>';
+      html += '<div class="pa-results">';
+      html +=   '<div class="pa-results-row">';
+      html +=     '<div class="pa-results-cell"><div class="l">TV — Distribuição</div><div class="v">'+fmtN(fad.tvTotal,2)+' %</div></div>';
+      html +=     '<div class="pa-results-cell"><div class="l">TER — Fadiga</div><div class="v">'+fmtN(fad.fadigaPct,2)+' %</div></div>';
+      html +=     '<div class="pa-results-cell"><div class="l">Allow Total</div><div class="v">'+fmtN(allowFad,2)+' %</div></div>';
+      html +=     '<div class="pa-results-cell"><div class="l">TN</div><div class="v">'+fmtN(tnFad,3)+' s</div></div>';
+      html +=     '<div class="pa-results-cell"><div class="l">TS — Padrão</div><div class="v">'+fmtN(tsFad,3)+' s</div></div>';
+      if(taktV > 0){
+        var ocR = ((taktV - tsFad)/taktV)*100;
+        var cls = ocR>=0 ? 'ok' : 'bad';
+        html +=   '<div class="pa-results-cell"><div class="l">Ociosidade</div><div class="v"><span class="pa-status '+cls+'">'+fmtN(ocR,2)+' %</span></div></div>';
+      } else {
+        html += '<div class="pa-results-cell"><div class="l">Ociosidade</div><div class="v">— (sem Takt)</div></div>';
+      }
+      html +=   '</div>';
+      html += '</div>';
+    }
+
+    // ═══ Rodapé com data e assinatura ═══
+    html += '<div class="pa-footer">';
+    html +=   '<div class="pa-footer-l">';
+    if(s.fadiga && s.fadiga.data) html += '<div><b>Data:</b> '+esc(s.fadiga.data)+'</div>';
+    if(s.fadiga && s.fadiga.elaborado) html += '<div><b>Elaborado por:</b> '+esc(s.fadiga.elaborado)+'</div>';
+    if(s.fadiga && s.fadiga.verificado) html += '<div><b>Verificado por:</b> '+esc(s.fadiga.verificado)+'</div>';
+    html +=     '<div class="pa-note">Engº responsável: '+esc(h.eng||'—')+' · Folha gerada em '+dataGer+'</div>';
+    html +=   '</div>';
+    html +=   '<div class="pa-footer-r">';
+    html +=     '<div class="pa-note">Ferramenta MTM · Engº Ivan Carlos Antoneli</div>';
+    html +=     '<div class="pa-note">Fonte: Manual de Tempos e Métodos (Argens Valente / R. Coimbra · Hemus) + MTM-UAS</div>';
+    html +=   '</div>';
+    html += '</div>';
+
+    html += '</div>'; // fim .pa-folha
+  });
+
+  box.innerHTML = html;
+}
 
 
 // ============================================================
@@ -7988,6 +8475,9 @@ function exportExcel(){
       {wch:22},{wch:24},{wch:14},{wch:11},{wch:14},{wch:18},{wch:18},
       {wch:12},{wch:14},{wch:9},{wch:9},{wch:13},{wch:8}
     ];
+    // Configurar impressão da aba Resumo
+    wsResumo['!pageSetup'] = {orientation:'landscape', paperSize:9, fitToWidth:1, fitToHeight:0};
+    wsResumo['!margins'] = {left:0.3, right:0.3, top:0.4, bottom:0.4, header:0.2, footer:0.2};
     XLSX.utils.book_append_sheet(wb, wsResumo, _xlSafeSheetName('Resumo', taken));
 
     /* ─── 2) Para CADA folha: 2 abas (Geral + MTM) ─── */
@@ -8024,35 +8514,58 @@ function exportExcel(){
       aoaG.push(['Total (%)',        m.allow]);
       aoaG.push([]);
 
-      // Fadiga detalhada (se foi preenchida)
+      // Fadiga detalhada (se foi preenchida) — filtra linhas vazias
       if(fad){
         aoaG.push(['╔ TV — TEMPO DE DISTRIBUIÇÃO (Ociosidade de Rotina) ╗']);
         aoaG.push(['Item','Descrição','Valor informado','Base','% calculado']);
-        aoaG.push(['1',   'Pausa Pessoal',                       (parseFloat(s.fadiga.tvPausa)||0)+' %', '% direto',           +(fad.pcts['1']||0).toFixed(4)+' %']);
-        aoaG.push(['2',   'Limpeza Superficial Pessoal',          (parseFloat(s.fadiga.tvLimpPesMin)||0)+' min', fmtMin(s.fadiga.tvLimpPesBase), +(fad.pcts['2']||0).toFixed(4)+' %']);
-        aoaG.push(['3',   'Limpeza Superficial do Posto',          (parseFloat(s.fadiga.tvLimpPosMin)||0)+' min', fmtMin(s.fadiga.tvLimpPosBase), +(fad.pcts['3']||0).toFixed(4)+' %']);
-        aoaG.push(['4',   'Limpeza Geral Semanal Coletiva',        (parseFloat(s.fadiga.tvLimpGerMin)||0)+' min', fmtMin(s.fadiga.tvLimpGerBase), +(fad.pcts['4']||0).toFixed(4)+' %']);
-        aoaG.push(['5',   'Troca de Ferramenta',
-                          (parseFloat(s.fadiga.tvTrocaMin)||0)+' min/troca · ' +
-                          (parseFloat(s.fadiga.tvTrocaPcs)||0)+' pç/troca · ' +
-                          (parseFloat(s.fadiga.tvTrocaProdH)||0)+' pç/h',
-                          'cálculo',
-                          +(fad.pcts['5']||0).toFixed(4)+' %']);
-        aoaG.push(['6',   'Preenchimento Caderno de Liberação',    (parseFloat(s.fadiga.tvCadernoMin)||0)+' min', fmtMin(s.fadiga.tvCadernoBase), +(fad.pcts['6']||0).toFixed(4)+' %']);
-        aoaG.push(['7',   'Atingir Temperatura de Trabalho',       (parseFloat(s.fadiga.tvTempMin)||0)+' min',    fmtMin(s.fadiga.tvTempBase),    +(fad.pcts['7']||0).toFixed(4)+' %']);
-        aoaG.push(['8a',  'Manut. Autônoma — máquina parada',      (parseFloat(s.fadiga.tvManParMin)||0)+' min',  fmtMin(s.fadiga.tvManParBase),  +(fad.pcts['8a']||0).toFixed(4)+' %']);
-        aoaG.push(['8b',  'Manut. Autônoma — máquina funcionando', (parseFloat(s.fadiga.tvManFuncMin)||0)+' min', fmtMin(s.fadiga.tvManFuncBase), +(fad.pcts['8b']||0).toFixed(4)+' %']);
-        aoaG.push(['9',   'Interrupção peça não mensurável',       (parseFloat(s.fadiga.tvInterrMin)||0)+' min',  fmtMin(s.fadiga.tvInterrBase),  +(fad.pcts['9']||0).toFixed(4)+' %']);
-        aoaG.push(['10',  'Revezamento',
-                          'Freq '+(parseFloat(s.fadiga.tvRevFreq)||0)+'/h · ' +
-                          (parseFloat(s.fadiga.tvRevPassos)||0)+' passos · ' +
-                          (parseFloat(s.fadiga.tvRevTmu)||0)+' TMU',
-                          'cálculo',
-                          +(fad.pcts['10']||0).toFixed(4)+' %']);
-        aoaG.push(['11a', 'Ginástica Preparatória',                (parseFloat(s.fadiga.tvGinPrepMin)||0)+' min', fmtMin(s.fadiga.tvGinPrepBase), +(fad.pcts['11a']||0).toFixed(4)+' %']);
-        aoaG.push(['11b', 'Ginástica Compensatória',               (parseFloat(s.fadiga.tvGinCompMin)||0)+' min', fmtMin(s.fadiga.tvGinCompBase), +(fad.pcts['11b']||0).toFixed(4)+' %']);
-        aoaG.push(['12a', 'Reunião — Produção',                    (parseFloat(s.fadiga.tvReuProdMin)||0)+' min', fmtMin(s.fadiga.tvReuProdBase), +(fad.pcts['12a']||0).toFixed(4)+' %']);
-        aoaG.push(['12b', 'Reunião — Qualidade/Segurança',         (parseFloat(s.fadiga.tvReuQSMin)||0)+' min',   fmtMin(s.fadiga.tvReuQSBase),   +(fad.pcts['12b']||0).toFixed(4)+' %']);
+
+        // Helper: linha só entra se valor OU % > 0
+        function pushTV(item, desc, valor, base, pctKey){
+          var pct = fad.pcts[pctKey] || 0;
+          var vNum = parseFloat(valor) || 0;
+          if(vNum <= 0 && pct <= 0.0001) return; // pula linha vazia
+          aoaG.push([item, desc, valor, base, +pct.toFixed(4)+' %']);
+        }
+
+        // Pausa Pessoal sempre aparece (item 1 — padronizado)
+        var pausa = parseFloat(s.fadiga.tvPausa)||0;
+        if(pausa > 0 || (fad.pcts['1']||0) > 0){
+          aoaG.push(['1', 'Pausa Pessoal', pausa+' %', '% direto', +(fad.pcts['1']||0).toFixed(4)+' %']);
+        }
+        pushTV('2',   'Limpeza Superficial Pessoal',          (parseFloat(s.fadiga.tvLimpPesMin)||0)+' min', fmtMin(s.fadiga.tvLimpPesBase), '2');
+        pushTV('3',   'Limpeza Superficial do Posto',          (parseFloat(s.fadiga.tvLimpPosMin)||0)+' min', fmtMin(s.fadiga.tvLimpPosBase), '3');
+        pushTV('4',   'Limpeza Geral Semanal Coletiva',        (parseFloat(s.fadiga.tvLimpGerMin)||0)+' min', fmtMin(s.fadiga.tvLimpGerBase), '4');
+
+        // Item 5 — Troca (só se min, pcs e prodH > 0)
+        var trMin=parseFloat(s.fadiga.tvTrocaMin)||0;
+        var trPcs=parseFloat(s.fadiga.tvTrocaPcs)||0;
+        var trProdH=parseFloat(s.fadiga.tvTrocaProdH)||0;
+        if(trMin > 0 || (fad.pcts['5']||0) > 0){
+          aoaG.push(['5', 'Troca de Ferramenta',
+                          trMin+' min/troca · ' + trPcs+' pç/troca · ' + trProdH+' pç/h',
+                          'cálculo', +(fad.pcts['5']||0).toFixed(4)+' %']);
+        }
+
+        pushTV('6',   'Preenchimento Caderno de Liberação',    (parseFloat(s.fadiga.tvCadernoMin)||0)+' min', fmtMin(s.fadiga.tvCadernoBase), '6');
+        pushTV('7',   'Atingir Temperatura de Trabalho',       (parseFloat(s.fadiga.tvTempMin)||0)+' min',    fmtMin(s.fadiga.tvTempBase),    '7');
+        pushTV('8a',  'Manut. Autônoma — máquina parada',      (parseFloat(s.fadiga.tvManParMin)||0)+' min',  fmtMin(s.fadiga.tvManParBase),  '8a');
+        pushTV('8b',  'Manut. Autônoma — máquina funcionando', (parseFloat(s.fadiga.tvManFuncMin)||0)+' min', fmtMin(s.fadiga.tvManFuncBase), '8b');
+        pushTV('9',   'Interrupção peça não mensurável',       (parseFloat(s.fadiga.tvInterrMin)||0)+' min',  fmtMin(s.fadiga.tvInterrBase),  '9');
+
+        // Item 10 — Revezamento
+        var rvF=parseFloat(s.fadiga.tvRevFreq)||0;
+        var rvP=parseFloat(s.fadiga.tvRevPassos)||0;
+        var rvT=parseFloat(s.fadiga.tvRevTmu)||0;
+        if(rvF > 0 || (fad.pcts['10']||0) > 0){
+          aoaG.push(['10', 'Revezamento',
+                          'Freq '+rvF+'/h · ' + rvP+' passos · ' + rvT+' TMU',
+                          'cálculo', +(fad.pcts['10']||0).toFixed(4)+' %']);
+        }
+
+        pushTV('11a', 'Ginástica Preparatória',                (parseFloat(s.fadiga.tvGinPrepMin)||0)+' min', fmtMin(s.fadiga.tvGinPrepBase), '11a');
+        pushTV('11b', 'Ginástica Compensatória',               (parseFloat(s.fadiga.tvGinCompMin)||0)+' min', fmtMin(s.fadiga.tvGinCompBase), '11b');
+        pushTV('12a', 'Reunião — Produção',                    (parseFloat(s.fadiga.tvReuProdMin)||0)+' min', fmtMin(s.fadiga.tvReuProdBase), '12a');
+        pushTV('12b', 'Reunião — Qualidade/Segurança',         (parseFloat(s.fadiga.tvReuQSMin)||0)+' min',   fmtMin(s.fadiga.tvReuQSBase),   '12b');
         aoaG.push([]);
         aoaG.push(['','Σ tv (ts + tp) total',  '','', +fad.tvTotal.toFixed(2)+' %']);
         aoaG.push(['','Σ tvB (só ts estáticos)','','', +fad.tvB.toFixed(2)+' %']);
@@ -8067,7 +8580,21 @@ function exportExcel(){
         aoaG.push(['Fator A',    'Esforço Físico + Esforço Mental',           '', +fad.fa.toFixed(3)]);
         aoaG.push(['Fator B',    rotuloRecup(parseFloat(s.fadiga.terRecup)),  '% recuperação', +fad.fb.toFixed(2)]);
         aoaG.push(['M',          rotuloMonot(parseFloat(s.fadiga.terMonot)),  'Monotonia',     +fad.mM.toFixed(3)]);
-        aoaG.push(['CA',         'Térmicas+Atmosf+Ruído+Umid+Vibração',       'Cond. Ambientais', +fad.ca.toFixed(3)]);
+
+        // CA — só aparece sub-itens com valor > 0
+        var caTermica = parseFloat(s.fadiga.terTermica)||0;
+        var caAtmosf  = parseFloat(s.fadiga.terAtmosf)||0;
+        var caRuido   = parseFloat(s.fadiga.terRuido)||0;
+        var caUmid    = parseFloat(s.fadiga.terUmid)||0;
+        var caVibr    = parseFloat(s.fadiga.terVibr)||0;
+        var caItens = [];
+        if(caTermica > 0) caItens.push('Térmica '+(caTermica*100).toFixed(1)+'%');
+        if(caAtmosf  > 0) caItens.push('Atmosf. '+(caAtmosf*100).toFixed(1)+'%');
+        if(caRuido   > 0) caItens.push('Ruído '+(caRuido*100).toFixed(1)+'%');
+        if(caUmid    > 0) caItens.push('Umid. '+(caUmid*100).toFixed(1)+'%');
+        if(caVibr    > 0) caItens.push('Vibração '+(caVibr*100).toFixed(1)+'%');
+        var caDesc = caItens.length ? caItens.join(' + ') : '— sem ônus ambiental';
+        aoaG.push(['CA',         caDesc,                                      'Cond. Ambientais', +fad.ca.toFixed(3)]);
         aoaG.push([]);
         aoaG.push(['','Fadiga = (',+fad.fa.toFixed(3),'×',+fad.fb.toFixed(2),') +',+fad.mM.toFixed(3),'+',+fad.ca.toFixed(3),'=',+fad.fadigaCoef.toFixed(4)]);
         aoaG.push(['','Coeficiente de Fadiga','','', +fad.fadigaCoef.toFixed(4)]);
@@ -8121,23 +8648,42 @@ function exportExcel(){
 
       var wsG = XLSX.utils.aoa_to_sheet(aoaG);
       wsG['!cols'] = [{wch:18},{wch:46},{wch:24},{wch:18},{wch:18},{wch:14},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10}];
+      // Configurar impressão da aba Geral
+      wsG['!pageSetup'] = {orientation:'portrait', paperSize:9, fitToWidth:1, fitToHeight:0};
+      wsG['!margins'] = {left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3};
       XLSX.utils.book_append_sheet(wb, wsG, nomeAba(s.label, ' · Geral'));
 
       /* ═══════════════ ABA "<Folha> · MTM" ═══════════════
-         Só a análise MTM, enxuta. Cabeçalho mínimo + tabela + total. */
+         Só a análise MTM, enxuta. Cabeçalho mínimo + tabela + total.
+         Linhas vazias (sem desc, sem code e sem TMU) são PULADAS. */
       var aoaM = [];
-      // Cabeçalho mínimo (4 linhas)
+      // Cabeçalho mínimo + dados da fadiga se disponíveis
       aoaM.push(['ANÁLISE MTM', s.label]);
       aoaM.push(['Processo',    h.processo||'',   'Operador', h.operator||'']);
       aoaM.push(['Takt (s)',    parseFloat(h.takt)||'', 'Tempo Padrão (s)', +m.stdSec.toFixed(3)]);
+      // Linha extra com info da planilha de fadiga (se preenchida)
+      if(s.fadiga && (s.fadiga.tipo || s.fadiga.secao || s.fadiga.operacao || s.fadiga.descLinha)){
+        aoaM.push(['Nº Tipo', s.fadiga.tipo||'', 'Seção', s.fadiga.secao||'', 'Operação', s.fadiga.operacao||'']);
+        if(s.fadiga.descLinha){
+          aoaM.push(['Descrição da Linha', s.fadiga.descLinha]);
+        }
+      }
       aoaM.push([]);
       // Tabela
       aoaM.push(['Descrição','Agrega Valor','Código','TMU','Q','F','TMU Total','Tempo (s)']);
+      var linhasValidas = 0;
       (s.rows||[]).forEach(function(r){
+        // Linha "vazia" = sem desc, sem code, sem TMU (0 ou em branco) — pula
+        var desc = (r.desc||'').trim();
+        var code = (r.code||'').trim();
+        var tmu  = parseFloat(r.tmu)||0;
+        var ttmu = parseFloat(r.ttmu)||0;
+        if(!desc && !code && tmu === 0 && ttmu === 0) return;
+        linhasValidas++;
         aoaM.push([
-          r.desc||'',
+          desc,
           r.agrega||'',
-          r.code||'',
+          code,
           r.tmu===''||r.tmu==null ? '' : (parseFloat(r.tmu)||0),
           r.q  ===''||r.q  ==null ? '' : (parseFloat(r.q)  ||0),
           r.f  ===''||r.f  ==null ? '' : (parseFloat(r.f)  ||0),
@@ -8148,8 +8694,30 @@ function exportExcel(){
       aoaM.push([]);
       aoaM.push(['','','','','','TOTAL', +m.tmu.toFixed(2), +m.stdSec.toFixed(3)]);
 
+      // Fadiga resumida ao final da aba MTM (se foi preenchida)
+      if(fad){
+        var allowTotalFad = fad.tvTotal + fad.fadigaPct;
+        var tnFad = m.tmu * 0.036;
+        var tsFad = tnFad * (1 + allowTotalFad/100);
+        var takt  = parseFloat(h.takt)||0;
+        aoaM.push([]);
+        aoaM.push(['RESUMO DE FADIGA & OCIOSIDADE']);
+        aoaM.push(['TV — Distribuição (%)', +fad.tvTotal.toFixed(2)]);
+        aoaM.push(['TER — Fadiga (%)',      +fad.fadigaPct.toFixed(2)]);
+        aoaM.push(['Allowance Total (%)',   +allowTotalFad.toFixed(2)]);
+        aoaM.push(['TS final (s)',          +tsFad.toFixed(3)]);
+        if(takt > 0){
+          var ocR = ((takt - tsFad)/takt)*100;
+          aoaM.push(['Ociosidade vs Takt (%)', +ocR.toFixed(2), ocR>=0 ? 'FOLGA' : 'GARGALO']);
+        }
+      }
+
       var wsM = XLSX.utils.aoa_to_sheet(aoaM);
       wsM['!cols'] = [{wch:46},{wch:14},{wch:12},{wch:9},{wch:9},{wch:9},{wch:11},{wch:11}];
+      // Configurar impressão da aba MTM
+      wsM['!pageSetup'] = {orientation:'landscape', paperSize:9, fitToWidth:1, fitToHeight:0};
+      wsM['!margins'] = {left:0.3, right:0.3, top:0.4, bottom:0.4, header:0.2, footer:0.2};
+      wsM['!printHeader'] = [6, 6]; // repete linha de cabeçalho
       XLSX.utils.book_append_sheet(wb, wsM, nomeAba(s.label, ' · MTM'));
     });
 
@@ -9261,5 +9829,11 @@ document.addEventListener('keydown', function(e){
   }
 });
 </script>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ÁREA DEDICADA DE IMPRESSÃO (PDF) — populada por prepararPrint()
+     ═══════════════════════════════════════════════════════════ -->
+<div id="print-area"></div>
+
 </body>
 </html>
