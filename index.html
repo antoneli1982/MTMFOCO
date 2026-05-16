@@ -2009,6 +2009,7 @@ table.mtm tfoot tr.total-row td{
     <button class="btn btn-ghost" onclick="openFadiga()" title="Análise de Fadiga & Ociosidade (TV + TER) — Tabela Ivan Antoneli" style="background:rgba(255,149,0,.10);color:var(--orange);border-color:rgba(255,149,0,.35)">🛌<span class="btn-lbl"> Fadiga</span></button>
     <button class="btn btn-ghost" onclick="renameCurrentSheet()" title="Renomear">✏️<span class="btn-lbl"> Renomear</span></button>
     <button class="btn btn-danger" onclick="deleteCurrentSheet()" title="Excluir">✕<span class="btn-lbl"> Excluir</span></button>
+    <button class="btn btn-green" onclick="salvarAgora()" title="Salvar trabalho em andamento no navegador (Ctrl+S)" id="btn-salvar">💾<span class="btn-lbl"> Salvar</span></button>
     <button class="btn btn-ghost" onclick="saveProjectFile()" title="Salvar como — baixa arquivo MTM (.mtm.json) no computador, guardando TUDO: folhas, linhas, livros, projetos, logos" style="background:rgba(255,149,0,.10);color:var(--orange);border-color:rgba(255,149,0,.35)">💾<span class="btn-lbl"> Salvar como</span></button>
     <button class="btn btn-ghost" onclick="openProjectFilePrompt()" title="Abrir arquivo MTM salvo (.mtm.json)" style="background:rgba(255,149,0,.10);color:var(--orange);border-color:rgba(255,149,0,.35)">📂<span class="btn-lbl"> Abrir</span></button>
     <input type="file" id="mtm-file-input" accept=".mtm,.json,.mtm.json,application/json" style="display:none" onchange="openProjectFileHandle(this)">
@@ -3318,6 +3319,61 @@ function saveSheets(){
   }, 300);
 }
 
+// Salva imediatamente (sem debounce) e dá feedback visual no botão
+function salvarAgora(){
+  try{
+    // Salva sheets imediatamente (bypassa o debounce)
+    clearTimeout(_saveTimer);
+    const payload = sheets.map(s=>({
+      id: s.id, label: s.label, header: s.header || {},
+      book: s.book || '',
+      fadiga: s.fadiga || null,
+      rows: (s.rows||[]).map(r=>({
+        id:r.id, desc:r.desc||'', agrega:r.agrega||'', code:r.code||'',
+        tmu:r.tmu||'', q:r.q||'', f:r.f||'',
+        ttmu:r.ttmu||0, tsec:r.tsec||0
+      }))
+    }));
+    localStorage.setItem(SHEETS_KEY, JSON.stringify(payload));
+    // Salva também o gerenciador de projetos e logos (se existirem)
+    try{ if(typeof pmData !== 'undefined' && pmData){ localStorage.setItem('pmgr_v3', JSON.stringify(pmData)); } }catch(e){}
+    // Feedback visual no botão
+    var btn = document.getElementById('btn-salvar');
+    if(btn){
+      var orig = btn.innerHTML;
+      btn.innerHTML = '✅<span class="btn-lbl"> Salvo!</span>';
+      btn.style.background = 'linear-gradient(135deg,#00e5a0,#00b87a)';
+      btn.style.color = '#001a12';
+      btn.style.fontWeight = '800';
+      btn.disabled = true;
+      setTimeout(function(){
+        btn.innerHTML = orig;
+        btn.style.background = '';
+        btn.style.color = '';
+        btn.style.fontWeight = '';
+        btn.disabled = false;
+      }, 1400);
+    }
+    // Mensagem toast com hora
+    var hora = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    if(typeof showToast === 'function'){
+      showToast('✅ Trabalho salvo · ' + sheets.length + ' folha(s) · ' + hora);
+    }
+  }catch(e){
+    console.error('Erro ao salvar:', e);
+    if(typeof showToast === 'function') showToast('❌ Erro ao salvar: ' + e.message, true);
+  }
+}
+
+// Atalho global Ctrl+S / Cmd+S → Salvar
+document.addEventListener('keydown', function(e){
+  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's'){
+    // Não interfere quando estiver editando texto em modais (book, fadiga estão fora)
+    e.preventDefault();
+    if(typeof salvarAgora === 'function') salvarAgora();
+  }
+});
+
 function loadSheets(){
   try{
     const raw = localStorage.getItem(SHEETS_KEY);
@@ -3424,6 +3480,14 @@ function renderContent(id){
           <span class="folha-title">${esc(s.label)}</span>
           <span class="badge">MTM</span>
         </div>
+      </div>
+      <div class="f-group half-row" style="background:var(--orangeBg);border-left:3px solid var(--orange);padding:6px 10px;border-radius:6px">
+        <span class="f-label" style="color:var(--orange)">🏢 Empresa / Cliente</span>
+        <input class="f-input" placeholder="Nome da empresa..." data-key="empresa" value="${esc(h.empresa||'')}" style="font-weight:700">
+      </div>
+      <div class="f-group half-row" style="background:var(--orangeBg);border-left:3px solid var(--orange);padding:6px 10px;border-radius:6px">
+        <span class="f-label" style="color:var(--orange)">📁 Projeto</span>
+        <input class="f-input" placeholder="Nome do projeto..." data-key="projeto" value="${esc(h.projeto||'')}" style="font-weight:700">
       </div>
       <div class="f-group half-row">
         <span class="f-label">Processo / Análise</span>
@@ -3865,12 +3929,25 @@ function prepararPrint(){
 
     html += '<div class="pa-folha">';
 
-    // ═══ TÍTULO ═══
+    // ═══ TÍTULO COM EMPRESA E PROJETO ═══
+    var topo = [];
+    if(h.empresa) topo.push('🏢 ' + esc(h.empresa));
+    if(h.projeto) topo.push('📁 ' + esc(h.projeto));
+    if(topo.length){
+      html += '<div style="text-align:center;font-size:10pt;font-weight:700;background:#f0e0c4;border:1px solid #888;padding:4pt 8pt;margin-bottom:3pt;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact">'+topo.join(' &nbsp;·&nbsp; ')+'</div>';
+    }
     html += '<div class="pa-h1">📋 FOLHA DE PROCESSO MTM — '+esc(s.label)+'</div>';
 
     // ═══ CABEÇALHO DA FOLHA — info do processo ═══
     html += '<div class="pa-h2">Informações do Processo</div>';
     html += '<div class="pa-info">';
+    // Empresa e Projeto em destaque na primeira linha (se houver)
+    if(h.empresa || h.projeto){
+      html += '<div class="pa-info-row">';
+      html +=   '<div class="pa-info-cell" style="width:50%"><div class="lbl">Empresa / Cliente</div><div class="val">'+esc(h.empresa||'—')+'</div></div>';
+      html +=   '<div class="pa-info-cell" style="width:50%"><div class="lbl">Projeto</div><div class="val">'+esc(h.projeto||'—')+'</div></div>';
+      html += '</div>';
+    }
     html +=   '<div class="pa-info-row">';
     html +=     '<div class="pa-info-cell"><div class="lbl">Processo</div><div class="val">'+esc(h.processo||'—')+'</div></div>';
     html +=     '<div class="pa-info-cell"><div class="lbl">Código</div><div class="val">'+esc(h.codigo||'—')+'</div></div>';
@@ -8452,7 +8529,7 @@ function exportExcel(){
       ['Gerado em', new Date().toLocaleString('pt-BR')],
       ['Total de folhas', sheets.length],
       [],
-      ['Folha','Processo','Código','Data','Planta','Engenheiro','Operador/Posto',
+      ['Folha','Empresa','Projeto','Processo','Código','Data','Planta','Engenheiro','Operador/Posto',
        'TMU Total','Tempo Padrão (s)','Peças/h','Takt (s)','Allow Total (%)','Linhas']
     ];
     var grandTmu = 0, grandStd = 0;
@@ -8461,7 +8538,7 @@ function exportExcel(){
       var m = _xlCalcSheetMetrics(s);
       grandTmu += m.tmu; grandStd += m.stdSec;
       resumoAoa.push([
-        s.label, h.processo||'', h.codigo||'', h.data||'',
+        s.label, h.empresa||'', h.projeto||'', h.processo||'', h.codigo||'', h.data||'',
         h.planta||'', h.eng||'', h.operator||'',
         +m.tmu.toFixed(2), +m.stdSec.toFixed(3), m.pph,
         parseFloat(h.takt)||'', m.allow, (s.rows||[]).length
@@ -8469,10 +8546,10 @@ function exportExcel(){
     });
     resumoAoa.push([]);
     var grandPph = grandStd > 0 ? Math.floor(3600/grandStd) : 0;
-    resumoAoa.push(['SOMA / TOTAL','','','','','','', +grandTmu.toFixed(2), +grandStd.toFixed(3), grandPph,'','','']);
+    resumoAoa.push(['SOMA / TOTAL','','','','','','','','', +grandTmu.toFixed(2), +grandStd.toFixed(3), grandPph,'','','']);
     var wsResumo = XLSX.utils.aoa_to_sheet(resumoAoa);
     wsResumo['!cols'] = [
-      {wch:22},{wch:24},{wch:14},{wch:11},{wch:14},{wch:18},{wch:18},
+      {wch:22},{wch:22},{wch:22},{wch:24},{wch:14},{wch:11},{wch:14},{wch:18},{wch:18},
       {wch:12},{wch:14},{wch:9},{wch:9},{wch:13},{wch:8}
     ];
     // Configurar impressão da aba Resumo
@@ -8495,6 +8572,8 @@ function exportExcel(){
       aoaG.push([]);
 
       aoaG.push(['╔ INFORMAÇÕES DO PROCESSO ╗']);
+      aoaG.push(['Empresa / Cliente', h.empresa||'']);
+      aoaG.push(['Projeto',           h.projeto||'']);
       aoaG.push(['Processo',        h.processo||'']);
       aoaG.push(['Código',          h.codigo||'']);
       aoaG.push(['Data',            h.data||'']);
@@ -8659,6 +8738,7 @@ function exportExcel(){
       var aoaM = [];
       // Cabeçalho mínimo + dados da fadiga se disponíveis
       aoaM.push(['ANÁLISE MTM', s.label]);
+      aoaM.push(['Empresa',     h.empresa||'',    'Projeto',  h.projeto||'']);
       aoaM.push(['Processo',    h.processo||'',   'Operador', h.operator||'']);
       aoaM.push(['Takt (s)',    parseFloat(h.takt)||'', 'Tempo Padrão (s)', +m.stdSec.toFixed(3)]);
       // Linha extra com info da planilha de fadiga (se preenchida)
