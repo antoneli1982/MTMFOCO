@@ -3464,6 +3464,8 @@ function setActive(id){
   if(!el)renderContent(id);
   el=document.getElementById('c-'+id);
   if(el)el.classList.add('active');
+  // Sincroniza Empresa/Projeto com o gerenciador (se houver vínculo)
+  if(typeof syncSheetEmpresaProjeto === 'function') syncSheetEmpresaProjeto(id);
 }
 
 function renderContent(id){
@@ -6661,6 +6663,53 @@ function dbFindByPid(pid){
   return null;
 }
 
+// Encontra o projeto+pasta que contém uma sheet específica
+function findProjectBySid(sid){
+  if(typeof pmData === 'undefined' || !pmData) return null;
+  var fids = Object.keys(pmData);
+  for(var fi=0; fi<fids.length; fi++){
+    var fid = fids[fi];
+    var folder = pmData[fid];
+    if(!folder || !folder.projects) continue;
+    for(var i=0; i<folder.projects.length; i++){
+      var p = folder.projects[i];
+      if((p.sheets||[]).indexOf(sid) !== -1){
+        return { fid: fid, idx: i, p: p, folder: folder };
+      }
+    }
+  }
+  return null;
+}
+
+// Sincroniza Empresa/Projeto da folha com o projeto vinculado no gerenciador.
+// Só preenche se o campo estiver vazio (não destrói edição manual).
+function syncSheetEmpresaProjeto(sid){
+  if(typeof sheets === 'undefined') return;
+  var sh = sheets.find(function(s){ return s.id === sid; });
+  if(!sh) return;
+  var found = findProjectBySid(sid);
+  if(!found) return;
+  sh.header = sh.header || {};
+  var changed = false;
+  if(!sh.header.empresa && found.folder && found.folder.name){
+    sh.header.empresa = found.folder.name;
+    changed = true;
+  }
+  if(!sh.header.projeto && found.p && found.p.name){
+    sh.header.projeto = found.p.name;
+    changed = true;
+  }
+  // Atualiza inputs se o card já está no DOM
+  var card = document.getElementById('c-'+sid);
+  if(card){
+    var inpE = card.querySelector('input[data-key="empresa"]');
+    if(inpE && !inpE.value && sh.header.empresa){ inpE.value = sh.header.empresa; }
+    var inpP = card.querySelector('input[data-key="projeto"]');
+    if(inpP && !inpP.value && sh.header.projeto){ inpP.value = sh.header.projeto; }
+  }
+  if(changed && typeof saveSheets === 'function') saveSheets();
+}
+
 function dbRenderList(){
   pmLoad();
   if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
@@ -6818,11 +6867,27 @@ function dbNewProjectInFolder(fid){
   pmFolderId = fid;
   pmProjectIdx = pmData[fid].projects.length - 1;
   var sid = addSheet(true);
+  // Auto-preencher Empresa e Projeto no header da nova folha
+  var novaFolha = sheets.find(function(s){ return s.id === sid; });
+  if(novaFolha){
+    novaFolha.header = novaFolha.header || {};
+    novaFolha.header.empresa = pmData[fid].name;
+    novaFolha.header.projeto = name;
+    if(typeof saveSheets === 'function') saveSheets();
+  }
   proj.sheets.push(sid);
   pmSave();
   setTimeout(function(){
     if(typeof setActive === 'function') setActive(sid);
     if(!document.getElementById('c-'+sid) && typeof renderContent==='function') renderContent(sid);
+    // Garantir que os inputs estão preenchidos visualmente (caso o render tenha usado header antigo)
+    var card = document.getElementById('c-'+sid);
+    if(card && novaFolha){
+      var inpE = card.querySelector('input[data-key="empresa"]');
+      if(inpE && novaFolha.header.empresa) inpE.value = novaFolha.header.empresa;
+      var inpP = card.querySelector('input[data-key="projeto"]');
+      if(inpP && novaFolha.header.projeto) inpP.value = novaFolha.header.projeto;
+    }
     window.scrollTo({top:0, behavior:'smooth'});
   }, 80);
 }
@@ -7243,8 +7308,11 @@ function openFolderPage(fid){
       });
       html += ''
         + '<div style="background:var(--surface3);border:1px solid var(--border);border-radius:10px;padding:12px;position:relative">'
-        + '<button onclick="dbDelProjectInFolder(\'' + fid + '\',' + pi + ')" title="Excluir projeto" style="position:absolute;top:8px;right:8px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:12px" onmouseover="this.style.color=\'var(--red)\'" onmouseout="this.style.color=\'var(--text3)\'">✕</button>'
-        + '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;padding-right:20px">' + dbEsc(p.name) + '</div>'
+        + '<div style="position:absolute;top:6px;right:6px;display:flex;gap:4px">'
+        +   '<button onclick="event.stopPropagation();dbRenameProjectInFolder(\'' + fid + '\',' + pi + ')" title="Renomear projeto" style="background:var(--orangeBg);border:1px solid rgba(255,149,0,.4);color:var(--orange);cursor:pointer;font-size:11px;border-radius:5px;padding:3px 7px;font-weight:700" onmouseover="this.style.background=\'var(--orange)\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'var(--orangeBg)\';this.style.color=\'var(--orange)\'">✏️</button>'
+        +   '<button onclick="event.stopPropagation();dbDelProjectInFolder(\'' + fid + '\',' + pi + ')" title="Excluir projeto" style="background:var(--redBg);border:1px solid rgba(255,77,109,.4);color:var(--red);cursor:pointer;font-size:11px;border-radius:5px;padding:3px 7px;font-weight:700" onmouseover="this.style.background=\'var(--red)\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'var(--redBg)\';this.style.color=\'var(--red)\'">✕</button>'
+        + '</div>'
+        + '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;padding-right:60px">' + dbEsc(p.name) + '</div>'
         + '<div style="font-size:10px;color:var(--text3);margin-bottom:10px">Criado em ' + dbEsc(p.date||'—') + '</div>'
         + '<div style="display:flex;gap:10px;font-size:10px;color:var(--text2);margin-bottom:10px">'
         + '<span>📋 <strong>' + ns + '</strong> folha(s)</span>'
@@ -7278,7 +7346,27 @@ function dbRenameFolder(fid){
   if(!newName || newName === oldName) return;
   pmData[fid].name = newName;
   // Propagar para os projetos dentro (p.client) e para o store de logos
-  (pmData[fid].projects||[]).forEach(function(p){ p.client = newName; });
+  (pmData[fid].projects||[]).forEach(function(p){
+    p.client = newName;
+    // Propagar também para o campo "Empresa" das folhas vinculadas
+    if(typeof sheets !== 'undefined'){
+      (p.sheets||[]).forEach(function(sid){
+        var sh = sheets.find(function(s){ return s.id === sid; });
+        if(sh){
+          sh.header = sh.header || {};
+          if(sh.header.empresa === oldName || !sh.header.empresa){
+            sh.header.empresa = newName;
+            var card = document.getElementById('c-'+sid);
+            if(card){
+              var inp = card.querySelector('input[data-key="empresa"]');
+              if(inp) inp.value = newName;
+            }
+          }
+        }
+      });
+    }
+  });
+  if(typeof saveSheets === 'function') saveSheets();
   var logos = dbGetClientLogos();
   if(logos[oldName]){
     logos[newName] = logos[oldName];
@@ -7287,6 +7375,7 @@ function dbRenameFolder(fid){
   }
   pmSave();
   openFolderPage(fid); // re-render
+  if(typeof showToast === 'function') showToast('✏️ Empresa renomeada para "' + newName + '"');
 }
 
 function dbOpenProjectInFolder(fid, pi){
@@ -7312,9 +7401,45 @@ function dbOpenProjectInFolder(fid, pi){
     p.sheets = [sid];
     pmSave();
   }
+  // Auto-preencher Empresa e Projeto em TODAS as folhas vinculadas a este projeto
+  // — só sobrescreve se o campo estiver vazio (não destrói o que o usuário digitou)
+  if(typeof sheets !== 'undefined'){
+    (p.sheets||[]).forEach(function(sheetId){
+      var sh = sheets.find(function(s){ return s.id === sheetId; });
+      if(!sh) return;
+      sh.header = sh.header || {};
+      var setEmp = false, setProj = false;
+      if(!sh.header.empresa){ sh.header.empresa = pmData[fid].name || ''; setEmp = true; }
+      if(!sh.header.projeto){ sh.header.projeto = p.name || ''; setProj = true; }
+      // Se a folha já está renderizada na tela, atualizar os inputs visualmente
+      var card = document.getElementById('c-'+sheetId);
+      if(card){
+        if(setEmp){
+          var inpE = card.querySelector('input[data-key="empresa"]');
+          if(inpE) inpE.value = sh.header.empresa;
+        }
+        if(setProj){
+          var inpP = card.querySelector('input[data-key="projeto"]');
+          if(inpP) inpP.value = sh.header.projeto;
+        }
+      }
+    });
+    if(typeof saveSheets === 'function') saveSheets();
+  }
   setTimeout(function(){
     if(typeof setActive==='function') setActive(sid);
     if(!document.getElementById('c-'+sid) && typeof renderContent==='function') renderContent(sid);
+    // Garantia final: depois do setActive, atualizar inputs caso tenha sido a primeira renderização
+    var card2 = document.getElementById('c-'+sid);
+    if(card2){
+      var sh2 = (typeof sheets !== 'undefined') ? sheets.find(function(s){ return s.id === sid; }) : null;
+      if(sh2 && sh2.header){
+        var inpE2 = card2.querySelector('input[data-key="empresa"]');
+        if(inpE2 && !inpE2.value && sh2.header.empresa) inpE2.value = sh2.header.empresa;
+        var inpP2 = card2.querySelector('input[data-key="projeto"]');
+        if(inpP2 && !inpP2.value && sh2.header.projeto) inpP2.value = sh2.header.projeto;
+      }
+    }
     window.scrollTo({top:0, behavior:'smooth'});
   }, 80);
 }
@@ -7337,6 +7462,41 @@ function dbDelProjectInFolder(fid, pi){
   pmSave();
   if(typeof renderTabs==='function') renderTabs();
   openFolderPage(fid);
+}
+
+// ── Renomear projeto dentro de pasta (dashboard) ──
+function dbRenameProjectInFolder(fid, pi){
+  pmLoad();
+  var p = pmData[fid] && pmData[fid].projects && pmData[fid].projects[pi];
+  if(!p) return;
+  var nomeAtual = p.name || '';
+  var novo = prompt('Renomear projeto:\n\nNome atual: ' + nomeAtual + '\n\nDigite o novo nome:', nomeAtual);
+  if(novo === null) return;
+  var trim = novo.trim();
+  if(!trim){ alert('O nome do projeto não pode ficar vazio.'); return; }
+  if(trim === nomeAtual) return;
+  p.name = trim;
+  pmSave();
+  // Atualizar campo "Projeto" em TODAS as folhas vinculadas a este projeto
+  if(typeof sheets !== 'undefined'){
+    (p.sheets||[]).forEach(function(sid){
+      var sh = sheets.find(function(s){ return s.id === sid; });
+      if(sh){
+        sh.header = sh.header || {};
+        sh.header.projeto = trim;
+        // Se a folha está renderizada na tela, atualizar o input visualmente
+        var card = document.getElementById('c-'+sid);
+        if(card){
+          var inp = card.querySelector('input[data-key="projeto"]');
+          if(inp) inp.value = trim;
+        }
+      }
+    });
+    if(typeof saveSheets === 'function') saveSheets();
+  }
+  // Re-renderizar a página da empresa
+  openFolderPage(fid);
+  if(typeof showToast === 'function') showToast('✏️ Projeto renomeado para "' + trim + '"');
 }
 
 // ============================================================
