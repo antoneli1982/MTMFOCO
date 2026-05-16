@@ -5449,6 +5449,14 @@ document.addEventListener('DOMContentLoaded',()=>{
 }
 .pm-folder-card:hover .pm-folder-edit-img{opacity:1}
 .pm-folder-edit-img:hover{background:var(--accent);color:#fff}
+.pm-folder-rename{
+  position:absolute;top:5px;left:38px;z-index:2;
+  background:rgba(0,0,0,.55);border:1px solid transparent;border-radius:4px;
+  color:#fff;font-size:11px;padding:3px 7px;cursor:pointer;
+  opacity:0;transition:all .15s;
+}
+.pm-folder-card:hover .pm-folder-rename{opacity:1}
+.pm-folder-rename:hover{background:var(--orange);color:#fff}
 
 /* ── PROJECT CARDS ── */
 .pm-projects-grid{display:flex;flex-direction:column;gap:8px}
@@ -5474,6 +5482,14 @@ document.addEventListener('DOMContentLoaded',()=>{
   transition:all .15s;
 }
 .pm-proj-del:hover{background:var(--redBg);color:var(--red);border-color:var(--red)}
+.pm-proj-actions{display:flex;gap:4px;align-items:center;flex-shrink:0}
+.pm-proj-rename, .pm-proj-edit-img{
+  background:transparent;border:1px solid transparent;border-radius:5px;
+  color:var(--text3);font-size:11px;padding:3px 7px;cursor:pointer;flex-shrink:0;
+  transition:all .15s;
+}
+.pm-proj-rename:hover{background:var(--orangeBg);color:var(--orange);border-color:var(--orange)}
+.pm-proj-edit-img:hover{background:var(--accentBg);color:var(--accent);border-color:var(--accent)}
 
 /* ── SHEET LIST ── */
 .pm-sheets-list{display:flex;flex-direction:column;gap:8px}
@@ -5702,8 +5718,9 @@ function pmRenderFolders(){
       const editLbl = f.logo ? 'Trocar imagem' : 'Adicionar imagem';
       html += `
         <div class="pm-folder-card" onclick="pmOpenFolder('${fid}')">
-          <button class="pm-folder-del" onclick="event.stopPropagation();pmDeleteFolder('${fid}')">✕</button>
+          <button class="pm-folder-del" onclick="event.stopPropagation();pmDeleteFolder('${fid}')" title="Excluir pasta">✕</button>
           <button class="pm-folder-edit-img" onclick="event.stopPropagation();pmPickFolderLogo('${fid}')" title="${editLbl}">📷</button>
+          <button class="pm-folder-rename" onclick="event.stopPropagation();pmRenameFolder('${fid}')" title="Renomear pasta">✏️</button>
           <div class="pm-folder-banner">${bannerHtml}</div>
           <div class="pm-folder-info">
             <div class="pm-folder-name">${esc(f.name)}</div>
@@ -5791,11 +5808,15 @@ function pmRenderProjects(){
         <div class="pm-proj-card" onclick="pmOpenProject(${i})">
           <div class="pm-proj-icon">${iconHtml}</div>
           <div class="pm-proj-info">
-            <div class="pm-proj-name">${p.name}</div>
-            <div class="pm-proj-date">${p.date}</div>
+            <div class="pm-proj-name">${esc(p.name)}</div>
+            <div class="pm-proj-date">${esc(p.date||'')}</div>
             <div class="pm-proj-sheets">📋 ${ns} folha(s) · 📝 ${nn} anotação(ões)</div>
           </div>
-          <button class="pm-proj-del" onclick="event.stopPropagation();pmDeleteProject(${i})">✕</button>
+          <div class="pm-proj-actions">
+            <button class="pm-proj-edit-img" onclick="event.stopPropagation();pmPickProjectLogo(${i})" title="${p.logo?'Trocar imagem':'Adicionar imagem'}">📷</button>
+            <button class="pm-proj-rename" onclick="event.stopPropagation();pmRenameProject(${i})" title="Renomear projeto">✏️</button>
+            <button class="pm-proj-del" onclick="event.stopPropagation();pmDeleteProject(${i})" title="Excluir projeto">✕</button>
+          </div>
         </div>`;
     });
     html += `</div>`;
@@ -5818,21 +5839,90 @@ function pmDeleteProject(i){
   pmSave(); pmRenderProjects();
 }
 
+// ── Renomear pasta ──
+function pmRenameFolder(fid){
+  const f = pmData[fid];
+  if(!f) return;
+  const nomeAtual = f.name || '';
+  const novo = prompt('Renomear pasta:\n\nNome atual: ' + nomeAtual + '\n\nDigite o novo nome:', nomeAtual);
+  if(novo === null) return;             // usuário cancelou
+  const trim = novo.trim();
+  if(!trim){ alert('O nome não pode ficar vazio.'); return; }
+  if(trim === nomeAtual) return;        // sem alteração
+  f.name = trim;
+  pmSave();
+  pmRenderFolders();
+  pmRenderBC();                         // atualiza breadcrumb se necessário
+  if(typeof showToast === 'function') showToast('✏️ Pasta renomeada para "' + trim + '"');
+}
+
+// ── Renomear projeto ──
+function pmRenameProject(i){
+  const f = pmGetFolder();
+  if(!f || !f.projects || !f.projects[i]) return;
+  const p = f.projects[i];
+  const nomeAtual = p.name || '';
+  const novo = prompt('Renomear projeto:\n\nNome atual: ' + nomeAtual + '\n\nDigite o novo nome:', nomeAtual);
+  if(novo === null) return;
+  const trim = novo.trim();
+  if(!trim){ alert('O nome não pode ficar vazio.'); return; }
+  if(trim === nomeAtual) return;
+  p.name = trim;
+  pmSave();
+  pmRenderProjects();
+  pmRenderBC();
+  // Se o projeto renomeado é o aberto atualmente, atualizar visualização
+  if(pmProjectIdx === i) pmRenderProject && pmRenderProject();
+  if(typeof showToast === 'function') showToast('✏️ Projeto renomeado para "' + trim + '"');
+}
+
+// ── Trocar/adicionar imagem do projeto ──
+function pmPickProjectLogo(i){
+  const f = pmGetFolder();
+  if(!f || !f.projects || !f.projects[i]) return;
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = 'image/*';
+  inp.style.display = 'none';
+  inp.onchange = function(){
+    const file = inp.files && inp.files[0];
+    if(!file){ inp.remove(); return; }
+    if(file.size > 3 * 1024 * 1024){
+      alert('Imagem muito grande (máximo 3 MB).');
+      inp.remove(); return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e){
+      if(!f.projects[i]){ inp.remove(); return; }
+      f.projects[i].logo = e.target.result;
+      pmSave();
+      pmRenderProjects();
+      inp.remove();
+    };
+    reader.onerror = function(){ alert('Erro ao ler arquivo.'); inp.remove(); };
+    reader.readAsDataURL(file);
+  };
+  document.body.appendChild(inp);
+  inp.click();
+}
+
 /* ── PROJECT VIEW (Sheets + Notes) ── */
 function pmGetProject(){ return pmGetFolder().projects[pmProjectIdx]; }
 
 function pmRenderProject(){
   const p = pmGetProject();
+  if(!p) return;
   const body = document.getElementById('pm-body');
   body.innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
       <div style="width:42px;height:42px;border-radius:8px;border:1px solid var(--border2);overflow:hidden;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">
         ${p.logo ? `<img src="${p.logo}" style="width:100%;height:100%;object-fit:cover">` : '📄'}
       </div>
-      <div>
-        <div style="font-size:14px;font-weight:700;color:var(--text)">${p.name}</div>
-        <div style="font-size:10px;color:var(--text3)">${pmGetFolder().name} · ${p.date}</div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:700;color:var(--text)">${esc(p.name)}</div>
+        <div style="font-size:10px;color:var(--text3)">${esc(pmGetFolder().name)} · ${esc(p.date||'')}</div>
       </div>
+      <button class="pm-btn" onclick="pmRenameProject(${pmProjectIdx})" title="Renomear projeto" style="padding:6px 10px;font-size:11px">✏️ Renomear</button>
     </div>
     <div class="pm-proj-tabs">
       <button class="pm-proj-tab${pmProjTab==='sheets'?' active':''}" onclick="pmSwitchProjTab('sheets')">📋 Folhas de Processo</button>
