@@ -204,6 +204,13 @@ body{
   display:inline-flex;align-items:center;justify-content:center;transition:all .15s;
 }
 .tab-close:hover{background:var(--red);color:#fff}
+.tab-rename{
+  width:16px;height:16px;border-radius:4px;border:none;background:transparent;
+  color:var(--text3);cursor:pointer;font-size:10px;
+  display:inline-flex;align-items:center;justify-content:center;transition:all .15s;
+  margin-right:2px;
+}
+.tab-rename:hover{background:var(--orange);color:#fff}
 .tab-add{
   padding:6px 10px;border:1px dashed var(--border2);border-radius:var(--radius-sm);
   color:var(--text3);cursor:pointer;font-size:16px;transition:all .2s;
@@ -466,7 +473,7 @@ table.mtm tfoot tr.total-row td{
 @media print{
   body{background:#fff;color:#000}
   .toolbar,.tabs-wrapper,.float-nav,.add-row-bar,
-  .row-del,.tab-close,.tab-add,.modal-overlay{display:none!important}
+  .row-del,.tab-close,.tab-rename,.tab-add,.modal-overlay{display:none!important}
   .folha-content{display:block!important;page-break-after:always;padding:10px}
   .header-card{background:#f8f8f8!important;border-top:3px solid #e07b00!important}
   .f-input{background:transparent!important;border:none!important;color:#000!important}
@@ -914,7 +921,7 @@ table.mtm tfoot tr.total-row td{
 @media print{
   body{background:#fff;color:#000}
   .toolbar,.tabs-wrapper,.float-nav,.add-row-bar,
-  .row-del,.tab-close,.tab-add,.modal-overlay{display:none!important}
+  .row-del,.tab-close,.tab-rename,.tab-add,.modal-overlay{display:none!important}
   .folha-content{display:block!important;page-break-after:always;padding:10px}
   .header-card{background:#f8f8f8!important}
   .header-card::before{display:none}
@@ -3439,10 +3446,32 @@ function renderTabs(){
   sheets.forEach(s=>{
     const t=document.createElement('div');
     t.className='tab'+(s.id===activeId?' active':'');
-    t.innerHTML=`<span onclick="setActive('${s.id}')" style="pointer-events:auto">${s.label}</span>
-      <span class="tab-close" onclick="delById('${s.id}')">×</span>`;
+    t.innerHTML=`<span onclick="setActive('${s.id}')" style="pointer-events:auto">${esc(s.label)}</span>
+      <span class="tab-rename" onclick="event.stopPropagation();renameById('${s.id}')" title="Renomear esta folha">✏️</span>
+      <span class="tab-close" onclick="event.stopPropagation();delById('${s.id}')" title="Excluir esta folha">×</span>`;
     bar.insertBefore(t,add);
   });
+}
+
+function renameById(id){
+  const s = get(id);
+  if(!s){ return; }
+  const nomeAtual = s.label || '';
+  const novo = prompt('Renomear folha:\n\nNome atual: ' + nomeAtual + '\n\nDigite o novo nome:', nomeAtual);
+  if(novo === null) return;
+  const trim = novo.trim();
+  if(!trim){ alert('O nome da folha não pode ficar vazio.'); return; }
+  if(trim === nomeAtual) return;
+  s.label = trim;
+  // Atualizar título visível dentro da folha (se renderizado)
+  const card = document.getElementById('c-' + id);
+  if(card){
+    const titleEl = card.querySelector('.folha-title');
+    if(titleEl) titleEl.textContent = trim;
+  }
+  renderTabs();
+  if(typeof saveSheets === 'function') saveSheets();
+  if(typeof showToast === 'function') showToast('✏️ Folha renomeada para "' + trim + '"');
 }
 
 function delById(id){
@@ -3574,7 +3603,7 @@ function renderContent(id){
               <td></td>
             </tr>
             <tr class="total-row" id="sat-row-${id}" style="display:none">
-              <td colspan="7" class="total-label" id="sat-lbl-${id}">Saturação vs. Takt</td>
+              <td colspan="7" class="total-label" id="sat-lbl-${id}">⏱ Tempo Total de Produtividade (TTP)</td>
               <td colspan="2" style="text-align:center;font-weight:800" id="sat-val-${id}">—</td>
               <td></td>
             </tr>
@@ -3792,18 +3821,22 @@ function updateTotals(sid){
   const tstdTmu=document.getElementById('tstd-tmu-'+sid);
   if(tstd)tstd.textContent=m.stdSec?m.stdSec.toFixed(4):'0';
   if(tstdTmu)tstdTmu.textContent=m.stdTmu?m.stdTmu.toFixed(2):'0';
-  // Saturação
+  // TTP = 100 − Allowance Total (TV + TER aplicado à folha)
   const satRow = document.getElementById('sat-row-'+sid);
   const satVal = document.getElementById('sat-val-'+sid);
   const satLbl = document.getElementById('sat-lbl-'+sid);
   if(satRow && satVal && satLbl){
-    if(m.takt > 0){
+    const allow = +(m.allowPct||0).toFixed(2);
+    const pct   = +(100 - allow).toFixed(2);
+    if(allow > 0){
       satRow.style.display='';
-      const pct = m.saturation;
-      let color = 'var(--green)', icon='🟢', hint='(folgado)';
-      if(pct > 95){ color='var(--red)'; icon='🔴'; hint='(gargalo — acima do takt)'; }
-      else if(pct > 85){ color='var(--orange)'; icon='🟡'; hint='(saturado)'; }
-      satLbl.innerHTML = `Saturação vs. Takt (${m.takt}s) ${hint}`;
+      let color = 'var(--green)', icon='🟢', hint='(allowance normal industrial)';
+      if(allow >= 22){       color='var(--red)';    icon='🔴'; hint='(crítico — allowance '+allow+'% · revisar ergonomia)'; }
+      else if(allow >= 18){  color='var(--orange)'; icon='🟠'; hint='(elevado — allowance '+allow+'% · posto pesado)'; }
+      else if(allow >= 13){  color='var(--yellow)'; icon='🟡'; hint='(normal industrial — allowance '+allow+'%)'; }
+      else if(allow >=  8){  color='var(--green)';  icon='🟢'; hint='(ótimo — trabalho leve · allowance '+allow+'%)'; }
+      else                 { color='var(--blue)';   icon='🔵'; hint='(allowance muito baixo '+allow+'% — verificar tolerâncias)'; }
+      satLbl.innerHTML = `⏱ TTP = 100 − Allowance Total ${hint}`;
       satVal.innerHTML = `<span style="color:${color}">${icon} ${pct}%</span>`;
     } else {
       satRow.style.display='none';
@@ -4198,12 +4231,19 @@ function showResults(sid){
   const totalSec = m.totalSec;
   const totalMin = +(totalSec / 60).toFixed(4);
 
-  /* ─── PEÇAS / HORA e OCUPAÇÃO ─── */
+  /* ─── PEÇAS / HORA e TTP = 100 − Allowance Total ─── */
   const pph      = m.stdSec > 0 ? +(3600 / m.stdSec).toFixed(2) : 0;
   const pphInt   = m.stdSec > 0 ? Math.floor(3600 / m.stdSec) : 0;
-  const ocup     = m.takt > 0 ? +(m.stdSec / m.takt * 100).toFixed(1) : 0;  // % ocupação = Std / Takt × 100
-  const ocupColor= ocup > 100 ? '#ff4d6d' : ocup > 95 ? '#ff9500' : ocup > 80 ? '#ffd60a' : '#00e5a0';
-  const ocupIcon = ocup > 100 ? '🔴' : ocup > 95 ? '🟠' : ocup > 80 ? '🟡' : '🟢';
+  // TTP agora = 100 − Allowance Total (TV + TER = aP + aF + aC)
+  const allowTotal = +(m.allowPct||0).toFixed(2);
+  const ttp        = +(100 - allowTotal).toFixed(2);
+  // Util. Takt mantida como auxiliar separada (não confundir com TTP)
+  const utilTakt   = m.takt > 0 ? +(m.stdSec / m.takt * 100).toFixed(1) : 0;
+  const ociosidade = m.takt > 0 ? +(100 - utilTakt).toFixed(1) : 0;
+  // Cores: TTP alto = bom (pouco allowance). Faixas inversas às do allowance.
+  const ttpColor = allowTotal >= 22 ? '#ff4d6d' : allowTotal >= 18 ? '#ff9500' : allowTotal >= 13 ? '#ffd60a' : allowTotal >= 8 ? '#00e5a0' : allowTotal > 0 ? '#4f8ef7' : '#3d4d68';
+  const ttpBg    = allowTotal >= 22 ? 'var(--redBg)' : allowTotal >= 18 ? 'var(--orangeBg)' : allowTotal >= 13 ? 'rgba(255,214,10,0.10)' : allowTotal >= 8 ? 'var(--greenBg)' : allowTotal > 0 ? 'var(--blueBg)' : 'var(--surface3)';
+  const ttpIcon  = allowTotal >= 22 ? '🔴' : allowTotal >= 18 ? '🟠' : allowTotal >= 13 ? '🟡' : allowTotal >= 8 ? '🟢' : allowTotal > 0 ? '🔵' : '⚪';
 
   // KPI cards
   let kpiHtml = `
@@ -4218,7 +4258,7 @@ function showResults(sid){
     <div class="res-kpi" style="border-color:var(--green);background:var(--greenBg)">
       <div class="res-kpi-val" style="color:var(--green)">${m.stdSec ? m.stdSec.toFixed(3) : '0'}</div>
       <div class="res-kpi-lbl" style="color:var(--green)">⏱ Tempo Padrão (s)</div>
-      <div style="font-size:9px;color:var(--text3);margin-top:2px">c/ allowance ${m.allowPct.toFixed(1)}%</div>
+      <div style="font-size:9px;color:var(--text3);margin-top:2px">c/ allowance ${allowTotal.toFixed(1)}%</div>
     </div>
     <div class="res-kpi" style="border-color:var(--purple);background:var(--purpleBg)">
       <div class="res-kpi-val" style="color:var(--purple)">${pph || '—'}</div>
@@ -4226,12 +4266,12 @@ function showResults(sid){
       ${m.stdSec > 0 ? `<div style="font-size:9px;color:var(--text3);margin-top:2px">${pphInt} pc/h (inteiro)</div>` : ''}
     </div>`;
 
-  if(m.takt > 0){
+  if(allowTotal > 0){
     kpiHtml += `
-      <div class="res-kpi" style="border-color:${ocupColor};background:${ocup>100?'var(--redBg)':ocup>80?'var(--orangeBg)':'var(--greenBg)'}">
-        <div class="res-kpi-val" style="color:${ocupColor}">${ocupIcon} ${ocup}%</div>
-        <div class="res-kpi-lbl" style="color:${ocupColor}">% Ocupação</div>
-        <div style="font-size:9px;color:var(--text3);margin-top:2px">Takt: ${m.takt}s</div>
+      <div class="res-kpi" style="border-color:${ttpColor};background:${ttpBg}">
+        <div class="res-kpi-val" style="color:${ttpColor}">${ttpIcon} ${ttp}%</div>
+        <div class="res-kpi-lbl" style="color:${ttpColor}">⏱ TTP (Tempo Total de Produtividade)</div>
+        <div style="font-size:9px;color:var(--text3);margin-top:2px">100 − Allowance (${allowTotal.toFixed(1)}%)${m.takt > 0 ? ' · Util. Takt: '+utilTakt+'%' : ''}</div>
       </div>`;
   }
 
@@ -4258,41 +4298,49 @@ function showResults(sid){
       jornadasHtml = jornadas.map(j => {
         const jorSec = j.h * 3600;
         const pcs = Math.floor(jorSec / m.stdSec);
-        const util = m.takt > 0 ? Math.min(+(m.stdSec/m.takt*100).toFixed(1), 100) : null;
+        // Coluna TTP agora exibe 100 − Allowance Total (constante na jornada)
+        const ttpCell = allowTotal > 0
+          ? `<td style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:${ttpColor};font-weight:700">${ttp}%</td>`
+          : '<td style="padding:6px 8px;text-align:center;color:var(--text3)">—</td>';
         return `<tr>
           <td style="padding:6px 8px;font-weight:600;color:var(--text)">${j.lbl}</td>
           <td style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--purple);font-weight:700">${pcs}</td>
           <td style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--accent)">${pph}</td>
-          ${util!==null ? `<td style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:${util>95?'var(--red)':util>80?'var(--orange)':'var(--green)'};font-weight:700">${util}%</td>` : '<td style="padding:6px 8px;text-align:center;color:var(--text3)">—</td>'}
+          ${ttpCell}
         </tr>`;
       }).join('');
     }
 
-    // Gauge de ocupação (barra estilizada)
-    const ocupDisplay = m.takt > 0 && m.stdSec > 0;
-    const ocupBarW = Math.min(ocup, 100);
+    // Gauge de TTP — escala 0–100% (TTP = 100 − Allowance Total)
+    const ocupDisplay = allowTotal > 0;
+    const ttpBarW = Math.max(0, Math.min(ttp, 100));
     const ocupGaugeHtml = ocupDisplay ? `
       <div style="margin-bottom:20px;background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:16px;position:relative;overflow:hidden">
         <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--accentGrad)"></div>
         <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">
-          <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;text-transform:uppercase">% Ocupação do Operador</div>
-          <div style="font-size:28px;font-weight:900;color:${ocupColor};font-family:'JetBrains Mono',monospace">${ocupIcon} ${ocup}%</div>
+          <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;text-transform:uppercase">⏱ TTP — Tempo Total de Produtividade</div>
+          <div style="font-size:28px;font-weight:900;color:${ttpColor};font-family:'JetBrains Mono',monospace">${ttpIcon} ${ttp}%</div>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:8px">
+          <code>TTP = 100 − Allowance Total = 100 − (TV + TER) · Allowance atual: <strong style="color:${ttpColor}">${allowTotal.toFixed(2)}%</strong></code>
         </div>
         <!-- trilho -->
         <div style="height:22px;background:var(--surface3);border-radius:6px;overflow:hidden;border:1px solid var(--border2);position:relative;margin-bottom:10px">
-          <!-- faixa de zona ótima (80–95%) -->
-          <div style="position:absolute;left:80%;width:15%;height:100%;background:rgba(0,229,160,0.12);border-left:1px dashed rgba(0,229,160,0.5);border-right:1px dashed rgba(255,149,0,0.5)"></div>
-          <!-- barra de ocupação -->
-          <div style="height:100%;width:${ocupBarW}%;background:${ocupColor};border-radius:6px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;transition:width .5s ease">
-            ${ocupBarW > 12 ? `<span style="color:#fff;font-size:10px;font-weight:800">${ocup}%</span>` : ''}
+          <!-- faixa de zona-alvo industrial: TTP 82–87% (allowance 13–18%) -->
+          <div style="position:absolute;left:82%;width:5%;height:100%;background:rgba(255,214,10,0.18);border-left:1px dashed rgba(255,149,0,0.5);border-right:1px dashed rgba(0,229,160,0.5)"></div>
+          <!-- barra de TTP -->
+          <div style="height:100%;width:${ttpBarW}%;background:${ttpColor};border-radius:6px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;transition:width .5s ease">
+            ${ttpBarW > 12 ? `<span style="color:#fff;font-size:10px;font-weight:800">${ttp}%</span>` : ''}
           </div>
-          ${ocup > 100 ? `<div style="position:absolute;top:0;right:0;background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:3px 8px;border-radius:0 6px 6px 0">ACIMA DO TAKT!</div>` : ''}
+          ${allowTotal >= 22 ? `<div style="position:absolute;top:0;right:0;background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:3px 8px;border-radius:0 6px 6px 0">ALLOWANCE CRÍTICO</div>` : ''}
         </div>
         <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:12px">
-          <span>0%</span><span>25%</span><span>50%</span>
-          <span style="color:var(--green)">80% (mín. rec.)</span>
-          <span style="color:var(--orange)">95%</span>
-          <span>100% = Takt</span>
+          <span>0%</span>
+          <span style="color:var(--red)">78% (allow 22%)</span>
+          <span style="color:var(--orange)">82%</span>
+          <span style="color:var(--yellow)">87%</span>
+          <span style="color:var(--green)">92%</span>
+          <span>100%</span>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
           <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px;text-align:center">
@@ -4300,29 +4348,31 @@ function showResults(sid){
             <div style="font-size:16px;font-weight:800;color:var(--green);font-family:'JetBrains Mono',monospace">${m.stdSec.toFixed(2)}s</div>
           </div>
           <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px;text-align:center">
-            <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:700">Takt Time</div>
-            <div style="font-size:16px;font-weight:800;color:var(--accent);font-family:'JetBrains Mono',monospace">${m.takt}s</div>
+            <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:700">Allowance Total</div>
+            <div style="font-size:16px;font-weight:800;color:${ttpColor};font-family:'JetBrains Mono',monospace">${allowTotal.toFixed(2)}%</div>
           </div>
           <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px;text-align:center">
             <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:700">Peças / hora</div>
             <div style="font-size:16px;font-weight:800;color:var(--purple);font-family:'JetBrains Mono',monospace">${pph}</div>
           </div>
           <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px;text-align:center">
-            <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:700">Folga / peça</div>
-            <div style="font-size:16px;font-weight:800;color:${m.takt>m.stdSec?'var(--green)':'var(--red)'};font-family:'JetBrains Mono',monospace">${m.takt>0?(m.takt-m.stdSec).toFixed(2)+'s':'—'}</div>
+            <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:700">${m.takt>0?'Util. Takt':'Takt Time'}</div>
+            <div style="font-size:16px;font-weight:800;color:${m.takt>0?(utilTakt>100?'var(--red)':'var(--accent)'):'var(--text3)'};font-family:'JetBrains Mono',monospace">${m.takt>0?utilTakt+'%':'—'}</div>
           </div>
         </div>
         <div style="margin-top:12px;font-size:10px;color:var(--text3);line-height:1.6">
-          <strong style="color:${ocupColor}">Diagnóstico:</strong>
-          ${ocup > 100 ? '⚠️ Operador <strong>superlotado</strong> — tempo padrão excede o takt. Redistribuir tarefas ou revisar métodos.' :
-            ocup > 95 ? '🟠 Ocupação <strong>crítica</strong> — mínima folga. Qualquer variação gera atraso.' :
-            ocup > 80 ? '🟢 Ocupação <strong>ótima</strong> — balanceamento adequado dentro da faixa recomendada (80–95%).' :
-            ocup > 60 ? '🔵 Ocupação <strong>baixa</strong> — existe folga significativa. Avaliar absorção de tarefas.' :
-            '⚪ Ocupação <strong>muito baixa</strong> — operador subutilizado. Revisar balanceamento de linha.'}
+          <strong style="color:${ttpColor}">Diagnóstico:</strong>
+          ${allowTotal >= 22 ? '🔴 TTP <strong>baixo</strong> (≤ 78%) — Allowance crítico ('+allowTotal.toFixed(1)+'%). Posto exige revisão ergonômica e redistribuição de cargas.' :
+            allowTotal >= 18 ? '🟠 TTP <strong>reduzido</strong> (78–82%) — Allowance elevado ('+allowTotal.toFixed(1)+'%). Posto pesado, monitorar fadiga acumulada.' :
+            allowTotal >= 13 ? '🟡 TTP na <strong>faixa normal industrial</strong> (82–87%) — Allowance ('+allowTotal.toFixed(1)+'%) compatível com chão de fábrica padrão.' :
+            allowTotal >=  8 ? '🟢 TTP <strong>ótimo</strong> (87–92%) — Allowance baixo ('+allowTotal.toFixed(1)+'%) típico de trabalho leve / posto sentado.' :
+            allowTotal >   0 ? '🔵 TTP <strong>muito alto</strong> (> 92%) — Allowance ('+allowTotal.toFixed(1)+'%) suspeito de subdimensionamento. Verifique se todas as tolerâncias TV + TER foram preenchidas.' :
+                               '⚪ Sem allowance preenchido — abra a Análise de Fadiga e aplique TV + TER à folha.'}
+          ${m.takt > 0 ? '<br><span style="color:var(--text2)">Métricas auxiliares (vs Takt): Util. Takt <strong>'+utilTakt+'%</strong> · Ociosidade <strong>'+ociosidade+'%</strong></span>' : ''}
         </div>
       </div>` : `
       <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:14px;margin-bottom:20px;text-align:center;font-size:12px;color:var(--text3)">
-        ℹ️ Preencha o campo <strong style="color:var(--accent)">Takt Time (s)</strong> no cabeçalho da folha para calcular o % de ocupação.
+        ℹ️ Aplique <strong style="color:var(--accent)">TV + TER</strong> da Análise de Fadiga ao cabeçalho da folha para calcular o TTP.
       </div>`;
 
     /* ─── TABELA DE CAPACIDADE POR JORNADA ─── */
@@ -4335,7 +4385,7 @@ function showResults(sid){
               <th style="padding:8px 8px;text-align:left;font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.8px;text-transform:uppercase">Jornada</th>
               <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--purple);letter-spacing:.8px;text-transform:uppercase">Peças / turno</th>
               <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.8px;text-transform:uppercase">Peças / hora</th>
-              <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:${m.takt>0?'var(--green)':'var(--text3)'};letter-spacing:.8px;text-transform:uppercase">% Ocupação${m.takt<=0?' (sem takt)':''}</th>
+              <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:${allowTotal>0?'var(--green)':'var(--text3)'};letter-spacing:.8px;text-transform:uppercase">TTP %${allowTotal<=0?' (sem allow.)':''}</th>
             </tr>
           </thead>
           <tbody style="font-size:12px">
@@ -4344,7 +4394,7 @@ function showResults(sid){
         </table>
         <div style="padding:8px 12px;background:var(--surface2);border-top:1px solid var(--border);font-size:10px;color:var(--text3)">
           Base: Tempo Padrão = <strong style="color:var(--green)">${m.stdSec.toFixed(3)}s</strong>
-          ${m.takt > 0 ? ` · Takt = <strong style="color:var(--accent)">${m.takt}s</strong> · % Ocupação = Std / Takt × 100` : ' · Informe o Takt Time para exibir % Ocupação'}
+          ${allowTotal > 0 ? ` · TTP = 100 − Allowance Total = <strong style="color:${ttpColor}">${ttp}%</strong> (Allowance ${allowTotal.toFixed(2)}%)` : ' · Aplique TV + TER ao cabeçalho para exibir o TTP'}
         </div>
       </div>` : '';
 
@@ -6779,17 +6829,35 @@ function dbRenderList(){
       : '🏭';
 
     // KPIs consolidados
-    var totalSheets = 0, totalStdSec = 0;
+    var totalSheets = 0, totalStdSec = 0, totalNormalSec = 0, sumAllowWeighted = 0, sheetsWithAllow = 0;
     projects.forEach(function(p){
       (p.sheets||[]).forEach(function(sid){
         totalSheets++;
         var sh = typeof get === 'function' ? get(sid) : null;
         if(sh){
           var m = computeSheetMetrics(sh);
-          totalStdSec += m.stdSec;
+          totalStdSec    += m.stdSec;
+          totalNormalSec += m.totalSec;
+          if(m.allowPct > 0){
+            sumAllowWeighted += m.allowPct * m.totalSec; // ponderar pelo TN
+            sheetsWithAllow++;
+          }
         }
       });
     });
+
+    // TTP empresa = 100 − Allowance Total médio ponderado pelo TN
+    var empresaAllow = totalNormalSec > 0 && sheetsWithAllow > 0
+      ? (sumAllowWeighted / totalNormalSec)
+      : null;
+    var empresaTTP = empresaAllow === null ? null : (100 - empresaAllow);
+    var ttpColor = empresaAllow === null ? 'var(--text3)'
+      : empresaAllow >= 22 ? 'var(--red)'
+      : empresaAllow >= 18 ? 'var(--orange)'
+      : empresaAllow >= 13 ? 'var(--yellow)'
+      : empresaAllow >=  8 ? 'var(--green)'
+      : 'var(--blue)';
+    var ttpDisplay = empresaTTP === null ? '—' : empresaTTP.toFixed(1) + '%';
 
     html += '<div class="db-company-card" onclick="openFolderPage(\'' + fid + '\')" style="background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:16px;cursor:pointer;transition:all .2s;position:relative" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'var(--accent)\';this.style.boxShadow=\'var(--shadow-glow)\'" onmouseout="this.style.transform=\'\';this.style.borderColor=\'var(--border2)\';this.style.boxShadow=\'\'">'
       + '<button onclick="event.stopPropagation();dbDelFolder(\'' + fid + '\')" title="Excluir pasta e tudo dentro" style="position:absolute;top:10px;right:10px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:4px 8px;border-radius:6px;transition:all .2s" onmouseover="this.style.color=\'var(--red)\';this.style.background=\'var(--redBg)\'" onmouseout="this.style.color=\'var(--text3)\';this.style.background=\'transparent\'">🗑</button>'
@@ -6803,7 +6871,7 @@ function dbRenderList(){
       + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">'
       + '<div style="background:var(--surface3);border-radius:8px;padding:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:var(--accent)">' + projects.length + '</div><div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:600">Projetos</div></div>'
       + '<div style="background:var(--surface3);border-radius:8px;padding:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:var(--purple)">' + totalSheets + '</div><div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:600">Folhas</div></div>'
-      + '<div style="background:var(--surface3);border-radius:8px;padding:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:var(--green)">' + (totalStdSec>0?totalStdSec.toFixed(0):'0') + 's</div><div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:600">Tempo std.</div></div>'
+      + '<div style="background:var(--surface3);border-radius:8px;padding:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:' + ttpColor + '">' + ttpDisplay + '</div><div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:600" title="TTP = 100 − Allowance Total médio ponderado (TV + TER)">TTP</div></div>'
       + '</div>'
       + '<div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border)">'
       + '<span style="font-size:11px;color:var(--text2);font-weight:600">Abrir pasta</span>'
@@ -7131,12 +7199,25 @@ function openCompanyPage(clientName){
   all.forEach(function(item){
     var p = item.p;
     var ns = (p.sheets||[]).length;
-    // Calcular tempo desse projeto
-    var pSec = 0, pStdSec = 0;
+    // TTP do projeto = 100 − Allowance Total médio ponderado pelo TN
+    var pSec = 0, pStdSec = 0, pNormSec = 0, pSumAllow = 0;
     (p.sheets||[]).forEach(function(sid){
       var sh = typeof get === 'function' ? get(sid) : null;
-      if(sh){ var m = computeSheetMetrics(sh); pSec += m.totalSec; pStdSec += m.stdSec; }
+      if(sh){
+        var m = computeSheetMetrics(sh);
+        pSec += m.totalSec; pStdSec += m.stdSec; pNormSec += m.totalSec;
+        if(m.allowPct > 0) pSumAllow += m.allowPct * m.totalSec;
+      }
     });
+    var pAllow = pNormSec > 0 && pSumAllow > 0 ? (pSumAllow / pNormSec) : null;
+    var pTTP   = pAllow === null ? null : (100 - pAllow);
+    var pTTPColor = pAllow === null ? 'var(--text3)'
+      : pAllow >= 22 ? 'var(--red)'
+      : pAllow >= 18 ? 'var(--orange)'
+      : pAllow >= 13 ? 'var(--yellow)'
+      : pAllow >=  8 ? 'var(--green)'
+      : 'var(--blue)';
+    var pTTPText  = pTTP === null ? '— TTP (sem allow.)' : 'TTP <strong style="color:' + pTTPColor + '">' + pTTP.toFixed(1) + '%</strong>';
     html += ''
       + '<div style="background:var(--surface3);border:1px solid var(--border);border-radius:10px;padding:12px;position:relative">'
       + '<button onclick="dbDelById(' + JSON.stringify(p.id) + ')" title="Excluir projeto" style="position:absolute;top:8px;right:8px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:12px" onmouseover="this.style.color=\'var(--red)\'" onmouseout="this.style.color=\'var(--text3)\'">✕</button>'
@@ -7144,7 +7225,7 @@ function openCompanyPage(clientName){
       + '<div style="font-size:10px;color:var(--text3);margin-bottom:10px">Criado em ' + dbEsc(p.date) + '</div>'
       + '<div style="display:flex;gap:10px;font-size:10px;color:var(--text2);margin-bottom:10px">'
       + '<span>📋 <strong>' + ns + '</strong> folha(s)</span>'
-      + '<span>⏱ <strong style="color:var(--green)">' + pStdSec.toFixed(1) + 's</strong> std.</span>'
+      + '<span title="TTP = 100 − Allowance Total médio ponderado (TV + TER)">⏱ ' + pTTPText + '</span>'
       + '</div>'
       + '<button onclick="dbOpenById(' + JSON.stringify(p.id) + ')" style="width:100%;background:var(--accentGrad);color:#fff;border:none;padding:7px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700">Abrir Projeto →</button>'
       + '</div>';
@@ -7281,14 +7362,16 @@ function openFolderPage(fid){
     html += '</div>';
   }
 
-  // Lista de projetos com botão "+ Novo Projeto"
+  // Lista de projetos com botões "+ Novo Projeto" e "📂 Abrir Projeto"
   html += ''
     + '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:18px;margin-bottom:18px">'
     + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">'
     + '<div style="font-size:13px;font-weight:800;color:var(--text);text-transform:uppercase;letter-spacing:1px">📁 Projetos desta Empresa</div>'
     + '<span style="background:var(--accentBg);color:var(--accent);padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700">' + projects.length + '</span>'
     + '<span style="flex:1"></span>'
+    + '<button onclick="dbOpenProjectFileForFolder(\'' + fid + '\')" title="Abrir arquivo .mtm.json como novo projeto desta empresa" style="background:var(--orangeBg);color:var(--orange);border:1px solid var(--orange);padding:9px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">📂 Abrir Projeto</button>'
     + '<button onclick="dbNewProjectInFolder(\'' + fid + '\')" style="background:var(--accentGrad);color:#fff;border:none;padding:9px 18px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:var(--shadow-glow)">＋ Novo Projeto</button>'
+    + '<input type="file" id="db-import-file-' + fid + '" accept=".mtm,.json,.mtm.json,application/json" style="display:none" onchange="dbHandleProjectFileForFolder(this, \'' + fid + '\')">'
     + '</div>';
 
   if(!projects.length){
@@ -7301,11 +7384,24 @@ function openFolderPage(fid){
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">';
     projects.forEach(function(p, pi){
       var ns = (p.sheets||[]).length;
-      var pSec = 0, pStdSec = 0;
+      var pSec = 0, pStdSec = 0, pNormSec = 0, pSumAllow = 0;
       (p.sheets||[]).forEach(function(sid){
         var sh = typeof get === 'function' ? get(sid) : null;
-        if(sh){ var m = computeSheetMetrics(sh); pSec += m.totalSec; pStdSec += m.stdSec; }
+        if(sh){
+          var m = computeSheetMetrics(sh);
+          pSec += m.totalSec; pStdSec += m.stdSec; pNormSec += m.totalSec;
+          if(m.allowPct > 0) pSumAllow += m.allowPct * m.totalSec;
+        }
       });
+      var pAllow = pNormSec > 0 && pSumAllow > 0 ? (pSumAllow / pNormSec) : null;
+      var pTTP   = pAllow === null ? null : (100 - pAllow);
+      var pTTPColor = pAllow === null ? 'var(--text3)'
+        : pAllow >= 22 ? 'var(--red)'
+        : pAllow >= 18 ? 'var(--orange)'
+        : pAllow >= 13 ? 'var(--yellow)'
+        : pAllow >=  8 ? 'var(--green)'
+        : 'var(--blue)';
+      var pTTPText  = pTTP === null ? '— TTP (sem allow.)' : 'TTP <strong style="color:' + pTTPColor + '">' + pTTP.toFixed(1) + '%</strong>';
       html += ''
         + '<div style="background:var(--surface3);border:1px solid var(--border);border-radius:10px;padding:12px;position:relative">'
         + '<div style="position:absolute;top:6px;right:6px;display:flex;gap:4px">'
@@ -7316,7 +7412,7 @@ function openFolderPage(fid){
         + '<div style="font-size:10px;color:var(--text3);margin-bottom:10px">Criado em ' + dbEsc(p.date||'—') + '</div>'
         + '<div style="display:flex;gap:10px;font-size:10px;color:var(--text2);margin-bottom:10px">'
         + '<span>📋 <strong>' + ns + '</strong> folha(s)</span>'
-        + '<span>⏱ <strong style="color:var(--green)">' + pStdSec.toFixed(1) + 's</strong> std.</span>'
+        + '<span title="TTP = 100 − Allowance Total médio ponderado (TV + TER)">⏱ ' + pTTPText + '</span>'
         + '</div>'
         + '<button onclick="dbOpenProjectInFolder(\'' + fid + '\',' + pi + ')" style="width:100%;background:var(--accentGrad);color:#fff;border:none;padding:7px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700">Abrir Projeto →</button>'
         + '</div>';
@@ -7462,6 +7558,142 @@ function dbDelProjectInFolder(fid, pi){
   pmSave();
   if(typeof renderTabs==='function') renderTabs();
   openFolderPage(fid);
+}
+
+// ── Abrir arquivo .mtm.json como novo projeto desta empresa ──
+function dbOpenProjectFileForFolder(fid){
+  var inp = document.getElementById('db-import-file-' + fid);
+  if(!inp){ showToast('Campo de upload não encontrado.', true); return; }
+  inp.value = '';
+  inp.click();
+}
+
+function dbHandleProjectFileForFolder(input, fid){
+  var file = input.files && input.files[0];
+  if(!file){ return; }
+  pmLoad();
+  if(!pmData[fid]){ showToast('Empresa não encontrada.', true); input.value=''; return; }
+
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      var obj = JSON.parse(e.target.result);
+      var incomingSheets = null;
+      var incomingPM = null;
+
+      if(obj && obj.format === 'MTM_FILE' && Array.isArray(obj.sheets)){
+        incomingSheets = obj.sheets;
+        incomingPM = obj.projectManager || null;
+      } else if(Array.isArray(obj)){
+        incomingSheets = obj;
+      } else {
+        showToast('Arquivo não é um projeto MTM válido (.mtm.json).', true);
+        input.value=''; return;
+      }
+      if(!incomingSheets.length){
+        showToast('O arquivo não contém nenhuma folha.', true);
+        input.value=''; return;
+      }
+
+      // Bootar sheets[] se ainda não existir
+      if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
+
+      // 1) Reconstruir folhas com IDs novos para evitar colisão
+      var sidMap = {};
+      var rebuilt = incomingSheets.map(function(s, idx){
+        var newId = gid();
+        if(s.id) sidMap[s.id] = newId;
+        var rows = Array.isArray(s.rows) ? s.rows.map(function(r, ri){
+          return {
+            id:    'r_imp_' + Date.now() + '_' + idx + '_' + ri,
+            desc:  String(r.desc || ''),
+            agrega:String(r.agrega || ''),
+            code:  String(r.code || ''),
+            tmu:   (r.tmu==null?'':String(r.tmu)),
+            q:     (r.q  ==null?'':String(r.q)),
+            f:     (r.f  ==null?'':String(r.f)),
+            ttmu:  parseFloat(r.ttmu)||0,
+            tsec:  parseFloat(r.tsec)||0
+          };
+        }) : [];
+        // Override do header.empresa para a empresa-alvo (não a do arquivo)
+        var hdr = (s.header && typeof s.header === 'object') ? Object.assign({}, s.header) : {};
+        hdr.empresa = pmData[fid].name;
+        return {
+          id:    newId,
+          label: String(s.label || ('FOLHA ' + (idx+1))),
+          header: hdr,
+          book:  String(s.book || ''),
+          fadiga: (s.fadiga && typeof s.fadiga === 'object') ? s.fadiga : null,
+          rows:  rows
+        };
+      });
+
+      // 2) Adicionar TODAS as folhas reconstruídas ao sheets[]
+      sheets = (sheets || []).concat(rebuilt);
+
+      // 3) Determinar nome do projeto:
+      //    - Se o arquivo tem PM com 1 projeto: usar nome desse projeto
+      //    - Senão: usar nome do arquivo (sem extensão)
+      var nomeProjeto = null;
+      if(incomingPM && typeof incomingPM === 'object'){
+        Object.keys(incomingPM).forEach(function(k){
+          var pl = (incomingPM[k] && incomingPM[k].projects) || [];
+          if(pl.length === 1 && !nomeProjeto) nomeProjeto = pl[0].name;
+        });
+      }
+      if(!nomeProjeto){
+        nomeProjeto = file.name.replace(/\.(mtm\.json|mtm|json)$/i, '');
+      }
+
+      // Se já existe projeto com mesmo nome nesta empresa, sufixar
+      var nomesExistentes = (pmData[fid].projects || []).map(function(p){ return (p.name||'').toLowerCase(); });
+      if(nomesExistentes.indexOf(nomeProjeto.toLowerCase()) !== -1){
+        var stamp = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+        nomeProjeto = nomeProjeto + ' (importado ' + stamp + ')';
+      }
+
+      // 4) Criar projeto na empresa-alvo, vinculando as folhas reconstruídas
+      var proj = {
+        id: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+        client: pmData[fid].name,
+        name: nomeProjeto,
+        logo: pmData[fid].logo || null,
+        date: new Date().toLocaleDateString('pt-BR'),
+        sheets: rebuilt.map(function(s){
+          // Atualizar header.projeto para refletir o nome do novo projeto
+          s.header.projeto = nomeProjeto;
+          return s.id;
+        }),
+        notes: []
+      };
+      pmData[fid].projects = pmData[fid].projects || [];
+      pmData[fid].projects.push(proj);
+      pmSave();
+      if(typeof saveSheets === 'function') saveSheets();
+
+      // 5) Recalcular folhas
+      setTimeout(function(){
+        rebuilt.forEach(function(s){
+          if(typeof recalc === 'function'){ try{ recalc(s.id); }catch(e){} }
+        });
+      }, 100);
+
+      // 6) Re-renderizar página da empresa
+      openFolderPage(fid);
+      if(typeof renderTabs === 'function') renderTabs();
+      showToast('✅ Projeto "' + nomeProjeto + '" criado em ' + pmData[fid].name + ' com ' + rebuilt.length + ' folha(s)');
+    }catch(err){
+      console.error(err);
+      showToast('Erro ao abrir arquivo: ' + err.message, true);
+    }
+    input.value = '';
+  };
+  reader.onerror = function(){
+    showToast('Erro ao ler o arquivo.', true);
+    input.value = '';
+  };
+  reader.readAsText(file, 'utf-8');
 }
 
 // ── Renomear projeto dentro de pasta (dashboard) ──
@@ -10024,132 +10256,287 @@ function openProjectFilePrompt(){
   inp.click();
 }
 
+// ─── Modal de escolha do modo de importação ─────────────────────────────
+function chooseImportMode(fileName, callback){
+  // Remove modal anterior se existir
+  var old = document.getElementById('import-mode-modal');
+  if(old) old.remove();
+
+  var modal = document.createElement('div');
+  modal.id = 'import-mode-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = ''
+    + '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:14px;max-width:520px;width:100%;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.5)">'
+    +   '<div style="font-size:17px;font-weight:800;color:var(--text);margin-bottom:8px">📂 Abrir arquivo MTM</div>'
+    +   '<div style="font-size:12px;color:var(--text2);margin-bottom:18px;word-break:break-all">' + dbEsc(fileName) + '</div>'
+    +   '<div style="font-size:13px;color:var(--text);margin-bottom:14px">Como deseja importar?</div>'
+    +   '<div style="display:flex;flex-direction:column;gap:10px">'
+    // -- Opção 1: Mesclar (recomendado) --
+    +     '<button id="imp-merge" style="background:var(--greenBg);border:1px solid var(--green);color:var(--green);padding:14px 16px;border-radius:10px;cursor:pointer;text-align:left;transition:all .15s" onmouseover="this.style.background=\'var(--green)\';this.style.color=\'#000\'" onmouseout="this.style.background=\'var(--greenBg)\';this.style.color=\'var(--green)\'">'
+    +       '<div style="font-weight:800;font-size:13px;margin-bottom:3px">➕ MESCLAR (recomendado)</div>'
+    +       '<div style="font-size:11px;opacity:.85;font-weight:500">Preserva TUDO que você já tem. Empresas/projetos do arquivo são direcionados às empresas existentes (por nome) ou criados como novos. Nada é apagado.</div>'
+    +     '</button>'
+    // -- Opção 2: Substituir --
+    +     '<button id="imp-replace" style="background:var(--redBg);border:1px solid var(--red);color:var(--red);padding:12px 16px;border-radius:10px;cursor:pointer;text-align:left;transition:all .15s" onmouseover="this.style.background=\'var(--red)\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'var(--redBg)\';this.style.color=\'var(--red)\'">'
+    +       '<div style="font-weight:800;font-size:13px;margin-bottom:3px">🔁 SUBSTITUIR TUDO</div>'
+    +       '<div style="font-size:11px;opacity:.85;font-weight:500">Apaga todas as folhas, empresas e projetos atuais. Restaura exatamente o estado do arquivo. Útil para backup/restauração.</div>'
+    +     '</button>'
+    // -- Opção 3: Cancelar --
+    +     '<button id="imp-cancel" style="background:transparent;border:1px solid var(--border2);color:var(--text2);padding:10px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;margin-top:4px">Cancelar</button>'
+    +   '</div>'
+    + '</div>';
+  document.body.appendChild(modal);
+
+  function close(mode){
+    modal.remove();
+    callback(mode);
+  }
+  document.getElementById('imp-merge').onclick    = function(){ close('merge'); };
+  document.getElementById('imp-replace').onclick  = function(){
+    if(!confirm('Tem certeza que deseja SUBSTITUIR todo o trabalho atual?\n\nIsso vai apagar:\n  • Todas as folhas atuais\n  • Todas as empresas e projetos do gerenciador\n\nEsta ação NÃO pode ser desfeita.')) return;
+    close('replace');
+  };
+  document.getElementById('imp-cancel').onclick   = function(){ close(null); };
+  modal.onclick = function(e){ if(e.target === modal) close(null); };
+}
+
+// ─── Mesclagem inteligente do Project Manager ────────────────────────────
+// Recebe pmData atual + pmData incoming + mapa de sid antigo→novo
+// Retorna pmData mesclado (não modifica os originais) + estatísticas
+function mergePMData(currentPM, incomingPM, sidMap){
+  var result = JSON.parse(JSON.stringify(currentPM || {})); // clone profundo
+  var stats = { empresasNovas: 0, empresasMescladas: 0, projetosAdicionados: 0, folhasVinculadas: 0 };
+
+  if(!incomingPM || typeof incomingPM !== 'object') return { data: result, stats: stats };
+
+  // Função auxiliar para encontrar empresa atual por nome (case-insensitive)
+  function findFolderByName(nome){
+    var fids = Object.keys(result);
+    for(var i=0; i<fids.length; i++){
+      var f = result[fids[i]];
+      if(f && f.name && f.name.toLowerCase() === nome.toLowerCase()){
+        return { fid: fids[i], folder: f };
+      }
+    }
+    return null;
+  }
+
+  // Iterar empresas do arquivo importado
+  Object.keys(incomingPM).forEach(function(incomingFid){
+    var incomingFolder = incomingPM[incomingFid];
+    if(!incomingFolder || !incomingFolder.name) return;
+
+    // Procurar empresa existente com mesmo nome
+    var match = findFolderByName(incomingFolder.name);
+    var targetFid, targetFolder;
+
+    if(match){
+      // Empresa já existe — mesclar nela
+      targetFid = match.fid;
+      targetFolder = match.folder;
+      stats.empresasMescladas++;
+    } else {
+      // Criar nova empresa (manter id se possível, gerar novo se conflito)
+      targetFid = result[incomingFid] ? ('f_' + Date.now() + '_' + Math.random().toString(36).slice(2,7)) : incomingFid;
+      targetFolder = {
+        id: targetFid,
+        name: incomingFolder.name,
+        logo: incomingFolder.logo || null,
+        projects: []
+      };
+      result[targetFid] = targetFolder;
+      stats.empresasNovas++;
+    }
+
+    // Mesclar projetos
+    (incomingFolder.projects || []).forEach(function(incomingProj){
+      if(!incomingProj || !incomingProj.name) return;
+
+      // Mapear sheets antigos para novos
+      var mappedSheets = (incomingProj.sheets || [])
+        .map(function(oldSid){ return sidMap[oldSid] || null; })
+        .filter(function(x){ return x; });
+
+      if(!mappedSheets.length) return; // projeto sem folhas válidas, pula
+
+      // Checar se já há projeto com mesmo nome nesta empresa
+      var existingProj = (targetFolder.projects || []).find(function(p){
+        return p.name && p.name.toLowerCase() === incomingProj.name.toLowerCase();
+      });
+
+      if(existingProj){
+        // Mesmo nome: adicionar sufixo "(importado HH:MM)" para distinguir
+        var stamp = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+        incomingProj = JSON.parse(JSON.stringify(incomingProj));
+        incomingProj.name = incomingProj.name + ' (importado ' + stamp + ')';
+      }
+
+      // Adicionar projeto à empresa-alvo
+      targetFolder.projects = targetFolder.projects || [];
+      targetFolder.projects.push({
+        id: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+        client: targetFolder.name,
+        name: incomingProj.name,
+        logo: incomingProj.logo || targetFolder.logo || null,
+        date: incomingProj.date || new Date().toLocaleDateString('pt-BR'),
+        sheets: mappedSheets,
+        notes: incomingProj.notes || []
+      });
+      stats.projetosAdicionados++;
+      stats.folhasVinculadas += mappedSheets.length;
+    });
+  });
+
+  return { data: result, stats: stats };
+}
+
 function openProjectFileHandle(input){
   var file = input.files && input.files[0];
   if(!file){ return; }
 
-  var mode = confirm(
-    'Como deseja abrir "' + file.name + '"?\n\n' +
-    '  • OK = SUBSTITUIR todas as folhas atuais\n' +
-    '  • Cancelar = ADICIONAR às folhas existentes'
-  ) ? 'replace' : 'append';
+  chooseImportMode(file.name, function(mode){
+    if(!mode){ input.value = ''; return; } // cancelado
 
-  var reader = new FileReader();
-  reader.onload = function(e){
-    try{
-      var txt = e.target.result;
-      var obj = JSON.parse(txt);
+    var reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        var txt = e.target.result;
+        var obj = JSON.parse(txt);
 
-      // Validação: aceita formato nativo OU array puro de folhas (compat. autosave)
-      var incomingSheets = null;
-      var incomingPM     = null;
-      var incomingLogos  = null;
+        // Validação: aceita formato nativo OU array puro de folhas (compat. autosave)
+        var incomingSheets = null;
+        var incomingPM     = null;
+        var incomingLogos  = null;
 
-      if(obj && obj.format === 'MTM_FILE' && Array.isArray(obj.sheets)){
-        incomingSheets = obj.sheets;
-        incomingPM     = obj.projectManager || null;
-        incomingLogos  = obj.clientLogos    || null;
-      } else if(Array.isArray(obj)){
-        // Compat: dump bruto do autosave (array de folhas)
-        incomingSheets = obj;
-      } else {
-        showToast('Arquivo não é um projeto MTM válido (.mtm.json).', true);
-        input.value = '';
-        return;
-      }
+        if(obj && obj.format === 'MTM_FILE' && Array.isArray(obj.sheets)){
+          incomingSheets = obj.sheets;
+          incomingPM     = obj.projectManager || null;
+          incomingLogos  = obj.clientLogos    || null;
+        } else if(Array.isArray(obj)){
+          incomingSheets = obj;
+        } else {
+          showToast('Arquivo não é um projeto MTM válido (.mtm.json).', true);
+          input.value = '';
+          return;
+        }
 
-      if(!incomingSheets.length){
-        showToast('O arquivo não contém nenhuma folha.', true);
-        input.value = '';
-        return;
-      }
+        if(!incomingSheets.length){
+          showToast('O arquivo não contém nenhuma folha.', true);
+          input.value = '';
+          return;
+        }
 
-      // Sanitizar folhas (gerar ids novos para evitar colisão em modo append)
-      var rebuilt = incomingSheets.map(function(s, idx){
-        var newId = gid();
-        var rows = Array.isArray(s.rows) ? s.rows.map(function(r, ri){
+        // Mapa de sid antigo → novo, usado pelo PM merge
+        var sidMap = {};
+
+        // Sanitizar folhas (gerar ids novos para evitar colisão)
+        var rebuilt = incomingSheets.map(function(s, idx){
+          var newId = gid();
+          if(s.id) sidMap[s.id] = newId;
+          var rows = Array.isArray(s.rows) ? s.rows.map(function(r, ri){
+            return {
+              id:    'r_imp_' + Date.now() + '_' + idx + '_' + ri,
+              desc:  String(r.desc || ''),
+              agrega:String(r.agrega || ''),
+              code:  String(r.code || ''),
+              tmu:   (r.tmu==null?'':String(r.tmu)),
+              q:     (r.q  ==null?'':String(r.q)),
+              f:     (r.f  ==null?'':String(r.f)),
+              ttmu:  parseFloat(r.ttmu)||0,
+              tsec:  parseFloat(r.tsec)||0
+            };
+          }) : [];
           return {
-            id:    'r_imp_' + Date.now() + '_' + idx + '_' + ri,
-            desc:  String(r.desc || ''),
-            agrega:String(r.agrega || ''),
-            code:  String(r.code || ''),
-            tmu:   (r.tmu==null?'':String(r.tmu)),
-            q:     (r.q  ==null?'':String(r.q)),
-            f:     (r.f  ==null?'':String(r.f)),
-            ttmu:  parseFloat(r.ttmu)||0,
-            tsec:  parseFloat(r.tsec)||0
+            id:    newId,
+            label: String(s.label || ('FOLHA ' + (idx+1))),
+            header: (s.header && typeof s.header === 'object') ? s.header : {},
+            book:  String(s.book || ''),
+            fadiga: (s.fadiga && typeof s.fadiga === 'object') ? s.fadiga : null,
+            rows:  rows
           };
-        }) : [];
-        return {
-          id:    newId,
-          label: String(s.label || ('FOLHA ' + (idx+1))),
-          header: (s.header && typeof s.header === 'object') ? s.header : {},
-          book:  String(s.book || ''),
-          fadiga: (s.fadiga && typeof s.fadiga === 'object') ? s.fadiga : null,
-          rows:  rows
-        };
-      });
-
-      // ---- Aplicar ----
-      if(mode === 'replace'){
-        // remover DOM das folhas atuais
-        document.querySelectorAll('.folha-content').forEach(function(el){ el.remove(); });
-        sheets = rebuilt;
-      } else {
-        sheets = (sheets || []).concat(rebuilt);
-      }
-      activeId = null;
-      renderTabs();
-      setActive(rebuilt[0].id);
-
-      // Recalcular após render
-      setTimeout(function(){
-        rebuilt.forEach(function(s){
-          if(typeof recalc === 'function'){
-            try{ recalc(s.id); }catch(e){}
-          }
         });
-        if(typeof saveSheets === 'function') saveSheets();
-      }, 120);
 
-      // ---- Gerenciador de Projetos (só restaura em modo "substituir") ----
-      if(mode === 'replace' && incomingPM && typeof incomingPM === 'object'){
-        try{
-          localStorage.setItem('pmgr_v3', JSON.stringify(incomingPM));
-          // Se a variável global pmData existir, atualiza
-          if(typeof pmData !== 'undefined'){ pmData = incomingPM; }
-        }catch(e){ console.warn('PM restore falhou', e); }
-      }
+        // ---- Aplicar folhas ----
+        if(mode === 'replace'){
+          document.querySelectorAll('.folha-content').forEach(function(el){ el.remove(); });
+          sheets = rebuilt;
+        } else {
+          // merge: adicionar às existentes
+          sheets = (sheets || []).concat(rebuilt);
+        }
+        activeId = null;
+        renderTabs();
+        setActive(rebuilt[0].id);
 
-      // ---- Logos de cliente ----
-      if(incomingLogos && typeof incomingLogos === 'object'){
-        try{
-          if(mode === 'replace'){
-            localStorage.setItem('mtm_client_logos_v1', JSON.stringify(incomingLogos));
-          } else {
-            // merge: mantém os atuais e adiciona os novos sem sobrescrever existentes
-            var cur = {};
-            try{ cur = JSON.parse(localStorage.getItem('mtm_client_logos_v1')||'{}') || {}; }catch(e){ cur = {}; }
-            Object.keys(incomingLogos).forEach(function(k){
-              if(!(k in cur)) cur[k] = incomingLogos[k];
-            });
-            localStorage.setItem('mtm_client_logos_v1', JSON.stringify(cur));
+        setTimeout(function(){
+          rebuilt.forEach(function(s){
+            if(typeof recalc === 'function'){
+              try{ recalc(s.id); }catch(e){}
+            }
+          });
+          if(typeof saveSheets === 'function') saveSheets();
+        }, 120);
+
+        // ---- Gerenciador de Projetos ----
+        var pmStats = null;
+        if(incomingPM && typeof incomingPM === 'object'){
+          try{
+            if(mode === 'replace'){
+              localStorage.setItem('pmgr_v3', JSON.stringify(incomingPM));
+              if(typeof pmData !== 'undefined'){ pmData = incomingPM; }
+            } else {
+              // merge inteligente
+              if(typeof pmLoad === 'function') pmLoad();
+              var merged = mergePMData(typeof pmData !== 'undefined' ? pmData : {}, incomingPM, sidMap);
+              if(typeof pmData !== 'undefined'){ pmData = merged.data; }
+              localStorage.setItem('pmgr_v3', JSON.stringify(merged.data));
+              pmStats = merged.stats;
+            }
+          }catch(e){ console.warn('PM merge falhou', e); }
+        }
+
+        // ---- Logos ----
+        if(incomingLogos && typeof incomingLogos === 'object'){
+          try{
+            if(mode === 'replace'){
+              localStorage.setItem('mtm_client_logos_v1', JSON.stringify(incomingLogos));
+            } else {
+              var cur = {};
+              try{ cur = JSON.parse(localStorage.getItem('mtm_client_logos_v1')||'{}') || {}; }catch(e){ cur = {}; }
+              Object.keys(incomingLogos).forEach(function(k){
+                if(!(k in cur)) cur[k] = incomingLogos[k];
+              });
+              localStorage.setItem('mtm_client_logos_v1', JSON.stringify(cur));
+            }
+          }catch(e){ console.warn('logos restore falhou', e); }
+        }
+
+        // ---- Mensagem de feedback ----
+        if(mode === 'replace'){
+          showToast('✅ Substituído: ' + rebuilt.length + ' folha(s) carregada(s) de "' + file.name + '"');
+        } else {
+          var msg = '✅ Mesclado: ' + rebuilt.length + ' folha(s)';
+          if(pmStats){
+            var parts = [];
+            if(pmStats.empresasNovas)      parts.push(pmStats.empresasNovas + ' nova(s) empresa(s)');
+            if(pmStats.empresasMescladas)  parts.push(pmStats.empresasMescladas + ' mesclada(s) em existente(s)');
+            if(pmStats.projetosAdicionados)parts.push(pmStats.projetosAdicionados + ' projeto(s) adicionado(s)');
+            if(parts.length) msg += ' · ' + parts.join(' · ');
           }
-        }catch(e){ console.warn('logos restore falhou', e); }
+          showToast(msg);
+        }
+      }catch(err){
+        console.error(err);
+        showToast('Erro ao abrir arquivo: ' + err.message, true);
       }
-
-      showToast('Arquivo aberto: ' + rebuilt.length + ' folha(s) de "' + file.name + '"');
-    }catch(err){
-      console.error(err);
-      showToast('Erro ao abrir arquivo: ' + err.message, true);
-    }
-    input.value = '';
-  };
-  reader.onerror = function(){
-    showToast('Erro ao ler o arquivo.', true);
-    input.value = '';
-  };
-  reader.readAsText(file, 'utf-8');
+      input.value = '';
+    };
+    reader.onerror = function(){
+      showToast('Erro ao ler o arquivo.', true);
+      input.value = '';
+    };
+    reader.readAsText(file, 'utf-8');
+  });
 }
 
 // Atalhos teclado dentro do editor do Livro
