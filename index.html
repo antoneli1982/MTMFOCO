@@ -4,18 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ferramenta MTM — Folha Padrão de Processo</title>
-
-<!-- ═══════════════ PWA ═══════════════ -->
-<meta name="theme-color" content="#00d4ff">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="MTM">
-<meta name="application-name" content="MTM">
-<meta name="description" content="Ferramenta MTM — Folha Padrão de Processo">
-<link id="pwa-manifest" rel="manifest">
-<link id="apple-touch-icon" rel="apple-touch-icon">
-<!-- ════════════════════════════════════ -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 
@@ -1202,11 +1190,6 @@ table.mtm tfoot tr.total-row td{
   .pa-status.bad *{color:#8a0a0a !important}
 }
 
-@keyframes pwa-pulse{
-  0%,100%{box-shadow:0 0 0 0 rgba(168,85,247,0.5)}
-  50%{box-shadow:0 0 0 6px rgba(168,85,247,0)}
-}
-
 </style>
 <!-- SheetJS (xlsx) — biblioteca para importar e exportar Excel -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -2043,7 +2026,6 @@ table.mtm tfoot tr.total-row td{
     <button class="btn btn-green" onclick="exportPDF()" title="Gerar PDF">⬇<span class="btn-lbl"> PDF</span></button>
     <button class="btn btn-primary" onclick="showFinalReport()" title="Relatório consolidado de todas as folhas" style="background:linear-gradient(135deg,#00e5a0,#00b87a);border:none;color:#001a12;font-weight:700">📋<span class="btn-lbl"> Relatório Final</span></button>
     <button class="btn btn-primary" onclick="openProjectManager()" title="Gerenciador de Projetos" style="background:linear-gradient(135deg,#4f8ef7,#6366f1);border:none;color:#fff">📁<span class="btn-lbl"> Projetos</span></button>
-    <button id="btn-pwa-install" class="btn btn-primary" onclick="pwaTriggerInstall()" title="Instalar como aplicativo" style="display:none;background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;color:#fff;animation:pwa-pulse 2s infinite">📲<span class="btn-lbl"> Instalar App</span></button>
     <div class="theme-toggle" onclick="toggleTheme()" title="Alternar tema">
       <span class="t-icon">☀️</span>
       <div class="toggle-track"><div class="toggle-thumb"></div></div>
@@ -10563,172 +10545,6 @@ document.addEventListener('keydown', function(e){
     if(e.key === 'Escape'){ closeBook(); }
   }
 });
-</script>
-
-<!-- ═══════════════════════════════════════════════════════════
-     PWA — Progressive Web App (instalável como aplicativo)
-     ═══════════════════════════════════════════════════════════ -->
-<script>
-(function initPWA(){
-  'use strict';
-
-  /* ── 1. Gerar ícone SVG inline (sem servidor) ── */
-  var iconSVG = [
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">',
-    '<defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">',
-    '<stop offset="0%" stop-color="#00d4ff"/>',
-    '<stop offset="50%" stop-color="#4f8ef7"/>',
-    '<stop offset="100%" stop-color="#7c3aed"/>',
-    '</linearGradient></defs>',
-    '<rect width="512" height="512" rx="96" fill="#080b12"/>',
-    '<text x="256" y="310" text-anchor="middle" font-family="Inter,Arial,sans-serif"',
-    ' font-weight="800" font-size="300" fill="url(#g)">M</text>',
-    '</svg>'
-  ].join('');
-
-  var iconDataURL = 'data:image/svg+xml;base64,' + btoa(iconSVG);
-
-  /* Injetar apple-touch-icon */
-  var atiEl = document.getElementById('apple-touch-icon');
-  if(atiEl) atiEl.href = iconDataURL;
-
-  /* ── 2. Manifest inline via Blob ── */
-  var manifest = {
-    name: 'Ferramenta MTM',
-    short_name: 'MTM',
-    description: 'Folha Padrão de Processo — Ferramenta MTM by Ivan Carlos Antoneli',
-    start_url: './',
-    scope: './',
-    display: 'standalone',
-    orientation: 'any',
-    background_color: '#080b12',
-    theme_color: '#00d4ff',
-    lang: 'pt-BR',
-    categories: ['productivity', 'business'],
-    icons: [
-      { src: iconDataURL, sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' }
-    ],
-    shortcuts: [
-      {
-        name: 'Nova Folha',
-        short_name: 'Nova',
-        description: 'Criar nova folha de processo',
-        url: './',
-        icons: [{ src: iconDataURL, sizes: '96x96' }]
-      }
-    ]
-  };
-
-  try {
-    var mBlob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
-    var mUrl  = URL.createObjectURL(mBlob);
-    var mLink = document.getElementById('pwa-manifest');
-    if(mLink) mLink.href = mUrl;
-  } catch(e) {
-    console.warn('[MTM PWA] Manifest blob falhou:', e);
-  }
-
-  /* ── 3. Service Worker inline via Blob ── */
-  if('serviceWorker' in navigator){
-    var swSource = '\
-var CACHE_NAME = "mtm-sw-v2";\
-var URLS_TO_CACHE = ["./"];\
-\
-self.addEventListener("install", function(e){\
-  self.skipWaiting();\
-  e.waitUntil(\
-    caches.open(CACHE_NAME).then(function(c){ return c.addAll(URLS_TO_CACHE).catch(function(){}); })\
-  );\
-});\
-\
-self.addEventListener("activate", function(e){\
-  e.waitUntil(\
-    Promise.all([\
-      clients.claim(),\
-      caches.keys().then(function(keys){\
-        return Promise.all(keys.filter(function(k){ return k !== CACHE_NAME; }).map(function(k){ return caches.delete(k); }));\
-      })\
-    ])\
-  );\
-});\
-\
-self.addEventListener("fetch", function(e){\
-  if(e.request.method !== "GET") return;\
-  e.respondWith(\
-    caches.match(e.request).then(function(cached){\
-      if(cached) return cached;\
-      return fetch(e.request).then(function(response){\
-        if(!response || response.status !== 200 || response.type === "opaque") return response;\
-        var resp = response.clone();\
-        caches.open(CACHE_NAME).then(function(c){ c.put(e.request, resp); });\
-        return response;\
-      }).catch(function(){\
-        return cached || new Response("Offline — MTM App", { headers: {"Content-Type":"text/plain"} });\
-      });\
-    })\
-  );\
-});';
-
-    try {
-      var swBlob = new Blob([swSource], { type: 'application/javascript' });
-      var swUrl  = URL.createObjectURL(swBlob);
-      navigator.serviceWorker.register(swUrl)
-        .then(function(reg){
-          console.log('[MTM PWA] Service Worker registrado. Escopo:', reg.scope);
-        })
-        .catch(function(err){
-          console.warn('[MTM PWA] SW falhou (normal em file://):', err.message);
-        });
-    } catch(e) {
-      console.warn('[MTM PWA] SW blob falhou:', e);
-    }
-  }
-
-  /* ── 4. Botão de instalação ── */
-  var deferredPrompt = null;
-  var btnInstall = document.getElementById('btn-pwa-install');
-
-  window.addEventListener('beforeinstallprompt', function(e){
-    e.preventDefault();
-    deferredPrompt = e;
-    if(btnInstall){
-      btnInstall.style.display = 'inline-flex';
-    }
-    console.log('[MTM PWA] App pronto para instalar.');
-  });
-
-  window.pwaTriggerInstall = function(){
-    if(!deferredPrompt){ return; }
-    deferredPrompt.prompt();
-    deferredPrompt.userChoice.then(function(result){
-      if(result.outcome === 'accepted'){
-        console.log('[MTM PWA] App instalado com sucesso!');
-        if(btnInstall) btnInstall.style.display = 'none';
-        showToast && showToast('✅ Aplicativo MTM instalado com sucesso!');
-      } else {
-        console.log('[MTM PWA] Instalação cancelada pelo usuário.');
-      }
-      deferredPrompt = null;
-    });
-  };
-
-  window.addEventListener('appinstalled', function(){
-    if(btnInstall) btnInstall.style.display = 'none';
-    deferredPrompt = null;
-    console.log('[MTM PWA] Instalado!');
-    showToast && showToast('✅ MTM instalado como aplicativo!');
-  });
-
-  /* ── 5. Detectar se já está rodando como PWA (standalone) ── */
-  var isStandalone = (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    window.navigator.standalone === true
-  );
-  if(isStandalone){
-    console.log('[MTM PWA] Rodando como aplicativo instalado.');
-    document.title = 'MTM App';
-  }
-})();
 </script>
 
 <!-- ═══════════════════════════════════════════════════════════
