@@ -2016,8 +2016,8 @@ table.mtm tfoot tr.total-row td{
     <button class="btn btn-ghost" onclick="openFadiga()" title="Análise de Fadiga & Ociosidade (TV + TER) — Tabela Ivan Antoneli" style="background:rgba(255,149,0,.10);color:var(--orange);border-color:rgba(255,149,0,.35)">🛌<span class="btn-lbl"> Fadiga</span></button>
     <button class="btn btn-ghost" onclick="renameCurrentSheet()" title="Renomear">✏️<span class="btn-lbl"> Renomear</span></button>
     <button class="btn btn-danger" onclick="deleteCurrentSheet()" title="Excluir">✕<span class="btn-lbl"> Excluir</span></button>
-    <button class="btn btn-green" onclick="salvarAgora()" title="Salvar trabalho em andamento no navegador (Ctrl+S)" id="btn-salvar">💾<span class="btn-lbl"> Salvar</span></button>
-    <button class="btn btn-ghost" onclick="saveProjectFile()" title="Salvar como — baixa arquivo MTM (.mtm.json) no computador, guardando TUDO: folhas, linhas, livros, projetos, logos" style="background:rgba(255,149,0,.10);color:var(--orange);border-color:rgba(255,149,0,.35)">💾<span class="btn-lbl"> Salvar como</span></button>
+    <button class="btn btn-green" onclick="salvarAgora()" title="Salvar no navegador (Ctrl+S) — memória temporária. Use o botão SALVAR PROJETO para arquivo permanente." id="btn-salvar">💾<span class="btn-lbl"> Salvar local</span></button>
+    <button onclick="saveProjectFile()" title="SALVAR PROJETO COMPLETO — Baixa arquivo .mtm.json com TODAS as folhas, projetos e dados. Use este para guardar, enviar por email ou levar no pen drive." id="btn-salvar-projeto" style="font-family:'Inter',sans-serif;font-size:11px;font-weight:800;padding:7px 16px;border-radius:8px;border:2px solid #f5a623;cursor:pointer;display:inline-flex;align-items:center;gap:6px;letter-spacing:.4px;background:linear-gradient(135deg,#f5a623,#e07b00);color:#000;text-shadow:none;box-shadow:0 0 14px rgba(245,166,35,0.35);transition:all .2s" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 20px rgba(245,166,35,0.55)'" onmouseout="this.style.transform='';this.style.boxShadow='0 0 14px rgba(245,166,35,0.35)'">💾<span> SALVAR PROJETO</span></button>
     <button class="btn btn-ghost" onclick="openProjectFilePrompt()" title="Abrir arquivo MTM salvo (.mtm.json)" style="background:rgba(255,149,0,.10);color:var(--orange);border-color:rgba(255,149,0,.35)">📂<span class="btn-lbl"> Abrir</span></button>
     <input type="file" id="mtm-file-input" accept=".mtm,.json,.mtm.json,application/json" style="display:none" onchange="openProjectFileHandle(this)">
     <button class="btn btn-ghost" onclick="importExcelPrompt()" title="Importar planilha Excel (.xlsx)" style="background:rgba(0,229,160,.08);color:var(--green);border-color:rgba(0,229,160,.3)">📥<span class="btn-lbl"> Excel</span></button>
@@ -3361,10 +3361,10 @@ function salvarAgora(){
         btn.disabled = false;
       }, 1400);
     }
-    // Mensagem toast com hora
+    // Mensagem toast com hora e aviso de que é local
     var hora = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     if(typeof showToast === 'function'){
-      showToast('✅ Trabalho salvo · ' + sheets.length + ' folha(s) · ' + hora);
+      showToast('💾 Salvo no navegador · ' + sheets.length + ' folha(s) · ' + hora + ' · ⚠️ Clique em "SALVAR PROJETO" para criar arquivo permanente!');
     }
   }catch(e){
     console.error('Erro ao salvar:', e);
@@ -3372,12 +3372,17 @@ function salvarAgora(){
   }
 }
 
-// Atalho global Ctrl+S / Cmd+S → Salvar
+// Atalho global Ctrl+S / Cmd+S → Salvar local + oferecer arquivo
 document.addEventListener('keydown', function(e){
   if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's'){
-    // Não interfere quando estiver editando texto em modais (book, fadiga estão fora)
     e.preventDefault();
     if(typeof salvarAgora === 'function') salvarAgora();
+    // Após salvar localmente, lembrar sobre o arquivo permanente
+    setTimeout(function(){
+      if(typeof showToast === 'function'){
+        showToast('💾 Salvo no navegador · Use o botão laranja "SALVAR PROJETO" para criar arquivo permanente no seu computador!');
+      }
+    }, 1600);
   }
 });
 
@@ -10214,14 +10219,29 @@ function saveProjectFile(){
       clientLogos:    logosPayload
     };
 
-    // ---- 5) Sugerir nome de arquivo ----
-    var actSheet = activeId ? get(activeId) : (sheets && sheets[0]);
-    var baseName = (actSheet && (actSheet.header && actSheet.header.processo)) ||
-                   (actSheet && actSheet.label) ||
-                   'Projeto_MTM';
-    baseName = String(baseName).trim().replace(/[\\\/\?\*\[\]\:"<>\|]/g,'_').substring(0,60) || 'Projeto_MTM';
+    // ---- 5) Sugerir nome de arquivo baseado no PROJETO COMPLETO ----
+    var pmNomeProjeto = '';
+    try{
+      // Tenta pegar nome do projeto ativo no gerenciador
+      if(typeof pmData !== 'undefined' && typeof pmFolderId !== 'undefined' && typeof pmProjectIdx !== 'undefined'){
+        var pmF = pmData[pmFolderId];
+        var pmP = pmF && pmF.projects && pmF.projects[pmProjectIdx];
+        if(pmP && pmP.name) pmNomeProjeto = pmP.name;
+        if(!pmNomeProjeto && pmF && pmF.name) pmNomeProjeto = pmF.name;
+      }
+    }catch(e){}
+    // Fallback: header da folha ativa ou label
+    if(!pmNomeProjeto){
+      var actSheet = activeId ? get(activeId) : (sheets && sheets[0]);
+      pmNomeProjeto = (actSheet && actSheet.header && actSheet.header.projeto) ||
+                     (actSheet && actSheet.header && actSheet.header.empresa) ||
+                     (actSheet && actSheet.header && actSheet.header.processo) ||
+                     (actSheet && actSheet.label) ||
+                     'Projeto_MTM';
+    }
+    var baseName = String(pmNomeProjeto).trim().replace(/[\\\/\?\*\[\]\:"<>\|]/g,'_').substring(0,50) || 'Projeto_MTM';
     var stamp = new Date().toISOString().slice(0,10);
-    var defaultName = baseName + '_' + stamp + '.mtm.json';
+    var defaultName = baseName + '_' + sheetsPayload.length + 'folhas_' + stamp + '.mtm.json';
 
     var userName = prompt('Nome do arquivo para salvar:', defaultName);
     if(userName === null){ return; }            // usuário cancelou
@@ -10242,7 +10262,7 @@ function saveProjectFile(){
       URL.revokeObjectURL(url);
     }, 200);
 
-    showToast('Arquivo salvo: ' + userName + ' (' + sheetsPayload.length + ' folha(s))');
+    showToast('✅ PROJETO COMPLETO SALVO: ' + userName + ' · ' + sheetsPayload.length + ' folha(s) · ' + (fileObj.projectManager ? 'com gerenciador de projetos' : '') + ' — guarde este arquivo no seu computador!');
   }catch(e){
     console.error(e);
     showToast('Erro ao salvar arquivo: ' + e.message, true);
