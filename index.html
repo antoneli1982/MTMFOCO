@@ -2016,8 +2016,7 @@ table.mtm tfoot tr.total-row td{
     <button class="btn btn-ghost" onclick="openFadiga()" title="Análise de Fadiga & Ociosidade (TV + TER) — Tabela Ivan Antoneli" style="background:rgba(255,149,0,.10);color:var(--orange);border-color:rgba(255,149,0,.35)">🛌<span class="btn-lbl"> Fadiga</span></button>
     <button class="btn btn-ghost" onclick="renameCurrentSheet()" title="Renomear">✏️<span class="btn-lbl"> Renomear</span></button>
     <button class="btn btn-danger" onclick="deleteCurrentSheet()" title="Excluir">✕<span class="btn-lbl"> Excluir</span></button>
-    <button class="btn btn-green" onclick="salvarAgora()" title="Salvar no navegador (Ctrl+S) — memória temporária. Use o botão SALVAR PROJETO para arquivo permanente." id="btn-salvar">💾<span class="btn-lbl"> Salvar local</span></button>
-    <button onclick="saveProjectFile()" title="SALVAR PROJETO COMPLETO — Baixa arquivo .mtm.json com TODAS as folhas, projetos e dados. Use este para guardar, enviar por email ou levar no pen drive." id="btn-salvar-projeto" style="font-family:'Inter',sans-serif;font-size:11px;font-weight:800;padding:7px 16px;border-radius:8px;border:2px solid #f5a623;cursor:pointer;display:inline-flex;align-items:center;gap:6px;letter-spacing:.4px;background:linear-gradient(135deg,#f5a623,#e07b00);color:#000;text-shadow:none;box-shadow:0 0 14px rgba(245,166,35,0.35);transition:all .2s" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 20px rgba(245,166,35,0.55)'" onmouseout="this.style.transform='';this.style.boxShadow='0 0 14px rgba(245,166,35,0.35)'">💾<span> SALVAR PROJETO</span></button>
+    <button class="btn btn-green" onclick="salvarAgora()" title="Salvar no navegador (Ctrl+S) — memória temporária. Use o botão 💾 em cada projeto para arquivo permanente." id="btn-salvar">💾<span class="btn-lbl"> Salvar local</span></button>
     <button class="btn btn-ghost" onclick="openProjectFilePrompt()" title="Abrir arquivo MTM salvo (.mtm.json)" style="background:rgba(255,149,0,.10);color:var(--orange);border-color:rgba(255,149,0,.35)">📂<span class="btn-lbl"> Abrir</span></button>
     <input type="file" id="mtm-file-input" accept=".mtm,.json,.mtm.json,application/json" style="display:none" onchange="openProjectFileHandle(this)">
     <button class="btn btn-ghost" onclick="importExcelPrompt()" title="Importar planilha Excel (.xlsx)" style="background:rgba(0,229,160,.08);color:var(--green);border-color:rgba(0,229,160,.3)">📥<span class="btn-lbl"> Excel</span></button>
@@ -3364,7 +3363,7 @@ function salvarAgora(){
     // Mensagem toast com hora e aviso de que é local
     var hora = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     if(typeof showToast === 'function'){
-      showToast('💾 Salvo no navegador · ' + sheets.length + ' folha(s) · ' + hora + ' · ⚠️ Clique em "SALVAR PROJETO" para criar arquivo permanente!');
+      showToast('💾 Salvo no navegador · ' + sheets.length + ' folha(s) · ' + hora + ' · Use o botão 💾 em cada projeto para arquivo permanente!');
     }
   }catch(e){
     console.error('Erro ao salvar:', e);
@@ -3380,7 +3379,7 @@ document.addEventListener('keydown', function(e){
     // Após salvar localmente, lembrar sobre o arquivo permanente
     setTimeout(function(){
       if(typeof showToast === 'function'){
-        showToast('💾 Salvo no navegador · Use o botão laranja "SALVAR PROJETO" para criar arquivo permanente no seu computador!');
+        showToast('💾 Salvo no navegador · Use o botão 💾 em cada projeto no dashboard para criar arquivo permanente!');
       }
     }, 1600);
   }
@@ -6780,6 +6779,7 @@ function dbRenderList(){
     + '<span class="db-list-badge" style="background:var(--accentBg);color:var(--accent);padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700">' + folderIds.length + '</span>'
     + '<span style="flex:1"></span>'
     + '<button onclick="dbNewFolder()" style="background:var(--accentGrad);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:var(--shadow-glow)">＋ Nova Pasta</button>'
+    + '<button onclick="saveAllProjectsFile()" style="background:linear-gradient(135deg,#f5a623,#e07b00);color:#000;border:2px solid #f5a623;padding:7px 12px;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer">💾 Salvar Tudo</button>'
     + '<button onclick="dbExportBackup()" style="background:var(--greenBg);color:var(--green);border:1px solid var(--green);padding:7px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">💾 Backup</button>'
     + '<button onclick="document.getElementById(\'dbBackupInput\').click()" style="background:var(--surface3);color:var(--text);border:1px solid var(--border2);padding:7px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">📥 Restaurar</button>'
     + '<input type="file" id="dbBackupInput" accept=".json" style="display:none" onchange="dbImportBackup(this)">'
@@ -7410,6 +7410,7 @@ function openFolderPage(fid){
       html += ''
         + '<div style="background:var(--surface3);border:1px solid var(--border);border-radius:10px;padding:12px;position:relative">'
         + '<div style="position:absolute;top:6px;right:6px;display:flex;gap:4px">'
+        + '<button onclick="event.stopPropagation();dbSalvarProjetoIndividual(\'' + fid + '\',' + pi + ')" title="Salvar este projeto como arquivo .mtm.json" style="background:linear-gradient(135deg,#f5a623,#e07b00);color:#000;border:none;cursor:pointer;font-size:11px;border-radius:5px;padding:3px 8px;font-weight:800" onmouseover="this.style.filter=\'brightness(1.15)\'" onmouseout="this.style.filter=\'\'">💾</button>'
         +   '<button onclick="event.stopPropagation();dbRenameProjectInFolder(\'' + fid + '\',' + pi + ')" title="Renomear projeto" style="background:var(--orangeBg);border:1px solid rgba(255,149,0,.4);color:var(--orange);cursor:pointer;font-size:11px;border-radius:5px;padding:3px 7px;font-weight:700" onmouseover="this.style.background=\'var(--orange)\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'var(--orangeBg)\';this.style.color=\'var(--orange)\'">✏️</button>'
         +   '<button onclick="event.stopPropagation();dbDelProjectInFolder(\'' + fid + '\',' + pi + ')" title="Excluir projeto" style="background:var(--redBg);border:1px solid rgba(255,77,109,.4);color:var(--red);cursor:pointer;font-size:11px;border-radius:5px;padding:3px 7px;font-weight:700" onmouseover="this.style.background=\'var(--red)\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'var(--redBg)\';this.style.color=\'var(--red)\'">✕</button>'
         + '</div>'
@@ -10152,14 +10153,42 @@ document.addEventListener('keydown', function(e){
 // Inclui: folhas (linhas, headers, livros) + gerenciador de
 // projetos + logos de cliente. Tudo embutido.
 // ============================================================
+// ─────────────────────────────────────────────────────────────────
+// HELPER: serializa uma folha para o payload do arquivo
+// ─────────────────────────────────────────────────────────────────
+function _serializeSheet(s){
+  return {
+    id:     s.id,
+    label:  s.label,
+    header: s.header || {},
+    book:   s.book   || '',
+    fadiga: s.fadiga || null,
+    rows:   (s.rows||[]).map(function(r){
+      return {
+        id:    r.id,
+        desc:  r.desc    || '',
+        agrega:r.agrega  || '',
+        code:  r.code    || '',
+        tmu:   r.tmu     || '',
+        q:     r.q       || '',
+        f:     r.f       || '',
+        ttmu:  r.ttmu    || 0,
+        tsec:  r.tsec    || 0
+      };
+    })
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SALVAR PROJETO INDIVIDUAL — só as folhas do projeto aberto
+// ─────────────────────────────────────────────────────────────────
 function saveProjectFile(){
   try{
-    // Se o Livro está aberto e sendo editado, persiste antes de exportar
+    // Persiste Livro e Fadiga se estiverem abertos
     var bookOv = document.getElementById('book-overlay');
     if(bookOv && !bookOv.classList.contains('hidden') && typeof bookPersistNow === 'function'){
       try{ bookPersistNow(); }catch(e){}
     }
-    // Se o modal Fadiga está aberto, captura o estado atual antes de exportar
     var fadOv = document.getElementById('fad-overlay');
     if(fadOv && !fadOv.classList.contains('hidden') && activeId){
       var sAtual = get(activeId);
@@ -10168,104 +10197,247 @@ function saveProjectFile(){
       }
     }
 
-    // ---- 1) Folhas (mesma estrutura do autosave + book + fadiga) ----
-    var sheetsPayload = (sheets||[]).map(function(s){
-      return {
-        id: s.id,
-        label: s.label,
-        header: s.header || {},
-        book: s.book || '',
-        fadiga: s.fadiga || null,
-        rows: (s.rows||[]).map(function(r){
-          return {
-            id:   r.id,
-            desc: r.desc   || '',
-            agrega: r.agrega || '',
-            code: r.code   || '',
-            tmu:  r.tmu    || '',
-            q:    r.q      || '',
-            f:    r.f      || '',
-            ttmu: r.ttmu   || 0,
-            tsec: r.tsec   || 0
-          };
-        })
-      };
-    });
+    // ── Detectar se há um projeto ativo no gerenciador ──────────
+    var projetoAtivo   = null;
+    var pastaAtiva     = null;
+    var fidAtivo       = null;
+    var idsDoProjetoAtivo = null;
 
-    // ---- 2) Gerenciador de Projetos (opcional) ----
+    try{
+      if(typeof pmData !== 'undefined' &&
+         typeof pmFolderId !== 'undefined' && pmFolderId &&
+         typeof pmProjectIdx !== 'undefined' && pmProjectIdx !== null && pmProjectIdx >= 0){
+        var _pasta = pmData[pmFolderId];
+        var _proj  = _pasta && _pasta.projects && _pasta.projects[pmProjectIdx];
+        if(_proj && _proj.sheets && _proj.sheets.length > 0){
+          projetoAtivo      = _proj;
+          pastaAtiva        = _pasta;
+          fidAtivo          = pmFolderId;
+          idsDoProjetoAtivo = _proj.sheets; // array de IDs das folhas deste projeto
+        }
+      }
+    }catch(e){}
+
+    // ── Modo: Projeto individual ou tudo ────────────────────────
+    var sheetsPayload, nomeProjeto, nomeEmpresa, modoSalvar;
+
+    if(projetoAtivo && idsDoProjetoAtivo){
+      // ── MODO INDIVIDUAL: só as folhas deste projeto ──────────
+      modoSalvar = 'individual';
+      nomeProjeto = projetoAtivo.name || 'Projeto';
+      nomeEmpresa = pastaAtiva.name   || 'Empresa';
+
+      // Filtrar somente as folhas vinculadas a este projeto
+      sheetsPayload = (sheets||[])
+        .filter(function(s){ return idsDoProjetoAtivo.indexOf(s.id) !== -1; })
+        .map(_serializeSheet);
+
+      // Se não encontrou nenhuma folha no array (pode ter sido carregada depois)
+      // tenta pegar pelo menos a folha ativa
+      if(!sheetsPayload.length && activeId){
+        var sa = get(activeId);
+        if(sa) sheetsPayload = [_serializeSheet(sa)];
+      }
+
+    } else {
+      // ── MODO COMPLETO: salva tudo (sem projeto aberto) ───────
+      modoSalvar = 'completo';
+      sheetsPayload = (sheets||[]).map(_serializeSheet);
+      // Nome baseado na folha ativa
+      var actSh = activeId ? get(activeId) : (sheets && sheets[0]);
+      nomeProjeto = (actSh && actSh.header && actSh.header.projeto)  ||
+                   (actSh && actSh.header && actSh.header.empresa)   ||
+                   (actSh && actSh.header && actSh.header.processo)  ||
+                   (actSh && actSh.label) || 'Projeto_MTM';
+      nomeEmpresa = '';
+    }
+
+    // ── Gerenciador de projetos — só do projeto/empresa ativo ──
     var pmPayload = null;
     try{
-      var pmRaw = localStorage.getItem('pmgr_v3');
-      if(pmRaw) pmPayload = JSON.parse(pmRaw);
+      if(modoSalvar === 'individual' && fidAtivo && projetoAtivo){
+        // Exporta apenas a empresa + projeto atual (para reimportar no lugar certo)
+        var _pmFiltrado = {};
+        _pmFiltrado[fidAtivo] = {
+          id:       fidAtivo,
+          name:     pastaAtiva.name,
+          logo:     pastaAtiva.logo || null,
+          projects: [ JSON.parse(JSON.stringify(projetoAtivo)) ]
+        };
+        // Ajusta os IDs de sheet no PM para os que foram exportados
+        var _idsExport = sheetsPayload.map(function(s){ return s.id; });
+        _pmFiltrado[fidAtivo].projects[0].sheets = _idsExport;
+        pmPayload = _pmFiltrado;
+      } else {
+        // Modo completo: PM inteiro
+        var pmRaw = localStorage.getItem('pmgr_v3');
+        if(pmRaw) pmPayload = JSON.parse(pmRaw);
+      }
     }catch(e){ pmPayload = null; }
 
-    // ---- 3) Logos de cliente (opcional) ----
+    // ── Logos — só do cliente ativo (se individual) ─────────────
     var logosPayload = null;
     try{
       var lgRaw = localStorage.getItem('mtm_client_logos_v1');
-      if(lgRaw) logosPayload = JSON.parse(lgRaw);
+      if(lgRaw){
+        var _todosLogos = JSON.parse(lgRaw);
+        if(modoSalvar === 'individual' && nomeEmpresa){
+          // Exporta só o logo desta empresa
+          var _lgFiltrado = {};
+          if(_todosLogos[nomeEmpresa]) _lgFiltrado[nomeEmpresa] = _todosLogos[nomeEmpresa];
+          logosPayload = Object.keys(_lgFiltrado).length ? _lgFiltrado : null;
+        } else {
+          logosPayload = _todosLogos;
+        }
+      }
     }catch(e){ logosPayload = null; }
 
-    // ---- 4) Montar arquivo ----
+    // ── Montar objeto do arquivo ─────────────────────────────────
     var fileObj = {
-      format:    'MTM_FILE',
-      version:   1,
-      app:       'Folha de Processo MTM',
-      author:    'Engº Ivan Carlos Antoneli',
-      createdAt: new Date().toISOString(),
+      format:      'MTM_FILE',
+      version:     1,
+      app:         'Folha de Processo MTM',
+      author:      'Engº Ivan Carlos Antoneli',
+      createdAt:   new Date().toISOString(),
+      modo:        modoSalvar,
+      empresa:     nomeEmpresa,
+      projeto:     nomeProjeto,
       sheetsCount: sheetsPayload.length,
-      sheets:    sheetsPayload,
+      sheets:      sheetsPayload,
       projectManager: pmPayload,
       clientLogos:    logosPayload
     };
 
-    // ---- 5) Sugerir nome de arquivo baseado no PROJETO COMPLETO ----
-    var pmNomeProjeto = '';
-    try{
-      // Tenta pegar nome do projeto ativo no gerenciador
-      if(typeof pmData !== 'undefined' && typeof pmFolderId !== 'undefined' && typeof pmProjectIdx !== 'undefined'){
-        var pmF = pmData[pmFolderId];
-        var pmP = pmF && pmF.projects && pmF.projects[pmProjectIdx];
-        if(pmP && pmP.name) pmNomeProjeto = pmP.name;
-        if(!pmNomeProjeto && pmF && pmF.name) pmNomeProjeto = pmF.name;
-      }
-    }catch(e){}
-    // Fallback: header da folha ativa ou label
-    if(!pmNomeProjeto){
-      var actSheet = activeId ? get(activeId) : (sheets && sheets[0]);
-      pmNomeProjeto = (actSheet && actSheet.header && actSheet.header.projeto) ||
-                     (actSheet && actSheet.header && actSheet.header.empresa) ||
-                     (actSheet && actSheet.header && actSheet.header.processo) ||
-                     (actSheet && actSheet.label) ||
-                     'Projeto_MTM';
+    if(!sheetsPayload.length){
+      showToast('⚠️ Nenhuma folha encontrada para salvar neste projeto. Verifique se o projeto tem folhas vinculadas.', true);
+      return;
     }
-    var baseName = String(pmNomeProjeto).trim().replace(/[\\\/\?\*\[\]\:"<>\|]/g,'_').substring(0,50) || 'Projeto_MTM';
-    var stamp = new Date().toISOString().slice(0,10);
-    var defaultName = baseName + '_' + sheetsPayload.length + 'folhas_' + stamp + '.mtm.json';
 
-    var userName = prompt('Nome do arquivo para salvar:', defaultName);
-    if(userName === null){ return; }            // usuário cancelou
+    // ── Sugerir nome do arquivo ──────────────────────────────────
+    var _base = (nomeEmpresa ? nomeEmpresa + '_' : '') + nomeProjeto;
+    var _baseSafe = String(_base).trim().replace(/[\\\/\?\*\[\]\:"<>\|]/g,'_').substring(0,55) || 'Projeto_MTM';
+    var _stamp = new Date().toISOString().slice(0,10);
+    var defaultName = _baseSafe + '_' + sheetsPayload.length + 'folhas_' + _stamp + '.mtm.json';
+
+    var userName = prompt(
+      (modoSalvar === 'individual'
+        ? '💾 Salvar projeto: "' + nomeProjeto + '" (' + sheetsPayload.length + ' folha(s))\n\nNome do arquivo:'
+        : '💾 Salvar TUDO (' + sheetsPayload.length + ' folha(s) de todos os projetos)\n\nNome do arquivo:'),
+      defaultName
+    );
+    if(userName === null){ return; }
     userName = String(userName).trim();
     if(!userName) userName = defaultName;
     if(!/\.(mtm|json|mtm\.json)$/i.test(userName)) userName += '.mtm.json';
 
-    // ---- 6) Download ----
+    // ── Download ─────────────────────────────────────────────────
     var blob = new Blob([JSON.stringify(fileObj, null, 2)], {type:'application/json;charset=utf-8'});
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = userName;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function(){
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 200);
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href = url; a.download = userName;
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
 
-    showToast('✅ PROJETO COMPLETO SALVO: ' + userName + ' · ' + sheetsPayload.length + ' folha(s) · ' + (fileObj.projectManager ? 'com gerenciador de projetos' : '') + ' — guarde este arquivo no seu computador!');
+    var _msg = modoSalvar === 'individual'
+      ? '✅ Projeto "' + nomeProjeto + '" salvo: ' + sheetsPayload.length + ' folha(s) → ' + userName
+      : '✅ TUDO SALVO: ' + sheetsPayload.length + ' folha(s) → ' + userName;
+    showToast(_msg);
+
   }catch(e){
     console.error(e);
     showToast('Erro ao salvar arquivo: ' + e.message, true);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SALVAR TUDO — todos os projetos/folhas em um único arquivo
+// (acessível pelo botão "Backup" no dashboard)
+// ─────────────────────────────────────────────────────────────────
+function dbSalvarProjetoIndividual(fid, pi){
+  pmLoad();
+  if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
+  var folder  = pmData[fid];
+  var projeto = folder && folder.projects && folder.projects[pi];
+  if(!projeto){ showToast('Projeto não encontrado.', true); return; }
+
+  var idsProj = projeto.sheets || [];
+  if(!idsProj.length){ showToast('Este projeto não tem folhas vinculadas ainda.', true); return; }
+
+  // Serializar apenas as folhas deste projeto
+  var sheetsPayload = (sheets||[])
+    .filter(function(s){ return idsProj.indexOf(s.id) !== -1; })
+    .map(_serializeSheet);
+
+  if(!sheetsPayload.length){
+    showToast('⚠️ Folhas do projeto não encontradas no editor. Abra o projeto primeiro e tente novamente.', true);
+    return;
+  }
+
+  // PM filtrado: só esta empresa + este projeto
+  var pmFiltrado = {};
+  pmFiltrado[fid] = {
+    id:       fid,
+    name:     folder.name,
+    logo:     folder.logo || null,
+    projects: [ JSON.parse(JSON.stringify(projeto)) ]
+  };
+  pmFiltrado[fid].projects[0].sheets = sheetsPayload.map(function(s){ return s.id; });
+
+  // Logo só desta empresa
+  var logosPayload = null;
+  try{
+    var lgRaw = localStorage.getItem('mtm_client_logos_v1');
+    if(lgRaw){
+      var _todos = JSON.parse(lgRaw);
+      if(_todos[folder.name]){ logosPayload = {}; logosPayload[folder.name] = _todos[folder.name]; }
+    }
+  }catch(e){}
+
+  var fileObj = {
+    format:         'MTM_FILE',
+    version:        1,
+    app:            'Folha de Processo MTM',
+    author:         'Engº Ivan Carlos Antoneli',
+    createdAt:      new Date().toISOString(),
+    modo:           'individual',
+    empresa:        folder.name,
+    projeto:        projeto.name,
+    sheetsCount:    sheetsPayload.length,
+    sheets:         sheetsPayload,
+    projectManager: pmFiltrado,
+    clientLogos:    logosPayload
+  };
+
+  var _base = String(folder.name + '_' + projeto.name).trim().replace(/[\\\/\?\*\[\]\:"<>\|]/g,'_').substring(0,55);
+  var _stamp = new Date().toISOString().slice(0,10);
+  var defaultName = _base + '_' + sheetsPayload.length + 'folhas_' + _stamp + '.mtm.json';
+
+  var userName = prompt('💾 Salvar projeto: "' + projeto.name + '" (' + sheetsPayload.length + ' folha(s))\n\nNome do arquivo:', defaultName);
+  if(userName === null) return;
+  userName = String(userName).trim() || defaultName;
+  if(!/\.(mtm|json|mtm\.json)$/i.test(userName)) userName += '.mtm.json';
+
+  var blob = new Blob([JSON.stringify(fileObj, null, 2)], {type:'application/json;charset=utf-8'});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href = url; a.download = userName;
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+
+  showToast('✅ Projeto "' + projeto.name + '" salvo: ' + sheetsPayload.length + ' folha(s) → ' + userName);
+}
+
+function saveAllProjectsFile(){
+  // Força modo completo: temporariamente limpa pmFolderId para cair no else do saveProjectFile
+  var _fidBackup = typeof pmFolderId !== 'undefined' ? pmFolderId : null;
+  var _pidxBackup= typeof pmProjectIdx !== 'undefined' ? pmProjectIdx : null;
+  try{
+    if(typeof pmFolderId    !== 'undefined') pmFolderId    = null;
+    if(typeof pmProjectIdx  !== 'undefined') pmProjectIdx  = -1;
+    saveProjectFile();
+  } finally {
+    if(typeof pmFolderId    !== 'undefined') pmFolderId    = _fidBackup;
+    if(typeof pmProjectIdx  !== 'undefined') pmProjectIdx  = _pidxBackup;
   }
 }
 
