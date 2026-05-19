@@ -109,6 +109,369 @@
   --radius-sm: 8px;
 }
 
+/* ============================================================
+   FB-MTM · INTEGRAÇÃO FIREBASE (Auth + Realtime + Mobile)
+   Estilos das telas de login/workspace, status de sync,
+   menu de usuário e refinos mobile. Reusa o design system existente.
+   ============================================================ */
+
+/* Body lock quando overlay Firebase ativo */
+body.fb-locked { overflow:hidden; height:100vh; }
+
+/* ── OVERLAY BASE ── */
+.fb-overlay{
+  position:fixed; inset:0; z-index:9999;
+  background:radial-gradient(ellipse at top, rgba(0,212,255,.08), transparent 60%),
+             radial-gradient(ellipse at bottom right, rgba(124,58,237,.10), transparent 55%),
+             var(--bg);
+  display:none; align-items:center; justify-content:center;
+  padding:20px; overflow-y:auto;
+}
+.fb-overlay.show{ display:flex; }
+.fb-overlay::before{
+  content:''; position:absolute; inset:0; opacity:.35; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+[data-theme="light"] .fb-overlay::before{
+  background-image:
+    linear-gradient(rgba(0,0,0,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,.04) 1px, transparent 1px);
+}
+
+/* ── CARD ── */
+.fb-card{
+  position:relative; z-index:1;
+  width:100%; max-width:440px;
+  background:var(--surface);
+  border:1px solid var(--border2);
+  border-radius:20px;
+  box-shadow:var(--shadow), 0 0 0 1px rgba(0,212,255,.06);
+  overflow:hidden;
+  animation:fbCardIn .45s cubic-bezier(.2,.9,.3,1.2);
+}
+@keyframes fbCardIn{
+  from{opacity:0; transform:translateY(20px) scale(.96)}
+  to  {opacity:1; transform:translateY(0)    scale(1)}
+}
+.fb-card-header{
+  padding:24px 28px 20px;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg, var(--accentBg), transparent);
+}
+.fb-logo{
+  display:flex; align-items:center; gap:10px; margin-bottom:8px;
+}
+.fb-logo-mark{
+  width:36px; height:36px; border-radius:10px;
+  background:var(--accentGrad);
+  display:flex; align-items:center; justify-content:center;
+  color:#fff; font-weight:800; font-size:14px; letter-spacing:.5px;
+  box-shadow:var(--shadow-glow);
+}
+.fb-logo-text{
+  font-size:18px; font-weight:800; letter-spacing:.3px;
+  background:var(--accentGrad); -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent; background-clip:text;
+}
+.fb-logo-sub{
+  font-size:11px; color:var(--text2); font-weight:500; letter-spacing:.3px;
+}
+.fb-card-title{
+  font-size:20px; font-weight:700; color:var(--text); margin-top:4px;
+}
+.fb-card-body{ padding:24px 28px 28px; }
+
+/* ── TABS ── */
+.fb-tabs{
+  display:flex; gap:4px; padding:4px;
+  background:var(--surface2); border-radius:10px;
+  margin-bottom:18px;
+}
+.fb-tab{
+  flex:1; padding:9px 12px; border:none; background:transparent;
+  font-size:12px; font-weight:600; color:var(--text2);
+  border-radius:7px; cursor:pointer; transition:all .2s;
+  font-family:inherit;
+}
+.fb-tab.active{
+  background:var(--surface); color:var(--text);
+  box-shadow:0 1px 3px rgba(0,0,0,.2);
+}
+.fb-panel{ display:none; }
+.fb-panel.active{ display:block; animation:fbPanelIn .25s; }
+@keyframes fbPanelIn{ from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:translateY(0)} }
+
+/* ── FORM ── */
+.fb-field{ margin-bottom:14px; }
+.fb-field label{
+  display:block; font-size:11px; font-weight:600;
+  color:var(--text2); margin-bottom:6px; letter-spacing:.3px;
+  text-transform:uppercase;
+}
+.fb-input{
+  width:100%; padding:12px 14px;
+  background:var(--surface2);
+  border:1px solid var(--border2);
+  border-radius:10px;
+  color:var(--text); font-family:inherit; font-size:14px;
+  transition:all .2s;
+}
+.fb-input:focus{
+  outline:none; border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accentBg);
+}
+.fb-input::placeholder{ color:var(--text3); }
+
+/* ── BUTTONS ── */
+.fb-btn{
+  width:100%; padding:13px 18px;
+  border:1px solid var(--border2); border-radius:10px;
+  font-family:inherit; font-size:13px; font-weight:700;
+  cursor:pointer; transition:all .2s; letter-spacing:.3px;
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+}
+.fb-btn-primary{
+  background:var(--accentGrad); color:#fff; border:none;
+  box-shadow:0 4px 14px rgba(0,212,255,.25);
+}
+.fb-btn-primary:hover{ filter:brightness(1.08); transform:translateY(-1px); }
+.fb-btn-primary:active{ transform:translateY(0); }
+.fb-btn-ghost{
+  background:var(--surface2); color:var(--text);
+}
+.fb-btn-ghost:hover{ background:var(--surface3); }
+.fb-btn-google{
+  background:#fff; color:#1a1a1a; border:1px solid rgba(0,0,0,.1);
+}
+.fb-btn-google:hover{ background:#f5f5f5; }
+
+.fb-err{
+  font-size:12px; color:var(--red); margin:10px 0 0;
+  padding:10px 12px; background:var(--redBg);
+  border-radius:8px; border:1px solid rgba(255,77,109,.2);
+  display:none;
+}
+.fb-err:not(:empty){ display:block; }
+
+.fb-divider{
+  display:flex; align-items:center; gap:12px;
+  margin:18px 0; color:var(--text3); font-size:11px; font-weight:600;
+  text-transform:uppercase; letter-spacing:.5px;
+}
+.fb-divider::before, .fb-divider::after{
+  content:''; flex:1; height:1px; background:var(--border2);
+}
+
+.fb-help{
+  font-size:11px; color:var(--text3); margin-top:14px;
+  text-align:center; line-height:1.5;
+}
+
+/* ── WORKSPACE PICKER ── */
+.fb-ws-list{ margin-bottom:18px; max-height:280px; overflow-y:auto; }
+.fb-ws-item{
+  display:flex; align-items:center; gap:12px;
+  padding:12px 14px; background:var(--surface2);
+  border:1px solid var(--border2); border-radius:10px;
+  margin-bottom:8px; transition:all .2s;
+}
+.fb-ws-item:hover{ background:var(--surface3); border-color:var(--border3); }
+.fb-ws-info{ flex:1; min-width:0; }
+.fb-ws-title{ font-size:14px; font-weight:700; color:var(--text); }
+.fb-ws-meta { font-size:11px; color:var(--text2); margin-top:2px; }
+.fb-ws-item .fb-btn{ width:auto; padding:8px 14px; font-size:11px; }
+.fb-ws-empty{
+  text-align:center; padding:24px 16px; color:var(--text2);
+  font-size:12px; background:var(--surface2);
+  border:1px dashed var(--border2); border-radius:10px;
+  line-height:1.6;
+}
+
+.fb-section-title{
+  font-size:11px; font-weight:700; color:var(--text2);
+  text-transform:uppercase; letter-spacing:.6px;
+  margin:18px 0 10px; padding-bottom:8px;
+  border-bottom:1px solid var(--border);
+}
+
+/* ── STATUS BADGE (no toolbar) ── */
+.fb-sync-badge{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:4px 10px; border-radius:99px;
+  background:var(--surface2); border:1px solid var(--border2);
+  font-size:10px; font-weight:600; letter-spacing:.3px;
+  color:var(--text2); white-space:nowrap;
+  transition:all .25s;
+}
+.fb-sync-badge .sync-dot{
+  width:7px; height:7px; border-radius:50%;
+  background:var(--text3); flex-shrink:0;
+  transition:all .25s;
+}
+.fb-sync-badge[data-kind="online"]{
+  color:var(--green); border-color:rgba(0,229,160,.3);
+}
+.fb-sync-badge[data-kind="online"] .sync-dot{
+  background:var(--green); box-shadow:0 0 8px rgba(0,229,160,.6);
+}
+.fb-sync-badge[data-kind="syncing"]{
+  color:var(--blue); border-color:rgba(79,142,247,.3);
+}
+.fb-sync-badge[data-kind="syncing"] .sync-dot{
+  background:var(--blue); animation:syncPulse 1.2s infinite;
+}
+.fb-sync-badge[data-kind="offline"]{
+  color:var(--orange); border-color:rgba(255,149,0,.3);
+}
+.fb-sync-badge[data-kind="offline"] .sync-dot{ background:var(--orange); }
+.fb-sync-badge[data-kind="error"]{
+  color:var(--red); border-color:rgba(255,77,109,.3);
+}
+.fb-sync-badge[data-kind="error"] .sync-dot{ background:var(--red); }
+@keyframes syncPulse{
+  0%,100%{ transform:scale(1); opacity:1; }
+  50%    { transform:scale(1.4); opacity:.5; }
+}
+
+/* ── USER MENU ── */
+.fb-user-slot{
+  display:flex; align-items:center; gap:8px;
+  position:relative; flex-shrink:0;
+}
+.fb-user-btn{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:5px 10px 5px 5px;
+  background:var(--surface2); border:1px solid var(--border2);
+  border-radius:99px; cursor:pointer; transition:all .2s;
+  font-family:inherit;
+}
+.fb-user-btn:hover{ background:var(--surface3); border-color:var(--border3); }
+.fb-avatar{
+  width:28px; height:28px; border-radius:50%;
+  background:var(--accentGrad); color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  font-weight:800; font-size:12px; flex-shrink:0;
+}
+.fb-user-info{
+  display:flex; flex-direction:column; align-items:flex-start;
+  line-height:1.2; min-width:0;
+}
+.fb-user-name{
+  font-size:11px; font-weight:700; color:var(--text);
+  max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.fb-ws-name{
+  font-size:9px; font-weight:500; color:var(--text2);
+  max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  letter-spacing:.3px;
+}
+.fb-chev{ font-size:10px; color:var(--text3); }
+.fb-user-menu{
+  position:absolute; top:calc(100% + 8px); right:0;
+  min-width:240px;
+  background:var(--surface); border:1px solid var(--border2);
+  border-radius:12px; box-shadow:var(--shadow);
+  padding:6px; z-index:200;
+  display:none;
+  animation:fbMenuIn .15s;
+}
+.fb-user-menu.open{ display:block; }
+@keyframes fbMenuIn{ from{opacity:0; transform:translateY(-4px)} to{opacity:1; transform:translateY(0)} }
+.fb-menu-header{
+  padding:10px 12px; border-bottom:1px solid var(--border); margin-bottom:4px;
+}
+.fb-menu-name{ font-size:13px; font-weight:700; color:var(--text); }
+.fb-menu-email{ font-size:11px; color:var(--text2); margin-top:2px; word-break:break-all; }
+.fb-menu-item{
+  width:100%; padding:9px 12px;
+  display:flex; align-items:center; gap:10px;
+  background:transparent; border:none; border-radius:8px;
+  font-size:12px; font-weight:500; color:var(--text);
+  cursor:pointer; transition:all .15s; font-family:inherit;
+  text-align:left;
+}
+.fb-menu-item:hover{ background:var(--surface3); }
+.fb-menu-item.fb-menu-danger{ color:var(--red); }
+.fb-menu-item.fb-menu-danger:hover{ background:var(--redBg); }
+
+/* ============================================================
+   MOBILE IMPROVEMENTS (≤780px)
+   ============================================================ */
+@media(max-width:780px){
+  /* Toolbar empilhado em duas linhas com scroll horizontal nas ações */
+  .toolbar{
+    padding:8px 12px;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .toolbar .logo{ font-size:13px; }
+  .toolbar .logo span{ display:none; }
+  .dev-credit{ display:none !important; }
+  .toolbar-actions{
+    width:100%;
+    order:3;
+    overflow-x:auto;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+    padding-bottom:2px;
+    flex-wrap:nowrap !important;
+  }
+  .toolbar-actions::-webkit-scrollbar{ display:none; }
+  .toolbar-actions .btn{ flex-shrink:0; min-height:36px; padding:6px 10px; }
+  .toolbar-actions .btn-lbl{ display:none; }   /* só ícones em mobile */
+  .toolbar-actions .btn-primary .btn-lbl{ display:inline; } /* exceto botão principal */
+
+  /* Slot de usuário compacto */
+  .fb-user-slot{ order:2; margin-left:auto; }
+  .fb-user-info{ display:none; }
+  .fb-user-btn{ padding:3px; }
+  .fb-chev{ display:none; }
+  .fb-sync-badge .sync-label{ display:none; }
+  .fb-sync-badge{ padding:5px 7px; }
+
+  /* Menu de usuário se ajusta à viewport */
+  .fb-user-menu{
+    right:auto; left:50%; transform:translateX(-50%);
+    min-width:260px; max-width:calc(100vw - 24px);
+  }
+  .fb-user-menu.open{ animation:none; }
+
+  /* Tabs de folhas com toque maior */
+  .tabs-wrapper{ padding:0 8px; }
+  .tab{ padding:9px 12px; min-height:38px; }
+
+  /* Cards de auth full width */
+  .fb-card{ max-width:100%; border-radius:16px; }
+  .fb-card-header{ padding:18px 20px 16px; }
+  .fb-card-body{ padding:18px 20px 22px; }
+  .fb-input{ font-size:16px; } /* evita zoom do iOS */
+}
+
+@media(max-width:480px){
+  .toolbar{ padding:6px 10px; }
+  .toolbar-actions{ gap:4px; }
+  .toolbar-actions .btn{ padding:6px 8px; font-size:13px; }
+}
+
+/* PWA — safe areas em iPhone X+ */
+@supports(padding:max(0px)){
+  .toolbar{
+    padding-left:max(12px, env(safe-area-inset-left));
+    padding-right:max(12px, env(safe-area-inset-right));
+    padding-top:max(8px, env(safe-area-inset-top));
+  }
+  .fb-overlay{
+    padding:max(20px, env(safe-area-inset-top))
+            max(20px, env(safe-area-inset-right))
+            max(20px, env(safe-area-inset-bottom))
+            max(20px, env(safe-area-inset-left));
+  }
+}
+
+
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 body{
@@ -1272,17 +1635,146 @@ table.mtm tfoot tr.total-row td{
 <!-- ═══════════════════════════════════════════════════════════════
      FIREBASE SDK — Integração MTM (adicionado automaticamente)
      ═══════════════════════════════════════════════════════════════ -->
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- FB-MTM: scripts antigos do Firebase v9 compat removidos.
+     Agora usamos Firebase v10 modular via ESM (firebase-mtm.js). -->
 
 <style id="mtm-no-initial-screen-override">
 /* MODO DIRETO: sem tela inicial, sem login e sem dashboard/home. */
 #auth-screen, #dashboard { display: none !important; }
 </style>
+<!-- ════════════════════════════════════════════════════════════
+     FB-MTM · Configuração Firebase
+     Preencha com as credenciais do SEU projeto Firebase.
+     Veja README-setup.md para o passo-a-passo (5 minutos).
+     ════════════════════════════════════════════════════════════ -->
+<script>
+window.FIREBASE_CONFIG = {
+  apiKey:            "COLE_AQUI_SEU_API_KEY",
+  authDomain:        "SEU_PROJETO.firebaseapp.com",
+  projectId:         "SEU_PROJETO",
+  storageBucket:     "SEU_PROJETO.appspot.com",
+  messagingSenderId: "0000000000",
+  appId:             "1:0000000000:web:abcdef0123456789"
+};
+</script>
+<script type="module" src="firebase-mtm.js"></script>
 </head>
 <body>
+
+<!-- ════════════════════════════════════════════════════════════
+     FB-MTM · TELA DE LOGIN (substitui o auth-screen antigo)
+     ════════════════════════════════════════════════════════════ -->
+<div class="fb-overlay" id="fb-auth-screen">
+  <div class="fb-card">
+    <div class="fb-card-header">
+      <div class="fb-logo">
+        <div class="fb-logo-mark">M</div>
+        <div>
+          <div class="fb-logo-text">MTM</div>
+          <div class="fb-logo-sub">Folha Padrão de Processo</div>
+        </div>
+      </div>
+      <div class="fb-card-title">Bem-vindo</div>
+    </div>
+    <div class="fb-card-body">
+      <div class="fb-tabs">
+        <button class="fb-tab active" id="fb-tab-login"    onclick="fbSwitchTab('login')">Entrar</button>
+        <button class="fb-tab"        id="fb-tab-register" onclick="fbSwitchTab('register')">Criar conta</button>
+      </div>
+
+      <!-- LOGIN -->
+      <div class="fb-panel active" id="fb-panel-login">
+        <div class="fb-field">
+          <label>E-mail</label>
+          <input type="email" class="fb-input" id="fb-l-email" autocomplete="email" placeholder="voce@empresa.com">
+        </div>
+        <div class="fb-field">
+          <label>Senha</label>
+          <input type="password" class="fb-input" id="fb-l-pass" autocomplete="current-password" placeholder="••••••••"
+                 onkeydown="if(event.key==='Enter')fbLogin()">
+        </div>
+        <div class="fb-err" id="fb-l-err"></div>
+        <button class="fb-btn fb-btn-primary" onclick="fbLogin()" style="margin-top:8px">
+          🔓 Entrar
+        </button>
+        <div class="fb-divider">ou</div>
+        <button class="fb-btn fb-btn-google" onclick="fbLoginGoogle()">
+          <svg width="16" height="16" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.13 4.13 0 01-1.79 2.71v2.26h2.91c1.7-1.57 2.68-3.88 2.68-6.61z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.26c-.8.54-1.84.87-3.05.87-2.34 0-4.33-1.58-5.04-3.71H.96v2.34A9 9 0 009 18z"/><path fill="#FBBC05" d="M3.96 10.71A5.41 5.41 0 013.68 9c0-.59.1-1.17.28-1.71V4.95H.96A9 9 0 000 9c0 1.45.35 2.83.96 4.05l3-2.34z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58A9 9 0 009 0 9 9 0 00.96 4.95l3 2.34C4.67 5.16 6.66 3.58 9 3.58z"/></svg>
+          Continuar com Google
+        </button>
+        <div class="fb-help">Use a conta que sua equipe combinou. Os dados ficam num workspace compartilhado.</div>
+      </div>
+
+      <!-- REGISTER -->
+      <div class="fb-panel" id="fb-panel-register">
+        <div class="fb-field">
+          <label>Nome completo</label>
+          <input type="text" class="fb-input" id="fb-r-name" autocomplete="name" placeholder="Ivan Antoneli">
+        </div>
+        <div class="fb-field">
+          <label>E-mail</label>
+          <input type="email" class="fb-input" id="fb-r-email" autocomplete="email" placeholder="voce@empresa.com">
+        </div>
+        <div class="fb-field">
+          <label>Senha (mín. 6 caracteres)</label>
+          <input type="password" class="fb-input" id="fb-r-pass" autocomplete="new-password" placeholder="••••••••"
+                 onkeydown="if(event.key==='Enter')fbRegister()">
+        </div>
+        <div class="fb-err" id="fb-r-err"></div>
+        <button class="fb-btn fb-btn-primary" onclick="fbRegister()" style="margin-top:8px">
+          ✨ Criar conta
+        </button>
+        <div class="fb-help">Depois de criar a conta, você pode criar um novo workspace ou entrar no de sua equipe usando o código de convite.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     FB-MTM · TELA DE WORKSPACE (escolher / criar / entrar)
+     ════════════════════════════════════════════════════════════ -->
+<div class="fb-overlay" id="fb-workspace-screen">
+  <div class="fb-card">
+    <div class="fb-card-header">
+      <div class="fb-logo">
+        <div class="fb-logo-mark">M</div>
+        <div>
+          <div class="fb-logo-text">MTM</div>
+          <div class="fb-logo-sub">Escolha um espaço de trabalho</div>
+        </div>
+      </div>
+      <div class="fb-card-title">Seus workspaces</div>
+    </div>
+    <div class="fb-card-body">
+
+      <div class="fb-ws-list" id="fb-ws-list">
+        <!-- populado por buildWorkspaceList() -->
+      </div>
+
+      <div class="fb-section-title">Entrar em um workspace existente</div>
+      <div class="fb-field">
+        <label>Código de convite (6 letras)</label>
+        <input type="text" class="fb-input" id="fb-ws-code"
+               style="text-transform:uppercase; letter-spacing:.3em; text-align:center; font-family:'JetBrains Mono',monospace;"
+               maxlength="6" placeholder="ABC123">
+      </div>
+      <button class="fb-btn fb-btn-ghost" onclick="fbJoinWorkspace()">🔗 Entrar com código</button>
+
+      <div class="fb-section-title">Ou criar um novo</div>
+      <div class="fb-field">
+        <label>Nome do workspace (sua empresa / equipe)</label>
+        <input type="text" class="fb-input" id="fb-ws-name" placeholder="Engenharia · Planta SP">
+      </div>
+      <button class="fb-btn fb-btn-primary" onclick="fbCreateWorkspace()">➕ Criar workspace</button>
+
+      <div class="fb-err" id="fb-ws-err"></div>
+      <div class="fb-help">
+        Depois de criar, você vai poder convidar sua equipe compartilhando o código gerado.
+        Todo mundo do workspace vê e edita os mesmos projetos em tempo real.
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ==============================
      AUTH SCREEN
@@ -2116,6 +2608,8 @@ table.mtm tfoot tr.total-row td{
     <button class="btn btn-ghost" onclick="exportExcel()" title="Exportar todas as folhas para Excel (.xlsx)" style="background:rgba(0,229,160,.08);color:var(--green);border-color:rgba(0,229,160,.3)">📤<span class="btn-lbl"> Excel</span></button>
     <input type="file" id="xlsx-import-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="importExcelHandle(this)">
     <button class="btn btn-green" onclick="exportPDF()" title="Gerar PDF">⬇<span class="btn-lbl"> PDF</span></button>
+    <!-- FB-MTM · slot do usuário Firebase -->
+    <div class="fb-user-slot" id="fb-user-slot"></div>
     <div class="theme-toggle" onclick="toggleTheme()" title="Alternar tema">
       <span class="t-icon">☀️</span>
       <div class="toggle-track"><div class="toggle-thumb"></div></div>
@@ -3387,7 +3881,8 @@ const MATRIZ = {
   "WRD"   :{tmu:215,desc:"Carrinho — acréscimo acertar, >200 kg"}
 };
 
-let sheets=[], activeId=null, cnt=0;
+/* FB-MTM: trocado 'let' por 'var' para que sheets/activeId fiquem em window.* */
+var sheets=[], activeId=null, cnt=0;
 function gid(){return 'sh'+(++cnt)+'_'+Date.now()}
 
 // ============================================================
@@ -5787,7 +6282,8 @@ document.addEventListener('DOMContentLoaded',()=>{
    GERENCIADOR DE PROJETOS — PASTA > PROJETO > FOLHAS
    ═══════════════════════════════════════════════════ */
 const PM_KEY = 'pmgr_v3';
-let pmData    = {};   // { folderId: { name, logo, projects:[{id,name,logo,sheets:[sid],notes:[]}] } }
+/* FB-MTM: trocado 'let' por 'var' para que pmData fique em window.* */
+var pmData    = {};   // { folderId: { name, logo, projects:[{id,name,logo,sheets:[sid],notes:[]}] } }
 let pmFolderId   = null;
 let pmProjectIdx = null;
 let pmProjTab    = 'sheets'; // 'sheets' | 'notes'
