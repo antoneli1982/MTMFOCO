@@ -2,7 +2,11 @@
 <html lang="pt-BR" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<meta name="theme-color" content="#0a0e1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
 <title>Ferramenta MTM — Folha Padrão de Processo</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -427,7 +431,7 @@ table.mtm tfoot tr.total-row td{
   .dev-credit .dev-label{font-size:9px!important}
   .dev-credit .dev-name{font-size:11px!important}
   .sep{display:none}
-  .toolbar-actions{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto}
+  .toolbar-actions{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
   .btn-lbl{display:none}
   .btn{padding:8px 10px;font-size:14px;min-width:38px;justify-content:center}
   .tabs-wrapper{padding:0 8px}
@@ -467,6 +471,77 @@ table.mtm tfoot tr.total-row td{
   .header-card{grid-template-columns:1fr}
   .logo{font-size:13px}
   table.mtm{min-width:540px}
+}
+
+/* ── MOBILE: previne zoom automático do iOS em inputs (font-size < 16px) ── */
+@media(max-width:768px){
+  .f-input,.ci,.ci-desc,.ci-code,.ci-tmu,.ci-num,.cell-select,
+  input[type="text"],input[type="number"],input[type="email"],
+  input[type="date"],select,textarea{
+    font-size:16px!important;
+  }
+  .ci::placeholder{font-size:14px!important}
+  .f-input::placeholder{font-size:14px!important}
+}
+
+/* ── MOBILE: botões com área de toque mínima 44px (Apple HIG) ── */
+@media(max-width:768px){
+  .btn,.float-btn,.row-del,.tab,.lib-close{
+    min-height:44px;min-width:44px;
+  }
+  .tab{min-height:38px}
+}
+
+/* ── MOBILE: toolbar com scroll suave e indicador ── */
+@media(max-width:768px){
+  .toolbar-actions{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scroll-snap-type:x proximity;
+    padding-bottom:4px;
+    scrollbar-width:none;
+  }
+  .toolbar-actions::-webkit-scrollbar{display:none}
+  .toolbar-actions .btn{scroll-snap-align:start;flex-shrink:0}
+}
+
+/* ── MOBILE: tabela scroll com indicador visual ── */
+@media(max-width:768px){
+  .table-scroll{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    border-radius:8px;
+    position:relative;
+  }
+  .table-scroll::after{
+    content:'← deslize →';
+    display:block;
+    text-align:center;
+    font-size:10px;
+    color:rgba(255,255,255,.3);
+    padding:4px;
+    font-family:'Inter',sans-serif;
+  }
+}
+
+/* ── MOBILE: painéis laterais ocupam tela toda ── */
+@media(max-width:600px){
+  #lib-panel,#pm-panel,#ap-panel,#fad-modal{
+    max-width:100%!important;
+    width:100%!important;
+    border-radius:0!important;
+    height:100vh!important;
+    max-height:100vh!important;
+  }
+}
+
+/* ── MOBILE PEQUENO: dashboard cards ── */
+@media(max-width:480px){
+  .db-folder-card,.db-proj-card{
+    padding:12px!important;
+  }
+  .db-hdr{padding:12px 16px!important}
+  .db-hdr-logo{font-size:20px!important}
 }
 
 /* PRINT */
