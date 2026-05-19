@@ -10372,17 +10372,39 @@ function dbSalvarProjetoIndividual(fid, pi){
   if(!projeto){ showToast('Projeto não encontrado.', true); return; }
 
   var idsProj = projeto.sheets || [];
-  if(!idsProj.length){ showToast('Este projeto não tem folhas vinculadas ainda.', true); return; }
 
-  // Serializar apenas as folhas deste projeto
-  var sheetsPayload = (sheets||[])
-    .filter(function(s){ return idsProj.indexOf(s.id) !== -1; })
-    .map(_serializeSheet);
+  // ── CORREÇÃO: inclui TODAS as folhas abertas que pertençam a este projeto ──
+  // Critério 1: ID registrado no projeto
+  // Critério 2: header.empresa == folder.name && header.projeto == projeto.name
+  var todasFolhas = sheets || [];
+  var sheetsDoProj = todasFolhas.filter(function(s){
+    var noIds    = idsProj.indexOf(s.id) !== -1;
+    var noHeader = s.header &&
+                   String(s.header.empresa||'').trim().toLowerCase() === String(folder.name||'').trim().toLowerCase() &&
+                   String(s.header.projeto||'').trim().toLowerCase() === String(projeto.name||'').trim().toLowerCase();
+    return noIds || noHeader;
+  });
 
-  if(!sheetsPayload.length){
-    showToast('⚠️ Folhas do projeto não encontradas no editor. Abra o projeto primeiro e tente novamente.', true);
-    return;
+  // Auto-vincular folhas encontradas pelo header mas não registradas no PM
+  sheetsDoProj.forEach(function(s){
+    if(idsProj.indexOf(s.id) === -1){
+      projeto.sheets = projeto.sheets || [];
+      projeto.sheets.push(s.id);
+      idsProj.push(s.id);
+    }
+  });
+  if(typeof pmSave === 'function') pmSave();
+
+  // Se ainda não encontrou nenhuma folha vinculada, salva tudo que está aberto
+  if(!sheetsDoProj.length){
+    sheetsDoProj = todasFolhas;
+    if(!sheetsDoProj.length){
+      showToast('\u26a0\ufe0f Nenhuma folha encontrada para salvar. Abra o projeto primeiro.', true);
+      return;
+    }
   }
+
+  var sheetsPayload = sheetsDoProj.map(_serializeSheet);
 
   // PM filtrado: só esta empresa + este projeto
   var pmFiltrado = {};
