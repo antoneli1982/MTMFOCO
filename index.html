@@ -2097,6 +2097,11 @@ table.mtm tfoot tr.total-row td{
   <div class="sep"></div>
   <!-- Ações -->
   <div class="toolbar-actions" style="display:flex;align-items:center;gap:6px">
+    <!-- ★ AÇÕES PRINCIPAIS — primeiro lugar para acesso rápido ★ -->
+    <button class="btn btn-primary" onclick="showFinalReport()" title="Relatório consolidado de todas as folhas" style="background:linear-gradient(135deg,#00e5a0,#00b87a);border:none;color:#001a12;font-weight:800;font-size:12px;padding:7px 16px">📋<span class="btn-lbl"> Relatório Final</span></button>
+    <button class="btn btn-primary" onclick="openProjectManager()" title="Gerenciador de Projetos" style="background:linear-gradient(135deg,#4f8ef7,#6366f1);border:none;color:#fff;font-weight:800;font-size:12px;padding:7px 16px">📁<span class="btn-lbl"> Projetos</span></button>
+    <!-- separador visual -->
+    <div style="width:1px;height:26px;background:var(--border2);margin:0 4px;flex-shrink:0"></div>
     <button class="btn btn-ghost" onclick="startDirectMtmApp()" title="Ir para as folhas" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(0,212,255,.25)">📄<span class="btn-lbl"> Folhas</span></button>
     <button class="btn btn-ghost" onclick="addSheet()" title="Nova Folha">＋<span class="btn-lbl"> Nova Folha</span></button>
     <button class="btn btn-ghost" onclick="openLibrary()" title="📚 Biblioteca MTM" style="letter-spacing:.2px">📚<span class="btn-lbl"> Biblioteca</span></button>
@@ -2111,8 +2116,6 @@ table.mtm tfoot tr.total-row td{
     <button class="btn btn-ghost" onclick="exportExcel()" title="Exportar todas as folhas para Excel (.xlsx)" style="background:rgba(0,229,160,.08);color:var(--green);border-color:rgba(0,229,160,.3)">📤<span class="btn-lbl"> Excel</span></button>
     <input type="file" id="xlsx-import-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="importExcelHandle(this)">
     <button class="btn btn-green" onclick="exportPDF()" title="Gerar PDF">⬇<span class="btn-lbl"> PDF</span></button>
-    <button class="btn btn-primary" onclick="showFinalReport()" title="Relatório consolidado de todas as folhas" style="background:linear-gradient(135deg,#00e5a0,#00b87a);border:none;color:#001a12;font-weight:700">📋<span class="btn-lbl"> Relatório Final</span></button>
-    <button class="btn btn-primary" onclick="openProjectManager()" title="Gerenciador de Projetos" style="background:linear-gradient(135deg,#4f8ef7,#6366f1);border:none;color:#fff">📁<span class="btn-lbl"> Projetos</span></button>
     <div class="theme-toggle" onclick="toggleTheme()" title="Alternar tema">
       <span class="t-icon">☀️</span>
       <div class="toggle-track"><div class="toggle-thumb"></div></div>
