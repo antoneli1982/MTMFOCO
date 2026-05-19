@@ -111,7 +111,7 @@
         <div id="fbmtm-fs" style="display:none">
           <input id="fbmtm-ns" type="text"     placeholder="Seu nome"              style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:#131a28;color:#f0f4ff;font-size:13px;margin-bottom:10px;outline:none;font-family:Inter,sans-serif;box-sizing:border-box;">
           <input id="fbmtm-es" type="email"    placeholder="E-mail"                style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:#131a28;color:#f0f4ff;font-size:13px;margin-bottom:10px;outline:none;font-family:Inter,sans-serif;box-sizing:border-box;">
-          <input id="fbmtm-ps" type="password" placeholder="Senha (mín. 6 chars)" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:#131a28;color:#f0f4ff;font-size:13px;margin-bottom:14px;outline:none;font-family:Inter,sans-serif;box-sizing:border-box;">
+          <input id="fbmtm-ps" type="password" placeholder="Senha (mín. 4 dígitos)" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:#131a28;color:#f0f4ff;font-size:13px;margin-bottom:14px;outline:none;font-family:Inter,sans-serif;box-sizing:border-box;">
           <button onclick="fbmtmSignup()" style="width:100%;padding:12px;border-radius:8px;border:none;background:linear-gradient(135deg,#00e5a0,#00b87a);color:#001a12;font-weight:700;font-size:13px;cursor:pointer;font-family:Inter,sans-serif;">Criar Conta</button>
         </div>
 
@@ -164,7 +164,7 @@
   window.fbmtmSignup = async function () {
     var name = g('fbmtm-ns'); var email = g('fbmtm-es'); var pass = g('fbmtm-ps');
     if (!name || !email || !pass) { setMsg('Preencha todos os campos.'); return; }
-    if (pass.length < 6) { setMsg('Senha deve ter no mínimo 6 caracteres.'); return; }
+    if (pass.length < 4) { setMsg('Senha deve ter no mínimo 4 dígitos.'); return; }
     setMsg('Criando conta...', '#00e5a0');
     try {
       var c = await auth.createUserWithEmailAndPassword(email, pass);
