@@ -1,70 +1,92 @@
 /* ================================================================
-   firebase-mtm.js  —  MTM EM FOCO · Firebase Auth + Firestore
-   Login: Email + Senha
-   Cadastro: Nome + Email + Senha → entra automaticamente
+   firebase-mtm.js  —  MTM EM FOCO
+   Usa Firebase REST API — funciona direto do arquivo, sem servidor!
    ================================================================ */
 (function () {
   'use strict';
 
-  const firebaseConfig = {
-    apiKey:            "AIzaSyD3cOYgBvVbX8VHeYSe7iLY9c2ozKFtJZY",
-    authDomain:        "mtm-em-foco.firebaseapp.com",
-    projectId:         "mtm-em-foco",
-    storageBucket:     "mtm-em-foco.firebasestorage.app",
-    messagingSenderId: "323473561940",
-    appId:             "1:323473561940:web:ee9f4e4f1f9ea53c5210c1"
-  };
+  /* ── CREDENCIAIS ── */
+  var API_KEY   = 'AIzaSyD3cOYgBvVbX8VHeYSe7iLY9c2ozKFtJZY';
+  var PROJECT   = 'mtm-em-foco';
+  var DB_URL    = 'https://firestore.googleapis.com/v1/projects/' + PROJECT + '/databases/(default)/documents';
 
-  const SYNC_KEYS = ['mtm_sheets','pmgr_v3','mtm_client_logos_v1'];
-  let auth, db, currentUser = null;
-  let syncPending = {}, syncTimer = null, isOnline = navigator.onLine;
+  /* ── ESTADO ── */
+  var SESSION_KEY = 'fbmtm_session';
+  var SYNC_KEYS   = ['mtm_sheets','pmgr_v3','mtm_client_logos_v1'];
+  var session     = null;   /* { idToken, refreshToken, uid, displayName, email } */
+  var syncPending = {}, syncTimer = null, isOnline = navigator.onLine;
 
-  /* ── CARREGAR SDKs ── */
-  function loadScript(src) {
-    return new Promise(function(res,rej){
-      var s = document.createElement('script');
-      s.src = src; s.onload = res; s.onerror = rej;
-      document.head.appendChild(s);
+  /* ── HELPERS REST ── */
+  async function authPost(endpoint, body) {
+    var url = 'https://identitytoolkit.googleapis.com/v1/accounts:' + endpoint + '?key=' + API_KEY;
+    var r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    var data = await r.json();
+    if (!r.ok) throw { code: (data.error && data.error.message) || 'UNKNOWN' };
+    return data;
+  }
+
+  async function firestoreSet(uid, docKey, value) {
+    if (!session) return;
+    var url = DB_URL + '/users/' + uid + '/data/' + docKey;
+    await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + session.idToken },
+      body: JSON.stringify({ fields: { value: { stringValue: value }, ts: { stringValue: new Date().toISOString() } } })
     });
   }
-  async function loadFirebaseSDKs() {
-    const B = 'https://www.gstatic.com/firebasejs/10.12.2/';
-    await loadScript(B + 'firebase-app-compat.js');
-    await loadScript(B + 'firebase-auth-compat.js');
-    await loadScript(B + 'firebase-firestore-compat.js');
+
+  async function firestoreGet(uid, docKey) {
+    if (!session) return null;
+    var url = DB_URL + '/users/' + uid + '/data/' + docKey;
+    var r = await fetch(url, { headers: { 'Authorization':'Bearer ' + session.idToken } });
+    if (!r.ok) return null;
+    var data = await r.json();
+    return (data.fields && data.fields.value && data.fields.value.stringValue) || null;
   }
 
-  /* ── INIT ── */
-  function initFirebase() {
-    firebase.initializeApp(firebaseConfig);
-    auth = firebase.auth();
-    db   = firebase.firestore();
-    db.enablePersistence({synchronizeTabs:true}).catch(function(){});
-
-    /* Quando logar → fecha tela e carrega dados automaticamente */
-    auth.onAuthStateChanged(function(user) {
-      currentUser = user;
-      updateStatusBar();
-      if (user) {
-        closeOverlay();
-        var nome = user.displayName || user.email.split('@')[0];
-        showToastFB('👋 Bem-vindo, ' + nome + '!', false, 3000);
-        loadUserData();
-      } else {
-        buildLoginUI();
+  async function refreshToken() {
+    if (!session || !session.refreshToken) return false;
+    try {
+      var r = await fetch('https://securetoken.googleapis.com/v1/token?key=' + API_KEY, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/x-www-form-urlencoded' },
+        body: 'grant_type=refresh_token&refresh_token=' + session.refreshToken
+      });
+      var data = await r.json();
+      if (data.id_token) {
+        session.idToken = data.id_token;
+        session.refreshToken = data.refresh_token;
+        saveSession();
+        return true;
       }
-    });
+    } catch(e) {}
+    return false;
   }
 
-  /* ── ESTILOS REUTILIZÁVEIS ── */
-  var S_INPUT = 'width:100%;padding:12px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#111827;color:#f0f4ff;font-size:14px;margin-bottom:12px;outline:none;font-family:Inter,sans-serif;box-sizing:border-box;transition:border-color .2s;';
-  var S_INPUT_PASS = 'width:100%;padding:12px 44px 12px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#111827;color:#f0f4ff;font-size:14px;outline:none;font-family:Inter,sans-serif;box-sizing:border-box;transition:border-color .2s;';
+  /* ── SESSÃO LOCAL ── */
+  function saveSession() {
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify(session)); } catch(e) {}
+  }
+  function loadSession() {
+    try { var s = localStorage.getItem(SESSION_KEY); return s ? JSON.parse(s) : null; } catch(e) { return null; }
+  }
+  function clearSession() {
+    session = null;
+    try { localStorage.removeItem(SESSION_KEY); } catch(e) {}
+  }
 
-  function fieldPass(id, ph) {
-    return '<div style="position:relative;margin-bottom:12px;">'
-      + '<input id="'+id+'" type="password" placeholder="'+ph+'" style="'+S_INPUT_PASS+'">'
-      + '<button type="button" onclick="fbmtmEye(\''+id+'\')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:17px;color:#7a8aaa;padding:2px;">👁</button>'
+  /* ── ESTILOS ── */
+  var SI = 'width:100%;padding:12px 14px;border-radius:9px;border:1px solid rgba(255,255,255,.12);background:#111827;color:#f0f4ff;font-size:14px;margin-bottom:14px;outline:none;font-family:Inter,sans-serif;box-sizing:border-box;';
+  var SIP = 'width:100%;padding:12px 44px 12px 14px;border-radius:9px;border:1px solid rgba(255,255,255,.12);background:#111827;color:#f0f4ff;font-size:14px;outline:none;font-family:Inter,sans-serif;box-sizing:border-box;';
+
+  function fPass(id, ph) {
+    return '<div style="position:relative;margin-bottom:14px;">'
+      + '<input id="'+id+'" type="password" placeholder="'+ph+'" style="'+SIP+'">'
+      + '<button type="button" onclick="fbmtmEye(\''+id+'\')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;color:#7a8aaa;padding:2px;line-height:1;">👁</button>'
       + '</div>';
+  }
+  function lbl(txt) {
+    return '<label style="color:#7a8aaa;font-size:11px;font-weight:600;letter-spacing:.5px;display:block;margin-bottom:5px;">'+txt+'</label>';
   }
 
   /* ── BUILD UI ── */
@@ -74,41 +96,39 @@
     ov.id = 'fbmtm-overlay';
     ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(5,8,15,.97);display:flex;align-items:center;justify-content:center;font-family:Inter,sans-serif;backdrop-filter:blur(20px);';
     ov.innerHTML = `
-      <div style="background:#0d1525;border:1px solid rgba(0,212,255,.18);border-radius:20px;padding:40px 44px;width:420px;max-width:96vw;box-shadow:0 32px 80px rgba(0,0,0,.95),0 0 40px rgba(0,212,255,.06);">
+      <div style="background:#0d1525;border:1px solid rgba(0,212,255,.18);border-radius:20px;padding:40px 44px;width:420px;max-width:96vw;box-shadow:0 32px 80px rgba(0,0,0,.95);">
 
         <div style="text-align:center;margin-bottom:32px">
           <div style="font-size:26px;font-weight:800;letter-spacing:1.5px;background:linear-gradient(135deg,#00d4ff,#4f8ef7,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">MTM EM FOCO</div>
-          <div style="color:#7a8aaa;font-size:12px;margin-top:6px">☁️ Sincronização em Nuvem · Firebase</div>
+          <div style="color:#7a8aaa;font-size:12px;margin-top:6px">☁️ Sincronização em Nuvem</div>
         </div>
 
-        <!-- ABAS -->
         <div style="display:flex;gap:6px;margin-bottom:28px;">
-          <button id="fbmtm-tab-l" onclick="fbmtmShowTab('login')" style="flex:1;padding:10px;border-radius:9px;border:1px solid rgba(0,212,255,.35);background:rgba(0,212,255,.1);color:#00d4ff;font-weight:700;font-size:13px;cursor:pointer;font-family:Inter,sans-serif;">Entrar</button>
+          <button id="fbmtm-tab-l" onclick="fbmtmShowTab('login')"  style="flex:1;padding:10px;border-radius:9px;border:1px solid rgba(0,212,255,.35);background:rgba(0,212,255,.1);color:#00d4ff;font-weight:700;font-size:13px;cursor:pointer;font-family:Inter,sans-serif;">Entrar</button>
           <button id="fbmtm-tab-s" onclick="fbmtmShowTab('signup')" style="flex:1;padding:10px;border-radius:9px;border:1px solid rgba(255,255,255,.08);background:transparent;color:#7a8aaa;font-weight:600;font-size:13px;cursor:pointer;font-family:Inter,sans-serif;">Criar Conta</button>
         </div>
 
-        <!-- LOGIN: Email + Senha -->
+        <!-- ENTRAR -->
         <div id="fbmtm-fl">
-          <label style="color:#7a8aaa;font-size:11px;font-weight:600;letter-spacing:.5px;display:block;margin-bottom:5px;">E-MAIL</label>
-          <input id="fbmtm-el" type="email" placeholder="seu@email.com" style="${S_INPUT}">
-          <label style="color:#7a8aaa;font-size:11px;font-weight:600;letter-spacing:.5px;display:block;margin-bottom:5px;">SENHA</label>
-          ${fieldPass('fbmtm-pl','••••••••')}
-          <button onclick="fbmtmLogin()" style="width:100%;padding:14px;border-radius:9px;border:none;background:linear-gradient(135deg,#00d4ff,#4f8ef7,#7c3aed);color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:Inter,sans-serif;margin-top:4px;letter-spacing:.3px;">Entrar</button>
+          ${lbl('E-MAIL')}
+          <input id="fbmtm-el" type="email" placeholder="seu@email.com" style="${SI}">
+          ${lbl('SENHA')}
+          ${fPass('fbmtm-pl','••••••••')}
+          <button onclick="fbmtmLogin()" style="width:100%;padding:14px;border-radius:9px;border:none;background:linear-gradient(135deg,#00d4ff,#4f8ef7,#7c3aed);color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:Inter,sans-serif;letter-spacing:.3px;">Entrar</button>
           <div onclick="fbmtmReset()" style="text-align:center;margin-top:13px;color:#4f8ef7;font-size:12px;cursor:pointer;text-decoration:underline;">Esqueci minha senha</div>
         </div>
 
-        <!-- CADASTRO: Nome + Email + Senha → entra direto -->
+        <!-- CRIAR CONTA -->
         <div id="fbmtm-fs" style="display:none">
-          <label style="color:#7a8aaa;font-size:11px;font-weight:600;letter-spacing:.5px;display:block;margin-bottom:5px;">NOME COMPLETO</label>
-          <input id="fbmtm-ns" type="text" placeholder="Ivan Carlos Antoneli" style="${S_INPUT}">
-          <label style="color:#7a8aaa;font-size:11px;font-weight:600;letter-spacing:.5px;display:block;margin-bottom:5px;">E-MAIL</label>
-          <input id="fbmtm-es" type="email" placeholder="seu@email.com" style="${S_INPUT}">
-          <label style="color:#7a8aaa;font-size:11px;font-weight:600;letter-spacing:.5px;display:block;margin-bottom:5px;">SENHA</label>
-          ${fieldPass('fbmtm-ps','••••••••')}
-          <button onclick="fbmtmSignup()" style="width:100%;padding:14px;border-radius:9px;border:none;background:linear-gradient(135deg,#00e5a0,#00b87a);color:#001a12;font-weight:700;font-size:14px;cursor:pointer;font-family:Inter,sans-serif;margin-top:4px;letter-spacing:.3px;">Criar Conta e Entrar</button>
+          ${lbl('NOME COMPLETO')}
+          <input id="fbmtm-ns" type="text" placeholder="Ivan Carlos Antoneli" style="${SI}">
+          ${lbl('E-MAIL')}
+          <input id="fbmtm-es" type="email" placeholder="seu@email.com" style="${SI}">
+          ${lbl('SENHA')}
+          ${fPass('fbmtm-ps','•••• (mín. 4 dígitos)')}
+          <button onclick="fbmtmSignup()" style="width:100%;padding:14px;border-radius:9px;border:none;background:linear-gradient(135deg,#00e5a0,#00b87a);color:#001a12;font-weight:700;font-size:14px;cursor:pointer;font-family:Inter,sans-serif;letter-spacing:.3px;">Criar Conta e Entrar</button>
         </div>
 
-        <!-- ERRO / STATUS -->
         <div id="fbmtm-msg" style="margin-top:16px;text-align:center;font-size:13px;color:#ff4d6d;min-height:20px;font-family:Inter,sans-serif;font-weight:500;"></div>
 
         <hr style="border:none;border-top:1px solid rgba(255,255,255,.06);margin:24px 0">
@@ -132,47 +152,50 @@
     if (!fl) return;
     fl.style.display = tab==='login'  ? '' : 'none';
     fs.style.display = tab==='signup' ? '' : 'none';
-    tl.style.cssText = tab==='login'
-      ? 'flex:1;padding:10px;border-radius:9px;border:1px solid rgba(0,212,255,.35);background:rgba(0,212,255,.1);color:#00d4ff;font-weight:700;font-size:13px;cursor:pointer;font-family:Inter,sans-serif;'
-      : 'flex:1;padding:10px;border-radius:9px;border:1px solid rgba(255,255,255,.08);background:transparent;color:#7a8aaa;font-weight:600;font-size:13px;cursor:pointer;font-family:Inter,sans-serif;';
-    ts.style.cssText = tab==='signup'
-      ? 'flex:1;padding:10px;border-radius:9px;border:1px solid rgba(0,229,160,.35);background:rgba(0,229,160,.1);color:#00e5a0;font-weight:700;font-size:13px;cursor:pointer;font-family:Inter,sans-serif;'
-      : 'flex:1;padding:10px;border-radius:9px;border:1px solid rgba(255,255,255,.08);background:transparent;color:#7a8aaa;font-weight:600;font-size:13px;cursor:pointer;font-family:Inter,sans-serif;';
+    var A='flex:1;padding:10px;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;font-family:Inter,sans-serif;border:1px solid ';
+    tl.style.cssText = A + (tab==='login'  ? 'rgba(0,212,255,.35);background:rgba(0,212,255,.1);color:#00d4ff;'  : 'rgba(255,255,255,.08);background:transparent;color:#7a8aaa;font-weight:600;');
+    ts.style.cssText = A + (tab==='signup' ? 'rgba(0,229,160,.35);background:rgba(0,229,160,.1);color:#00e5a0;' : 'rgba(255,255,255,.08);background:transparent;color:#7a8aaa;font-weight:600;');
     setMsg('');
   };
 
-  /* ── OLHO SENHA ── */
+  /* ── OLHO ── */
   window.fbmtmEye = function(id) {
     var el = document.getElementById(id);
-    if (!el) return;
-    el.type = el.type === 'password' ? 'text' : 'password';
+    if (el) el.type = el.type === 'password' ? 'text' : 'password';
   };
 
-  /* ── LOGIN ── */
+  /* ── ENTRAR ── */
   window.fbmtmLogin = async function() {
     var email = g('fbmtm-el'), pass = g('fbmtm-pl');
     if (!email || !pass) { setMsg('Preencha e-mail e senha.'); return; }
     setMsg('Entrando...', '#4f8ef7');
-    try { await auth.signInWithEmailAndPassword(email, pass); }
-    catch(e) { setMsg(ferr(e.code)); }
+    try {
+      var data = await authPost('signInWithPassword', { email:email, password:pass, returnSecureToken:true });
+      onLogged(data);
+    } catch(e) { setMsg(ferr(e.code)); }
   };
 
-  /* ── CADASTRO → ENTRA DIRETO ── */
+  /* ── CRIAR CONTA E ENTRAR DIRETO ── */
   window.fbmtmSignup = async function() {
     var nome  = g('fbmtm-ns');
     var email = g('fbmtm-es');
     var pass  = g('fbmtm-ps');
-    if (!nome)  { setMsg('Digite seu nome.'); return; }
-    if (!email) { setMsg('Digite seu e-mail.'); return; }
-    if (!pass)  { setMsg('Digite uma senha.'); return; }
-    if (pass.length < 4) { setMsg('Senha deve ter no mínimo 4 dígitos.'); return; }
+    if (!nome)            { setMsg('Digite seu nome.'); return; }
+    if (!email)           { setMsg('Digite seu e-mail.'); return; }
+    if (!pass)            { setMsg('Digite uma senha.'); return; }
+    if (pass.length < 4)  { setMsg('Senha deve ter no mínimo 4 dígitos.'); return; }
     setMsg('Criando conta...', '#00e5a0');
     try {
-      /* Cria a conta → onAuthStateChanged dispara automaticamente → fecha tela e entra */
-      var cred = await auth.createUserWithEmailAndPassword(email, pass);
-      await cred.user.updateProfile({ displayName: nome });
-      /* Força refresh para pegar o displayName */
-      await auth.currentUser.reload();
+      /* 1. Criar conta */
+      var data = await authPost('signUp', { email:email, password:pass, returnSecureToken:true });
+      /* 2. Salvar nome do usuário */
+      await fetch('https://identitytoolkit.googleapis.com/v1/accounts:update?key=' + API_KEY, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ idToken: data.idToken, displayName: nome, returnSecureToken:true })
+      });
+      data.displayName = nome;
+      /* 3. Entra direto */
+      onLogged(data);
     } catch(e) { setMsg(ferr(e.code)); }
   };
 
@@ -181,39 +204,59 @@
     var email = g('fbmtm-el');
     if (!email) { setMsg('Digite seu e-mail primeiro.'); return; }
     try {
-      await auth.sendPasswordResetEmail(email);
+      await authPost('sendOobCode', { requestType:'PASSWORD_RESET', email:email });
       setMsg('✅ E-mail de recuperação enviado!', '#00e5a0');
     } catch(e) { setMsg(ferr(e.code)); }
   };
 
   window.fbmtmSkipLogin = function() {
     closeOverlay();
-    showToastFB('ℹ️ Modo local ativado — dados somente neste navegador', false, 4000);
+    showToastFB('ℹ️ Modo local — dados somente neste navegador', false, 4000);
   };
 
   window.fbmtmOpenUserMenu = function() {
-    if (!currentUser) { buildLoginUI(); return; }
-    var nome = currentUser.displayName || currentUser.email;
-    if (confirm('👤 ' + nome + '\n' + currentUser.email + '\n\nDeseja sair da conta?')) {
-      auth.signOut();
+    if (!session) { buildLoginUI(); return; }
+    var nome = session.displayName || session.email;
+    if (confirm('👤 ' + nome + '\n' + session.email + '\n\nDeseja sair da conta?')) {
+      clearSession();
+      updateStatusBar();
+      buildLoginUI();
     }
   };
+
+  /* ── APÓS LOGIN/CADASTRO ── */
+  function onLogged(data) {
+    session = {
+      idToken:      data.idToken,
+      refreshToken: data.refreshToken,
+      uid:          data.localId,
+      email:        data.email,
+      displayName:  data.displayName || data.email.split('@')[0]
+    };
+    saveSession();
+    closeOverlay();
+    updateStatusBar();
+    showToastFB('👋 Bem-vindo, ' + session.displayName + '!', false, 3000);
+    loadUserData();
+  }
 
   function closeOverlay() { var e=document.getElementById('fbmtm-overlay'); if(e) e.remove(); }
   function g(id) { var e=document.getElementById(id); return e?e.value.trim():''; }
   function setMsg(t,c) { var e=document.getElementById('fbmtm-msg'); if(e){e.textContent=t;e.style.color=c||'#ff4d6d';} }
+
   function ferr(code) {
-    return ({
-      'auth/user-not-found':        '❌ E-mail não cadastrado.',
-      'auth/wrong-password':        '❌ Senha incorreta.',
-      'auth/invalid-credential':    '❌ E-mail ou senha incorretos.',
-      'auth/email-already-in-use':  '❌ E-mail já cadastrado. Clique em Entrar.',
-      'auth/invalid-email':         '❌ E-mail inválido.',
-      'auth/weak-password':         '❌ Senha muito fraca (mín. 4 dígitos).',
-      'auth/too-many-requests':     '⏳ Muitas tentativas. Aguarde.',
-      'auth/network-request-failed':'📴 Sem internet.',
-      'auth/api-key-not-valid.-please-pass-a-valid-api-key.':'❌ Abra via ABRIR_MTM.bat (não pelo arquivo direto)',
-    }[code] || '❌ ' + code);
+    var map = {
+      'EMAIL_NOT_FOUND':         '❌ E-mail não cadastrado.',
+      'INVALID_PASSWORD':        '❌ Senha incorreta.',
+      'INVALID_LOGIN_CREDENTIALS':'❌ E-mail ou senha incorretos.',
+      'EMAIL_EXISTS':            '❌ E-mail já cadastrado. Clique em Entrar.',
+      'INVALID_EMAIL':           '❌ E-mail inválido.',
+      'WEAK_PASSWORD':           '❌ Senha muito fraca (mín. 4 dígitos).',
+      'WEAK_PASSWORD : Password should be at least 6 characters': '❌ Senha muito fraca (mín. 4 dígitos).',
+      'TOO_MANY_ATTEMPTS_TRY_LATER':'⏳ Muitas tentativas. Aguarde.',
+      'USER_DISABLED':           '❌ Conta desativada.',
+    };
+    return map[code] || '❌ ' + (code||'Erro desconhecido');
   }
 
   /* ── BARRA DE STATUS ── */
@@ -230,46 +273,54 @@
 
   function updateStatusBar() {
     var bar = document.getElementById('fbmtm-status'); if (!bar) return;
-    if (currentUser) {
-      var nome = currentUser.displayName || currentUser.email.split('@')[0];
-      bar.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:#00e5a0;display:inline-block;flex-shrink:0"></span><span style="color:#f0f4ff;font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+nome.replace(/</g,'&lt;')+'</span><span style="color:#4f8ef7;font-size:13px">☁️</span>';
+    if (session) {
+      var nome = session.displayName || session.email.split('@')[0];
+      bar.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:#00e5a0;display:inline-block;flex-shrink:0"></span><span style="color:#f0f4ff;font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+nome.replace(/</g,'&lt;')+'</span><span style="color:#4f8ef7;">☁️</span>';
     } else {
       bar.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:#ff9500;display:inline-block;flex-shrink:0"></span><span style="color:#7a8aaa;">Sem login</span>';
     }
   }
 
-  /* ── FIRESTORE SYNC ── */
-  function userDoc(key) { return db.collection('users').doc(currentUser.uid).collection('data').doc(key); }
-
+  /* ── FIRESTORE REST SYNC ── */
   function scheduleSyncKey(key, value) {
-    if (!currentUser) return;
+    if (!session) return;
     syncPending[key] = value;
     clearTimeout(syncTimer);
     syncTimer = setTimeout(flushSync, 2000);
   }
 
   async function flushSync() {
-    if (!currentUser || !isOnline) return;
+    if (!session || !isOnline) return;
     var keys = Object.keys(syncPending); if (!keys.length) return;
-    var batch = db.batch();
-    keys.forEach(function(k){ if(syncPending[k]!=null) batch.set(userDoc(k),{value:syncPending[k],ts:firebase.firestore.FieldValue.serverTimestamp()}); });
+    var copy = Object.assign({}, syncPending);
     syncPending = {};
-    try { await batch.commit(); showToastFB('☁️ Salvo na nuvem', false, 1800); }
-    catch(e) { showToastFB('⚠️ Falha ao salvar na nuvem', true, 3000); }
+    for (var i=0; i<keys.length; i++) {
+      try { await firestoreSet(session.uid, keys[i], copy[keys[i]]); } catch(e) {}
+    }
+    showToastFB('☁️ Salvo na nuvem', false, 1800);
   }
 
   async function loadUserData() {
-    if (!currentUser) return;
-    try {
-      var hasData = false;
-      for (var i=0; i<SYNC_KEYS.length; i++) {
-        var key = SYNC_KEYS[i];
-        var doc = await userDoc(key).get();
-        if (doc.exists && doc.data().value) { _origSetItem.call(localStorage, key, doc.data().value); hasData=true; }
+    if (!session) return;
+    var hasData = false;
+    for (var i=0; i<SYNC_KEYS.length; i++) {
+      var key = SYNC_KEYS[i];
+      try {
+        var val = await firestoreGet(session.uid, key);
+        if (val) { _origSetItem.call(localStorage, key, val); hasData = true; }
+      } catch(e) {
+        /* token expirado — tenta renovar */
+        var ok = await refreshToken();
+        if (ok) { try { var val2 = await firestoreGet(session.uid, key); if(val2){ _origSetItem.call(localStorage,key,val2); hasData=true; } } catch(e2){} }
       }
-      if (hasData) { showToastFB('✅ Dados carregados!', false, 2500); reloadAppData(); }
-      else { SYNC_KEYS.forEach(function(k){ var l=_origGetItem.call(localStorage,k); if(l) scheduleSyncKey(k,l); }); }
-    } catch(e) { console.warn('[fbmtm]',e); }
+    }
+    if (hasData) { showToastFB('✅ Dados carregados!', false, 2500); reloadAppData(); }
+    else {
+      SYNC_KEYS.forEach(function(k){
+        var l = _origGetItem.call(localStorage, k);
+        if (l) scheduleSyncKey(k, l);
+      });
+    }
   }
 
   function reloadAppData() {
@@ -303,14 +354,18 @@
   window.addEventListener('offline', function(){ isOnline=false; showToastFB('📴 Sem conexão — salvando localmente',true,4000); });
 
   /* ── START ── */
-  async function init() {
-    try {
-      await loadFirebaseSDKs();
-      initFirebase();
-      buildStatusBar();
-    } catch(e) {
-      console.error('[fbmtm]', e);
-      showToastFB('⚠️ Firebase indisponível — modo local', true, 5000);
+  function init() {
+    buildStatusBar();
+    /* Verifica sessão salva */
+    var saved = loadSession();
+    if (saved && saved.idToken) {
+      session = saved;
+      updateStatusBar();
+      loadUserData();
+      /* Token pode ter expirado — renova silenciosamente */
+      refreshToken();
+    } else {
+      buildLoginUI();
     }
   }
 
