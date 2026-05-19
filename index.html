@@ -1193,6 +1193,14 @@ table.mtm tfoot tr.total-row td{
 </style>
 <!-- SheetJS (xlsx) — biblioteca para importar e exportar Excel -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     FIREBASE SDK — Integração MTM (adicionado automaticamente)
+     ═══════════════════════════════════════════════════════════════ -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<!-- ═══════════════════════════════════════════════════════════════ -->
 </head>
 <body>
 
@@ -4862,11 +4870,14 @@ function afterForgot(){
 }
 
 // ── Init ───────────────────────────────────────────────────────
+// FIREBASE MTM: bloco comentado — autenticação gerenciada pelo firebase-mtm.js
+/*
 document.addEventListener('DOMContentLoaded',()=>{
   // Tela de identificação removida — acesso direto ao dashboard
   document.getElementById('auth-screen').style.display='none';
   setTimeout(()=>showDashboard(), 50);
 });
+*/
 </script>
 
 <script>
@@ -10743,6 +10754,13 @@ document.addEventListener('keydown', function(e){
      ÁREA DEDICADA DE IMPRESSÃO (PDF) — populada por prepararPrint()
      ═══════════════════════════════════════════════════════════ -->
 <div id="print-area"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     FIREBASE MTM — Módulo de Integração (deve ser o último script)
+     Substitui localStorage por Firestore + autentica via Firebase Auth
+     ═══════════════════════════════════════════════════════════════ -->
+<script src="firebase-mtm.js"></script>
+<!-- ═══════════════════════════════════════════════════════════════ -->
 
 </body>
 </html>
