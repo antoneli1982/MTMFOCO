@@ -3495,6 +3495,7 @@ window.FIREBASE_CONFIG = {
       <span>* Fonte: Manual de Tempos e Métodos · Planilha Engº <b style="color:var(--orange)">Ivan Antoneli</b></span>
       <span class="sp"></span>
       <button onclick="fadResetDefaults()" title="Restaurar valores padrão">↺ Resetar</button>
+      <button onclick="fadAplicarPadraoSESE()" title="Aplicar allowance total fixo de 10% — Tempo de Trabalho 90%" style="background:rgba(0,229,160,.12);color:var(--green);border-color:rgba(0,229,160,.4)">📐 Padrão SESÉ 10%</button>
       <button class="btn-apply" onclick="fadAplicarFolha()" title="Aplicar TV+TER ao cabeçalho da folha">✓ Aplicar à Folha</button>
       <button class="btn-close" onclick="closeFadiga()">Fechar</button>
     </div>
@@ -10755,6 +10756,48 @@ function fadAplicarFolha(){
 
   if(typeof showToast === 'function')
     showToast('Aplicado: Pessoal ' + fadFmt(pPersonal,2) + '% · Fadiga ' + fadFmt(pFatigue,2) + '% · Conting. ' + fadFmt(pContingency,2) + '%');
+}
+
+// ────────────────────────────────────────────────────────────
+// PADRÃO SESÉ — Allowance total fixo de 10% (Tempo de Trabalho 90%)
+// Aplica diretamente ao cabeçalho da folha ativa um allowance total
+// de 10%, distribuído como Pessoal 5% + Fadiga 4% + Contingência 1%.
+// Resultado: TTP / Tempo de Trabalho = 100 − 10 = 90%.
+// ────────────────────────────────────────────────────────────
+function fadAplicarPadraoSESE(){
+  if(!activeId){ if(typeof showToast === 'function') showToast('Sem folha ativa.', true); return; }
+  var s = get(activeId);
+  if(!s) return;
+  if(!s.header) s.header = {};
+
+  // Allowance total = 10%  →  Tempo de Trabalho = 90%
+  var pPersonal    = 5;
+  var pFatigue     = 4;
+  var pContingency = 1;
+
+  s.header.allowPersonal    = pPersonal;
+  s.header.allowFatigue     = pFatigue;
+  s.header.allowContingency = pContingency;
+
+  // Atualiza os campos visuais no cabeçalho da folha (se existirem)
+  function setHF(field, val){
+    var inp = document.querySelector('#c-'+activeId+' [data-key="'+field+'"]');
+    if(inp){ inp.value = val; }
+  }
+  setHF('allowPersonal',    pPersonal);
+  setHF('allowFatigue',     pFatigue);
+  setHF('allowContingency', pContingency);
+
+  // Recalcular folha e totais
+  if(typeof recalc === 'function'){ try{ recalc(activeId); }catch(e){} }
+  if(typeof updateTotals === 'function'){ try{ updateTotals(activeId); }catch(e){} }
+  if(typeof saveSheets === 'function') saveSheets();
+
+  // Atualizar a aba de Análise do painel de fadiga
+  if(typeof fadRecalc === 'function'){ try{ fadRecalc(); }catch(e){} }
+
+  if(typeof showToast === 'function')
+    showToast('📐 Padrão SESÉ aplicado · Allowance Total 10% · Tempo de Trabalho 90%');
 }
 
 // Tecla ESC para fechar
