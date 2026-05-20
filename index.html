@@ -8356,7 +8356,7 @@ function dbHandleProjectFileForFolder(input, fid){
       // 5) Recalcular folhas
       setTimeout(function(){
         rebuilt.forEach(function(s){
-          if(typeof recalc === 'function'){ try{ recalc(s.id); }catch(e){} }
+          try{ updateNums(s.id); updateTotals(s.id); }catch(e){}
         });
       }, 100);
 
@@ -10293,7 +10293,7 @@ function importExcelHandle(input){
       setActive(newSheets[0].id);
       setTimeout(function(){
         newSheets.forEach(function(s){
-          if(typeof recalc === 'function'){ try{ recalc(s.id); }catch(e){} }
+          try{ updateNums(s.id); updateTotals(s.id); }catch(e){}
         });
         saveSheets();
       }, 120);
@@ -10761,11 +10761,22 @@ function openFadiga(){
 }
 
 function closeFadiga(){
-  // Persistir antes de fechar
+  // Persistir E APLICAR o estudo de fadiga à folha antes de fechar.
+  // Garante que as folhas MTM e o Resultado Final reflitam sempre
+  // o último estudo de fadiga (TV + TER), sem depender de o usuário
+  // lembrar de clicar em "Aplicar à Folha".
   if(activeId){
     var s = get(activeId);
     if(s){
       s.fadiga = fadColetarEstado();
+      try{
+        var modoEl = document.querySelector('input[name="fad-modo-allow"]:checked');
+        if(modoEl && modoEl.value === 'sese'){
+          fadAplicarPadraoSESE();   // premissa SESÉ (10% fixo)
+        } else {
+          fadAplicarFolha();        // premissa calculada (TV + TER)
+        }
+      }catch(e){}
       if(typeof saveSheets === 'function') saveSheets();
     }
   }
@@ -10822,7 +10833,7 @@ function fadAplicarFolha(){
 
   // Atualizar campos visuais no header (se existirem)
   function setHF(field, val){
-    var inp = document.querySelector('#c-'+activeId+' [data-hf="'+field+'"]');
+    var inp = document.querySelector('#c-'+activeId+' [data-key="'+field+'"]');
     if(inp){ inp.value = val; }
   }
   setHF('allowPersonal',    r2(pPersonal));
@@ -10830,7 +10841,7 @@ function fadAplicarFolha(){
   setHF('allowContingency', r2(pContingency));
 
   // Recalcular folha
-  if(typeof recalc === 'function'){ try{ recalc(activeId); }catch(e){} }
+  try{ updateNums(activeId); updateTotals(activeId); }catch(e){}
   if(typeof saveSheets === 'function') saveSheets();
 
   if(typeof showToast === 'function')
@@ -10872,7 +10883,7 @@ function fadAplicarPadraoSESE(){
   if(radioSese){ radioSese.checked = true; }
 
   // Recalcular folha e totais
-  if(typeof recalc === 'function'){ try{ recalc(activeId); }catch(e){} }
+  try{ updateNums(activeId); updateTotals(activeId); }catch(e){}
   if(typeof updateTotals === 'function'){ try{ updateTotals(activeId); }catch(e){} }
   if(typeof saveSheets === 'function') saveSheets();
 
@@ -11440,9 +11451,7 @@ function openProjectFileHandle(input){
 
         setTimeout(function(){
           rebuilt.forEach(function(s){
-            if(typeof recalc === 'function'){
-              try{ recalc(s.id); }catch(e){}
-            }
+            try{ updateNums(s.id); updateTotals(s.id); }catch(e){}
           });
           if(typeof saveSheets === 'function') saveSheets();
         }, 120);
