@@ -4499,6 +4499,7 @@ function goBottom(){
 }
 function exportPDF(){
   try{
+    window._mtmPrintMode = 'folhas';
     prepararPrint();
     // Pequeno delay para o DOM renderizar antes do print
     setTimeout(function(){ window.print(); }, 80);
@@ -4839,10 +4840,19 @@ function prepararPrint(){
 // Robustez: qualquer gatilho de impressão (Ctrl+P, menu do navegador,
 // botão "Gerar PDF" de qualquer modal) preenche a área de impressão
 // ANTES do print — evita o PDF sair em branco.
+// Respeita o modo atual: 'relatorio' (consolidado) ou 'folhas' (padrão).
 window.addEventListener('beforeprint', function(){
-  try{ prepararPrint(); }
-  catch(e){ console.error('beforeprint / prepararPrint:', e); }
+  try{
+    if(window._mtmPrintMode === 'relatorio' && typeof prepararPrintRelatorio === 'function'){
+      prepararPrintRelatorio();
+    } else {
+      prepararPrint();
+    }
+  }
+  catch(e){ console.error('beforeprint:', e); }
 });
+// Após imprimir, volta ao modo padrão (folhas individuais).
+window.addEventListener('afterprint', function(){ window._mtmPrintMode = 'folhas'; });
 
 
 
@@ -9078,22 +9088,14 @@ function mtmCalcFadiga(f){
   };
 }
 
-function showFinalReport(){
-  if(!sheets || sheets.length === 0){
-    alert('Nenhuma folha disponível para gerar o relatório.');
-    return;
-  }
-
-  var fmt = function(v, d){
-    if(!isFinite(v)) return '—';
-    return v.toLocaleString('pt-BR', {minimumFractionDigits:(d!=null?d:2), maximumFractionDigits:(d!=null?d:2)});
-  };
-
-  // ── Coleta métricas de todas as folhas (base + fadiga) ──
-  // Quando a folha tem Análise de Fadiga preenchida, o Allowance Total
-  // (TV + TER, ou 10% SESÉ) substitui o allowance do cabeçalho — é
-  // ESSE valor que rege o Tempo Padrão exibido no relatório.
-  var allMetrics = sheets.map(function(s){
+// ════════════════════════════════════════════════════════════════
+// Coletor compartilhado de métricas do Relatório Final Consolidado.
+// Usado pelo modal (showFinalReport) e pelo PDF (prepararPrintRelatorio).
+// Quando a folha tem Análise de Fadiga, o Allowance Total (TV + TER,
+// ou 10% SESÉ) substitui o allowance do cabeçalho.
+// ════════════════════════════════════════════════════════════════
+function mtmCollectFinalReport(){
+  var allMetrics = (sheets||[]).map(function(s){
     var m   = computeSheetMetrics(s);
     var fad = (s.fadiga && typeof s.fadiga === 'object') ? mtmCalcFadiga(s.fadiga) : null;
     var allowUsed = fad ? fad.allowTotal : m.allowPct;
@@ -9109,7 +9111,6 @@ function showFinalReport(){
       ocup:   m.takt > 0 ? +(stdSec/m.takt*100).toFixed(1) : null
     };
   });
-
   var totalStdSec = allMetrics.reduce(function(a,x){ return a + x.stdSec; }, 0);
   var totalTmuSum = allMetrics.reduce(function(a,x){ return a + x.m.totalTmu; }, 0);
   var combinedPph = totalStdSec > 0 ? +(3600/totalStdSec).toFixed(2) : 0;
@@ -9117,6 +9118,187 @@ function showFinalReport(){
   var allowMedio  = allMetrics.length
     ? allMetrics.reduce(function(a,x){ return a + x.allowUsed; }, 0) / allMetrics.length
     : 0;
+  return {
+    allMetrics: allMetrics, totalStdSec: totalStdSec, totalTmuSum: totalTmuSum,
+    combinedPph: combinedPph, withFad: withFad, allowMedio: allowMedio
+  };
+}
+
+// Modo de impressão atual: 'folhas' (padrão) ou 'relatorio' (consolidado).
+var _mtmPrintMode = 'folhas';
+
+// ════════════════════════════════════════════════════════════════
+// Monta o RELATÓRIO FINAL CONSOLIDADO em #print-area (layout de PDF).
+// ════════════════════════════════════════════════════════════════
+function prepararPrintRelatorio(){
+  var box = document.getElementById('print-area');
+  if(!box) return;
+  if(!sheets || !sheets.length){ box.innerHTML = ''; return; }
+
+  function esc(s){
+    return String(s==null?'':s).replace(/[&<>"]/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];
+    });
+  }
+  function fmt(v, d){
+    var n = parseFloat(v);
+    if(!isFinite(n)) return '—';
+    return n.toLocaleString('pt-BR',{minimumFractionDigits:(d!=null?d:2), maximumFractionDigits:(d!=null?d:2)});
+  }
+
+  var R = mtmCollectFinalReport();
+  var allMetrics = R.allMetrics;
+  var dataGer = new Date().toLocaleString('pt-BR');
+
+  var jornadas = [
+    {h:7,lbl:'7 h'},{h:7.5,lbl:'7,5 h'},{h:8,lbl:'8 h'},
+    {h:8.5,lbl:'8,5 h'},{h:9,lbl:'9 h'}
+  ];
+
+  var html = '<div class="pa-folha">';
+
+  // ── Título ──
+  html += '<div class="pa-h1">📋 RELATÓRIO FINAL CONSOLIDADO — MTM</div>';
+
+  // ── Identificação ──
+  var h0 = (sheets[0] && sheets[0].header) || {};
+  html += '<div class="pa-info">';
+  html +=   '<div class="pa-info-row">';
+  html +=     '<div class="pa-info-cell"><div class="lbl">Empresa / Cliente</div><div class="val">'+esc(h0.empresa||'—')+'</div></div>';
+  html +=     '<div class="pa-info-cell"><div class="lbl">Projeto</div><div class="val">'+esc(h0.projeto||'—')+'</div></div>';
+  html +=     '<div class="pa-info-cell"><div class="lbl">Gerado em</div><div class="val">'+esc(dataGer)+'</div></div>';
+  html +=   '</div>';
+  html +=   '<div class="pa-info-row">';
+  html +=     '<div class="pa-info-cell"><div class="lbl">Total de Folhas</div><div class="val">'+sheets.length+'</div></div>';
+  html +=     '<div class="pa-info-cell"><div class="lbl">Folhas c/ Análise de Fadiga</div><div class="val">'+R.withFad.length+'</div></div>';
+  html +=     '<div class="pa-info-cell"><div class="lbl">Allowance Total Médio</div><div class="val">'+fmt(R.allowMedio,2)+' %</div></div>';
+  html +=   '</div>';
+  html += '</div>';
+
+  // ── Resumo consolidado ──
+  html += '<div class="pa-h2">Resumo Consolidado</div>';
+  html += '<div class="pa-results"><div class="pa-results-row">';
+  html +=   '<div class="pa-results-cell"><div class="l">Folhas</div><div class="v">'+sheets.length+'</div></div>';
+  html +=   '<div class="pa-results-cell"><div class="l">TMU Total</div><div class="v">'+fmt(R.totalTmuSum,0)+'</div></div>';
+  html +=   '<div class="pa-results-cell"><div class="l">Σ Tempo Padrão</div><div class="v">'+fmt(R.totalStdSec,2)+' s</div></div>';
+  html +=   '<div class="pa-results-cell"><div class="l">Σ Peças/hora</div><div class="v">'+fmt(R.combinedPph,0)+'</div></div>';
+  html +=   '<div class="pa-results-cell"><div class="l">Allowance Médio</div><div class="v">'+fmt(R.allowMedio,2)+' %</div></div>';
+  html += '</div></div>';
+
+  // ── Análise Final de Fadiga & Allowance ──
+  html += '<div class="pa-h2">🛌 Análise Final de Fadiga &amp; Allowance</div>';
+  html += '<table class="pa-table"><thead><tr>';
+  html +=   '<th>Folha</th><th>TV (Distrib.)</th><th>TER (Fadiga)</th>';
+  html +=   '<th>Allowance Total</th><th>Premissa</th><th>TN (s)</th>';
+  html +=   '<th>TS — Padrão (s)</th><th>T. Trabalho</th><th>Ociosidade</th>';
+  html += '</tr></thead><tbody>';
+  allMetrics.forEach(function(x){
+    var f = x.fad;
+    var ocioRel = x.m.takt > 0 ? ((x.m.takt - x.stdSec)/x.m.takt*100) : null;
+    var ocioCls = ocioRel === null ? '' : (ocioRel >= 0 ? 'ok' : 'bad');
+    html += '<tr>';
+    html +=   '<td>'+esc(x.sheet.label)+'</td>';
+    html +=   '<td class="num">'+(f?fmt(f.tvTotal,2)+' %':'—')+'</td>';
+    html +=   '<td class="num">'+(f?fmt(f.terPct,2)+' %':'—')+'</td>';
+    html +=   '<td class="num"><b>'+fmt(x.allowUsed,2)+' %</b></td>';
+    html +=   '<td class="ctr">'+(f?(f.modoSESE?'SESÉ 10%':'TV + TER'):'Cabeçalho')+'</td>';
+    html +=   '<td class="num">'+fmt(x.tnSec,3)+'</td>';
+    html +=   '<td class="num"><b>'+fmt(x.stdSec,3)+'</b></td>';
+    html +=   '<td class="num">'+fmt(100-x.allowUsed,2)+' %</td>';
+    html +=   '<td class="num">'+(ocioRel===null?'—':'<span class="pa-status '+ocioCls+'">'+fmt(ocioRel,2)+' %</span>')+'</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  html += '<div class="pa-note">Allowance Total = TV (Tempo de Distribuição) + TER (Tempo de Recuperação da Fadiga), ou 10% fixo na premissa SESÉ. '
+       +  'TS = TN × (1 + Allowance/100). Tempo de Trabalho = 100% − Allowance Total. '
+       +  'Folhas sem Análise de Fadiga usam o allowance do cabeçalho.</div>';
+
+  // ── Comparativo de folhas ──
+  html += '<div class="pa-h2">Comparativo de Folhas</div>';
+  html += '<table class="pa-table"><thead><tr>';
+  html +=   '<th>Folha</th><th>Operador / Posto</th><th>TMU Total</th>';
+  html +=   '<th>Tempo Padrão (s)</th><th>Peças/hora</th><th>% Ocupação</th><th>Takt (s)</th>';
+  html += '</tr></thead><tbody>';
+  allMetrics.forEach(function(x){
+    var hh = x.sheet.header || {};
+    html += '<tr>';
+    html +=   '<td>'+esc(x.sheet.label)+'</td>';
+    html +=   '<td>'+esc(hh.operador||hh.operator||'—')+'</td>';
+    html +=   '<td class="num">'+fmt(x.m.totalTmu,1)+'</td>';
+    html +=   '<td class="num">'+fmt(x.stdSec,3)+'</td>';
+    html +=   '<td class="num">'+(x.pph||'—')+'</td>';
+    html +=   '<td class="num">'+(x.ocup!==null?fmt(x.ocup,1)+' %':'—')+'</td>';
+    html +=   '<td class="num">'+(x.m.takt>0?fmt(x.m.takt,2):'—')+'</td>';
+    html += '</tr>';
+  });
+  html += '<tr class="total-row"><td colspan="2" style="text-align:right">TOTAL / SOMA</td>';
+  html += '<td class="num">'+fmt(R.totalTmuSum,1)+'</td>';
+  html += '<td class="num">'+fmt(R.totalStdSec,3)+'</td>';
+  html += '<td class="num">'+fmt(R.combinedPph,0)+'</td>';
+  html += '<td class="num">—</td><td class="num">—</td></tr>';
+  html += '</tbody></table>';
+
+  // ── Capacidade por jornada ──
+  html += '<div class="pa-h2">Capacidade por Jornada</div>';
+  html += '<table class="pa-table"><thead><tr><th>Jornada</th>';
+  allMetrics.forEach(function(x){ html += '<th>'+esc(x.sheet.label)+'</th>'; });
+  html += '<th>SOMA (pc/turno)</th></tr></thead><tbody>';
+  jornadas.forEach(function(j){
+    var jorSec = j.h * 3600;
+    html += '<tr><td class="item">'+j.lbl+'</td>';
+    allMetrics.forEach(function(x){
+      var pcs = x.stdSec > 0 ? Math.floor(jorSec/x.stdSec) : '—';
+      html += '<td class="num">'+pcs+'</td>';
+    });
+    var soma = R.totalStdSec > 0 ? Math.floor(jorSec/R.totalStdSec) : '—';
+    html += '<td class="num"><b>'+soma+'</b></td></tr>';
+  });
+  html += '</tbody></table>';
+  html += '<div class="pa-note">SOMA = todos os postos produzindo simultaneamente · Tempos Padrão já com o Allowance Total da Análise de Fadiga.</div>';
+
+  // ── Rodapé ──
+  html += '<div class="pa-footer">';
+  html +=   '<div class="pa-footer-l"><div class="pa-note">Relatório consolidado gerado em '+esc(dataGer)+'</div></div>';
+  html +=   '<div class="pa-footer-r"><div class="pa-note">Ferramenta MTM · Engº Ivan Carlos Antoneli</div>';
+  html +=     '<div class="pa-note">Fonte: Manual de Tempos e Métodos + MTM-UAS</div></div>';
+  html += '</div>';
+
+  html += '</div>'; // fim .pa-folha
+  box.innerHTML = html;
+}
+
+// Gera o PDF do RELATÓRIO FINAL CONSOLIDADO (não as folhas individuais).
+function exportRelatorioPDF(){
+  try{
+    _mtmPrintMode = 'relatorio';
+    prepararPrintRelatorio();
+    setTimeout(function(){ window.print(); }, 80);
+  }catch(e){
+    console.error('Erro ao preparar PDF do relatório:', e);
+    _mtmPrintMode = 'folhas';
+    window.print();
+  }
+}
+
+function showFinalReport(){
+  if(!sheets || sheets.length === 0){
+    alert('Nenhuma folha disponível para gerar o relatório.');
+    return;
+  }
+
+  var fmt = function(v, d){
+    if(!isFinite(v)) return '—';
+    return v.toLocaleString('pt-BR', {minimumFractionDigits:(d!=null?d:2), maximumFractionDigits:(d!=null?d:2)});
+  };
+
+  // ── Coleta métricas consolidadas (base + fadiga) — função compartilhada ──
+  var R = mtmCollectFinalReport();
+  var allMetrics  = R.allMetrics;
+  var totalStdSec = R.totalStdSec;
+  var totalTmuSum = R.totalTmuSum;
+  var combinedPph = R.combinedPph;
+  var withFad     = R.withFad;
+  var allowMedio  = R.allowMedio;
 
   var jornadas = [
     {h:7,'lbl':'7 h'},{h:7.5,lbl:'7,5 h'},{h:8,lbl:'8 h'},
@@ -9303,7 +9485,7 @@ function showFinalReport(){
     +       '<div class="res-subtitle">'+sheets.length+' folha'+(sheets.length!==1?'s':'')+' · '+withFad.length+' com Análise de Fadiga · '+new Date().toLocaleDateString('pt-BR')+'</div>'
     +     '</div>'
     +     '<div style="display:flex;gap:8px;align-items:center">'
-    +       '<button class="btn btn-green" onclick="exportPDF()" style="font-size:11px">⬇ PDF</button>'
+    +       '<button class="btn btn-green" onclick="exportRelatorioPDF()" style="font-size:11px">⬇ PDF</button>'
     +       '<button class="res-close" onclick="closeFinalReport()">✕</button>'
     +     '</div>'
     +   '</div>'
@@ -9323,7 +9505,7 @@ function showFinalReport(){
     +     '</div>'
     +   '</div>'
     +   '<div class="res-footer">'
-    +     '<button class="btn btn-green" onclick="exportPDF()">⬇ Gerar PDF</button>'
+    +     '<button class="btn btn-green" onclick="exportRelatorioPDF()">⬇ Gerar PDF</button>'
     +     '<button class="btn btn-ghost" onclick="closeFinalReport()">Fechar</button>'
     +   '</div>'
     + '</div>';
