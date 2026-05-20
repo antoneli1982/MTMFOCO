@@ -2509,6 +2509,43 @@ window.FIREBASE_CONFIG = {
 .fad-ana-table tr:last-child td{border-bottom:none}
 .fad-ana-table td.num{font-family:'JetBrains Mono',monospace;font-weight:700;text-align:right;color:var(--accent)}
 
+/* ── Premissa de Allowance (Cálculo TV+TER vs Padrão SESÉ) ── */
+.fad-premissa{
+  margin-bottom:14px;border:1px solid var(--border2);border-radius:10px;
+  background:var(--surface2);overflow:hidden;
+}
+.fad-premissa-tit{
+  padding:8px 14px;font-size:11px;font-weight:800;letter-spacing:.3px;
+  color:var(--text2);text-transform:uppercase;
+  background:var(--surface3);border-bottom:1px solid var(--border);
+}
+.fad-premissa-opts{display:flex;flex-direction:column;gap:8px;padding:12px 14px}
+.fad-prem-opt{
+  display:flex;align-items:center;gap:9px;cursor:pointer;
+  padding:9px 11px;border:1px solid var(--border2);border-radius:8px;
+  background:var(--surface);transition:all .15s;font-size:12px;color:var(--text);
+}
+.fad-prem-opt:hover{border-color:var(--border3)}
+.fad-prem-opt input{accent-color:var(--green);width:15px;height:15px;cursor:pointer}
+.fad-prem-opt.is-active{
+  border-color:var(--green);background:var(--greenBg);
+  box-shadow:0 0 0 1px rgba(0,229,160,.25);
+}
+.fad-prem-opt b{color:var(--green)}
+.fad-prem-tag{
+  margin-left:auto;font-size:9px;font-weight:800;letter-spacing:.4px;
+  text-transform:uppercase;padding:3px 8px;border-radius:20px;
+  background:rgba(0,229,160,.15);color:var(--green);
+}
+.fad-ana-card.is-sese{
+  border-color:var(--green);background:linear-gradient(180deg,var(--greenBg),transparent);
+}
+.fad-ana-card .badge-prem{
+  display:inline-block;margin-top:4px;font-size:8px;font-weight:800;
+  letter-spacing:.4px;text-transform:uppercase;padding:2px 6px;border-radius:20px;
+  background:rgba(0,229,160,.18);color:var(--green);
+}
+
 .fad-info{
   background:var(--orangeBg);border:1px solid rgba(255,149,0,.3);
   border-left:3px solid var(--orange);border-radius:8px;
@@ -3457,10 +3494,27 @@ window.FIREBASE_CONFIG = {
           <br>
           <b style="color:#a64500">📐 Fórmulas aplicadas</b><br>
           • <b>TN</b> (Tempo Normal) = <code>Σ TMU × 0,036 s</code><br>
-          • <b>Allowance Total</b> = <code>TV% + TER%</code><br>
+          • <b>Allowance Total</b> = conforme a <b>premissa escolhida</b> abaixo (TV+TER ou Padrão SESÉ 10%)<br>
           • <b>TS</b> (Tempo Padrão) = <code>TN × (1 + Allowance/100)</code><br>
+          • <b>Tempo de Trabalho</b> = <code>100% − Allowance</code><br>
           • <b>Ociosidade %</b> = <code>(Takt − TS) / Takt × 100</code><br>
           • <b>Peças/h teóricas</b> = <code>3600 / TS</code>
+        </div>
+
+        <!-- ── Premissa de Allowance ── -->
+        <div class="fad-premissa">
+          <div class="fad-premissa-tit">⚙ Premissa de Allowance — base do cálculo</div>
+          <div class="fad-premissa-opts">
+            <label class="fad-prem-opt" id="fad-prem-calc">
+              <input type="radio" name="fad-modo-allow" value="calc" onchange="fadSetModoAllow('calc')">
+              <span>Cálculo detalhado &nbsp;<b style="color:var(--accent)">TV + TER</b>&nbsp; (abas Distribuição + Fadiga)</span>
+            </label>
+            <label class="fad-prem-opt is-active" id="fad-prem-sese">
+              <input type="radio" name="fad-modo-allow" value="sese" checked onchange="fadSetModoAllow('sese')">
+              <span>Padrão <b>SESÉ</b> — Allowance Total fixo de <b>10%</b> · Tempo de Trabalho <b>90%</b></span>
+              <span class="fad-prem-tag" id="fad-prem-tag">Premissa ativa</span>
+            </label>
+          </div>
         </div>
 
         <div class="fad-ana-grid">
@@ -10462,8 +10516,15 @@ function fadRecalc(){
   // ---- Análise final ----
   var tmuTotal = fadCalcTMUFolha();
   var tn = tmuTotal * 0.036;               // s
-  var allowTotal = tv.tvTotal + ter.pct;    // %
-  var ts = tn * (1 + allowTotal/100);       // s
+
+  // Premissa de allowance: 'calc' (TV+TER) ou 'sese' (fixo 10%)
+  var modoEl = document.querySelector('input[name="fad-modo-allow"]:checked');
+  var modoSESE = modoEl && modoEl.value === 'sese';
+
+  var allowCalc  = tv.tvTotal + ter.pct;            // % detalhado
+  var allowTotal = modoSESE ? 10 : allowCalc;       // % aplicado
+  var ts = tn * (1 + allowTotal/100);               // s
+  var tempoTrab = 100 - allowTotal;                 // % tempo de trabalho
 
   var takt = activeId ? parseFloat((get(activeId)||{}).header && (get(activeId)||{}).header.takt) : NaN;
   var hasTakt = isFinite(takt) && takt > 0;
@@ -10474,9 +10535,26 @@ function fadRecalc(){
   function setT(id, txt){ var e = document.getElementById(id); if(e) e.textContent = txt; }
   setT('ana-tv', fadFmt(tv.tvTotal,2)+' %');
   setT('ana-ter', fadFmt(ter.pct,2)+' %');
-  setT('ana-total', fadFmt(allowTotal,2)+' %');
   setT('ana-tn', fadFmt(tn,2)+' s');
   setT('ana-ts', fadFmt(ts,2)+' s');
+
+  // Card Allowance Total — destaca quando a premissa SESÉ está ativa
+  var totalCard = document.querySelector('.fad-ana-card.total');
+  var totalVal  = document.getElementById('ana-total');
+  if(totalVal){
+    if(modoSESE){
+      totalVal.innerHTML = '10,00 %<span class="badge-prem">Premissa SESÉ</span>';
+    } else {
+      totalVal.innerHTML = fadFmt(allowTotal,2)+' %';
+    }
+  }
+  if(totalCard) totalCard.classList.toggle('is-sese', !!modoSESE);
+
+  // Sincroniza realce visual das opções de premissa
+  var optCalc = document.getElementById('fad-prem-calc');
+  var optSese = document.getElementById('fad-prem-sese');
+  if(optCalc) optCalc.classList.toggle('is-active', !modoSESE);
+  if(optSese) optSese.classList.toggle('is-active', !!modoSESE);
 
   var ocioEl = document.getElementById('ana-ocio');
   if(ocioEl){
@@ -10498,7 +10576,8 @@ function fadRecalc(){
   setT('ana-tn-row', fadFmt(tn,2)+' s');
   setT('ana-tv-row', fadFmt(tv.tvTotal,2)+' %');
   setT('ana-ter-row', fadFmt(ter.pct,2)+' %');
-  setT('ana-allow-row', fadFmt(allowTotal,2)+' %');
+  setT('ana-allow-row', fadFmt(allowTotal,2)+' %'
+       + (modoSESE ? '  (Premissa SESÉ — Tempo de Trabalho '+fadFmt(tempoTrab,0)+'%)' : ''));
   setT('ana-ts-row', fadFmt(ts,2)+' s');
   setT('ana-takt-row', hasTakt ? (fadFmt(takt,2)+' s') : '— s');
   setT('ana-ocio-abs', hasTakt ? (fadFmt(ocioAbs,2)+' s') : '— s');
@@ -10788,6 +10867,10 @@ function fadAplicarPadraoSESE(){
   setHF('allowFatigue',     pFatigue);
   setHF('allowContingency', pContingency);
 
+  // Ativa a premissa "Padrão SESÉ" na aba de Análise
+  var radioSese = document.querySelector('input[name="fad-modo-allow"][value="sese"]');
+  if(radioSese){ radioSese.checked = true; }
+
   // Recalcular folha e totais
   if(typeof recalc === 'function'){ try{ recalc(activeId); }catch(e){} }
   if(typeof updateTotals === 'function'){ try{ updateTotals(activeId); }catch(e){} }
@@ -10798,6 +10881,16 @@ function fadAplicarPadraoSESE(){
 
   if(typeof showToast === 'function')
     showToast('📐 Padrão SESÉ aplicado · Allowance Total 10% · Tempo de Trabalho 90%');
+}
+
+// Alterna a premissa de allowance da aba Análise (TV+TER  ou  Padrão SESÉ)
+function fadSetModoAllow(modo){
+  if(typeof fadRecalc === 'function'){ try{ fadRecalc(); }catch(e){} }
+  if(typeof showToast === 'function'){
+    showToast(modo === 'sese'
+      ? '📐 Premissa: Padrão SESÉ — Allowance 10% · Tempo de Trabalho 90%'
+      : 'Premissa: Cálculo detalhado TV + TER');
+  }
 }
 
 // Tecla ESC para fechar
