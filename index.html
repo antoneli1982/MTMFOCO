@@ -4790,7 +4790,9 @@ function prepararPrint(){
       html += '<div class="pa-formula">Fadiga = ('+fmtN(fad.fa,3)+' × '+fmtN(fad.fb,2)+') + '+fmtN(fad.mM,3)+' + '+fmtN(fad.ca,3)+' = <span class="res">'+fmtN(fad.fadigaCoef,4)+' = <b>'+fmtN(fad.fadigaPct,2)+' %</b></span></div>';
 
       // ── Análise de Ociosidade final ──
-      var allowFad = fad.tvTotal + fad.fadigaPct;
+      var modoSESEfad = (s.fadiga && s.fadiga.modoAllow === 'sese');
+      var allowCalcFad = fad.tvTotal + fad.fadigaPct;
+      var allowFad = modoSESEfad ? 10 : allowCalcFad;
       var tnFad = m.tmu * 0.036;
       var tsFad = tnFad * (1 + allowFad/100);
       var taktV = parseFloat(h.takt)||0;
@@ -4799,7 +4801,8 @@ function prepararPrint(){
       html +=   '<div class="pa-results-row">';
       html +=     '<div class="pa-results-cell"><div class="l">TV — Distribuição</div><div class="v">'+fmtN(fad.tvTotal,2)+' %</div></div>';
       html +=     '<div class="pa-results-cell"><div class="l">TER — Fadiga</div><div class="v">'+fmtN(fad.fadigaPct,2)+' %</div></div>';
-      html +=     '<div class="pa-results-cell"><div class="l">Allow Total</div><div class="v">'+fmtN(allowFad,2)+' %</div></div>';
+      html +=     '<div class="pa-results-cell"><div class="l">Allowance Total</div><div class="v">'+fmtN(allowFad,2)+' %'+(modoSESEfad?' <span style="font-size:7pt;font-weight:700">(Premissa SESÉ)</span>':'')+'</div></div>';
+      html +=     '<div class="pa-results-cell"><div class="l">Tempo de Trabalho</div><div class="v">'+fmtN(100-allowFad,2)+' %</div></div>';
       html +=     '<div class="pa-results-cell"><div class="l">TN</div><div class="v">'+fmtN(tnFad,3)+' s</div></div>';
       html +=     '<div class="pa-results-cell"><div class="l">TS — Padrão</div><div class="v">'+fmtN(tsFad,3)+' s</div></div>';
       if(taktV > 0){
@@ -4833,10 +4836,15 @@ function prepararPrint(){
   box.innerHTML = html;
 }
 
+// Robustez: qualquer gatilho de impressão (Ctrl+P, menu do navegador,
+// botão "Gerar PDF" de qualquer modal) preenche a área de impressão
+// ANTES do print — evita o PDF sair em branco.
+window.addEventListener('beforeprint', function(){
+  try{ prepararPrint(); }
+  catch(e){ console.error('beforeprint / prepararPrint:', e); }
+});
 
-// ============================================================
-// RESULTS MODAL (avançado: VA/NVA, Pareto, Takt, Peças)
-// ============================================================
+
 
 // Categoriza código MTM-UAS pelo prefixo
 const MTM_CATEGORIES = {
@@ -8521,7 +8529,7 @@ function openYamazumi(clientName){
     overlay.id = 'yama-overlay';
     overlay.className = 'res-overlay hidden';
     overlay.onclick = function(e){ if(e.target===overlay) closeYamazumi(); };
-    overlay.innerHTML = '<div class="res-modal" id="yama-modal"><div class="res-header"><div><div class="res-title">📊 Yamazumi — Balanceamento</div><div class="res-subtitle" id="yama-sub">—</div></div><button class="res-close" onclick="closeYamazumi()">✕</button></div><div class="res-kpis" id="yama-kpis"></div><div class="res-body" id="yama-body"></div><div class="res-footer"><button class="btn btn-green" onclick="window.print()">⬇ PDF</button><button class="btn btn-ghost" onclick="closeYamazumi()">Fechar</button></div></div>';
+    overlay.innerHTML = '<div class="res-modal" id="yama-modal"><div class="res-header"><div><div class="res-title">📊 Yamazumi — Balanceamento</div><div class="res-subtitle" id="yama-sub">—</div></div><button class="res-close" onclick="closeYamazumi()">✕</button></div><div class="res-kpis" id="yama-kpis"></div><div class="res-body" id="yama-body"></div><div class="res-footer"><button class="btn btn-green" onclick="exportPDF()">⬇ PDF</button><button class="btn btn-ghost" onclick="closeYamazumi()">Fechar</button></div></div>';
     document.body.appendChild(overlay);
   }
 
@@ -9013,196 +9021,321 @@ const LIB_CODES = [
 // ══════════════════════════════════════════════════════
 // RELATÓRIO FINAL — CONSOLIDADO DE TODAS AS FOLHAS
 // ══════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
+// Recalcula a Análise de Fadiga a partir do estado salvo (s.fadiga).
+// Espelha fadCalcTV() + fadCalcTER() + fadRecalc() — usado pelo
+// Relatório Final e pelo PDF, sem depender do modal estar aberto.
+// ════════════════════════════════════════════════════════════════
+function mtmCalcFadiga(f){
+  if(!f) return null;
+  var num = function(v){ var n = parseFloat(v); return isFinite(n) ? n : 0; };
+  function minToPct(min, base){
+    var m = num(min); if(m <= 0) return 0;
+    if(base === 'turno')  return (m * 3) / 1440 * 100;
+    if(base === 'semana') return m / (1440 * 7) * 100;
+    return m / 1440 * 100; // dia (padrão)
+  }
+  // ── TV — Tempo de Distribuição (ociosidade de rotina) ──
+  var p = {};
+  p['1']  = num(f.tvPausa);
+  p['2']  = minToPct(f.tvLimpPesMin, f.tvLimpPesBase);
+  p['3']  = minToPct(f.tvLimpPosMin, f.tvLimpPosBase);
+  p['4']  = minToPct(f.tvLimpGerMin, f.tvLimpGerBase);
+  var trMin = num(f.tvTrocaMin), trPcs = num(f.tvTrocaPcs), trProdH = num(f.tvTrocaProdH);
+  var trMinDia = (trMin > 0 && trPcs > 0 && trProdH > 0) ? trMin * ((trProdH * 24) / trPcs) : 0;
+  p['5']  = (trMinDia / 1440) * 100;
+  p['6']  = minToPct(f.tvCadernoMin, f.tvCadernoBase);
+  p['7']  = minToPct(f.tvTempMin, f.tvTempBase);
+  p['8a'] = minToPct(f.tvManParMin, f.tvManParBase);
+  p['8b'] = minToPct(f.tvManFuncMin, f.tvManFuncBase);
+  p['9']  = minToPct(f.tvInterrMin, f.tvInterrBase);
+  var minDia = (num(f.tvRevFreq) * num(f.tvRevTmu)) * 24 * 0.036 / 60;
+  p['10'] = (minDia / 1440) * 100;
+  p['11a']= minToPct(f.tvGinPrepMin, f.tvGinPrepBase);
+  p['11b']= minToPct(f.tvGinCompMin, f.tvGinCompBase);
+  p['12a']= minToPct(f.tvReuProdMin, f.tvReuProdBase);
+  p['12b']= minToPct(f.tvReuQSMin, f.tvReuQSBase);
+  var tvTotal = 0;
+  Object.keys(p).forEach(function(k){ tvTotal += (p[k] || 0); });
+  // ── TER — Tempo de Recuperação da Fadiga ──
+  var fa = num(f.terFisico) + num(f.terMental);
+  var fb = num(f.terRecup);
+  var mM = num(f.terMonot);
+  var ca = num(f.terTermica) + num(f.terAtmosf) + num(f.terRuido) +
+           num(f.terUmid) + num(f.terVibr);
+  var terCoef = (fa * fb) + mM + ca;
+  var terPct  = terCoef * 100;
+  // ── Allowance Total conforme a premissa escolhida ──
+  var modoSESE   = (f.modoAllow === 'sese');
+  var allowCalc  = tvTotal + terPct;
+  var allowTotal = modoSESE ? 10 : allowCalc;
+  return {
+    pcts: p, tvTotal: tvTotal,
+    fa: fa, fb: fb, mM: mM, ca: ca,
+    terCoef: terCoef, terPct: terPct,
+    modoSESE: modoSESE, allowCalc: allowCalc,
+    allowTotal: allowTotal, tempoTrabalho: 100 - allowTotal
+  };
+}
+
 function showFinalReport(){
   if(!sheets || sheets.length === 0){
     alert('Nenhuma folha disponível para gerar o relatório.');
     return;
   }
 
-  // Coleta métricas de todas as folhas
+  var fmt = function(v, d){
+    if(!isFinite(v)) return '—';
+    return v.toLocaleString('pt-BR', {minimumFractionDigits:(d!=null?d:2), maximumFractionDigits:(d!=null?d:2)});
+  };
+
+  // ── Coleta métricas de todas as folhas (base + fadiga) ──
+  // Quando a folha tem Análise de Fadiga preenchida, o Allowance Total
+  // (TV + TER, ou 10% SESÉ) substitui o allowance do cabeçalho — é
+  // ESSE valor que rege o Tempo Padrão exibido no relatório.
   var allMetrics = sheets.map(function(s){
-    var m = computeSheetMetrics(s);
-    return { sheet: s, m: m,
-      pph:    m.stdSec > 0 ? +(3600/m.stdSec).toFixed(2) : 0,
-      pphInt: m.stdSec > 0 ? Math.floor(3600/m.stdSec) : 0,
-      ocup:   m.takt > 0   ? +(m.stdSec/m.takt*100).toFixed(1) : null
+    var m   = computeSheetMetrics(s);
+    var fad = (s.fadiga && typeof s.fadiga === 'object') ? mtmCalcFadiga(s.fadiga) : null;
+    var allowUsed = fad ? fad.allowTotal : m.allowPct;
+    var tnSec     = m.totalSec;
+    var stdSec    = +(tnSec * (1 + allowUsed/100)).toFixed(4);
+    return {
+      sheet: s, m: m, fad: fad,
+      allowUsed: allowUsed,
+      tnSec:  tnSec,
+      stdSec: stdSec,
+      pph:    stdSec > 0 ? +(3600/stdSec).toFixed(2) : 0,
+      pphInt: stdSec > 0 ? Math.floor(3600/stdSec) : 0,
+      ocup:   m.takt > 0 ? +(stdSec/m.takt*100).toFixed(1) : null
     };
   });
 
-  var totalStdSec = allMetrics.reduce(function(a,x){ return a + x.m.stdSec; }, 0);
+  var totalStdSec = allMetrics.reduce(function(a,x){ return a + x.stdSec; }, 0);
   var totalTmuSum = allMetrics.reduce(function(a,x){ return a + x.m.totalTmu; }, 0);
   var combinedPph = totalStdSec > 0 ? +(3600/totalStdSec).toFixed(2) : 0;
+  var withFad     = allMetrics.filter(function(x){ return !!x.fad; });
+  var allowMedio  = allMetrics.length
+    ? allMetrics.reduce(function(a,x){ return a + x.allowUsed; }, 0) / allMetrics.length
+    : 0;
 
   var jornadas = [
-    {h:7,   lbl:'7 h'},
-    {h:7.5, lbl:'7,5 h'},
-    {h:8,   lbl:'8 h'},
-    {h:8.5, lbl:'8,5 h'},
-    {h:9,   lbl:'9 h'}
+    {h:7,'lbl':'7 h'},{h:7.5,lbl:'7,5 h'},{h:8,lbl:'8 h'},
+    {h:8.5,lbl:'8,5 h'},{h:9,lbl:'9 h'}
   ];
+
+  function allowColor(a){
+    if(a >= 22) return 'var(--red)';
+    if(a >= 18) return 'var(--orange)';
+    if(a >= 13) return 'var(--yellow)';
+    if(a >=  8) return 'var(--green)';
+    return 'var(--blue)';
+  }
 
   // ── Cards por folha ──
   var cardsHtml = allMetrics.map(function(x){
     var s = x.sheet; var m = x.m;
     var ocupColor = x.ocup !== null ? (x.ocup>100?'var(--red)':x.ocup>95?'var(--orange)':x.ocup>80?'var(--yellow)':'var(--green)') : 'var(--text3)';
     var pphColor  = x.pph > 0 ? 'var(--purple)' : 'var(--text3)';
-    return `<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden">
-      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--accentGrad)"></div>
-      <div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.sheet.label}</div>
-      ${s.header.processo ? `<div style="font-size:10px;color:var(--text3);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.header.processo}</div>` : ''}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div style="text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 4px">
-          <div style="font-size:16px;font-weight:800;color:var(--accent);font-family:'JetBrains Mono',monospace">${m.totalTmu ? m.totalTmu.toFixed(0) : '—'}</div>
-          <div style="font-size:8px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-top:2px">TMU Total</div>
-        </div>
-        <div style="text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 4px">
-          <div style="font-size:16px;font-weight:800;color:var(--green);font-family:'JetBrains Mono',monospace">${m.stdSec ? m.stdSec.toFixed(2) : '—'}<span style="font-size:9px">s</span></div>
-          <div style="font-size:8px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-top:2px">Tempo Padrão</div>
-        </div>
-        <div style="text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 4px">
-          <div style="font-size:16px;font-weight:800;color:${pphColor};font-family:'JetBrains Mono',monospace">${x.pph || '—'}</div>
-          <div style="font-size:8px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-top:2px">Peças/hora</div>
-        </div>
-        <div style="text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 4px">
-          <div style="font-size:16px;font-weight:800;color:${ocupColor};font-family:'JetBrains Mono',monospace">${x.ocup !== null ? x.ocup+'%' : '—'}</div>
-          <div style="font-size:8px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-top:2px">% Ocupação</div>
-        </div>
-      </div>
-      ${m.takt > 0 ? `<div style="font-size:9px;color:var(--text3);margin-top:8px;text-align:right">Takt: ${m.takt}s · Allow: ${m.allowPct.toFixed(1)}%</div>` : ''}
-    </div>`;
+    return '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden">'
+      + '<div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--accentGrad)"></div>'
+      + '<div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+x.sheet.label+'</div>'
+      + (s.header.processo ? '<div style="font-size:10px;color:var(--text3);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+s.header.processo+'</div>' : '')
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+      +   '<div style="text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 4px">'
+      +     '<div style="font-size:16px;font-weight:800;color:var(--accent);font-family:\'JetBrains Mono\',monospace">'+(m.totalTmu?m.totalTmu.toFixed(0):'—')+'</div>'
+      +     '<div style="font-size:8px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-top:2px">TMU Total</div>'
+      +   '</div>'
+      +   '<div style="text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 4px">'
+      +     '<div style="font-size:16px;font-weight:800;color:var(--green);font-family:\'JetBrains Mono\',monospace">'+(x.stdSec?x.stdSec.toFixed(2):'—')+'<span style="font-size:9px">s</span></div>'
+      +     '<div style="font-size:8px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-top:2px">Tempo Padrão</div>'
+      +   '</div>'
+      +   '<div style="text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 4px">'
+      +     '<div style="font-size:16px;font-weight:800;color:'+pphColor+';font-family:\'JetBrains Mono\',monospace">'+(x.pph||'—')+'</div>'
+      +     '<div style="font-size:8px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-top:2px">Peças/hora</div>'
+      +   '</div>'
+      +   '<div style="text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 4px">'
+      +     '<div style="font-size:16px;font-weight:800;color:'+allowColor(x.allowUsed)+';font-family:\'JetBrains Mono\',monospace">'+fmt(x.allowUsed,1)+'%</div>'
+      +     '<div style="font-size:8px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-top:2px">Allowance Total</div>'
+      +   '</div>'
+      + '</div>'
+      + '<div style="font-size:9px;color:var(--text3);margin-top:8px;text-align:right">'
+      +   (x.fad ? '🛌 Fadiga: TV '+fmt(x.fad.tvTotal,1)+'% + TER '+fmt(x.fad.terPct,1)+'%'+(x.fad.modoSESE?' · SESÉ 10%':'') : '⚙ Allowance do cabeçalho')
+      +   (m.takt > 0 ? ' · Takt '+m.takt+'s' : '')
+      + '</div>'
+      + '</div>';
   }).join('');
 
-  // ── Tabela consolidada ──
-  var theadOcup = allMetrics.some(function(x){ return x.m.takt > 0; });
+  // ── SEÇÃO FADIGA & ALLOWANCE — tabela detalhada ──
+  var fadRows = allMetrics.map(function(x){
+    var f = x.fad;
+    var aColor = allowColor(x.allowUsed);
+    var tn = x.tnSec, ts = x.stdSec;
+    var ocioRel = x.m.takt > 0 ? +((x.m.takt - ts)/x.m.takt*100).toFixed(2) : null;
+    var ocioColor = ocioRel === null ? 'var(--text3)' : (ocioRel >= 0 ? 'var(--green)' : 'var(--red)');
+    return '<tr>'
+      + '<td style="padding:7px 10px;font-weight:700;color:var(--accent)">'+x.sheet.label+'</td>'
+      + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--accent)">'+(f?fmt(f.tvTotal,2)+'%':'—')+'</td>'
+      + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--orange)">'+(f?fmt(f.terPct,2)+'%':'—')+'</td>'
+      + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:800;color:'+aColor+'">'+fmt(x.allowUsed,2)+'%</td>'
+      + '<td style="padding:7px 8px;text-align:center;font-size:10px;color:var(--text2)">'+(f?(f.modoSESE?'SESÉ 10%':'TV + TER'):'Cabeçalho')+'</td>'
+      + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--text2)">'+fmt(tn,3)+'s</td>'
+      + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:700;color:var(--green)">'+fmt(ts,3)+'s</td>'
+      + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--text2)">'+fmt(100-x.allowUsed,1)+'%</td>'
+      + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:'+ocioColor+'">'+(ocioRel===null?'—':fmt(ocioRel,2)+'%')+'</td>'
+      + '</tr>';
+  }).join('');
+
+  var fadSection = ''
+    + '<div class="res-section-title">🛌 Análise Final de Fadiga &amp; Allowance</div>'
+    + '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;overflow:auto;margin-bottom:8px">'
+    +   '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:640px">'
+    +     '<thead><tr style="background:var(--header-bg);border-bottom:2px solid var(--accent)">'
+    +       '<th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.6px;text-transform:uppercase">Folha</th>'
+    +       '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.6px;text-transform:uppercase">TV (Distrib.)</th>'
+    +       '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--orange);letter-spacing:.6px;text-transform:uppercase">TER (Fadiga)</th>'
+    +       '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:800;color:var(--green);letter-spacing:.6px;text-transform:uppercase">Allowance Total</th>'
+    +       '<th style="padding:8px 8px;text-align:center;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.6px;text-transform:uppercase">Premissa</th>'
+    +       '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.6px;text-transform:uppercase">TN</th>'
+    +       '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--green);letter-spacing:.6px;text-transform:uppercase">TS — Padrão</th>'
+    +       '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.6px;text-transform:uppercase">T. Trabalho</th>'
+    +       '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.6px;text-transform:uppercase">Ociosidade</th>'
+    +     '</tr></thead>'
+    +     '<tbody>'+fadRows+'</tbody>'
+    +   '</table>'
+    + '</div>'
+    + '<div style="padding:10px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;font-size:10px;color:var(--text3);line-height:1.7;margin-bottom:20px">'
+    +   '<strong style="color:var(--text2)">Allowance Total</strong> = TV (Tempo de Distribuição) + TER (Tempo de Recuperação da Fadiga), '
+    +   'ou 10% fixo quando a premissa <strong>SESÉ</strong> está ativa. '
+    +   '<strong style="color:var(--green)">TS</strong> = TN × (1 + Allowance/100). '
+    +   '<strong style="color:var(--text2)">Tempo de Trabalho</strong> = 100% − Allowance Total. '
+    +   'Folhas sem Análise de Fadiga usam o allowance lançado no cabeçalho da folha.'
+    + '</div>';
+
+  // ── Tabela consolidada por jornada ──
+  var theadCells = allMetrics.map(function(x){
+    return '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--purple);letter-spacing:.6px;border-right:1px solid var(--border2);max-width:100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+x.sheet.label+'</th>';
+  }).join('');
   var tableRows = jornadas.map(function(j){
     var jorSec = j.h * 3600;
     var cells = allMetrics.map(function(x){
-      var pcs = x.m.stdSec > 0 ? Math.floor(jorSec/x.m.stdSec) : '—';
-      return `<td style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--purple);font-weight:700;border-right:1px solid var(--border)">${pcs}</td>`;
+      var pcs = x.stdSec > 0 ? Math.floor(jorSec/x.stdSec) : '—';
+      return '<td style="padding:6px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--purple);font-weight:700;border-right:1px solid var(--border)">'+pcs+'</td>';
     }).join('');
     var totalPcs = totalStdSec > 0 ? Math.floor(jorSec/totalStdSec) : '—';
-    return `<tr>
-      <td style="padding:6px 10px;font-weight:700;color:var(--text);border-right:1px solid var(--border2)">${j.lbl}</td>
-      ${cells}
-      <td style="padding:6px 10px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--accent);font-weight:800;background:var(--accentBg)">${totalPcs}</td>
-    </tr>`;
+    return '<tr><td style="padding:6px 10px;font-weight:700;color:var(--text);border-right:1px solid var(--border2)">'+j.lbl+'</td>'+cells
+      + '<td style="padding:6px 10px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--accent);font-weight:800;background:var(--accentBg)">'+totalPcs+'</td></tr>';
   }).join('');
+  var tableHtml = allMetrics.length > 1 ? ''
+    + '<div class="res-section-title" style="margin-top:24px">⚙️ Capacidade por Jornada — Todas as Folhas</div>'
+    + '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;overflow:auto;margin-bottom:20px">'
+    +   '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:400px">'
+    +     '<thead><tr style="background:var(--header-bg);border-bottom:2px solid var(--accent)">'
+    +       '<th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.8px;text-transform:uppercase;border-right:1px solid var(--border2)">Jornada</th>'
+    +       theadCells
+    +       '<th style="padding:8px 10px;text-align:right;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.8px;background:var(--accentBg)">SOMA (pc/turno)</th>'
+    +     '</tr></thead><tbody>'+tableRows+'</tbody>'
+    +   '</table>'
+    +   '<div style="padding:8px 12px;background:var(--surface2);border-top:1px solid var(--border);font-size:10px;color:var(--text3)">SOMA = todos os operadores produzindo simultaneamente · Tempos Padrão já com Allowance Total</div>'
+    + '</div>' : '';
 
-  var theadCells = allMetrics.map(function(x){
-    return `<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--purple);letter-spacing:.6px;border-right:1px solid var(--border2);max-width:100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.sheet.label}</th>`;
-  }).join('');
-
-  var tableHtml = allMetrics.length > 1 ? `
-    <div class="res-section-title" style="margin-top:24px">⚙️ Capacidade por Jornada — Todas as Folhas</div>
-    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;overflow:auto;margin-bottom:20px">
-      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:400px">
-        <thead>
-          <tr style="background:var(--header-bg);border-bottom:2px solid var(--accent)">
-            <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.8px;text-transform:uppercase;border-right:1px solid var(--border2)">Jornada</th>
-            ${theadCells}
-            <th style="padding:8px 10px;text-align:right;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.8px;background:var(--accentBg)">SOMA (pc/turno)</th>
-          </tr>
-        </thead>
-        <tbody>${tableRows}</tbody>
-      </table>
-      <div style="padding:8px 12px;background:var(--surface2);border-top:1px solid var(--border);font-size:10px;color:var(--text3)">
-        SOMA = todos os operadores produzindo simultaneamente · Baseado nos Tempos Padrão individuais
-      </div>
-    </div>` : '';
-
-  // ── Tabela comparativa de métricas ──
+  // ── Comparativo de folhas ──
   var compRows = allMetrics.map(function(x){
     var ocupColor = x.ocup !== null ? (x.ocup>100?'var(--red)':x.ocup>95?'var(--orange)':x.ocup>80?'var(--yellow)':'var(--green)') : 'var(--text3)';
     var ocupIcon  = x.ocup !== null ? (x.ocup>100?'🔴':x.ocup>95?'🟠':x.ocup>80?'🟡':'🟢') : '';
-    return `<tr>
-      <td style="padding:7px 10px;font-weight:700;color:var(--accent)">${x.sheet.label}</td>
-      <td style="padding:7px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--text2)">${x.sheet.header.operador||'—'}</td>
-      <td style="padding:7px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--text)">${x.m.totalTmu ? x.m.totalTmu.toFixed(1) : '—'}</td>
-      <td style="padding:7px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--green)">${x.m.stdSec ? x.m.stdSec.toFixed(3) : '—'}s</td>
-      <td style="padding:7px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--purple)">${x.pph||'—'}</td>
-      <td style="padding:7px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:${ocupColor}">${ocupIcon} ${x.ocup !== null ? x.ocup+'%' : '—'}</td>
-      <td style="padding:7px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--text3)">${x.m.takt > 0 ? x.m.takt+'s' : '—'}</td>
-    </tr>`;
+    return '<tr>'
+      + '<td style="padding:7px 10px;font-weight:700;color:var(--accent)">'+x.sheet.label+'</td>'
+      + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--text2)">'+(x.sheet.header.operador||x.sheet.header.operator||'—')+'</td>'
+      + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--text)">'+(x.m.totalTmu?x.m.totalTmu.toFixed(1):'—')+'</td>'
+      + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--green)">'+(x.stdSec?x.stdSec.toFixed(3):'—')+'s</td>'
+      + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--purple)">'+(x.pph||'—')+'</td>'
+      + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:'+ocupColor+'">'+ocupIcon+' '+(x.ocup!==null?x.ocup+'%':'—')+'</td>'
+      + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--text3)">'+(x.m.takt>0?x.m.takt+'s':'—')+'</td>'
+      + '</tr>';
   }).join('');
-
-  var compTable = `
-    <div class="res-section-title">📊 Comparativo de Folhas</div>
-    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;overflow:auto;margin-bottom:20px">
-      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px">
-        <thead>
-          <tr style="background:var(--header-bg);border-bottom:2px solid var(--accent)">
-            <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.8px;text-transform:uppercase">Folha</th>
-            <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.6px;text-transform:uppercase">Operador/Posto</th>
-            <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.6px;text-transform:uppercase">TMU Total</th>
-            <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--green);letter-spacing:.6px;text-transform:uppercase">Tempo Padrão</th>
-            <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--purple);letter-spacing:.6px;text-transform:uppercase">Peças/hora</th>
-            <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--green);letter-spacing:.6px;text-transform:uppercase">% Ocupação</th>
-            <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.6px;text-transform:uppercase">Takt</th>
-          </tr>
-        </thead>
-        <tbody>${compRows}</tbody>
-        <tfoot>
-          <tr style="background:var(--total-bg);border-top:2px solid var(--accent)">
-            <td colspan="2" style="padding:8px 10px;font-weight:800;color:var(--accent);font-size:11px;letter-spacing:.8px;text-transform:uppercase">TOTAL / SOMA</td>
-            <td style="padding:8px 8px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:800;color:var(--text)">${totalTmuSum.toFixed(1)}</td>
-            <td style="padding:8px 8px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:800;color:var(--green)">${totalStdSec.toFixed(3)}s</td>
-            <td style="padding:8px 8px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:800;color:var(--purple)">${combinedPph||'—'}<span style="font-size:9px;color:var(--text3);font-weight:400"> pc/h</span></td>
-            <td colspan="2" style="padding:8px 8px;text-align:right;font-size:10px;color:var(--text3)">—</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>`;
+  var compTable = ''
+    + '<div class="res-section-title">📊 Comparativo de Folhas</div>'
+    + '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;overflow:auto;margin-bottom:20px">'
+    +   '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px">'
+    +     '<thead><tr style="background:var(--header-bg);border-bottom:2px solid var(--accent)">'
+    +       '<th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.8px;text-transform:uppercase">Folha</th>'
+    +       '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.6px;text-transform:uppercase">Operador/Posto</th>'
+    +       '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.6px;text-transform:uppercase">TMU Total</th>'
+    +       '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--green);letter-spacing:.6px;text-transform:uppercase">Tempo Padrão</th>'
+    +       '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--purple);letter-spacing:.6px;text-transform:uppercase">Peças/hora</th>'
+    +       '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--green);letter-spacing:.6px;text-transform:uppercase">% Ocupação</th>'
+    +       '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.6px;text-transform:uppercase">Takt</th>'
+    +     '</tr></thead>'
+    +     '<tbody>'+compRows+'</tbody>'
+    +     '<tfoot><tr style="background:var(--total-bg);border-top:2px solid var(--accent)">'
+    +       '<td colspan="2" style="padding:8px 10px;font-weight:800;color:var(--accent);font-size:11px;letter-spacing:.8px;text-transform:uppercase">TOTAL / SOMA</td>'
+    +       '<td style="padding:8px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:800;color:var(--text)">'+totalTmuSum.toFixed(1)+'</td>'
+    +       '<td style="padding:8px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:800;color:var(--green)">'+totalStdSec.toFixed(3)+'s</td>'
+    +       '<td style="padding:8px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:800;color:var(--purple)">'+(combinedPph||'—')+'<span style="font-size:9px;color:var(--text3);font-weight:400"> pc/h</span></td>'
+    +       '<td colspan="2" style="padding:8px 8px;text-align:right;font-size:10px;color:var(--text3)">—</td>'
+    +     '</tr></tfoot>'
+    +   '</table>'
+    + '</div>';
 
   // ── KPI Cards de topo ──
-  var kpiHtml = `
-    <div class="res-kpis" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
-      <div class="res-kpi"><div class="res-kpi-val" style="color:var(--accent)">${sheets.length}</div><div class="res-kpi-lbl">Folhas</div></div>
-      <div class="res-kpi"><div class="res-kpi-val" style="color:var(--text)">${totalTmuSum.toFixed(0)}</div><div class="res-kpi-lbl">TMU Total</div></div>
-      <div class="res-kpi" style="background:var(--greenBg);border-color:var(--green)"><div class="res-kpi-val" style="color:var(--green)">${totalStdSec.toFixed(2)}<span style="font-size:12px">s</span></div><div class="res-kpi-lbl" style="color:var(--green)">Σ Tempo Padrão</div></div>
-      <div class="res-kpi" style="background:var(--purpleBg);border-color:var(--purple)"><div class="res-kpi-val" style="color:var(--purple)">${combinedPph||'—'}</div><div class="res-kpi-lbl" style="color:var(--purple)">Σ Peças/hora</div></div>
-    </div>`;
+  var kpiHtml = ''
+    + '<div class="res-kpis" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">'
+    +   '<div class="res-kpi"><div class="res-kpi-val" style="color:var(--accent)">'+sheets.length+'</div><div class="res-kpi-lbl">Folhas</div></div>'
+    +   '<div class="res-kpi"><div class="res-kpi-val" style="color:var(--text)">'+totalTmuSum.toFixed(0)+'</div><div class="res-kpi-lbl">TMU Total</div></div>'
+    +   '<div class="res-kpi" style="background:var(--greenBg);border-color:var(--green)"><div class="res-kpi-val" style="color:var(--green)">'+totalStdSec.toFixed(2)+'<span style="font-size:12px">s</span></div><div class="res-kpi-lbl" style="color:var(--green)">Σ Tempo Padrão</div></div>'
+    +   '<div class="res-kpi" style="background:var(--purpleBg);border-color:var(--purple)"><div class="res-kpi-val" style="color:var(--purple)">'+(combinedPph||'—')+'</div><div class="res-kpi-lbl" style="color:var(--purple)">Σ Peças/hora</div></div>'
+    +   '<div class="res-kpi" style="border-color:'+allowColor(allowMedio)+'"><div class="res-kpi-val" style="color:'+allowColor(allowMedio)+'">'+fmt(allowMedio,1)+'<span style="font-size:12px">%</span></div><div class="res-kpi-lbl" style="color:'+allowColor(allowMedio)+'">Allowance Total médio</div></div>'
+    + '</div>';
 
-  // ── Monta modal usando overlay existente ──
-  var overlay = document.getElementById('res-overlay');
+  // ── Overlay dedicado (NÃO compartilha #res-overlay, para não quebrar Resultados) ──
+  var overlay = document.getElementById('finalrep-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'finalrep-overlay';
+    overlay.className = 'res-overlay hidden';
+    document.body.appendChild(overlay);
+  }
   overlay.className = 'res-overlay';
-  overlay.innerHTML = `
-    <div class="res-modal" style="max-width:900px">
-      <div class="res-modal::before"></div>
-      <div class="res-header">
-        <div>
-          <div class="res-title" style="color:var(--green)">📋 Relatório Final Consolidado</div>
-          <div class="res-subtitle">${sheets.length} folha${sheets.length!==1?'s':''} · ${new Date().toLocaleDateString('pt-BR')}</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <button class="btn btn-green" onclick="window.print()" style="font-size:11px">⬇ PDF</button>
-          <button class="res-close" onclick="document.getElementById('res-overlay').className='res-overlay hidden'">✕</button>
-        </div>
-      </div>
-      ${kpiHtml}
-      <div class="res-body">
-        <!-- Linha do tempo / cards -->
-        <div class="res-section-title">🗂️ Visão Geral por Folha</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:20px">
-          ${cardsHtml}
-        </div>
-        ${compTable}
-        ${tableHtml}
-        <div style="padding:12px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;font-size:10px;color:var(--text3);line-height:1.7">
-          <strong style="color:var(--text2)">Notas:</strong><br>
-          • Tempo Padrão já inclui allowance (fadiga + pessoal + contingência) de cada folha.<br>
-          • "Σ Peças/hora" = 3600 ÷ Σ Tempos Padrão de todas as folhas (produção encadeada).<br>
-          • A coluna "SOMA" na tabela de jornadas representa a produção conjunta de todos os postos operando em paralelo.<br>
-          • % Ocupação requer Takt Time preenchido no cabeçalho de cada folha.
-        </div>
-      </div>
-      <div class="res-footer">
-        <button class="btn btn-green" onclick="window.print()">⬇ Gerar PDF</button>
-        <button class="btn btn-ghost" onclick="document.getElementById('res-overlay').className='res-overlay hidden'">Fechar</button>
-      </div>
-    </div>`;
+  overlay.innerHTML = ''
+    + '<div class="res-modal" style="max-width:920px">'
+    +   '<div class="res-header">'
+    +     '<div>'
+    +       '<div class="res-title" style="color:var(--green)">📋 Relatório Final Consolidado</div>'
+    +       '<div class="res-subtitle">'+sheets.length+' folha'+(sheets.length!==1?'s':'')+' · '+withFad.length+' com Análise de Fadiga · '+new Date().toLocaleDateString('pt-BR')+'</div>'
+    +     '</div>'
+    +     '<div style="display:flex;gap:8px;align-items:center">'
+    +       '<button class="btn btn-green" onclick="exportPDF()" style="font-size:11px">⬇ PDF</button>'
+    +       '<button class="res-close" onclick="closeFinalReport()">✕</button>'
+    +     '</div>'
+    +   '</div>'
+    +   kpiHtml
+    +   '<div class="res-body">'
+    +     '<div class="res-section-title">🗂️ Visão Geral por Folha</div>'
+    +     '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-bottom:20px">'+cardsHtml+'</div>'
+    +     fadSection
+    +     compTable
+    +     tableHtml
+    +     '<div style="padding:12px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;font-size:10px;color:var(--text3);line-height:1.7">'
+    +       '<strong style="color:var(--text2)">Notas:</strong><br>'
+    +       '• O Tempo Padrão exibido já inclui o <strong>Allowance Total</strong> da Análise Final de Fadiga (TV + TER) de cada folha.<br>'
+    +       '• "Σ Peças/hora" = 3600 ÷ Σ Tempos Padrão de todas as folhas (produção encadeada).<br>'
+    +       '• A coluna "SOMA" representa a produção conjunta de todos os postos operando em paralelo.<br>'
+    +       '• % Ocupação e Ociosidade requerem o Takt Time preenchido no cabeçalho da folha.'
+    +     '</div>'
+    +   '</div>'
+    +   '<div class="res-footer">'
+    +     '<button class="btn btn-green" onclick="exportPDF()">⬇ Gerar PDF</button>'
+    +     '<button class="btn btn-ghost" onclick="closeFinalReport()">Fechar</button>'
+    +   '</div>'
+    + '</div>';
 
-  // Fechar ao clicar fora
-  overlay.onclick = function(e){ if(e.target===overlay) overlay.className='res-overlay hidden'; };
+  document.body.style.overflow = 'hidden';
+  overlay.onclick = function(e){ if(e.target===overlay) closeFinalReport(); };
+}
+
+function closeFinalReport(){
+  var overlay = document.getElementById('finalrep-overlay');
+  if(overlay) overlay.className = 'res-overlay hidden';
+  document.body.style.overflow = '';
 }
 
 var _libLastCodeInput = null;
@@ -10634,7 +10767,12 @@ function fadColetarEstado(){
     terAtmosf:      fadV('ter-atmosf',0),
     terRuido:       fadV('ter-ruido',0),
     terUmid:        fadV('ter-umid',0),
-    terVibr:        fadV('ter-vibr',0)
+    terVibr:        fadV('ter-vibr',0),
+    // Premissa de Allowance escolhida ('calc' = TV+TER detalhado · 'sese' = fixo 10%)
+    modoAllow: (function(){
+      var el = document.querySelector('input[name="fad-modo-allow"]:checked');
+      return el ? el.value : 'calc';
+    })()
   };
 }
 
@@ -10688,6 +10826,11 @@ function fadAplicarEstado(st){
   setVal('ter-ruido',   st.terRuido);
   setVal('ter-umid',    st.terUmid);
   setVal('ter-vibr',    st.terVibr);
+  // Premissa de allowance (TV+TER detalhado x SESÉ 10%)
+  if(st.modoAllow === 'sese' || st.modoAllow === 'calc'){
+    var rbMod = document.querySelector('input[name="fad-modo-allow"][value="'+st.modoAllow+'"]');
+    if(rbMod) rbMod.checked = true;
+  }
   // Marcar visualmente as linhas selecionadas em TER
   fadSyncRows();
 }
