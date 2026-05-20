@@ -1,65 +1,24 @@
 // ============================================================================
-// firestore.rules — Regras de segurança do MTM no Firestore
-// Cole isto em: Firebase Console → Firestore Database → Rules
+// firestore.rules — Modo aberto compartilhado
+// Qualquer usuário autenticado (anônimo OK) pode ler/escrever as coleções.
 // ============================================================================
 
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper: usuário autenticado?
     function signedIn() {
       return request.auth != null;
     }
 
-    // Helper: é membro do workspace ws?
-    function isMember(ws) {
-      return signedIn()
-        && get(/databases/$(database)/documents/workspaces/$(ws)).data.members[request.auth.uid] != null;
+    match /sheets/{id} {
+      allow read, write: if signedIn();
     }
-
-    // Helper: é owner do workspace ws?
-    function isOwner(ws) {
-      return signedIn()
-        && get(/databases/$(database)/documents/workspaces/$(ws)).data.ownerUid == request.auth.uid;
+    match /projects/{id} {
+      allow read, write: if signedIn();
     }
-
-    // ── WORKSPACES ─────────────────────────────────────────────────────────
-    match /workspaces/{wsId} {
-      // Qualquer logado pode ler/listar (necessário pra buscar por inviteCode
-      // ao entrar na equipe). Dados sensíveis NÃO ficam neste doc.
-      allow list, get: if signedIn();
-
-      // Criar: só logado, e tem que se colocar como owner + único membro inicial
-      allow create: if signedIn()
-        && request.resource.data.ownerUid == request.auth.uid
-        && request.resource.data.members[request.auth.uid] != null;
-
-      // Update: dono pode tudo; membro pode se auto-adicionar via inviteCode
-      // (essa segunda regra cobre o fluxo de "entrar com código")
-      allow update: if signedIn() && (
-        isOwner(wsId)
-        || (
-          // Membro se auto-adicionando: só pode mexer no próprio slot em members
-          request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['members'])
-          && request.resource.data.members[request.auth.uid] != null
-        )
-      );
-
-      // Delete: só dono
-      allow delete: if isOwner(wsId);
-
-      // ── SUBCOLEÇÕES (sheets, projects, logos) ────────────────────────────
-      match /sheets/{sheetId} {
-        allow read, write: if isMember(wsId);
-      }
-      match /projects/{projectId} {
-        allow read, write: if isMember(wsId);
-      }
-      match /logos/{logoId} {
-        allow read, write: if isMember(wsId);
-      }
+    match /logos/{id} {
+      allow read, write: if signedIn();
     }
   }
 }
