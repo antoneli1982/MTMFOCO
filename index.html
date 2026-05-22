@@ -2613,6 +2613,355 @@ window.FIREBASE_CONFIG = {
 </div>
 
 
+<style>
+/* ══════════════════════════════════════════════════════
+   BALANCEAMENTO DE LINHA — estilos integrados ao MTM
+   ══════════════════════════════════════════════════════ */
+#bal-overlay{
+  display:none;
+  flex-direction:column;
+  min-height:calc(100vh - 42px);
+  background:var(--bg);
+}
+#bal-overlay.bal-open{ display:flex; }
+
+.bal-top{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 20px;
+  border-bottom:1px solid var(--border2);
+  background:var(--surface);
+  flex-wrap:wrap;gap:10px;
+}
+.bal-top-title{
+  font-size:18px;font-weight:800;
+  background:var(--accentGrad);-webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;background-clip:text;
+  letter-spacing:-.2px;
+}
+.bal-top-sep{flex:1;}
+.bal-close-btn{
+  background:transparent;border:1px solid var(--border2);
+  border-radius:var(--radius-sm);color:var(--text2);
+  font-size:11px;font-weight:600;padding:6px 12px;
+  cursor:pointer;font-family:inherit;transition:all .15s;
+}
+.bal-close-btn:hover{background:var(--redBg);color:var(--red);border-color:var(--red);}
+
+/* mode tabs */
+.bal-mode-bar{
+  display:flex;gap:6px;
+  padding:14px 20px 0;
+}
+.bal-mode-btn{
+  flex:1;max-width:340px;
+  padding:12px 16px;border:1px solid var(--border2);
+  border-radius:var(--radius-sm);
+  background:var(--surface);color:var(--text2);
+  font-family:inherit;font-size:12px;font-weight:600;
+  cursor:pointer;transition:all .2s;
+  display:flex;align-items:center;gap:10px;text-align:left;
+}
+.bal-mode-btn .bm-icon{font-size:20px;flex-shrink:0;}
+.bal-mode-btn .bm-label{font-size:12px;font-weight:700;color:inherit;}
+.bal-mode-btn .bm-desc{font-size:10px;color:var(--text3);margin-top:2px;}
+.bal-mode-btn.active{
+  background:var(--accentGradSoft);
+  border-color:rgba(0,212,255,.3);
+  color:var(--accent);
+}
+.bal-mode-btn.active .bm-desc{color:var(--accentMid);}
+.bal-mode-btn:hover:not(.active){background:var(--surface2);}
+
+/* main grid */
+.bal-grid{
+  display:grid;
+  grid-template-columns:300px 1fr;
+  gap:16px;
+  padding:16px 20px 40px;
+  flex:1;align-items:start;
+}
+@media(max-width:860px){.bal-grid{grid-template-columns:1fr;}}
+
+/* sidebar cards */
+.bal-card{
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:var(--radius);overflow:hidden;
+  box-shadow:var(--shadow-sm);margin-bottom:12px;
+}
+.bal-card:last-child{margin-bottom:0;}
+.bal-card-hdr{
+  padding:11px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;
+  font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.5px;color:var(--text2);
+  background:var(--header-bg);
+}
+.bal-card-body{padding:14px 16px;}
+.bal-f{margin-bottom:12px;}
+.bal-f:last-child{margin-bottom:0;}
+.bal-f label{
+  display:block;font-size:9px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.6px;
+  color:var(--text3);margin-bottom:5px;
+}
+.bal-inp{
+  width:100%;padding:8px 10px;
+  background:var(--surface2);border:1px solid var(--border2);
+  border-radius:var(--radius-sm);
+  color:var(--text);font-family:inherit;font-size:12px;
+  transition:all .18s;
+  -moz-appearance:textfield;
+}
+.bal-inp::-webkit-inner-spin-button,.bal-inp::-webkit-outer-spin-button{-webkit-appearance:none;}
+.bal-inp:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accentBg);}
+.bal-inp::placeholder{color:var(--text3);}
+.bal-inp-row{display:flex;gap:6px;}
+.bal-inp-row .bal-f{flex:1;margin-bottom:0;}
+.bal-select{
+  width:100%;padding:8px 10px;
+  background:var(--surface2);border:1px solid var(--border2);
+  border-radius:var(--radius-sm);
+  color:var(--text);font-family:inherit;font-size:12px;
+  cursor:pointer;transition:all .18s;
+}
+.bal-select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accentBg);}
+.bal-select option{background:var(--surface2);}
+.bal-hint{font-size:9px;color:var(--text3);margin-top:3px;line-height:1.4;}
+.bal-eff-row{display:flex;align-items:center;gap:8px;margin-top:6px;}
+.bal-eff-row input[type="range"]{
+  flex:1;height:4px;border:none;border-radius:99px;
+  background:var(--surface3);cursor:pointer;padding:0;
+  accent-color:var(--accent);
+}
+.bal-eff-val{
+  font-family:'JetBrains Mono',monospace;font-size:12px;
+  font-weight:600;color:var(--accent);min-width:36px;text-align:right;
+}
+.bal-formula{
+  font-size:10px;color:var(--text2);line-height:1.9;
+}
+.bal-formula strong{color:var(--accent);}
+
+/* activity table */
+.bal-act-card{
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:var(--radius);overflow:hidden;
+  box-shadow:var(--shadow-sm);margin-bottom:12px;
+}
+.bal-act-hdr{
+  padding:11px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;
+  background:var(--header-bg);
+}
+.bal-act-title{
+  font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.5px;color:var(--text2);
+}
+.bal-act-spacer{flex:1;}
+.bal-add-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 12px;border:none;
+  background:var(--accentGrad);color:#fff;
+  border-radius:var(--radius-sm);
+  font-family:inherit;font-size:10px;font-weight:700;
+  cursor:pointer;transition:all .2s;
+  box-shadow:0 3px 10px rgba(0,212,255,.2);
+  letter-spacing:.2px;
+}
+.bal-add-btn:hover{filter:brightness(1.1);transform:translateY(-1px);}
+.bal-import-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 12px;
+  background:var(--greenBg);
+  border:1px solid rgba(0,229,160,.4);color:var(--green);
+  border-radius:var(--radius-sm);
+  font-family:inherit;font-size:10px;font-weight:700;
+  cursor:pointer;transition:all .2s;letter-spacing:.2px;
+}
+.bal-import-btn:hover{background:var(--green);color:#001a12;}
+
+.bal-table{width:100%;border-collapse:collapse;}
+.bal-table thead th{
+  padding:9px 8px;background:var(--header-bg);
+  font-size:9px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.5px;color:var(--text2);
+  border-bottom:1px solid var(--border2);white-space:nowrap;
+}
+.bal-table tbody tr{border-bottom:1px solid var(--border);}
+.bal-table tbody tr:last-child{border-bottom:none;}
+.bal-table tbody tr:nth-child(even){background:var(--row-even);}
+.bal-table tbody tr:nth-child(odd){background:var(--row-odd);}
+.bal-table tbody tr:hover{background:var(--row-hover);}
+.bal-table td{padding:5px 6px;vertical-align:middle;}
+.bal-table td input,.bal-table td select{
+  width:100%;padding:5px 7px;
+  background:transparent;border:1px solid transparent;
+  border-radius:5px;color:var(--text);font-family:inherit;font-size:11px;
+  -moz-appearance:textfield;
+}
+.bal-table td input::-webkit-inner-spin-button,.bal-table td input::-webkit-outer-spin-button{-webkit-appearance:none;}
+.bal-table td input:focus,.bal-table td select:focus{
+  background:var(--surface2);border-color:var(--accent);
+  box-shadow:0 0 0 2px var(--accentBg);outline:none;
+}
+.bal-table td input::placeholder{color:var(--text3);}
+.bal-num-cell{
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+  color:var(--text3);text-align:right;white-space:nowrap;padding-right:12px!important;
+}
+.bal-num-cell.live{color:var(--accent);}
+.bal-rnum{
+  font-family:'JetBrains Mono',monospace;font-size:9px;
+  color:var(--text3);text-align:center;width:24px;
+}
+.bal-del{
+  display:flex;align-items:center;justify-content:center;
+  width:22px;height:22px;border:none;border-radius:5px;
+  background:transparent;color:var(--text3);
+  cursor:pointer;transition:all .15s;font-size:12px;
+}
+.bal-del:hover{background:var(--redBg);color:var(--red);}
+
+.bal-totrow{
+  padding:9px 14px;border-top:1px solid var(--border2);
+  background:var(--header-bg);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:6px;
+}
+.bal-tot-label{
+  font-size:9px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.5px;color:var(--text2);
+}
+.bal-tot-vals{display:flex;align-items:center;gap:14px;}
+.bal-tot-sec{font-size:10px;color:var(--text2);}
+.bal-tot-min{
+  font-family:'JetBrains Mono',monospace;font-size:13px;
+  font-weight:700;color:var(--accent);
+}
+.bal-tot-tmu{font-size:10px;color:var(--text2);}
+
+/* KPI grid */
+.bal-kpi-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:10px;margin-bottom:12px;
+}
+.bal-kpi{
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:var(--radius);padding:14px 16px;
+  position:relative;overflow:hidden;
+}
+.bal-kpi.hl{
+  border-color:rgba(0,212,255,.35);
+  background:linear-gradient(135deg,rgba(0,212,255,.06),rgba(124,58,237,.04));
+  box-shadow:0 0 0 1px rgba(0,212,255,.12),var(--shadow-sm);
+}
+.bal-kpi-label{
+  font-size:9px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.5px;color:var(--text2);margin-bottom:7px;
+}
+.bal-kpi-value{
+  font-family:'JetBrains Mono',monospace;font-size:26px;
+  font-weight:700;line-height:1;
+  background:var(--accentGrad);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.bal-kpi-value.good{background:none;-webkit-text-fill-color:var(--green);}
+.bal-kpi-value.warn{background:none;-webkit-text-fill-color:var(--orange);}
+.bal-kpi-value.bad {background:none;-webkit-text-fill-color:var(--red);}
+.bal-kpi-sub{font-size:9px;color:var(--text3);margin-top:5px;line-height:1.4;}
+
+/* saturation bars */
+.bal-sat-card{
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:var(--radius);overflow:hidden;margin-bottom:12px;
+}
+.bal-sat-body{padding:14px 16px;}
+.bal-bar-wrap{margin-bottom:10px;}
+.bal-bar-label{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:4px;
+}
+.bal-bar-name{font-size:11px;font-weight:600;color:var(--text);}
+.bal-bar-pct{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;font-weight:700;
+}
+.bal-track{height:7px;background:var(--surface3);border-radius:99px;overflow:hidden;}
+.bal-fill{
+  height:100%;border-radius:99px;
+  background:var(--accentGrad);
+  transition:width .5s cubic-bezier(.4,0,.2,1);min-width:2px;
+}
+.bal-fill.good{background:linear-gradient(90deg,var(--green),#00c896);}
+.bal-fill.warn{background:linear-gradient(90deg,var(--orange),#e6a200);}
+.bal-fill.over{background:linear-gradient(90deg,var(--red),#ff2255);}
+.bal-sat-legend{
+  display:flex;gap:10px;flex-wrap:wrap;
+  margin-top:12px;padding-top:10px;border-top:1px solid var(--border);
+  font-size:9px;
+}
+
+/* distribution table */
+.bal-dist-card{
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:var(--radius);overflow:hidden;margin-bottom:12px;
+}
+.bal-dist-table{width:100%;border-collapse:collapse;}
+.bal-dist-table th{
+  padding:8px 10px;background:var(--header-bg);
+  font-size:9px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.5px;color:var(--text2);
+  border-bottom:1px solid var(--border2);text-align:left;
+}
+.bal-dist-table td{
+  padding:8px 10px;border-bottom:1px solid var(--border);
+  font-size:11px;color:var(--text);
+}
+.bal-dist-table tr:last-child td{border-bottom:none;}
+.bal-dist-table tr:nth-child(even) td{background:var(--row-even);}
+.bal-dist-table td.r{text-align:right;}
+.bal-dist-table td.mono{font-family:'JetBrains Mono',monospace;font-size:10px;}
+
+.bal-badge{
+  display:inline-flex;align-items:center;padding:2px 7px;
+  border-radius:99px;font-size:9px;font-weight:700;letter-spacing:.3px;
+}
+.bal-badge.g{background:var(--greenBg);color:var(--green);}
+.bal-badge.o{background:var(--orangeBg);color:var(--orange);}
+.bal-badge.r{background:var(--redBg);color:var(--red);}
+.bal-badge.b{background:var(--blueBg);color:var(--blue);}
+
+/* export */
+.bal-export-bar{
+  padding:11px 16px;border-top:1px solid var(--border);
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  background:var(--surface2);
+}
+.bal-exp-label{font-size:10px;font-weight:700;color:var(--text2);margin-right:4px;}
+.bal-exp-btn{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:5px 10px;border:1px solid var(--border2);
+  border-radius:6px;background:var(--surface);
+  color:var(--text2);font-family:inherit;font-size:10px;font-weight:600;
+  cursor:pointer;transition:all .15s;
+}
+.bal-exp-btn:hover{background:var(--surface3);color:var(--text);}
+.bal-exp-btn.g{border-color:rgba(0,229,160,.3);color:var(--green);}
+.bal-exp-btn.g:hover{background:var(--greenBg);}
+.bal-exp-btn.bl{border-color:rgba(79,142,247,.3);color:var(--blue);}
+.bal-exp-btn.bl:hover{background:var(--blueBg);}
+.bal-exp-btn.pu{border-color:rgba(167,139,250,.3);color:var(--purple);}
+.bal-exp-btn.pu:hover{background:var(--purpleBg);}
+
+/* empty */
+.bal-empty{
+  padding:48px 20px;text-align:center;
+  color:var(--text3);font-size:12px;line-height:1.7;
+}
+.bal-empty-icon{font-size:36px;margin-bottom:10px;opacity:.5;}
+</style>
+
 <div class="toolbar">
   <!-- Logo + crédito -->
   <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
@@ -2629,6 +2978,7 @@ window.FIREBASE_CONFIG = {
   <div class="toolbar-actions" style="display:flex;align-items:center;gap:6px">
     <!-- ★ AÇÕES PRINCIPAIS — primeiro lugar para acesso rápido ★ -->
     <button class="btn btn-primary" onclick="showFinalReport()" title="Relatório consolidado de todas as folhas" style="background:linear-gradient(135deg,#00e5a0,#00b87a);border:none;color:#001a12;font-weight:800;font-size:12px;padding:7px 16px">📋<span class="btn-lbl"> Relatório Final</span></button>
+    <button class="btn btn-ghost" onclick="openBalanceamento()" title="Balanceamento de Linha" style="background:rgba(0,212,255,.08);color:var(--accent);border-color:rgba(0,212,255,.28)">⚖️<span class="btn-lbl"> Balanceamento</span></button>
     <button class="btn btn-primary" onclick="openProjectManager()" title="Gerenciador de Projetos" style="background:linear-gradient(135deg,#4f8ef7,#6366f1);border:none;color:#fff;font-weight:800;font-size:12px;padding:7px 16px">📁<span class="btn-lbl"> Projetos</span></button>
     <!-- separador visual -->
     <div style="width:1px;height:26px;background:var(--border2);margin:0 4px;flex-shrink:0"></div>
@@ -2661,6 +3011,215 @@ window.FIREBASE_CONFIG = {
 </div>
 
 <div id="sheets-container"></div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     BALANCEAMENTO DE LINHA — Painel integrado ao MTM
+     ══════════════════════════════════════════════════════════════ -->
+<div id="bal-overlay">
+
+  <!-- Header do painel -->
+  <div class="bal-top">
+    <span style="font-size:20px">⚖️</span>
+    <div>
+      <div class="bal-top-title">Balanceamento de Linha</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:1px">Dimensione pessoas ou capacidade com base nos tempos das suas folhas MTM</div>
+    </div>
+    <div class="bal-top-sep"></div>
+    <button class="bal-import-btn" onclick="balImportFromSheets()" title="Importar tempos padrão das folhas MTM abertas">📋 Importar Folhas MTM</button>
+    <button class="bal-close-btn" onclick="closeBalanceamento()">✕ Fechar</button>
+  </div>
+
+  <!-- Seletor de modo -->
+  <div class="bal-mode-bar">
+    <button class="bal-mode-btn active" id="balModeA" onclick="balSetMode('A')">
+      <span class="bm-icon">👥</span>
+      <div>
+        <div class="bm-label">Dimensionar Pessoas</div>
+        <div class="bm-desc">Atividades → Qtd. de operadores necessários</div>
+      </div>
+    </button>
+    <button class="bal-mode-btn" id="balModeB" onclick="balSetMode('B')">
+      <span class="bm-icon">📦</span>
+      <div>
+        <div class="bm-label">Dimensionar Capacidade</div>
+        <div class="bm-desc">Pessoas disponíveis → Qtd. de unidades produzíveis</div>
+      </div>
+    </button>
+  </div>
+
+  <!-- Grid principal -->
+  <div class="bal-grid">
+
+    <!-- ─── SIDEBAR ─── -->
+    <div id="balSidebar">
+
+      <!-- Parâmetros -->
+      <div class="bal-card">
+        <div class="bal-card-hdr">⚙️ &nbsp;Parâmetros do Processo</div>
+        <div class="bal-card-body">
+
+          <div class="bal-f">
+            <label>Tempo Disponível por Período</label>
+            <div class="bal-inp-row">
+              <div class="bal-f"><input type="number" class="bal-inp" id="balAvailTime" value="480" min="1" placeholder="480" oninput="balCalc()"></div>
+              <div class="bal-f" style="flex:0 0 76px">
+                <select class="bal-select" id="balAvailUnit" onchange="balCalc()">
+                  <option value="60">min</option>
+                  <option value="3600">horas</option>
+                  <option value="1">seg</option>
+                </select>
+              </div>
+            </div>
+            <div class="bal-hint">Ex: 480 min = turno de 8 horas</div>
+          </div>
+
+          <div class="bal-f">
+            <label>Eficiência Operacional (%)</label>
+            <div class="bal-eff-row">
+              <input type="range" id="balEffSlider" min="50" max="100" value="85" oninput="balSyncEff(this.value)">
+              <span class="bal-eff-val" id="balEffDisplay">85%</span>
+            </div>
+            <input type="number" class="bal-inp" id="balEff" value="85" min="1" max="100" style="margin-top:6px" oninput="balSyncEff(this.value)">
+            <div class="bal-hint">Inclui pausas, setup, variações — padrão 85%</div>
+          </div>
+
+          <!-- Modo A: demanda -->
+          <div class="bal-f" id="balFieldDemand">
+            <label>Demanda por Período (unidades)</label>
+            <input type="number" class="bal-inp" id="balDemand" min="1" placeholder="Ex: 500 caixas/turno" oninput="balCalc()">
+            <div class="bal-hint">Qtd. de unidades/peças/caixas a produzir</div>
+          </div>
+
+          <!-- Modo B: pessoas -->
+          <div class="bal-f" id="balFieldPeople" style="display:none">
+            <label>Pessoas Disponíveis</label>
+            <input type="number" class="bal-inp" id="balPeople" min="1" placeholder="Ex: 3 operadores" oninput="balCalc()">
+          </div>
+
+          <div class="bal-f">
+            <label>Unidade de Tempo das Atividades</label>
+            <select class="bal-select" id="balActUnit" onchange="balCalc()">
+              <option value="1">Segundos (s)</option>
+              <option value="60">Minutos (min)</option>
+              <option value="3600">Horas (h)</option>
+              <option value="0.036">TMU (0,036 s cada)</option>
+            </select>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Fórmulas -->
+      <div class="bal-card">
+        <div class="bal-card-hdr">📐 &nbsp;Fórmulas</div>
+        <div class="bal-card-body">
+          <div class="bal-formula" id="balFormulaA">
+            <strong>Takt Time</strong> = (T_disp × Efic%) ÷ Demanda<br>
+            <strong>Conteúdo</strong> = Σ (Tempo_i × Freq_i)<br>
+            <strong>Pessoas</strong> = Conteúdo ÷ Takt Time<br>
+            <strong>Saturação</strong> = Pessoas_dec ÷ Pessoas_int × 100%
+          </div>
+          <div class="bal-formula" id="balFormulaB" style="display:none">
+            <strong>T_operac.</strong> = Pessoas × T_disp × Efic%<br>
+            <strong>Conteúdo</strong> = Σ (Tempo_i × Freq_i)<br>
+            <strong>Capacidade</strong> = T_operac. ÷ Conteúdo<br>
+            <strong>Takt</strong> = T_disp × Efic% ÷ Capacidade
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /sidebar -->
+
+    <!-- ─── CONTENT ─── -->
+    <div>
+
+      <!-- Tabela de atividades -->
+      <div class="bal-act-card">
+        <div class="bal-act-hdr">
+          <span>📋</span>
+          <span class="bal-act-title">Atividades / Operações</span>
+          <div class="bal-act-spacer"></div>
+          <button class="bal-import-btn" onclick="balImportFromSheets()" style="margin-right:6px">📋 Importar MTM</button>
+          <button class="bal-add-btn" onclick="balAddRow()">＋ Adicionar linha</button>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table class="bal-table" id="balActTable">
+            <thead>
+              <tr>
+                <th style="width:24px">#</th>
+                <th style="min-width:160px;text-align:left;padding-left:10px">Descrição / Atividade</th>
+                <th style="width:105px">Tempo Unit.</th>
+                <th style="width:76px">Frequência</th>
+                <th style="width:105px;text-align:right;padding-right:12px">Total (s)</th>
+                <th style="width:28px"></th>
+              </tr>
+            </thead>
+            <tbody id="balActBody"></tbody>
+          </table>
+          <div id="balTableEmpty" class="bal-empty" style="display:none">
+            <div class="bal-empty-icon">📋</div>
+            Nenhuma atividade. Clique em "+ Adicionar linha" ou importe as folhas MTM abertas.
+          </div>
+        </div>
+
+        <div class="bal-totrow">
+          <span class="bal-tot-label">Conteúdo de Trabalho Total</span>
+          <div class="bal-tot-vals">
+            <span class="bal-tot-sec" id="balTotSec">— s</span>
+            <span class="bal-tot-min" id="balTotMin">— min</span>
+            <span class="bal-tot-tmu" id="balTotTMU">— TMU</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="bal-kpi-grid" id="balKpiGrid">
+        <div class="bal-empty" style="grid-column:1/-1" id="balEmptyMsg">
+          <div class="bal-empty-icon">⚖️</div>
+          Preencha os parâmetros e adicione atividades para ver o resultado.
+        </div>
+      </div>
+
+      <!-- Detalhes (saturação + distribuição) -->
+      <div id="balDetails" style="display:none">
+
+        <!-- Saturação -->
+        <div class="bal-sat-card">
+          <div class="bal-card-hdr">📊 &nbsp;Saturação dos Operadores</div>
+          <div class="bal-sat-body" id="balSatBody"></div>
+        </div>
+
+        <!-- Distribuição -->
+        <div class="bal-dist-card">
+          <div class="bal-card-hdr">🗂️ &nbsp;Distribuição Sugerida de Atividades</div>
+          <div style="overflow-x:auto;">
+            <table class="bal-dist-table">
+              <thead>
+                <tr>
+                  <th>Operador</th>
+                  <th>Atividade(s)</th>
+                  <th class="r">Carga (s)</th>
+                  <th class="r">Saturação</th>
+                  <th class="r">Status</th>
+                </tr>
+              </thead>
+              <tbody id="balDistBody"></tbody>
+            </table>
+          </div>
+          <div class="bal-export-bar">
+            <span class="bal-exp-label">Exportar:</span>
+            <button class="bal-exp-btn g" onclick="balExportCSV()">📄 CSV</button>
+            <button class="bal-exp-btn bl" onclick="balExportJSON()">{ } JSON</button>
+            <button class="bal-exp-btn pu" onclick="balCopyTable()">📋 Copiar</button>
+          </div>
+        </div>
+
+      </div><!-- /details -->
+
+    </div><!-- /content -->
+  </div><!-- /grid -->
+</div><!-- /#bal-overlay -->
 
 <div class="float-nav">
   <button class="float-btn" onclick="goTop()" title="Ir ao topo">▲</button>
@@ -11856,7 +12415,413 @@ document.addEventListener('keydown', function(e){
      ═══════════════════════════════════════════════════════════ -->
 <div id="print-area"></div>
 
-<!-- Firebase externo desativado: modo direto sem tela inicial/login. -->
+<!-- ══════════════════════════════════════════════════════════════
+     BALANCEAMENTO DE LINHA — Engine integrado ao MTM
+     ══════════════════════════════════════════════════════════════ -->
+<script>
+/* ── Estado ── */
+var balMode    = 'A';
+var balRows    = [];
+var balRowCnt  = 0;
+var balResult  = null;
+
+/* ── Abrir / Fechar ── */
+function openBalanceamento(){
+  document.getElementById('bal-overlay').classList.add('bal-open');
+  // Esconder tabs e sheets para dar espaço
+  document.getElementById('tabs-bar').style.display = 'none';
+  document.getElementById('sheets-container').style.display = 'none';
+  if(!balRows.length){ balAddRow(); balAddRow(); balAddRow(); }
+  balCalc();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function closeBalanceamento(){
+  document.getElementById('bal-overlay').classList.remove('bal-open');
+  document.getElementById('tabs-bar').style.display = '';
+  document.getElementById('sheets-container').style.display = '';
+}
+
+/* ── Modo ── */
+function balSetMode(m){
+  balMode = m;
+  document.getElementById('balModeA').classList.toggle('active', m==='A');
+  document.getElementById('balModeB').classList.toggle('active', m==='B');
+  document.getElementById('balFieldDemand').style.display = m==='A' ? '' : 'none';
+  document.getElementById('balFieldPeople').style.display = m==='B' ? '' : 'none';
+  document.getElementById('balFormulaA').style.display = m==='A' ? '' : 'none';
+  document.getElementById('balFormulaB').style.display = m==='B' ? '' : 'none';
+  balCalc();
+}
+
+/* ── Eficiência ── */
+function balSyncEff(v){
+  v = Math.max(1, Math.min(100, parseFloat(v)||85));
+  document.getElementById('balEff').value      = v;
+  document.getElementById('balEffSlider').value = v;
+  document.getElementById('balEffDisplay').textContent = v + '%';
+  balCalc();
+}
+
+/* ── Linhas ── */
+function balAddRow(desc, time, freq){
+  balRowCnt++;
+  var id = 'br_' + balRowCnt;
+  balRows.push({id:id, desc:desc||'', time:time||'', freq:parseFloat(freq)||1});
+  balRenderTable();
+  if(!desc){
+    setTimeout(function(){
+      var el = document.getElementById('bdesc_'+id);
+      if(el) el.focus();
+    }, 50);
+  }
+}
+
+function balDelRow(id){
+  balRows = balRows.filter(function(r){ return r.id !== id; });
+  balRenderTable(); balCalc();
+}
+
+function balUpdRow(id, field, val){
+  var r = balRows.find(function(x){ return x.id===id; });
+  if(!r) return;
+  if(field==='freq') r.freq = parseFloat(val)||1;
+  else if(field==='time') r.time = val;
+  else r[field] = val;
+  // Atualizar célula de total
+  var td = document.querySelector('#btr_'+id+' .bal-num-cell');
+  if(td){
+    var s = balRowSec(r);
+    td.textContent = s > 0 ? s.toFixed(1) : '—';
+    td.classList.toggle('live', s>0);
+  }
+  balCalcTotals();
+}
+
+function balRowSec(r){
+  var t = parseFloat(r.time);
+  if(isNaN(t)||t<=0) return 0;
+  var uf = parseFloat(document.getElementById('balActUnit').value)||1;
+  return t * uf * (parseFloat(r.freq)||1);
+}
+
+function balRenderTable(){
+  var body  = document.getElementById('balActBody');
+  var empty = document.getElementById('balTableEmpty');
+  if(!balRows.length){ body.innerHTML=''; empty.style.display=''; return; }
+  empty.style.display='none';
+  body.innerHTML = balRows.map(function(r,i){
+    var s = balRowSec(r);
+    return '<tr id="btr_'+r.id+'">'
+      +'<td class="bal-rnum">'+(i+1)+'</td>'
+      +'<td><input type="text" id="bdesc_'+r.id+'" value="'+balEsc(r.desc)+'" placeholder="Ex: Embalar caixa…" oninput="balUpdRow(\''+r.id+'\',\'desc\',this.value)"></td>'
+      +'<td><input type="number" id="btime_'+r.id+'" value="'+(r.time===''?'':r.time)+'" min="0" step="any" placeholder="0" oninput="balUpdRow(\''+r.id+'\',\'time\',this.value);balCalc()"></td>'
+      +'<td><input type="number" id="bfreq_'+r.id+'" value="'+r.freq+'" min="0.01" step="0.01" placeholder="1" oninput="balUpdRow(\''+r.id+'\',\'freq\',this.value);balCalc()"></td>'
+      +'<td class="bal-num-cell'+(s>0?' live':'')+'">'+(s>0?s.toFixed(1):'—')+'</td>'
+      +'<td><button class="bal-del" onclick="balDelRow(\''+r.id+'\')">✕</button></td>'
+    +'</tr>';
+  }).join('');
+}
+
+function balCalcTotals(){
+  var tot = balRows.reduce(function(a,r){ return a+balRowSec(r); }, 0);
+  document.getElementById('balTotSec').textContent = (tot>0?tot.toFixed(1):'—') + ' s';
+  document.getElementById('balTotMin').textContent = (tot>0?(tot/60).toFixed(3):'—') + ' min';
+  document.getElementById('balTotTMU').textContent = (tot>0?(tot/0.036).toFixed(1):'—') + ' TMU';
+  return tot;
+}
+
+/* ── Cálculo principal ── */
+function balCalc(){
+  var availSec = (parseFloat(document.getElementById('balAvailTime').value)||0)
+               * (parseFloat(document.getElementById('balAvailUnit').value)||60);
+  var eff      = (parseFloat(document.getElementById('balEff').value)||85) / 100;
+  var totalSec = balCalcTotals();
+
+  if(!totalSec || !availSec){ balShowEmpty(); return; }
+
+  var res = {};
+  if(balMode==='A'){
+    var demand = parseFloat(document.getElementById('balDemand').value)||0;
+    if(!demand){ balShowEmpty('Informe a demanda por período.'); return; }
+    var takt     = (availSec * eff) / demand;
+    var pExact   = totalSec / takt;
+    var pInt     = Math.ceil(pExact);
+    var sat      = (pExact/pInt)*100;
+    res = { mode:'A', takt:takt, pExact:pExact, pInt:pInt, sat:sat,
+            totalSec:totalSec, availSec:availSec, eff:eff, demand:demand };
+  } else {
+    var pAvail   = parseFloat(document.getElementById('balPeople').value)||0;
+    if(!pAvail){ balShowEmpty('Informe o número de pessoas.'); return; }
+    var capExact = (pAvail * availSec * eff) / totalSec;
+    var capInt   = Math.floor(capExact);
+    var takt2    = capExact>0 ? (availSec*eff)/capExact : 0;
+    var sat2     = capInt>0 ? (capExact/capInt)*100 : 0;
+    res = { mode:'B', pAvail:pAvail, capExact:capExact, capInt:capInt,
+            takt:takt2, sat:sat2, totalSec:totalSec, availSec:availSec, eff:eff };
+  }
+  balResult = res;
+  balRenderResults(res);
+}
+
+/* ── Renderizar resultados ── */
+function balRenderResults(r){
+  document.getElementById('balEmptyMsg').style.display = 'none';
+  var grid = document.getElementById('balKpiGrid');
+
+  var kpis = [];
+  if(r.mode==='A'){
+    var sc = r.sat>=90?'good':r.sat>=70?'warn':'bad';
+    kpis = [
+      {lbl:'Pessoas Necessárias', val:r.pExact.toFixed(2), sub:r.pInt+' operadores (▲)', cls:'', hl:true},
+      {lbl:'Takt Time',           val:balFmtDur(r.takt),   sub:'Tempo máx. por unidade', cls:''},
+      {lbl:'Saturação da Linha',  val:r.sat.toFixed(1)+'%',sub:'Utilização', cls:sc},
+      {lbl:'Conteúdo de Trabalho',val:balFmtDur(r.totalSec),sub:'Por ciclo/unidade',cls:''},
+    ];
+  } else {
+    var sc2 = r.sat>=90?'good':r.sat>=70?'warn':'bad';
+    kpis = [
+      {lbl:'Unidades Produzíveis', val:r.capExact.toFixed(1), sub:r.capInt+' unidades (▼)', cls:'', hl:true},
+      {lbl:'Takt Time Disponível', val:balFmtDur(r.takt),     sub:'Com '+r.pAvail+' oper.',cls:''},
+      {lbl:'Saturação da Linha',   val:r.sat.toFixed(1)+'%',  sub:'Utilização',cls:sc2},
+      {lbl:'Conteúdo de Trabalho', val:balFmtDur(r.totalSec), sub:'Por ciclo',cls:''},
+    ];
+  }
+
+  // Limpar KPIs anteriores, manter #balEmptyMsg
+  Array.from(grid.children).forEach(function(c){
+    if(c.id!=='balEmptyMsg') c.remove();
+  });
+
+  kpis.forEach(function(k){
+    var d = document.createElement('div');
+    d.className = 'bal-kpi' + (k.hl?' hl':'');
+    d.innerHTML = '<div class="bal-kpi-label">'+k.lbl+'</div>'
+      +'<div class="bal-kpi-value '+k.cls+'">'+k.val+'</div>'
+      +'<div class="bal-kpi-sub">'+k.sub+'</div>';
+    grid.appendChild(d);
+  });
+
+  balRenderSat(r);
+  balRenderDist(r);
+  document.getElementById('balDetails').style.display = '';
+}
+
+function balShowEmpty(msg){
+  var grid = document.getElementById('balKpiGrid');
+  Array.from(grid.children).forEach(function(c){
+    if(c.id!=='balEmptyMsg') c.remove();
+  });
+  document.getElementById('balEmptyMsg').style.display = '';
+  document.getElementById('balEmptyMsg').innerHTML = '<div class="bal-empty-icon">⚖️</div>'
+    +(msg||'Preencha os parâmetros e adicione atividades.');
+  document.getElementById('balDetails').style.display = 'none';
+  balResult = null;
+}
+
+/* ── Saturação ── */
+function balRenderSat(r){
+  var nPeople = r.mode==='A' ? r.pInt : Math.ceil(r.pAvail);
+  var ops     = balDistribute(r);
+  var html    = '';
+  ops.forEach(function(op){
+    var pct  = op.load / r.takt * 100;
+    var disp = Math.min(pct, 100);
+    var cls  = pct>100?'over':pct>=85?'good':'warn';
+    var col  = pct>100?'var(--red)':pct>=85?'var(--green)':'var(--orange)';
+    html += '<div class="bal-bar-wrap">'
+      +'<div class="bal-bar-label">'
+        +'<span class="bal-bar-name">'+op.name+'</span>'
+        +'<span class="bal-bar-pct" style="color:'+col+'">'+pct.toFixed(1)+'%</span>'
+      +'</div>'
+      +'<div class="bal-track"><div class="bal-fill '+cls+'" style="width:'+disp+'%"></div></div>'
+    +'</div>';
+  });
+  html += '<div class="bal-sat-legend">'
+    +'<span style="color:var(--green)">● ≥85% Ótimo</span>'
+    +'<span style="color:var(--orange)">● 60-85% Ocioso</span>'
+    +'<span style="color:var(--blue)">● &lt;60% Subutilizado</span>'
+    +'<span style="color:var(--red)">● &gt;100% Sobrecarga</span>'
+  +'</div>';
+  document.getElementById('balSatBody').innerHTML = html;
+}
+
+/* ── Distribuição (FFD bin-packing) ── */
+function balDistribute(r){
+  var n    = r.mode==='A' ? r.pInt : Math.ceil(r.pAvail);
+  var acts = balRows.filter(function(rw){ return balRowSec(rw)>0; });
+  var ops  = [];
+  for(var i=0;i<n;i++) ops.push({name:'Operador '+(i+1),acts:[],load:0});
+  var sorted = acts.slice().sort(function(a,b){ return balRowSec(b)-balRowSec(a); });
+  sorted.forEach(function(act){
+    var best = ops.reduce(function(p,c){ return c.load<p.load?c:p; });
+    best.acts.push(act.desc||'Atividade '+(balRows.indexOf(act)+1));
+    best.load += balRowSec(act);
+  });
+  return ops;
+}
+
+function balRenderDist(r){
+  var ops = balDistribute(r);
+  document.getElementById('balDistBody').innerHTML = ops.map(function(op){
+    var pct = op.load / r.takt * 100;
+    var st  = pct>100?'<span class="bal-badge r">Sobrecarga</span>'
+             :pct>=85?'<span class="bal-badge g">Ótimo</span>'
+             :pct>=60?'<span class="bal-badge o">Ocioso</span>'
+             :'<span class="bal-badge b">Subutilizado</span>';
+    return '<tr>'
+      +'<td><strong>'+op.name+'</strong></td>'
+      +'<td style="font-size:10px;color:var(--text2)">'+op.acts.join(' · ')+'</td>'
+      +'<td class="r mono">'+op.load.toFixed(1)+'s</td>'
+      +'<td class="r mono">'+pct.toFixed(1)+'%</td>'
+      +'<td class="r">'+st+'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+/* ── Importar das Folhas MTM ── */
+function balImportFromSheets(){
+  if(typeof sheets === 'undefined' || !sheets || !sheets.length){
+    if(typeof showToast === 'function') showToast('Nenhuma folha MTM aberta.', true);
+    return;
+  }
+  // Coletar folhas com tempo padrão (TS)
+  var imported = 0;
+  sheets.forEach(function(s){
+    if(!s || !s.rows) return;
+    var m = (typeof computeSheetMetrics === 'function') ? computeSheetMetrics(s) : null;
+    if(!m) return;
+    var fad = (s.fadiga && typeof mtmCalcFadiga === 'function') ? mtmCalcFadiga(s.fadiga) : null;
+    var allow = fad ? fad.allowTotal : m.allowPct;
+    var stdSec = m.totalSec * (1 + allow/100);
+    if(stdSec <= 0) return;
+    // Procurar se já existe linha com mesmo label
+    var existing = balRows.find(function(r){
+      return r.desc && r.desc.indexOf(s.label) !== -1;
+    });
+    if(existing){
+      // Atualizar tempo
+      existing.time = parseFloat((stdSec).toFixed(3));
+      existing.freq = 1;
+    } else {
+      balRowCnt++;
+      balRows.push({
+        id:'br_'+balRowCnt,
+        desc: s.label + (s.header && s.header.processo ? ' — '+s.header.processo : ''),
+        time: parseFloat(stdSec.toFixed(3)),
+        freq: 1
+      });
+    }
+    imported++;
+  });
+  if(!imported){
+    if(typeof showToast === 'function') showToast('Nenhuma folha com tempo calculado encontrada.', true);
+    return;
+  }
+  // Ajustar unidade para segundos (já importamos em segundos)
+  document.getElementById('balActUnit').value = '1';
+  balRenderTable();
+  balCalc();
+  if(typeof showToast === 'function')
+    showToast('✅ ' + imported + ' folha(s) importada(s) para o balanceamento.');
+}
+
+/* ── Exportar CSV ── */
+function balExportCSV(){
+  if(!balResult){ if(typeof showToast==='function') showToast('Calcule primeiro.',true); return; }
+  var r   = balResult;
+  var ops = balDistribute(r);
+  var sep = ';';
+  var lines = [
+    ['BALANCEAMENTO DE LINHA — MTM'].join(sep),
+    ['Modo', balMode==='A'?'Dimensionar Pessoas':'Dimensionar Capacidade'].join(sep),
+    ['Tempo disponível (s)', r.availSec].join(sep),
+    ['Eficiência (%)', (r.eff*100).toFixed(1)].join(sep),
+    (balMode==='A'
+      ? ['Demanda',r.demand,'Pessoas',r.pExact.toFixed(4),'Arred.',r.pInt]
+      : ['Pessoas',r.pAvail,'Capacidade',r.capExact.toFixed(2),'Arred.',r.capInt]
+    ).join(sep),
+    ['Takt Time (s)',r.takt.toFixed(3)].join(sep),
+    ['Conteúdo (s)',r.totalSec.toFixed(3)].join(sep),
+    ['Saturação (%)',r.sat.toFixed(2)].join(sep),
+    '',
+    ['#','Descrição','Tempo Unit. (s)','Freq','Total (s)'].join(sep),
+  ];
+  balRows.forEach(function(row,i){
+    var uf = parseFloat(document.getElementById('balActUnit').value)||1;
+    lines.push([i+1,'"'+row.desc+'"',(parseFloat(row.time)||0)*uf,row.freq,balRowSec(row).toFixed(3)].join(sep));
+  });
+  lines.push('');
+  lines.push(['Operador','Atividades','Carga (s)','Saturação (%)'].join(sep));
+  ops.forEach(function(op){
+    lines.push([op.name,'"'+op.acts.join('; ')+'"',op.load.toFixed(3),(op.load/r.takt*100).toFixed(1)].join(sep));
+  });
+  var blob = new Blob(['\uFEFF'+lines.join('\n')], {type:'text/csv;charset=utf-8'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'balanceamento.csv';
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 200);
+  if(typeof showToast==='function') showToast('CSV exportado!');
+}
+
+/* ── Exportar JSON ── */
+function balExportJSON(){
+  if(!balResult){ if(typeof showToast==='function') showToast('Calcule primeiro.',true); return; }
+  var r   = balResult;
+  var ops = balDistribute(r);
+  var obj = {
+    gerado_em: new Date().toISOString(),
+    modo: balMode==='A'?'pessoas':'capacidade',
+    parametros: { tempo_disponivel_s:r.availSec, eficiencia_pct:r.eff*100 },
+    resultado: r,
+    atividades: balRows.map(function(row){
+      var uf = parseFloat(document.getElementById('balActUnit').value)||1;
+      return { descricao:row.desc, tempo_s:(parseFloat(row.time)||0)*uf, freq:row.freq, total_s:balRowSec(row) };
+    }),
+    distribuicao: ops.map(function(op){
+      return { operador:op.name, atividades:op.acts, carga_s:op.load, sat_pct:(op.load/r.takt*100).toFixed(2) };
+    })
+  };
+  var blob = new Blob([JSON.stringify(obj,null,2)], {type:'application/json'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'balanceamento.json';
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 200);
+  if(typeof showToast==='function') showToast('JSON exportado!');
+}
+
+/* ── Copiar tabela ── */
+function balCopyTable(){
+  if(!balResult){ if(typeof showToast==='function') showToast('Calcule primeiro.',true); return; }
+  var r   = balResult;
+  var ops = balDistribute(r);
+  var txt = '=== BALANCEAMENTO DE LINHA ===\n';
+  txt += 'Takt: '+balFmtDur(r.takt)+' · Conteúdo: '+balFmtDur(r.totalSec)+'\n';
+  txt += (balMode==='A'
+    ? 'Pessoas: '+r.pExact.toFixed(2)+' → '+r.pInt
+    : 'Capacidade: '+r.capExact.toFixed(1)+' → '+r.capInt)+'\n';
+  txt += 'Saturação: '+r.sat.toFixed(1)+'%\n\n';
+  txt += 'DISTRIBUIÇÃO:\n';
+  ops.forEach(function(op){
+    txt += op.name+': '+op.acts.join(', ')+' ['+op.load.toFixed(1)+'s / '+(op.load/r.takt*100).toFixed(1)+'%]\n';
+  });
+  navigator.clipboard.writeText(txt).then(function(){
+    if(typeof showToast==='function') showToast('Copiado!');
+  }).catch(function(){
+    if(typeof showToast==='function') showToast('Erro ao copiar.', true);
+  });
+}
+
+/* ── Utils ── */
+function balFmtDur(sec){
+  if(!sec||isNaN(sec)) return '—';
+  if(sec<60) return sec.toFixed(1)+'s';
+  if(sec<3600) return (sec/60).toFixed(2)+'min';
+  return (sec/3600).toFixed(3)+'h';
+}
+function balEsc(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
 
 </body>
 </html>
