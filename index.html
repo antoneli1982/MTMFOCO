@@ -2981,8 +2981,8 @@ window.FIREBASE_CONFIG = {
     <button class="btn btn-primary" onclick="openProjectManager()" title="Gerenciador de Projetos" style="background:linear-gradient(135deg,#4f8ef7,#6366f1);border:none;color:#fff;font-weight:800;font-size:12px;padding:7px 16px">📁<span class="btn-lbl"> Projetos</span></button>
     <!-- separador visual -->
     <div style="width:1px;height:26px;background:var(--border2);margin:0 4px;flex-shrink:0"></div>
-    <button class="btn btn-ghost" id="btn-folhas" onclick="startDirectMtmApp()" title="Ir para as folhas" style="display:none;background:var(--accentGradSoft);color:var(--accent);border-color:rgba(0,212,255,.25)">📄<span class="btn-lbl"> Folhas</span></button>
-    <button class="btn btn-ghost" id="btn-nova-folha" onclick="addSheet()" title="Nova Folha" style="display:none">＋<span class="btn-lbl"> Nova Folha</span></button>
+    <button class="btn btn-ghost" onclick="startDirectMtmApp()" title="Ir para as folhas" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(0,212,255,.25)">📄<span class="btn-lbl"> Folhas</span></button>
+    <button class="btn btn-ghost" onclick="addSheet()" title="Nova Folha">＋<span class="btn-lbl"> Nova Folha</span></button>
     <button class="btn btn-ghost" onclick="openLibrary()" title="📚 Biblioteca MTM" style="letter-spacing:.2px">📚<span class="btn-lbl"> Biblioteca</span></button>
     <button class="btn btn-ghost" onclick="openBook()" title="Livro de Informações — Anote tudo sobre o processo" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(124,58,237,.28)">📖<span class="btn-lbl"> Livro</span></button>
     <button class="btn btn-ghost" onclick="openFadiga()" title="Análise de Fadiga & Ociosidade (TV + TER) — Tabela Ivan Antoneli" style="background:rgba(255,149,0,.10);color:var(--orange);border-color:rgba(255,149,0,.35)">🛌<span class="btn-lbl"> Fadiga</span></button>
@@ -3006,7 +3006,7 @@ window.FIREBASE_CONFIG = {
 </div>
 
 <div class="tabs-wrapper" id="tabs-bar">
-  <div class="tab-add" id="tab-add-btn" onclick="addSheet()" style="display:none">＋</div>
+  <div class="tab-add" onclick="addSheet()">＋</div>
 </div>
 
 <div id="sheets-container"></div>
@@ -4756,153 +4756,27 @@ function renderContent(id){
         <span class="f-label">Operador / Posto</span>
         <input class="f-input" placeholder="Posto 1, Op. A..." data-key="operator" value="${esc(h.operator||'')}">
       </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════
-         BLOCO DE DIMENSIONAMENTO — 3 MODOS
-    ══════════════════════════════════════════════════ -->
-    <div style="
-      margin:10px 0 0 0;
-      background:var(--surface2);
-      border:1px solid var(--border2);
-      border-radius:10px;
-      overflow:hidden;
-    ">
-      <!-- Cabeçalho do bloco -->
-      <div style="
-        display:flex;align-items:center;gap:10px;
-        padding:8px 14px;
-        background:linear-gradient(90deg,var(--accentBg),transparent);
-        border-bottom:1px solid var(--border);
-      ">
-        <span style="font-size:13px;font-weight:700;color:var(--accent)">📐 Dimensionamento da Demanda</span>
-        <span style="font-size:10px;color:var(--text2)">Escolha o modo de cálculo e preencha os campos</span>
+      <div class="f-group" style="background:var(--accentBg);border-left:2px solid var(--accent);padding-left:8px">
+        <span class="f-label" style="color:var(--accent)">⏱ Takt Time (s)</span>
+        <input class="f-input" type="number" step="0.1" min="0" placeholder="60" data-key="takt" value="${esc(h.takt||'')}">
       </div>
-
-      <!-- Seletor de modo -->
-      <div style="display:flex;gap:4px;padding:8px 14px 0 14px;">
-        <button id="dimBtn-A-${id}" onclick="dimSetMode('${id}','A')"
-          style="flex:1;padding:7px 4px;border-radius:7px;border:1px solid var(--border2);font-size:10px;font-weight:700;cursor:pointer;background:var(--accent);color:#000;transition:all .2s">
-          🕐 Demanda por Turno
-        </button>
-        <button id="dimBtn-B-${id}" onclick="dimSetMode('${id}','B')"
-          style="flex:1;padding:7px 4px;border-radius:7px;border:1px solid var(--border2);font-size:10px;font-weight:700;cursor:pointer;background:var(--surface3);color:var(--text2);transition:all .2s">
-          ⏳ Demanda por Período
-        </button>
-        <button id="dimBtn-C-${id}" onclick="dimSetMode('${id}','C')"
-          style="flex:1;padding:7px 4px;border-radius:7px;border:1px solid var(--border2);font-size:10px;font-weight:700;cursor:pointer;background:var(--surface3);color:var(--text2);transition:all .2s">
-          👷 Dimensionar por Pessoas
-        </button>
+      <div class="f-group" style="background:var(--accentBg);border-left:2px solid var(--accent);padding-left:8px">
+        <span class="f-label" style="color:var(--accent)">Demanda / turno</span>
+        <input class="f-input" type="number" min="0" placeholder="480" data-key="demand" value="${esc(h.demand||'')}">
       </div>
-
-      <!-- Campos de entrada + resultado -->
-      <div style="padding:10px 14px 12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
-
-        <!-- MODO A: Demanda por Turno -->
-        <div id="dimPanelA-${id}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;width:100%">
-          <div style="display:flex;flex-direction:column;gap:3px;min-width:110px">
-            <span style="font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase">Duração do turno (h)</span>
-            <input type="number" step="0.25" min="0" max="24" placeholder="8"
-              id="dimTurnoH-${id}" oninput="dimCalc('${id}')"
-              value="${esc(h.dimTurnoH||'8')}"
-              style="padding:7px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-size:13px;width:100%">
-          </div>
-          <div style="display:flex;flex-direction:column;gap:3px;min-width:110px">
-            <span style="font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase">Demanda (peças/turno)</span>
-            <input type="number" step="1" min="0" placeholder="480"
-              id="dimDemandaT-${id}" oninput="dimCalc('${id}')"
-              value="${esc(h.dimDemandaT||'')}"
-              style="padding:7px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-size:13px;width:100%">
-          </div>
-          <div style="display:flex;flex-direction:column;gap:3px;min-width:110px">
-            <span style="font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase">Eficiência (%)</span>
-            <input type="number" step="1" min="1" max="100" placeholder="85"
-              id="dimEficA-${id}" oninput="dimCalc('${id}')"
-              value="${esc(h.dimEficA||'85')}"
-              style="padding:7px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-size:13px;width:100%">
-          </div>
-        </div>
-
-        <!-- MODO B: Demanda por Período -->
-        <div id="dimPanelB-${id}" style="display:none;gap:8px;flex-wrap:wrap;align-items:flex-end;width:100%">
-          <div style="display:flex;flex-direction:column;gap:3px;min-width:110px">
-            <span style="font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase">Demanda (peças)</span>
-            <input type="number" step="1" min="0" placeholder="10000"
-              id="dimDemandaP-${id}" oninput="dimCalc('${id}')"
-              value="${esc(h.dimDemandaP||'')}"
-              style="padding:7px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-size:13px;width:100%">
-          </div>
-          <div style="display:flex;flex-direction:column;gap:3px;min-width:110px">
-            <span style="font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase">Período (dias úteis)</span>
-            <input type="number" step="1" min="1" placeholder="20"
-              id="dimPeriodoD-${id}" oninput="dimCalc('${id}')"
-              value="${esc(h.dimPeriodoD||'')}"
-              style="padding:7px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-size:13px;width:100%">
-          </div>
-          <div style="display:flex;flex-direction:column;gap:3px;min-width:110px">
-            <span style="font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase">Horas disponíveis/dia (h)</span>
-            <input type="number" step="0.25" min="0" max="24" placeholder="8"
-              id="dimHorasDia-${id}" oninput="dimCalc('${id}')"
-              value="${esc(h.dimHorasDia||'8')}"
-              style="padding:7px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-size:13px;width:100%">
-          </div>
-          <div style="display:flex;flex-direction:column;gap:3px;min-width:110px">
-            <span style="font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase">Eficiência (%)</span>
-            <input type="number" step="1" min="1" max="100" placeholder="85"
-              id="dimEficB-${id}" oninput="dimCalc('${id}')"
-              value="${esc(h.dimEficB||'85')}"
-              style="padding:7px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-size:13px;width:100%">
-          </div>
-        </div>
-
-        <!-- MODO C: Dimensionar por Pessoas -->
-        <div id="dimPanelC-${id}" style="display:none;gap:8px;flex-wrap:wrap;align-items:flex-end;width:100%">
-          <div style="display:flex;flex-direction:column;gap:3px;min-width:110px">
-            <span style="font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase">Nº de pessoas</span>
-            <input type="number" step="1" min="1" placeholder="2"
-              id="dimPessoas-${id}" oninput="dimCalc('${id}')"
-              value="${esc(h.dimPessoas||'')}"
-              style="padding:7px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-size:13px;width:100%">
-          </div>
-          <div style="display:flex;flex-direction:column;gap:3px;min-width:110px">
-            <span style="font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase">Duração do turno (h)</span>
-            <input type="number" step="0.25" min="0" max="24" placeholder="8"
-              id="dimTurnoC-${id}" oninput="dimCalc('${id}')"
-              value="${esc(h.dimTurnoC||'8')}"
-              style="padding:7px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-size:13px;width:100%">
-          </div>
-          <div style="display:flex;flex-direction:column;gap:3px;min-width:110px">
-            <span style="font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase">Eficiência (%)</span>
-            <input type="number" step="1" min="1" max="100" placeholder="85"
-              id="dimEficC-${id}" oninput="dimCalc('${id}')"
-              value="${esc(h.dimEficC||'85')}"
-              style="padding:7px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-size:13px;width:100%">
-          </div>
-        </div>
-
-        <!-- RESULTADOS (sempre visível) -->
-        <div id="dimResult-${id}" style="
-          width:100%;margin-top:6px;
-          display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;
-        ">
-          <!-- preenchido por dimCalc() -->
-        </div>
-
-      </div><!-- /padding -->
-    </div><!-- /bloco dimensionamento -->
-
-    <!-- Allowance readonly -->
-    <div style="margin:6px 0 0 0;padding:8px 12px;background:var(--greenBg);border:1px solid rgba(0,229,160,.2);border-radius:8px;display:flex;align-items:center;gap:10px">
-      <span style="font-size:11px;color:var(--green);font-weight:700">✅ Allowance Total (TV + TER)</span>
-      <input type="number" step="0.01" min="0" readonly
-        id="allow-display-${id}"
-        placeholder="Preencha o Estudo de Fadiga"
-        style="padding:5px 10px;border-radius:6px;border:1px solid rgba(0,229,160,.3);background:var(--surface);color:var(--green);font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace;width:120px;cursor:not-allowed;opacity:.85">
-      <span style="font-size:9px;color:var(--text2)">Calculado automaticamente pelo Estudo de Fadiga — não editável</span>
+      <div class="f-group" style="background:var(--greenBg);border-left:2px solid var(--green);padding-left:8px">
+        <span class="f-label" style="color:var(--green)">Fator Pessoal (%)</span>
+        <input class="f-input" type="number" step="0.5" min="0" max="20" placeholder="5" data-key="allowPersonal" value="${esc(h.allowPersonal||'5')}">
+      </div>
+      <div class="f-group" style="background:var(--greenBg);border-left:2px solid var(--green);padding-left:8px">
+        <span class="f-label" style="color:var(--green)">Fator Fadiga (%)</span>
+        <input class="f-input" type="number" step="0.5" min="0" max="20" placeholder="4" data-key="allowFatigue" value="${esc(h.allowFatigue||'4')}">
+      </div>
+      <div class="f-group" style="background:var(--greenBg);border-left:2px solid var(--green);padding-left:8px">
+        <span class="f-label" style="color:var(--green)">Contingência (%)</span>
+        <input class="f-input" type="number" step="0.5" min="0" max="10" placeholder="3" data-key="allowContingency" value="${esc(h.allowContingency||'3')}">
+      </div>
     </div>
-
-    <div style="height:8px"></div>
-    <div>
     <div class="table-wrapper">
       <div class="table-scroll">
         <table class="mtm">
@@ -4963,8 +4837,6 @@ function renderContent(id){
   } else {
     for(let _i=0;_i<10;_i++) addRow(id,false);
   }
-  // Inicializar bloco de dimensionamento
-  setTimeout(function(){ if(typeof dimInit==='function') dimInit(id); }, 80);
 }
 
 function addRow(sid,focus=true){
@@ -5115,38 +4987,10 @@ function computeSheetMetrics(s){
   const rows = s.rows || [];
   const totalTmu = rows.reduce((a,r)=>a+(parseFloat(r.ttmu)||0),0);
   const totalSec = +(totalTmu * 0.036).toFixed(4);
-  // ── ALLOWANCE: usa EXCLUSIVAMENTE o Estudo de Fadiga (TV + TER) ──
-  // Fator Pessoal, Fadiga manual e Contingência foram removidos.
-  // O allowance vem do calcFad aplicado à folha (via fadiga.modoAllow).
-  function _calcFadAllow(fadObj){
-    if(!fadObj) return 0;
-    function _minToPct(min, base){ var b=parseFloat(base)||0; return b>0?+(parseFloat(min)||0)/b*100:0; }
-    var pcts={};
-    pcts['1']  = parseFloat(fadObj.tvPausa)||0;
-    pcts['2']  = _minToPct(fadObj.tvRefeMin, fadObj.tvRefeBase);
-    pcts['3']  = _minToPct(fadObj.tvHigMin,  fadObj.tvHigBase);
-    pcts['4']  = _minToPct(fadObj.tvPesMin,  fadObj.tvPesBase);
-    pcts['5']  = (()=>{ var tr=parseFloat(fadObj.tvTrocaMin)||0, pcs=parseFloat(fadObj.tvTrocaPcs)||0, ph=parseFloat(fadObj.tvTrocaProdH)||0; return (ph>0&&pcs>0)?+(tr*ph/pcs/36):0; })();
-    pcts['6']  = _minToPct(fadObj.tvLimpMin, fadObj.tvLimpBase);
-    pcts['7']  = _minToPct(fadObj.tvPrepMin, fadObj.tvPrepBase);
-    pcts['8']  = _minToPct(fadObj.tvInsMin,  fadObj.tvInsBase);
-    pcts['9']  = _minToPct(fadObj.tvMedMin,  fadObj.tvMedBase);
-    pcts['10'] = (()=>{ var rvF=parseFloat(fadObj.tvRevFreq)||0, rvP=parseFloat(fadObj.tvRevPassos)||0, rvT=parseFloat(fadObj.tvRevTmu)||0, base=parseFloat(fadObj.tvRevBase)||0; return (base>0&&rvF>0)?(rvP*25+rvT)*0.036*rvF/base*100:0; })();
-    pcts['11a']= _minToPct(fadObj.tvDivAMin, fadObj.tvDivABase);
-    pcts['11b']= _minToPct(fadObj.tvDivBMin, fadObj.tvDivBBase);
-    pcts['12a']= _minToPct(fadObj.tvReuQAMin, fadObj.tvReuQABase);
-    pcts['12b']= _minToPct(fadObj.tvReuQSMin, fadObj.tvReuQSBase);
-    var tvTotal=0; Object.keys(pcts).forEach(function(k){ tvTotal+=pcts[k]||0; });
-    var fa=(parseFloat(fadObj.terFisico)||0)+(parseFloat(fadObj.terMental)||0);
-    var fb=parseFloat(fadObj.terRecup)||0;
-    var mM=parseFloat(fadObj.terMonot)||0;
-    var ca=(parseFloat(fadObj.terTermica)||0)+(parseFloat(fadObj.terAtmosf)||0)+(parseFloat(fadObj.terRuido)||0)+(parseFloat(fadObj.terUmid)||0)+(parseFloat(fadObj.terVibr)||0);
-    var fadigaCoef=(fa*fb)+mM+ca;
-    var fadigaPct=fadigaCoef*100;
-    var modoSESE = (fadObj.modoAllow === 'sese');
-    return modoSESE ? 10 : +(tvTotal + fadigaPct).toFixed(4);
-  }
-  const allowPct = _calcFadAllow(s.fadiga);
+  const aP = parseFloat(h.allowPersonal)||0;
+  const aF = parseFloat(h.allowFatigue)||0;
+  const aC = parseFloat(h.allowContingency)||0;
+  const allowPct = aP + aF + aC;
   const stdSec = +(totalSec * (1 + allowPct/100)).toFixed(4);
   const stdTmu = +(totalTmu * (1 + allowPct/100)).toFixed(2);
   const takt = parseFloat(h.takt)||0;
@@ -5201,16 +5045,10 @@ function updateTotals(sid){
     } else {
       satRow.style.display='none';
     }
-  // Atualizar allowance display
-  var dispAllow = document.getElementById('allow-display-'+sid);
-  if(dispAllow) dispAllow.value = m.allowPct > 0 ? m.allowPct.toFixed(2) : '';
-
-  // Atualizar painel de dimensionamento
-  if(typeof dimCalc === 'function'){
-    try{ dimCalc(sid); }catch(e){}
   }
 }
-{window.scrollTo({top:0,behavior:'smooth'})}
+
+function goTop(){window.scrollTo({top:0,behavior:'smooth'})}
 function goBottom(){
   const active=document.querySelector('.folha-content.active');
   const last=active?.querySelector('table.mtm tbody tr:last-child');
@@ -5314,13 +5152,8 @@ function prepararPrint(){
     var tmu=0;
     (s.rows||[]).forEach(function(r){ tmu += parseFloat(r.ttmu)||0; });
     var tn = tmu * 0.036;
-    // Allowance: vem EXCLUSIVAMENTE do Estudo de Fadiga (TV + TER)
-    var allow = 0;
-    if(s.fadiga){
-      var fad = calcFad(s.fadiga);
-      var modoSESEfad = (s.fadiga.modoAllow === 'sese');
-      allow = modoSESEfad ? 10 : +(fad.tvTotal + fad.fadigaPct).toFixed(4);
-    }
+    var h = s.header||{};
+    var allow = (parseFloat(h.allowPersonal)||0) + (parseFloat(h.allowFatigue)||0) + (parseFloat(h.allowContingency)||0);
     var ts = tn * (1 + allow/100);
     var pph = ts > 0 ? Math.floor(3600/ts) : 0;
     return {tmu:tmu, tn:tn, ts:ts, allow:allow, pph:pph};
@@ -7099,8 +6932,7 @@ function pmSave(){ localStorage.setItem(PM_KEY, JSON.stringify(pmData)); }
 function openProjectManager(){
   pmLoad();
   document.getElementById('pm-overlay').classList.add('open');
-  // pequeno delay para garantir que pmData está populado antes de renderizar
-  setTimeout(function(){ pmView('folders'); }, 30);
+  pmView('folders');
 }
 function closeProjectManager(){
   document.getElementById('pm-overlay').classList.remove('open');
@@ -7142,12 +6974,7 @@ function pmRenderBC(){
 
 /* ── FOLDERS ── */
 function pmRenderFolders(){
-  if(typeof pmLoad === 'function') pmLoad();
-  if(typeof _migrarFlatProjs === 'function') _migrarFlatProjs();
-
-  const FLAT_KEY = '__flat__';
-  const keys = Object.keys(pmData).filter(function(k){ return k !== FLAT_KEY; });
-
+  const keys = Object.keys(pmData);
   const body = document.getElementById('pm-body');
   let html = `
     <div class="pm-sh">
@@ -7162,7 +6989,6 @@ function pmRenderFolders(){
   } else {
     keys.forEach(fid=>{
       const f = pmData[fid];
-      if(!f) return;
       const np = (f.projects||[]).length;
       const ns = (f.projects||[]).reduce((a,p)=>(a + (p.sheets||[]).length),0);
       const bannerHtml = f.logo
@@ -7176,7 +7002,7 @@ function pmRenderFolders(){
           <button class="pm-folder-rename" onclick="event.stopPropagation();pmRenameFolder('${fid}')" title="Renomear pasta">✏️</button>
           <div class="pm-folder-banner">${bannerHtml}</div>
           <div class="pm-folder-info">
-            <div class="pm-folder-name">${esc(f.name||'Pasta')}</div>
+            <div class="pm-folder-name">${esc(f.name)}</div>
             <div class="pm-folder-meta">${np} projeto(s) · ${ns} folha(s)</div>
           </div>
         </div>`;
@@ -7493,17 +7319,6 @@ function pmNewSheet(){
   const p = pmGetProject();
   closeProjectManager();
   hideDashboard();
-
-  // ── Persistir projeto ativo e mostrar botões de folha ──
-  if(p && p.id){
-    try{ localStorage.setItem('mtm_last_pid', p.id); }catch(e){}
-    if(typeof _atualizarProjetoAtivo === 'function') _atualizarProjetoAtivo(p.name || 'Projeto');
-    var bf = document.getElementById('btn-folhas');
-    var bn = document.getElementById('btn-nova-folha');
-    if(bf) bf.style.display = '';
-    if(bn) bn.style.display = '';
-  }
-
   // Se hideDashboard acabou de criar uma FOLHA 1 vazia, reutilizá-la em vez de criar FOLHA 2
   var sid;
   if(sheets.length === 1 && sheets[0].rows.length === 0){
@@ -7525,18 +7340,6 @@ function pmNewSheet(){
 function pmOpenSheet(sid){
   closeProjectManager();
   hideDashboard();
-
-  // ── Persistir projeto ativo e mostrar botões de folha ──
-  var p = (typeof pmGetProject === 'function') ? pmGetProject() : null;
-  if(p && p.id){
-    try{ localStorage.setItem('mtm_last_pid', p.id); }catch(e){}
-    if(typeof _atualizarProjetoAtivo === 'function') _atualizarProjetoAtivo(p.name || 'Projeto');
-    var bf = document.getElementById('btn-folhas');
-    var bn = document.getElementById('btn-nova-folha');
-    if(bf) bf.style.display = '';
-    if(bn) bn.style.display = '';
-  }
-
   if(typeof setActive==='function') setActive(sid);
   if(!document.getElementById('c-'+sid) && typeof renderContent==='function') renderContent(sid);
   window.scrollTo({top:0,behavior:'smooth'});
@@ -8015,58 +7818,24 @@ function startDirectMtmApp(){
   var db = document.getElementById('dashboard');
   if(db){ db.classList.remove('active'); db.style.display='none'; }
 
-  // ── Carregar dados e migrar legado __flat__ → pastas reais ──
-  if(typeof pmLoad === 'function') pmLoad();
-  _migrarFlatProjs(); // migração silenciosa dos projetos legados
-
-  var lastPid = null;
-  try{ lastPid = localStorage.getItem('mtm_last_pid'); }catch(e){}
-
-  if(lastPid && typeof dbFindByPid === 'function'){
-    var found = dbFindByPid(lastPid);
-    if(found){
-      pmFolderId   = found.fid;
-      pmProjectIdx = found.idx;
-      var p = found.p;
-      _atualizarProjetoAtivo(p.name || 'Projeto');
-      var bf = document.getElementById('btn-folhas');
-      var bn = document.getElementById('btn-nova-folha');
-      if(bf) bf.style.display = '';
-      if(bn) bn.style.display = '';
-      if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
-      if(typeof sheets !== 'undefined' && sheets.length > 0){
-        sheets.forEach(function(sh){
-          if(!document.getElementById('c-'+sh.id) && typeof renderContent === 'function') renderContent(sh.id);
-        });
-        if(typeof renderTabs === 'function') renderTabs();
-        var firstSid = p.sheets && p.sheets.length > 0 ? p.sheets[0] : (sheets[0] ? sheets[0].id : null);
-        if(firstSid && typeof setActive === 'function') setActive(firstSid);
-      } else if(typeof addSheet === 'function'){
-        var newSid = addSheet(true);
-        p.sheets = [newSid];
-        if(typeof pmSave === 'function') pmSave();
-        if(typeof setActive === 'function') setActive(newSid);
-        if(!document.getElementById('c-'+newSid) && typeof renderContent === 'function') renderContent(newSid);
-      }
-      document.body.style.overflow = '';
-      return;
-    }
-  }
-
-  // Sem projeto anterior → comportamento padrão
+  // Carrega/restaura folhas e mostra direto a área de trabalho.
   if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
+  if(typeof pmLoad === 'function') pmLoad();
+
   if(typeof sheets !== 'undefined' && sheets.length > 0){
     sheets.forEach(function(sh){
-      if(!document.getElementById('c-'+sh.id) && typeof renderContent === 'function') renderContent(sh.id);
+      if(!document.getElementById('c-'+sh.id) && typeof renderContent === 'function'){
+        renderContent(sh.id);
+      }
     });
     if(typeof renderTabs === 'function') renderTabs();
     if(!activeId && sheets[0] && typeof setActive === 'function') setActive(sheets[0].id);
-  } else if(typeof addSheet === 'function'){
+  }else if(typeof addSheet === 'function'){
     addSheet('FOLHA 1');
   }
+
   document.body.style.overflow = '';
 }
-
 
 function showDashboard(){
   // Dashboard removido no modo direto. Mantém compatibilidade com botões antigos.
@@ -9463,7 +9232,7 @@ function balCalcProjeto(proj, params){
     if(!sh) return;
     var m = computeSheetMetrics(sh);
     var fad = (sh.fadiga && typeof sh.fadiga === 'object') ? mtmCalcFadiga(sh.fadiga) : null;
-    var allowUsed = m.allowPct; // Allowance vem do Estudo de Fadiga (via computeSheetMetrics)
+    var allowUsed = fad ? fad.allowTotal : m.allowPct;
     // Tempo padrão com allowance da fadiga, se houver
     var stdSec = +(m.totalSec * (1 + allowUsed/100)).toFixed(4);
     if(stdSec <= 0) return;
@@ -10156,19 +9925,6 @@ function dbOpenById(pid){
   pmFolderId = found.fid;
   pmProjectIdx = found.idx;
   var p = found.p;
-
-  // ── Persistir último projeto aberto para restauração automática ──
-  try{ localStorage.setItem('mtm_last_pid', pid); }catch(e){}
-
-  // ── Mostrar botões de folha (ficam ocultos fora de um projeto) ──
-  var bf = document.getElementById('btn-folhas');
-  var bn = document.getElementById('btn-nova-folha');
-  if(bf) bf.style.display = '';
-  if(bn) bn.style.display = '';
-
-  // ── Título do projeto na barra de abas ──
-  _atualizarProjetoAtivo(p.name || 'Projeto');
-
   var sid;
   if(p.sheets && p.sheets.length > 0){
     sid = p.sheets[0];
@@ -10577,7 +10333,7 @@ function mtmCollectFinalReport(){
   var allMetrics = (sheets||[]).map(function(s){
     var m   = computeSheetMetrics(s);
     var fad = (s.fadiga && typeof s.fadiga === 'object') ? mtmCalcFadiga(s.fadiga) : null;
-    var allowUsed = m.allowPct; // Allowance vem do Estudo de Fadiga (via computeSheetMetrics)
+    var allowUsed = fad ? fad.allowTotal : m.allowPct;
     var tnSec     = m.totalSec;
     var stdSec    = +(tnSec * (1 + allowUsed/100)).toFixed(4);
     return {
@@ -11424,15 +11180,17 @@ function showToast(msg, isErr){
 }
 
 function _xlCalcSheetMetrics(s){
+  var h = s.header || {};
   var rows = s.rows || [];
   var tmu = 0;
   rows.forEach(function(r){
     var q = parseFloat(r.q)||1, f = parseFloat(r.f)||1, t = parseFloat(r.tmu)||0;
     tmu += t * q * f;
   });
-  // Allowance vem do Estudo de Fadiga (TV + TER)
-  var m = (typeof computeSheetMetrics === 'function') ? computeSheetMetrics(s) : null;
-  var allowTotal = m ? m.allowPct : 0;
+  var aP = parseFloat(h.allowPersonal)||0;
+  var aF = parseFloat(h.allowFatigue)||0;
+  var aC = parseFloat(h.allowContingency)||0;
+  var allowTotal = aP+aF+aC;
   var stdSec = (tmu * 0.036) * (1 + allowTotal/100);
   var pph = stdSec > 0 ? Math.floor(3600/stdSec) : 0;
   return {tmu:tmu, stdSec:stdSec, pph:pph, allow:allowTotal};
@@ -11605,9 +11363,11 @@ function exportExcel(){
       aoaG.push(['Demanda (peças)', parseFloat(h.demand)||'']);
       aoaG.push([]);
 
-      aoaG.push(['╔ ALLOWANCE APLICADO ╗']);
-      aoaG.push(['Allowance Total (TV + TER)', m.allow + ' %']);
-      aoaG.push(['Fonte', 'Estudo de Fadiga MTM']);
+      aoaG.push(['╔ ALLOWANCES APLICADAS ╗']);
+      aoaG.push(['Pessoal (%)',      parseFloat(h.allowPersonal)||0]);
+      aoaG.push(['Fadiga (%)',       parseFloat(h.allowFatigue)||0]);
+      aoaG.push(['Contingência (%)', parseFloat(h.allowContingency)||0]);
+      aoaG.push(['Total (%)',        m.allow]);
       aoaG.push([]);
 
       // Fadiga detalhada (se foi preenchida) — filtra linhas vazias
@@ -12678,22 +12438,38 @@ function fadAplicarFolha(){
 
   var tv  = fadCalcTV();
   var ter = fadCalcTER();
-  var allowTotal = tv.tvTotal + ter.pct;
 
-  // Agora o allowance vem EXCLUSIVAMENTE do Estudo de Fadiga (TV + TER).
-  // Não há mais campos manuais. O cálculo é automático via s.fadiga.
-  // Apenas recalcula a folha para refletir o Estudo de Fadiga vinculado.
+  // Mapeia: TV (estáticos só - tvB) → "Pessoal" + (restante TV) → "Contingência"
+  // TER → "Fadiga"
+  // Não há mapeamento 1:1 perfeito; usamos a interpretação mais limpa:
+  //  • allowPersonal     = tvB (pausa, caderno, ginástica, reunião - rotina estática)
+  //  • allowFatigue      = TER % (recuperação física/mental)
+  //  • allowContingency  = tv - tvB (limpezas, trocas, manutenção, interrupções - rotina dinâmica)
+  var pPersonal    = tv.tvB;
+  var pFatigue     = ter.pct;
+  var pContingency = Math.max(0, tv.tvTotal - tv.tvB);
 
-  // Atualizar display do campo readonly
-  var dispInp = document.querySelector('#allow-display-' + activeId);
-  if(dispInp) dispInp.value = allowTotal.toFixed(2);
+  // Arredondar para 2 casas
+  function r2(v){ return Math.round(v*100)/100; }
+  s.header.allowPersonal    = r2(pPersonal);
+  s.header.allowFatigue     = r2(pFatigue);
+  s.header.allowContingency = r2(pContingency);
+
+  // Atualizar campos visuais no header (se existirem)
+  function setHF(field, val){
+    var inp = document.querySelector('#c-'+activeId+' [data-key="'+field+'"]');
+    if(inp){ inp.value = val; }
+  }
+  setHF('allowPersonal',    r2(pPersonal));
+  setHF('allowFatigue',     r2(pFatigue));
+  setHF('allowContingency', r2(pContingency));
 
   // Recalcular folha
   try{ updateNums(activeId); updateTotals(activeId); }catch(e){}
   if(typeof saveSheets === 'function') saveSheets();
 
   if(typeof showToast === 'function')
-    showToast('✅ Allowance do Estudo de Fadiga aplicado: TV ' + fadFmt(tv.tvTotal,2) + '% + TER ' + fadFmt(ter.pct,2) + '% = ' + fadFmt(allowTotal,2) + '%');
+    showToast('Aplicado: Pessoal ' + fadFmt(pPersonal,2) + '% · Fadiga ' + fadFmt(pFatigue,2) + '% · Conting. ' + fadFmt(pContingency,2) + '%');
 }
 
 // ────────────────────────────────────────────────────────────
@@ -12706,22 +12482,36 @@ function fadAplicarPadraoSESE(){
   if(!activeId){ if(typeof showToast === 'function') showToast('Sem folha ativa.', true); return; }
   var s = get(activeId);
   if(!s) return;
-  if(!s.fadiga) s.fadiga = {};
+  if(!s.header) s.header = {};
 
-  // Ativa o modo SESÉ no Estudo de Fadiga (allowance fixo 10%)
-  s.fadiga.modoAllow = 'sese';
+  // Allowance total = 10%  →  Tempo de Trabalho = 90%
+  var pPersonal    = 5;
+  var pFatigue     = 4;
+  var pContingency = 1;
+
+  s.header.allowPersonal    = pPersonal;
+  s.header.allowFatigue     = pFatigue;
+  s.header.allowContingency = pContingency;
+
+  // Atualiza os campos visuais no cabeçalho da folha (se existirem)
+  function setHF(field, val){
+    var inp = document.querySelector('#c-'+activeId+' [data-key="'+field+'"]');
+    if(inp){ inp.value = val; }
+  }
+  setHF('allowPersonal',    pPersonal);
+  setHF('allowFatigue',     pFatigue);
+  setHF('allowContingency', pContingency);
 
   // Ativa a premissa "Padrão SESÉ" na aba de Análise
   var radioSese = document.querySelector('input[name="fad-modo-allow"][value="sese"]');
   if(radioSese){ radioSese.checked = true; }
 
-  // Atualizar display
-  var dispInp = document.querySelector('#allow-display-' + activeId);
-  if(dispInp) dispInp.value = '10.00';
-
   // Recalcular folha e totais
   try{ updateNums(activeId); updateTotals(activeId); }catch(e){}
+  if(typeof updateTotals === 'function'){ try{ updateTotals(activeId); }catch(e){} }
   if(typeof saveSheets === 'function') saveSheets();
+
+  // Atualizar a aba de Análise do painel de fadiga
   if(typeof fadRecalc === 'function'){ try{ fadRecalc(); }catch(e){} }
 
   if(typeof showToast === 'function')
@@ -13640,8 +13430,9 @@ function balImportFromSheets(){
     if(!s || !s.rows) return;
     var m = (typeof computeSheetMetrics === 'function') ? computeSheetMetrics(s) : null;
     if(!m) return;
-    // Allowance vem exclusivamente do Estudo de Fadiga (TV + TER)
-    var stdSec = m.stdSec; // já calculado com o allowance do Estudo de Fadiga
+    var fad = (s.fadiga && typeof mtmCalcFadiga === 'function') ? mtmCalcFadiga(s.fadiga) : null;
+    var allow = fad ? fad.allowTotal : m.allowPct;
+    var stdSec = m.totalSec * (1 + allow/100);
     if(stdSec <= 0) return;
     // Procurar se já existe linha com mesmo label
     var existing = balRows.find(function(r){
@@ -13769,249 +13560,6 @@ function balFmtDur(sec){
 }
 function balEsc(s){
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-/* ── Migração silenciosa: projetos em __flat__ → pastas reais ── */
-function _migrarFlatProjs(){
-  var FLAT_KEY = '__flat__';
-  var flatProjs = (pmData[FLAT_KEY] && pmData[FLAT_KEY].projects) || [];
-  if(!flatProjs.length) return;
-  var folderIds = Object.keys(pmData).filter(function(k){ return k !== FLAT_KEY; });
-  flatProjs.forEach(function(p){
-    var clientName = (p.client || p.name || 'Projetos').trim();
-    var match = folderIds.find(function(fid){
-      return (pmData[fid] && (pmData[fid].name||'').toLowerCase()) === clientName.toLowerCase();
-    });
-    var targetFid;
-    if(match){
-      targetFid = match;
-    } else {
-      targetFid = 'f_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
-      pmData[targetFid] = { name: clientName, logo: p.logo || null, projects: [] };
-      folderIds.push(targetFid);
-    }
-    pmData[targetFid].projects = pmData[targetFid].projects || [];
-    // Evitar duplicata
-    var jaExiste = pmData[targetFid].projects.some(function(x){ return x.id === p.id; });
-    if(!jaExiste) pmData[targetFid].projects.push(p);
-  });
-  pmData[FLAT_KEY].projects = [];
-  if(typeof pmSave === 'function') pmSave();
-}
-
-/* ── Atualiza indicador de projeto ativo na barra ── */
-function _atualizarProjetoAtivo(nome){
-  var el = document.getElementById('projeto-ativo-label');
-  if(!el){
-    // criar elemento na toolbar se não existe
-    var toolbar = document.querySelector('.toolbar-actions');
-    if(toolbar){
-      el = document.createElement('span');
-      el.id = 'projeto-ativo-label';
-      el.style.cssText = 'font-size:11px;font-weight:700;color:var(--accent);background:var(--accentBg);border:1px solid rgba(0,212,255,.25);border-radius:6px;padding:4px 10px;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis;cursor:pointer;flex-shrink:0;';
-      el.title = 'Projeto ativo — clique para trocar';
-      el.onclick = function(){ openProjectManager(); };
-      // inserir antes do primeiro botão
-      toolbar.insertBefore(el, toolbar.firstChild);
-    }
-  }
-  if(el) el.textContent = '📁 ' + (nome || 'Projeto');
-  // Mostrar o + da barra de abas
-  var tabAdd = document.getElementById('tab-add-btn');
-  if(tabAdd) tabAdd.style.display = '';
-}
-
-/* ── Limpar projeto ativo (ao voltar para o gerenciador sem projeto) ── */
-function _limparProjetoAtivo(){
-  try{ localStorage.removeItem('mtm_last_pid'); }catch(e){}
-  var el = document.getElementById('projeto-ativo-label');
-  if(el) el.remove();
-  var bf = document.getElementById('btn-folhas');
-  var bn = document.getElementById('btn-nova-folha');
-  if(bf) bf.style.display = 'none';
-  if(bn) bn.style.display = 'none';
-  // Esconder o + da barra de abas
-  var tabAdd = document.getElementById('tab-add-btn');
-  if(tabAdd) tabAdd.style.display = 'none';
-}
-
-
-/* ══════════════════════════════════════════════════════════════
-   DIMENSIONAMENTO DA DEMANDA — 3 modos
-   Modo A: Takt = tempo disponível turno × efic / demanda
-   Modo B: Takt via período (dias × horas/dia × efic / demanda)
-   Modo C: Capacidade com N pessoas (pçs/turno e Takt resultante)
-══════════════════════════════════════════════════════════════ */
-
-// Estado do modo por folha
-var _dimMode = {};
-
-function dimSetMode(id, mode){
-  _dimMode[id] = mode;
-  // Botões
-  ['A','B','C'].forEach(function(m){
-    var btn = document.getElementById('dimBtn-'+m+'-'+id);
-    if(!btn) return;
-    if(m === mode){
-      btn.style.background = 'var(--accent)';
-      btn.style.color = '#000';
-      btn.style.borderColor = 'var(--accent)';
-    } else {
-      btn.style.background = 'var(--surface3)';
-      btn.style.color = 'var(--text2)';
-      btn.style.borderColor = 'var(--border2)';
-    }
-  });
-  // Painéis
-  ['A','B','C'].forEach(function(m){
-    var p = document.getElementById('dimPanel'+m+'-'+id);
-    if(p) p.style.display = (m === mode) ? 'flex' : 'none';
-  });
-  // Salvar e recalcular
-  var s = (typeof get === 'function') ? get(id) : null;
-  if(s){ if(!s.header) s.header = {}; s.header.dimMode = mode; }
-  dimCalc(id);
-}
-
-function dimCalc(id){
-  var mode = _dimMode[id] || 'A';
-  var s    = (typeof get === 'function') ? get(id) : null;
-  var m    = (typeof computeSheetMetrics === 'function') ? computeSheetMetrics(s) : null;
-  var ts   = m ? m.stdSec : 0; // Tempo Padrão com allowance do Estudo de Fadiga
-
-  function fmtS(v){ if(!v||isNaN(v)) return '—'; return v.toFixed(2)+' s'; }
-  function fmtM(v){ if(!v||isNaN(v)) return '—'; return (v/60).toFixed(2)+' min'; }
-  function fmtN(v,d){ if(!v||isNaN(v)) return '—'; return v.toFixed(d||0); }
-  function kpi(label, val, unit, color){
-    return '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:8px 10px;">'
-      +'<div style="font-size:9px;color:var(--text2);font-weight:600;text-transform:uppercase;margin-bottom:3px">'+label+'</div>'
-      +'<div style="font-size:16px;font-weight:800;color:'+(color||'var(--accent)')+';font-family:\'JetBrains Mono\',monospace">'+val+'</div>'
-      +(unit?'<div style="font-size:9px;color:var(--text3);margin-top:1px">'+unit+'</div>':'')
-      +'</div>';
-  }
-  function warn(msg){
-    return '<div style="grid-column:1/-1;padding:8px 12px;background:var(--orangeBg);border:1px solid var(--orange);border-radius:7px;font-size:11px;color:var(--orange)">⚠️ '+msg+'</div>';
-  }
-
-  var html = '';
-
-  // ──────────────────── MODO A: turno ────────────────────
-  if(mode === 'A'){
-    var turnoH  = parseFloat(document.getElementById('dimTurnoH-'+id)  ? document.getElementById('dimTurnoH-'+id).value  : 8) || 8;
-    var demT    = parseFloat(document.getElementById('dimDemandaT-'+id)? document.getElementById('dimDemandaT-'+id).value : '') || 0;
-    var eficA   = parseFloat(document.getElementById('dimEficA-'+id)   ? document.getElementById('dimEficA-'+id).value    : 85) || 85;
-
-    // Salvar nos dados da folha
-    if(s && s.header){ s.header.dimTurnoH = turnoH; s.header.dimDemandaT = demT; s.header.dimEficA = eficA; }
-
-    var dispSec = turnoH * 3600 * (eficA / 100);
-    var takt    = demT > 0 ? dispSec / demT : 0;
-    var pphReal = ts > 0  ? Math.floor(dispSec / ts) : 0;
-    var pessNec = (ts > 0 && takt > 0) ? ts / takt : 0;
-
-    // Atualizar campo takt hidden (para compatibilidade com resto da ferramenta)
-    if(s && s.header){ s.header.takt = takt > 0 ? takt.toFixed(3) : ''; s.header.demand = demT || ''; }
-    var taktInp = document.querySelector('#c-'+id+' [data-key="takt"]');
-    if(taktInp && takt > 0) taktInp.value = takt.toFixed(3);
-
-    if(demT <= 0){
-      html = warn('Informe a Demanda (peças/turno) para calcular o Takt Time.');
-    } else if(ts <= 0){
-      html = warn('Tempo Padrão = 0. Preencha as linhas da análise e vincule o Estudo de Fadiga.');
-    } else {
-      html += kpi('Tempo disponível', fmtM(dispSec), turnoH+'h × '+eficA+'% efic.', 'var(--blue)');
-      html += kpi('⏱ Takt Time', fmtS(takt), 'Tempo por peça', 'var(--accent)');
-      html += kpi('Tempo Padrão (TS)', fmtS(ts), 'TN × (1 + allowance)', 'var(--green)');
-      var satColor = pessNec > 1.15 ? 'var(--red)' : pessNec > 1.0 ? 'var(--orange)' : 'var(--green)';
-      html += kpi('Pessoas necessárias', fmtN(pessNec,2), 'TS / Takt — arred. ↑ '+Math.ceil(pessNec), satColor);
-      html += kpi('Capacidade real', pphReal+' pç/turno', 'com 1 pessoa', 'var(--text)');
-      var sat1 = takt > 0 ? (ts/takt*100) : 0;
-      var satC1 = sat1>100?'var(--red)':sat1>=85?'var(--green)':'var(--orange)';
-      html += kpi('Saturação (1 pessoa)', fmtN(sat1,1)+'%', 'TS / Takt', satC1);
-    }
-  }
-
-  // ──────────────────── MODO B: período ────────────────────
-  else if(mode === 'B'){
-    var demP    = parseFloat(document.getElementById('dimDemandaP-'+id)  ? document.getElementById('dimDemandaP-'+id).value  : '') || 0;
-    var dias    = parseFloat(document.getElementById('dimPeriodoD-'+id)  ? document.getElementById('dimPeriodoD-'+id).value   : '') || 0;
-    var horasDia= parseFloat(document.getElementById('dimHorasDia-'+id)  ? document.getElementById('dimHorasDia-'+id).value  : 8) || 8;
-    var eficB   = parseFloat(document.getElementById('dimEficB-'+id)     ? document.getElementById('dimEficB-'+id).value     : 85) || 85;
-
-    if(s && s.header){ s.header.dimDemandaP=demP; s.header.dimPeriodoD=dias; s.header.dimHorasDia=horasDia; s.header.dimEficB=eficB; }
-
-    var dispTotal = dias * horasDia * 3600 * (eficB/100);
-    var taktP     = (demP > 0) ? dispTotal / demP : 0;
-    var pessNecP  = (ts > 0 && taktP > 0) ? ts / taktP : 0;
-    var pphDia    = (ts > 0) ? Math.floor(horasDia * 3600 * (eficB/100) / ts) : 0;
-
-    if(s && s.header){ s.header.takt = taktP > 0 ? taktP.toFixed(3) : ''; s.header.demand = demP||''; }
-    var taktInp2 = document.querySelector('#c-'+id+' [data-key="takt"]');
-    if(taktInp2 && taktP > 0) taktInp2.value = taktP.toFixed(3);
-
-    if(demP <= 0 || dias <= 0){
-      html = warn('Informe a Demanda e o Período para calcular.');
-    } else if(ts <= 0){
-      html = warn('Tempo Padrão = 0. Preencha as linhas da análise e vincule o Estudo de Fadiga.');
-    } else {
-      html += kpi('Tempo disponível total', fmtM(dispTotal), dias+' dias × '+horasDia+'h × '+eficB+'%', 'var(--blue)');
-      html += kpi('⏱ Takt Time', fmtS(taktP), 'Tempo por peça', 'var(--accent)');
-      html += kpi('Tempo Padrão (TS)', fmtS(ts), 'c/ allowance fadiga', 'var(--green)');
-      var satColP = pessNecP > 1.15 ? 'var(--red)' : pessNecP > 1.0 ? 'var(--orange)' : 'var(--green)';
-      html += kpi('Pessoas necessárias', fmtN(pessNecP,2), 'TS / Takt — arred. ↑ '+Math.ceil(pessNecP), satColP);
-      html += kpi('Capacidade / dia', pphDia+' pç/dia', 'com 1 pessoa', 'var(--text)');
-      var capTotal1 = ts > 0 ? Math.floor(dispTotal / ts) : 0;
-      html += kpi('Capacidade total', capTotal1+' pç', 'no período (1 pessoa)', 'var(--text)');
-    }
-  }
-
-  // ──────────────────── MODO C: pessoas → capacidade ────────────────────
-  else if(mode === 'C'){
-    var nPess   = parseFloat(document.getElementById('dimPessoas-'+id)  ? document.getElementById('dimPessoas-'+id).value  : '') || 0;
-    var turnoC  = parseFloat(document.getElementById('dimTurnoC-'+id)   ? document.getElementById('dimTurnoC-'+id).value   : 8) || 8;
-    var eficC   = parseFloat(document.getElementById('dimEficC-'+id)    ? document.getElementById('dimEficC-'+id).value    : 85) || 85;
-
-    if(s && s.header){ s.header.dimPessoas=nPess; s.header.dimTurnoC=turnoC; s.header.dimEficC=eficC; }
-
-    var dispC   = turnoC * 3600 * (eficC / 100);
-    var capPess = (ts > 0) ? Math.floor(dispC / ts) : 0;         // pç/turno por pessoa
-    var capTotal= capPess * Math.max(1, nPess);                  // total do grupo
-    var taktC   = (nPess > 0 && ts > 0) ? ts / nPess : 0;       // Takt resultante
-    var satC    = (ts > 0 && taktC > 0) ? (ts / taktC * 100) / nPess : 0; // saturação média
-
-    if(s && s.header){ s.header.takt = taktC > 0 ? taktC.toFixed(3) : ''; s.header.demand = capTotal||''; }
-    var taktInp3 = document.querySelector('#c-'+id+' [data-key="takt"]');
-    if(taktInp3 && taktC > 0) taktInp3.value = taktC.toFixed(3);
-
-    if(nPess <= 0){
-      html = warn('Informe o número de pessoas.');
-    } else if(ts <= 0){
-      html = warn('Tempo Padrão = 0. Preencha as linhas da análise e vincule o Estudo de Fadiga.');
-    } else {
-      html += kpi('Tempo Padrão (TS)', fmtS(ts), 'c/ allowance fadiga', 'var(--green)');
-      html += kpi('Tempo disponível / turno', fmtM(dispC), turnoC+'h × '+eficC+'% efic.', 'var(--blue)');
-      html += kpi('Capacidade (1 pessoa)', capPess+' pç/turno', 'dispSec / TS', 'var(--text)');
-      html += kpi('👷 Capacidade total', capTotal+' pç/turno', nPess+' pessoa(s)', 'var(--accent)');
-      html += kpi('⏱ Takt resultante', fmtS(taktC), 'TS / '+nPess+' pessoas', 'var(--purple)');
-      var sat1p = dispC > 0 ? (ts / dispC * 100) : 0;
-      var satCc = sat1p > 100 ? 'var(--red)' : sat1p >= 85 ? 'var(--green)' : 'var(--orange)';
-      html += kpi('Saturação / pessoa', fmtN(sat1p,1)+'%', 'TS / disponível', satCc);
-    }
-  }
-
-  var el = document.getElementById('dimResult-'+id);
-  if(el) el.innerHTML = html;
-
-  // Atualizar totais da folha com o novo Takt
-  try{ if(typeof updateTotals==='function') updateTotals(id); }catch(e){}
-  if(typeof saveSheets==='function') saveSheets();
-}
-
-// Inicializar modo quando a folha é renderizada
-function dimInit(id){
-  var s = (typeof get === 'function') ? get(id) : null;
-  var mode = (s && s.header && s.header.dimMode) ? s.header.dimMode : 'A';
-  dimSetMode(id, mode);
 }
 </script>
 
