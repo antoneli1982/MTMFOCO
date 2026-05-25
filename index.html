@@ -4901,6 +4901,75 @@ function renderContent(id){
             </div>
           </div>
 
+          <!-- Bloco Colaboradores -->
+          <div style="background:var(--purpleBg);border:1px solid rgba(167,139,250,.2);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:14px;">
+            <div style="font-size:10px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">
+              👥 Colaboradores necessários
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+
+              <!-- Necessários para atender demanda (automático) -->
+              <div style="flex:1;min-width:130px;">
+                <div style="font-size:10px;color:var(--text2);margin-bottom:4px;">Para atender a demanda</div>
+                <div style="display:flex;align-items:baseline;gap:6px;">
+                  <div id="ttp-colab-need-${id}" style="font-size:28px;font-weight:800;color:var(--purple);">—</div>
+                  <div style="font-size:12px;color:var(--text2);">colaborador(es)</div>
+                </div>
+                <div id="ttp-colab-need-hint-${id}" style="font-size:10px;color:var(--text2);margin-top:2px;"></div>
+              </div>
+
+              <!-- Divisor -->
+              <div style="width:1px;background:var(--border2);align-self:stretch;"></div>
+
+              <!-- Divisor 2 -->
+              <div style="width:1px;background:var(--border2);align-self:stretch;"></div>
+
+              <!-- Campo: simular com X colaboradores → capacidade e horas -->
+              <div style="flex:2;min-width:220px;">
+                <div style="font-size:10px;color:var(--purple);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">Simular com X colaboradores</div>
+
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+                  <input id="ttp-colab-inp-${id}" type="number" min="1" step="1" placeholder="ex: 3"
+                    onchange="ttpCalc('${id}')" oninput="ttpCalc('${id}')"
+                    style="width:72px;padding:7px 10px;background:var(--surface);border:1px solid var(--border2);
+                      border-radius:var(--radius-sm);color:var(--text);font-size:16px;font-weight:700;font-family:inherit;">
+                  <span style="font-size:12px;color:var(--text2);">colaboradores</span>
+                </div>
+
+                <!-- Resultados da simulação -->
+                <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+                  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 12px;flex:1;min-width:100px;">
+                    <div style="font-size:10px;color:var(--text2);margin-bottom:2px;">Capacidade total</div>
+                    <div>
+                      <span id="ttp-colab-sim-cap-${id}" style="font-size:16px;font-weight:700;color:var(--accent);">—</span>
+                      <span style="font-size:11px;color:var(--text2);"> itens</span>
+                    </div>
+                  </div>
+                  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 12px;flex:1;min-width:100px;">
+                    <div style="font-size:10px;color:var(--text2);margin-bottom:2px;">Saturação média</div>
+                    <span id="ttp-colab-sim-sat-${id}" style="font-size:16px;font-weight:700;">—</span>
+                  </div>
+                </div>
+
+                <!-- NOVO: Horas necessárias para atender a demanda com X colaboradores -->
+                <div style="background:var(--accentBg);border:1px solid rgba(0,212,255,.15);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px;">
+                  <div style="font-size:10px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">
+                    ⏱ Horas para concluir a demanda
+                  </div>
+                  <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;">
+                    <span id="ttp-horas-need-${id}" style="font-size:26px;font-weight:800;color:var(--accent);">—</span>
+                    <span style="font-size:12px;color:var(--text2);">horas</span>
+                    <span style="font-size:11px;color:var(--text2);" id="ttp-horas-min-${id}"></span>
+                  </div>
+                  <div id="ttp-horas-hint-${id}" style="font-size:10px;color:var(--text2);margin-top:4px;line-height:1.6;"></div>
+                </div>
+
+                <div id="ttp-colab-sim-verd-${id}" style="font-size:11px;font-weight:600;"></div>
+              </div>
+
+            </div>
+          </div>
+
           <!-- Tabela por hora -->
           <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">
             Produção por hora — com TTP aplicado
@@ -5174,20 +5243,24 @@ function ttpCalc(sid){
   var m     = computeSheetMetrics(s);
   var allow = +(m.allowPct||0);
   var ts    = m.stdSec || 0;
-  var h     = parseFloat(document.getElementById('ttp-h-'+sid)  .value) || 8;
+  var h     = parseFloat(document.getElementById('ttp-h-'+sid).value)   || 8;
   var dem   = parseFloat(document.getElementById('ttp-dem-'+sid).value) || 0;
   var ttp   = 100 - allow;
   var tdis  = h * 3600;
   var tprod = tdis * (ttp / 100);
+
   var elAllow = document.getElementById('ttp-allow-'+sid);
   var elPct   = document.getElementById('ttp-pct-'+sid);
   if(elAllow) elAllow.textContent = allow.toFixed(2) + ' %';
   if(elPct)   elPct.textContent   = ttp.toFixed(2)   + ' %';
+
   var res = document.getElementById('ttp-res-'+sid);
   if(!dem || dem <= 0){ if(res) res.style.display='none'; return; }
   if(res) res.style.display = 'block';
-  var takt = tprod / dem;
-  var cap  = Math.floor(tprod / takt);
+
+  var takt  = tprod / dem;
+  var capUm = Math.floor(tprod / takt);
+
   var kTdis  = document.getElementById('ttp-kpi-tdis-'+sid);
   var kTprod = document.getElementById('ttp-kpi-tprod-'+sid);
   var kTakt  = document.getElementById('ttp-kpi-takt-'+sid);
@@ -5195,7 +5268,87 @@ function ttpCalc(sid){
   if(kTdis)  kTdis.textContent  = tdis.toLocaleString('pt-BR') + ' s';
   if(kTprod) kTprod.textContent = Math.round(tprod).toLocaleString('pt-BR') + ' s';
   if(kTakt)  kTakt.textContent  = takt.toFixed(2) + ' s';
-  if(kCap)   kCap.textContent   = cap + ' itens';
+  if(kCap)   kCap.textContent   = capUm + ' itens';
+
+  // ── Colaboradores necessários ──
+  var needEl   = document.getElementById('ttp-colab-need-'+sid);
+  var needHint = document.getElementById('ttp-colab-need-hint-'+sid);
+  var colabNeed = 0;
+  if(ts > 0){
+    colabNeed = Math.ceil(ts / takt);
+    if(needEl) needEl.textContent = colabNeed;
+    if(needHint){
+      var capTotal = Math.floor(tprod * colabNeed / ts);
+      needHint.innerHTML = 'TS='+ts.toFixed(2)+'s ÷ Takt='+takt.toFixed(2)+'s'
+        +'<br>Capacidade com '+colabNeed+' colab.: <b style="color:var(--purple)">'+capTotal+' itens</b>';
+    }
+  } else {
+    if(needEl) needEl.textContent = '—';
+    if(needHint) needHint.textContent = 'Preencha a análise MTM para calcular';
+  }
+
+  // ── Simulação com X colaboradores ──
+  var colabInp  = document.getElementById('ttp-colab-inp-'+sid);
+  var simCapEl  = document.getElementById('ttp-colab-sim-cap-'+sid);
+  var simSatEl  = document.getElementById('ttp-colab-sim-sat-'+sid);
+  var simVerdEl = document.getElementById('ttp-colab-sim-verd-'+sid);
+  var horasNeedEl  = document.getElementById('ttp-horas-need-'+sid);
+  var horasMinEl   = document.getElementById('ttp-horas-min-'+sid);
+  var horasHintEl  = document.getElementById('ttp-horas-hint-'+sid);
+  if(colabInp && simCapEl && simSatEl){
+    var nColab = parseInt(colabInp.value) || 0;
+    if(nColab > 0 && ts > 0){
+      // Capacidade com N colaboradores nas horas definidas
+      var capSim = Math.floor(tprod * nColab / ts);
+      var satSim = +((ts / (takt * nColab)) * 100).toFixed(1);
+      simCapEl.textContent = capSim.toLocaleString('pt-BR');
+      var corSat = satSim > 100 ? 'var(--red)' : satSim >= 80 ? 'var(--green)' : 'var(--orange)';
+      simSatEl.textContent = satSim + '%';
+      simSatEl.style.color = corSat;
+
+      // ── HORAS NECESSÁRIAS para fazer a demanda com N colaboradores ──
+      // Fórmula: H_necessario = (dem × ts) / (nColab × (ttp/100) × 3600)
+      // Derivado de: capSim = tprod_x × nColab / ts  →  tprod_x = dem×ts/nColab  →  H = tprod_x / (ttp/100) / 3600
+      var tprodNecessario = (dem * ts) / nColab;           // s de trabalho produtivo necessário por colaborador
+      var horasNec = tprodNecessario / (ttp / 100) / 3600; // horas brutas (com TTP)
+      var horasNecInt = Math.ceil(horasNec * 100) / 100;   // arredondado p/ cima em centésimos
+      var horasH   = Math.floor(horasNec);
+      var horasM   = Math.round((horasNec - horasH) * 60);
+
+      if(horasNeedEl){
+        horasNeedEl.textContent = horasNecInt.toFixed(2);
+        horasNeedEl.style.color = horasNec <= h ? 'var(--green)' : 'var(--red)';
+      }
+      if(horasMinEl) horasMinEl.textContent = '(' + horasH + 'h ' + horasM + 'min)';
+      if(horasHintEl){
+        var dentroJornada = horasNec <= h;
+        horasHintEl.innerHTML =
+          'Com <b>'+nColab+' colab.</b>: TS='+ts.toFixed(2)+'s ÷ TTP='+ttp.toFixed(1)+'%<br>'
+          + 'T. produtivo necessário: <b>'+(tprodNecessario/3600).toFixed(2)+'h</b> por colaborador<br>'
+          + (dentroJornada
+              ? '✅ Dentro da jornada de <b>'+h+'h</b> definida (sobra '+(h-horasNec).toFixed(2)+'h)'
+              : '⚠️ Excede a jornada de <b>'+h+'h</b> — necessário '+(horasNec-h).toFixed(2)+'h extra ou mais colaboradores');
+      }
+
+      if(simVerdEl){
+        if(capSim >= dem){
+          simVerdEl.style.color = 'var(--green)';
+          simVerdEl.innerHTML = '✅ '+nColab+' colaborador(es) atendem '+dem+' itens em '+h+'h — sobra de <b>'+(capSim-dem)+' itens</b>.';
+        } else {
+          simVerdEl.style.color = 'var(--red)';
+          simVerdEl.innerHTML = '❌ '+nColab+' colaborador(es) NÃO atendem '+dem+' itens em '+h+'h (faltam '+(dem-capSim)+'). Mínimo necessário: <b>'+colabNeed+'</b>.';
+        }
+      }
+    } else {
+      simCapEl.textContent = '—'; simSatEl.textContent = '—';
+      if(horasNeedEl){ horasNeedEl.textContent = '—'; horasNeedEl.style.color = 'var(--accent)'; }
+      if(horasMinEl)  horasMinEl.textContent = '';
+      if(horasHintEl) horasHintEl.innerHTML = nColab > 0 ? 'Preencha a análise MTM para calcular.' : '';
+      if(simVerdEl)   simVerdEl.innerHTML = nColab > 0 ? '<span style="color:var(--text2)">Preencha a análise MTM para simular.</span>' : '';
+    }
+  }
+
+  // ── Tabela por hora ──
   var tbody = document.getElementById('ttp-tbody-'+sid);
   if(tbody){
     var rows = '';
@@ -5216,41 +5369,45 @@ function ttpCalc(sid){
     }
     tbody.innerHTML = rows;
   }
+
+  // ── Memória de cálculo ──
   var mem = document.getElementById('ttp-mem-'+sid);
   if(mem){
+    var memColab = ts > 0
+      ? ' &nbsp;|&nbsp; <b style="color:var(--text)">Colaboradores</b> = ceil('+ts.toFixed(2)+'÷'+takt.toFixed(2)+') = <b style="color:var(--purple)">'+colabNeed+'</b>'
+      : '';
     mem.innerHTML =
-      '<b style="color:var(--text)">TTP</b> = 100 − '+allow.toFixed(2)+' = <b style="color:var(--accent)">'+ttp.toFixed(2)+'%</b> &nbsp;|&nbsp; '
-      +'<b style="color:var(--text)">Disponível</b> = '+h+'h × 3.600 = <b>'+tdis.toLocaleString('pt-BR')+' s</b> &nbsp;|&nbsp; '
-      +'<b style="color:var(--text)">Produtivo</b> = <b style="color:var(--green)">'+Math.round(tprod).toLocaleString('pt-BR')+' s</b><br>'
-      +'<b style="color:var(--text)">Takt Time</b> = '+Math.round(tprod).toLocaleString('pt-BR')+' ÷ '+dem+' = <b style="color:var(--accent)">'+takt.toFixed(2)+' s/item</b> &nbsp;|&nbsp; '
-      +'<b style="color:var(--text)">Capacidade</b> = <b>'+cap+' itens em '+h+'h</b>';
+      '<b style="color:var(--text)">TTP</b> = 100−'+allow.toFixed(2)+' = <b style="color:var(--accent)">'+ttp.toFixed(2)+'%</b> &nbsp;|&nbsp; '
+      +'<b>Disponível</b> = '+h+'h×3.600 = <b>'+tdis.toLocaleString('pt-BR')+'s</b> &nbsp;|&nbsp; '
+      +'<b>Produtivo</b> = <b style="color:var(--green)">'+Math.round(tprod).toLocaleString('pt-BR')+'s</b><br>'
+      +'<b>Takt</b> = '+Math.round(tprod).toLocaleString('pt-BR')+'÷'+dem+' = <b style="color:var(--accent)">'+takt.toFixed(2)+'s/item</b>'
+      +memColab;
   }
+
+  // ── Veredicto TS vs Takt ──
   var verd = document.getElementById('ttp-verd-'+sid);
   if(verd){
     if(ts > 0){
       var satPct = (ts/takt)*100;
       var diff   = takt - ts;
       var cor, icn, msg;
-      if(satPct>100){ cor='var(--red)';    icn='🔴'; msg='<b>Sobrecarga — TS ('+ts.toFixed(2)+'s) maior que Takt ('+takt.toFixed(2)+'s).</b> Revisar conteúdo de trabalho ou nº de operadores.'; }
-      else if(satPct>=85){ cor='var(--green)'; icn='🟢'; msg='<b>Ótimo — saturação '+satPct.toFixed(1)+'%.</b> TS dentro do Takt. Folga de '+diff.toFixed(2)+' s. Demanda de '+dem+' itens em '+h+'h atendida.'; }
-      else { cor='var(--orange)'; icn='🟡'; msg='<b>Processo ocioso — saturação '+satPct.toFixed(1)+'%.</b> Folga de '+diff.toFixed(2)+'s. Avaliar redistribuição de atividades.'; }
+      if(satPct>100){
+        cor='var(--red)'; icn='🔴';
+        msg='<b>Sobrecarga — TS ('+ts.toFixed(2)+'s) > Takt ('+takt.toFixed(2)+'s).</b> Necessário <b>'+colabNeed+' colaborador(es)</b> para atender '+dem+' itens em '+h+'h.';
+      } else if(satPct>=85){
+        cor='var(--green)'; icn='🟢';
+        msg='<b>Ótimo — 1 colaborador atende a demanda.</b> Saturação '+satPct.toFixed(1)+'%. Folga de '+diff.toFixed(2)+'s.';
+      } else {
+        cor='var(--orange)'; icn='🟡';
+        msg='<b>Processo ocioso — saturação '+satPct.toFixed(1)+'%.</b> Folga de '+diff.toFixed(2)+'s. 1 colaborador já atende — avaliar redistribuição.';
+      }
       verd.style.display='block';
       verd.style.background= satPct>100?'var(--redBg)':satPct>=85?'var(--greenBg)':'var(--orangeBg)';
-      verd.style.border='1px solid '+cor;
-      verd.style.color=cor;
+      verd.style.border='1px solid '+cor; verd.style.color=cor;
       verd.innerHTML=icn+' '+msg+'<br><span style="font-size:11px;opacity:.8;">Saturação: '+satPct.toFixed(1)+'% | Takt−TS: '+(diff>=0?'+':'')+diff.toFixed(2)+'s</span>';
     } else {
       verd.style.display='none';
     }
-  }
-  // Sincroniza demanda e recalcula painel TTP
-  if(typeof ttpCalc === 'function'){
-    var s2 = get(sid);
-    if(s2 && s2.header){
-      var demInp2 = document.getElementById('ttp-dem-'+sid);
-      if(demInp2 && !demInp2._userEdited && s2.header.demand) demInp2.value = s2.header.demand;
-    }
-    ttpCalc(sid);
   }
 }
 
