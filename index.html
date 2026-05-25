@@ -9241,15 +9241,14 @@ function balCalcProjeto(proj, params){
     });
   });
 
-  // Takt de referência: 1) takt manual do balanceamento; senão
-  // 2) Takt calculado por demanda; senão 3) maior takt das folhas; senão 4) maior tempo padrão.
+  // Takt de referência: 1) Takt manual; senão 2) Takt da meta de peças/hora;
+  // senão 3) maior Takt das folhas; senão 4) maior tempo padrão (gargalo).
   var taktCalc = 0;
-  var tDisp = parseFloat(params.tDisp)||0;   // segundos disponíveis
   var efic  = parseFloat(params.efic);
-  if(isNaN(efic)) efic = 100;
-  var demanda = parseFloat(params.demanda)||0;
-  if(tDisp > 0 && demanda > 0){
-    taktCalc = (tDisp * (efic/100)) / demanda;
+  if(isNaN(efic) || efic<=0) efic = 100;
+  var pphAlvo = parseFloat(params.pphAlvo)||0;   // peças por hora desejadas
+  if(pphAlvo > 0){
+    taktCalc = (3600 * (efic/100)) / pphAlvo;
   }
   var maxTaktFolha = 0, maxStd = 0;
   posts.forEach(function(p){
@@ -9262,7 +9261,7 @@ function balCalcProjeto(proj, params){
            : maxTaktFolha > 0 ? maxTaktFolha
            : maxStd;
   var taktOrigem = taktManual > 0 ? 'Takt informado'
-           : taktCalc > 0 ? 'Takt calculado (demanda)'
+           : taktCalc > 0 ? 'Meta de '+pphAlvo+' pç/h'
            : maxTaktFolha > 0 ? 'Maior Takt das folhas'
            : 'Gargalo (maior tempo)';
 
@@ -9282,7 +9281,7 @@ function balCalcProjeto(proj, params){
     totalStd: totalStd, nPostos: nPostos, opTeoricos: opTeoricos,
     eficBal: eficBal, ociosaTotal: ociosaTotal, gargalo: gargalo,
     capacidadeHora: capacidadeHora,
-    params: { taktManual: taktManual, demanda: demanda, tDisp: tDisp, efic: efic }
+    params: { taktManual: taktManual, pphAlvo: pphAlvo, efic: efic }
   };
 }
 
@@ -9290,7 +9289,7 @@ function balCalcProjeto(proj, params){
 function pmRenderBalanceamento(el){
   var p = pmGetProject();
   if(!p){ el.innerHTML = ''; return; }
-  if(!p.balanceamento) p.balanceamento = { taktManual:'', demanda:'', tDisp:'', efic:'' };
+  if(!p.balanceamento) p.balanceamento = { taktManual:'', pphAlvo:'', recursos:'', efic:'' };
   var bp = p.balanceamento;
   var bal = balCalcProjeto(p, bp);
 
@@ -9301,23 +9300,21 @@ function pmRenderBalanceamento(el){
     +   '<span style="flex:1"></span>'
     + '</div>';
 
-  // Painel de parâmetros (Takt)
+  // Painel de parâmetros (Takt) — apenas o Takt manual opcional.
+  // Peças/hora e eficiência ficam no painel "Capacidade × Recursos" abaixo.
   html += ''
     + '<div style="background:var(--surface2);border:1px solid var(--border2);border-left:3px solid var(--accent);border-radius:9px;padding:12px;margin-bottom:14px">'
-    +   '<div style="font-size:10px;font-weight:700;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">⏱ Parâmetros do Takt Time</div>'
-    +   '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">'
-    +     balField('bal-tdisp','Tempo disponível (s)', bp.tDisp, 'Ex: 27000') 
-    +     balField('bal-efic','Eficiência (%)', bp.efic, 'Ex: 92')
-    +     balField('bal-demanda','Demanda (peças)', bp.demanda, 'Ex: 480')
-    +     balField('bal-taktman','Takt manual (s) — opcional', bp.taktManual, 'Sobrepõe o cálculo')
+    +   '<div style="font-size:10px;font-weight:700;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">⏱ Takt Time da Linha</div>'
+    +   '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">'
+    +     balField('bal-taktman','Takt manual (s) — opcional', bp.taktManual, 'Deixe vazio p/ usar a meta de pç/h')
     +   '</div>'
     +   '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">'
     +     '<button class="pm-btn pm-btn-green" onclick="pmSaveBalanceamento()">💾 Aplicar / Salvar</button>'
     +   '</div>'
     +   '<div style="font-size:10px;color:var(--text3);margin-top:8px;line-height:1.6">'
-    +     '<strong>Takt</strong> = (Tempo disponível × Eficiência%) ÷ Demanda. '
-    +     'Se o Takt manual for preenchido, ele é usado diretamente. '
-    +     'Sem nenhum dado, usa o maior Takt das folhas ou o gargalo.'
+    +     'O <strong>Takt</strong> usado no balanceamento vem, nesta ordem: 1) Takt manual acima; '
+    +     '2) a meta de <strong>peças/hora</strong> do painel abaixo; '
+    +     '3) o maior Takt das folhas; 4) o gargalo da linha.'
     +   '</div>'
     + '</div>';
 
@@ -9397,44 +9394,46 @@ function balKpi(val,lbl,color){
 
 // ── Cálculo de capacidade nos dois sentidos ──
 // Conteúdo de trabalho = soma dos tempos padrão de todas as folhas (s).
-// params: { tDisp, efic, demanda, recursos }
+// Trabalha em PEÇAS POR HORA — base de 3600s/hora.
+// params: { pphAlvo, recursos, efic }
 function balCapacidade(bal, params){
   params = params || {};
-  var conteudo = bal.totalStd;                 // Σ tempo padrão (s)
-  var tDisp = parseFloat(params.tDisp)||0;     // tempo disponível por operador (s)
-  var efic  = parseFloat(params.efic); if(isNaN(efic)) efic = 100;
+  var conteudo = bal.totalStd;                   // Σ tempo padrão (s) — 1 peça na linha
+  var efic  = parseFloat(params.efic); if(isNaN(efic) || efic<=0) efic = 100;
   var efFrac = efic/100;
-  var demanda = parseFloat(params.demanda)||0; // peças desejadas
+  var pphAlvo = parseFloat(params.pphAlvo)||0;   // peças/hora desejadas
   var recursos = parseFloat(params.recursos)||0; // operadores disponíveis
-
-  // SENTIDO 1 — Demanda → Recursos necessários
-  // Takt = (tDisp × efic) / demanda ; Operadores = conteúdo / Takt
-  var taktD = (tDisp>0 && demanda>0) ? (tDisp*efFrac)/demanda : 0;
-  var opNecExato = taktD>0 ? conteudo/taktD : 0;
-  var opNec = opNecExato>0 ? Math.ceil(opNecExato) : 0;
-  // Tempo-homem total exigido pela demanda (s) e em horas
-  var thNecSec = conteudo * demanda;           // s-homem para toda a demanda
-  var thNecHoras = thNecSec/3600;
-
-  // SENTIDO 2 — Recursos → Peças que consigo produzir
-  // Capacidade = (tDisp × efic × recursos) / conteúdo
-  var pecasPorRecurso = (tDisp>0 && recursos>0 && conteudo>0)
-      ? (tDisp*efFrac*recursos)/conteudo : 0;
-  // Capacidade limitada pelo gargalo: cada peça "sai" a cada gargalo segundos
   var gargSec = bal.gargalo ? bal.gargalo.stdSec : 0;
-  var pecasGargalo = (tDisp>0 && gargSec>0) ? (tDisp*efFrac)/gargSec : 0;
-  // A capacidade real é a menor entre as duas
-  var pecasReais = pecasGargalo>0 ? Math.min(pecasPorRecurso, pecasGargalo) : pecasPorRecurso;
 
-  // Atendimento da demanda com os recursos informados
-  var atendePct = (demanda>0 && pecasReais>0) ? (pecasReais/demanda*100) : 0;
+  // SENTIDO 1 — Peças/hora desejadas → Pessoas necessárias
+  // Takt = (3600 × efic) / peças-hora ; Operadores = Conteúdo / Takt
+  var taktAlvo = pphAlvo>0 ? (3600*efFrac)/pphAlvo : 0;
+  var opNecExato = taktAlvo>0 ? conteudo/taktAlvo : 0;
+  var opNec = opNecExato>0 ? Math.ceil(opNecExato) : 0;
+  // Verifica se o gargalo de um posto inviabiliza a meta
+  // (mesmo com pessoas sobrando, 1 posto não produz acima de 3600·efic/gargalo)
+  var pphMaxGargalo = gargSec>0 ? (3600*efFrac)/gargSec : 0;
+  var metaViavel = (pphMaxGargalo===0) || (pphAlvo<=pphMaxGargalo+0.01);
+
+  // SENTIDO 2 — Pessoas disponíveis → Peças/hora possíveis
+  // Peças/hora = (3600 × efic × operadores) / Conteúdo
+  var pphPorRecurso = (recursos>0 && conteudo>0) ? (3600*efFrac*recursos)/conteudo : 0;
+  // Limite do gargalo: nenhum posto produz mais que 3600·efic/gargalo
+  var pphGargalo = pphMaxGargalo;
+  // Capacidade real = menor entre mão de obra e gargalo
+  var pphReal = (recursos>0)
+      ? (pphGargalo>0 ? Math.min(pphPorRecurso, pphGargalo) : pphPorRecurso)
+      : 0;
+
+  // Atendimento da meta com os recursos informados
+  var atendePct = (pphAlvo>0 && pphReal>0) ? (pphReal/pphAlvo*100) : 0;
 
   return {
-    conteudo: conteudo, tDisp: tDisp, efic: efic, demanda: demanda, recursos: recursos,
-    taktD: taktD, opNecExato: opNecExato, opNec: opNec,
-    thNecSec: thNecSec, thNecHoras: thNecHoras,
-    pecasPorRecurso: pecasPorRecurso, pecasGargalo: pecasGargalo, pecasReais: pecasReais,
-    gargSec: gargSec, atendePct: atendePct
+    conteudo: conteudo, efic: efic, pphAlvo: pphAlvo, recursos: recursos, gargSec: gargSec,
+    taktAlvo: taktAlvo, opNecExato: opNecExato, opNec: opNec,
+    pphMaxGargalo: pphMaxGargalo, metaViavel: metaViavel,
+    pphPorRecurso: pphPorRecurso, pphGargalo: pphGargalo, pphReal: pphReal,
+    atendePct: atendePct
   };
 }
 
@@ -9443,61 +9442,65 @@ function balCapacidadeHtml(bal){
   var p = (typeof pmGetProject==='function') ? pmGetProject() : null;
   var bp = (p && p.balanceamento) ? p.balanceamento : {};
   var c = balCapacidade(bal, bp);
-  var temD1 = c.taktD>0;
-  var temD2 = c.pecasPorRecurso>0;
+  var temD1 = c.taktAlvo>0;
+  var temD2 = c.pphPorRecurso>0;
 
   var html = '<div class="res-section-title" style="margin-top:18px">📐 Capacidade × Recursos</div>'
+    + '<div style="font-size:10px;color:var(--text3);margin-bottom:8px">Conteúdo de trabalho da linha: <strong style="color:var(--text2)">'+c.conteudo.toFixed(1)+'s</strong> por peça · base de cálculo: 3600s/hora.</div>'
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:8px">';
 
-  // ── BLOCO 1: Demanda → Recursos ──
+  // ── BLOCO 1: Peças/hora → Pessoas ──
   html += '<div style="background:var(--surface2);border:1px solid var(--border2);border-left:3px solid var(--purple);border-radius:9px;padding:14px">'
-    + '<div style="font-size:10px;font-weight:700;color:var(--purple);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">1 · Quantas peças → quantos recursos</div>'
+    + '<div style="font-size:10px;font-weight:700;color:var(--purple);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">1 · Peças/hora → Quantas pessoas</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">'
-    + balField('bal-demanda2','Peças a produzir', bp.demanda, 'Ex: 480')
-    + balField('bal-tdisp2','Tempo disp./operador (s)', bp.tDisp, 'Ex: 27000')
+    + balField('bal-pph','Peças por hora (meta)', bp.pphAlvo, 'Ex: 80')
+    + balField('bal-efic','Eficiência (%)', bp.efic, 'Ex: 92')
     + '</div>';
   if(temD1){
     html += '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      + balKpi(c.taktD.toFixed(1)+'s','Takt necessário','var(--accent)')
-      + balKpi(c.opNecExato.toFixed(2),'Operadores (exato)','var(--purple)')
-      + balKpi(c.opNec,'Operadores (prática)','var(--purple)')
-      + '</div>'
-      + '<div style="font-size:10px;color:var(--text3);margin-top:8px;line-height:1.6">'
-      + 'Conteúdo de trabalho: <strong>'+c.conteudo.toFixed(1)+'s</strong> · '
-      + 'Tempo-homem total p/ a demanda: <strong>'+c.thNecHoras.toFixed(1)+' h</strong>.<br>'
-      + 'Operadores = Conteúdo ÷ Takt — arredonde sempre para cima.'
+      + balKpi(c.taktAlvo.toFixed(1)+'s','Takt necessário','var(--accent)')
+      + balKpi(c.opNecExato.toFixed(2),'Pessoas (exato)','var(--purple)')
+      + balKpi(c.opNec,'Pessoas necessárias','var(--purple)')
       + '</div>';
-  } else {
-    html += '<div style="font-size:11px;color:var(--text3);padding:6px 0">Informe peças e tempo disponível para calcular os recursos necessários.</div>';
-  }
-  html += '</div>';
-
-  // ── BLOCO 2: Recursos → Peças ──
-  html += '<div style="background:var(--surface2);border:1px solid var(--border2);border-left:3px solid var(--green);border-radius:9px;padding:14px">'
-    + '<div style="font-size:10px;font-weight:700;color:var(--green);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">2 · Quantos recursos → quantas peças</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">'
-    + balField('bal-recursos','Operadores disponíveis', bp.recursos, 'Ex: 4')
-    + balField('bal-efic2','Eficiência (%)', bp.efic, 'Ex: 92')
-    + '</div>';
-  if(temD2){
-    var atColor = c.atendePct>=100?'var(--green)':c.atendePct>=85?'var(--orange)':'var(--red)';
-    html += '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      + balKpi(Math.floor(c.pecasPorRecurso),'Peças (por recursos)','var(--green)')
-      + balKpi(c.gargSec>0?Math.floor(c.pecasGargalo):'—','Peças (limite gargalo)','var(--orange)')
-      + balKpi(Math.floor(c.pecasReais),'Peças reais','var(--green)')
-      + '</div>';
-    if(c.demanda>0){
-      html += '<div style="margin-top:8px;padding:7px 10px;border-radius:7px;background:var(--surface);border:1px solid var(--border2);font-size:11px;font-weight:700;color:'+atColor+'">'
-        + 'Atendimento da demanda de '+c.demanda+' pç: '+c.atendePct.toFixed(1)+'% '
-        + (c.atendePct>=100?'✅ atende':'⚠️ não atende — faltam '+Math.max(0,Math.ceil(c.demanda-c.pecasReais))+' pç')
+    if(!c.metaViavel){
+      html += '<div style="margin-top:8px;padding:7px 10px;border-radius:7px;background:var(--redBg);border:1px solid var(--red);font-size:11px;font-weight:700;color:var(--red)">'
+        + '⚠️ Meta inviável só com pessoas: o gargalo de '+c.gargSec.toFixed(1)+'s limita a linha a '+Math.floor(c.pphMaxGargalo)+' pç/h. '
+        + 'É preciso reduzir o tempo do posto gargalo.'
         + '</div>';
     }
     html += '<div style="font-size:10px;color:var(--text3);margin-top:8px;line-height:1.6">'
-      + 'Peças = (Tempo disp. × Eficiência% × Operadores) ÷ Conteúdo de trabalho.<br>'
-      + 'A capacidade real é limitada pelo gargalo da linha.'
+      + 'Takt = (3600 × Efic%) ÷ Peças-hora · Pessoas = Conteúdo ÷ Takt — arredonde para cima.'
       + '</div>';
   } else {
-    html += '<div style="font-size:11px;color:var(--text3);padding:6px 0">Informe o número de operadores disponíveis para calcular a produção possível.</div>';
+    html += '<div style="font-size:11px;color:var(--text3);padding:6px 0">Informe a meta de peças/hora para calcular quantas pessoas você precisa.</div>';
+  }
+  html += '</div>';
+
+  // ── BLOCO 2: Pessoas → Peças/hora ──
+  html += '<div style="background:var(--surface2);border:1px solid var(--border2);border-left:3px solid var(--green);border-radius:9px;padding:14px">'
+    + '<div style="font-size:10px;font-weight:700;color:var(--green);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">2 · Pessoas → Quantas peças/hora</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">'
+    + balField('bal-recursos','Pessoas disponíveis', bp.recursos, 'Ex: 4')
+    + balField('bal-efic2','Eficiência (%)', bp.efic, 'Ex: 92')
+    + '</div>';
+  if(temD2){
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + balKpi(Math.floor(c.pphPorRecurso),'Pç/h (mão de obra)','var(--green)')
+      + balKpi(c.gargSec>0?Math.floor(c.pphGargalo):'—','Pç/h (limite gargalo)','var(--orange)')
+      + balKpi(Math.floor(c.pphReal),'Pç/h reais','var(--green)')
+      + '</div>';
+    if(c.pphAlvo>0){
+      var atColor = c.atendePct>=100?'var(--green)':c.atendePct>=85?'var(--orange)':'var(--red)';
+      html += '<div style="margin-top:8px;padding:7px 10px;border-radius:7px;background:var(--surface);border:1px solid var(--border2);font-size:11px;font-weight:700;color:'+atColor+'">'
+        + 'Atende a meta de '+c.pphAlvo+' pç/h? '+c.atendePct.toFixed(1)+'% '
+        + (c.atendePct>=100?'✅ sim':'⚠️ não — faltam '+Math.max(0,Math.ceil(c.pphAlvo-c.pphReal))+' pç/h')
+        + '</div>';
+    }
+    html += '<div style="font-size:10px;color:var(--text3);margin-top:8px;line-height:1.6">'
+      + 'Pç/h = (3600 × Efic% × Pessoas) ÷ Conteúdo — limitado pelo gargalo da linha.'
+      + '</div>';
+  } else {
+    html += '<div style="font-size:11px;color:var(--text3);padding:6px 0">Informe quantas pessoas você tem para calcular a produção por hora.</div>';
   }
   html += '</div>';
 
@@ -9589,20 +9592,18 @@ function pmSaveBalanceamento(){
   if(!p) return;
   if(!p.balanceamento) p.balanceamento = {};
   var g = function(id){ var e=document.getElementById(id); return e?e.value:''; };
-  // Alguns parâmetros aparecem em dois painéis (Takt e Capacidade).
-  // Lê de ambos os IDs e usa o que estiver preenchido; em empate, o
-  // painel de Capacidade (sufixo "2") tem prioridade por ser o mais usado.
-  var pick = function(idCap, idTakt){
-    var vc = g(idCap), vt = g(idTakt);
-    if(vc !== '' && vc != null) return vc;
-    if(vt !== '' && vt != null) return vt;
+  // Eficiência aparece em dois blocos do painel; usa o que estiver preenchido.
+  var pick = function(){
+    for(var i=0;i<arguments.length;i++){
+      var v=g(arguments[i]);
+      if(v!=='' && v!=null) return v;
+    }
     return '';
   };
-  p.balanceamento.tDisp     = pick('bal-tdisp2','bal-tdisp');
-  p.balanceamento.efic      = pick('bal-efic2','bal-efic');
-  p.balanceamento.demanda   = pick('bal-demanda2','bal-demanda');
-  p.balanceamento.taktManual= g('bal-taktman');
-  p.balanceamento.recursos  = g('bal-recursos');
+  p.balanceamento.taktManual = g('bal-taktman');
+  p.balanceamento.pphAlvo    = g('bal-pph');
+  p.balanceamento.recursos   = g('bal-recursos');
+  p.balanceamento.efic       = pick('bal-efic','bal-efic2');
   pmSave();
   pmRenderProjTab();
   if(typeof showToast === 'function') showToast('⚖️ Balanceamento salvo no projeto');
@@ -9675,7 +9676,7 @@ function buildBalanceamentoPrintHTML(proj, bal){
 
   // Capacidade × Recursos
   var cap = balCapacidade(bal, (proj.balanceamento||{}));
-  if(cap.taktD>0 || cap.pecasPorRecurso>0){
+  if(cap.taktAlvo>0 || cap.pphPorRecurso>0){
     html += '<div style="font-size:11px;font-weight:700;color:#0066cc;margin:8px 0 4px">📐 Capacidade × Recursos</div>';
     html += '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px">'
       + '<thead><tr style="background:#eef1f9">'
@@ -9683,17 +9684,18 @@ function buildBalanceamentoPrintHTML(proj, bal){
       + '<th style="border:1px solid #ccd;padding:5px 7px;text-align:left">Parâmetros</th>'
       + '<th style="border:1px solid #ccd;padding:5px 7px;text-align:left">Resultado</th>'
       + '</tr></thead><tbody>';
-    if(cap.taktD>0){
-      html += '<tr><td style="border:1px solid #ccd;padding:5px 7px">Demanda → Recursos</td>'
-        + '<td style="border:1px solid #ccd;padding:5px 7px">'+cap.demanda+' pç · Takt '+cap.taktD.toFixed(1)+'s · Conteúdo '+cap.conteudo.toFixed(1)+'s</td>'
-        + '<td style="border:1px solid #ccd;padding:5px 7px"><strong>'+cap.opNec+' operador(es)</strong> ('+cap.opNecExato.toFixed(2)+' exato) · '+cap.thNecHoras.toFixed(1)+' h-homem</td></tr>';
+    if(cap.taktAlvo>0){
+      html += '<tr><td style="border:1px solid #ccd;padding:5px 7px">Peças/hora → Pessoas</td>'
+        + '<td style="border:1px solid #ccd;padding:5px 7px">Meta '+cap.pphAlvo+' pç/h · Takt '+cap.taktAlvo.toFixed(1)+'s · Conteúdo '+cap.conteudo.toFixed(1)+'s · Efic. '+cap.efic+'%</td>'
+        + '<td style="border:1px solid #ccd;padding:5px 7px"><strong>'+cap.opNec+' pessoa(s)</strong> ('+cap.opNecExato.toFixed(2)+' exato)'
+        + (!cap.metaViavel?' · ⚠ gargalo limita a '+Math.floor(cap.pphMaxGargalo)+' pç/h':'')+'</td></tr>';
     }
-    if(cap.pecasPorRecurso>0){
-      html += '<tr><td style="border:1px solid #ccd;padding:5px 7px">Recursos → Peças</td>'
-        + '<td style="border:1px solid #ccd;padding:5px 7px">'+cap.recursos+' operador(es) · Efic. '+cap.efic+'%</td>'
-        + '<td style="border:1px solid #ccd;padding:5px 7px"><strong>'+Math.floor(cap.pecasReais)+' peças</strong>'
-        + (cap.gargSec>0?' (limite gargalo: '+Math.floor(cap.pecasGargalo)+')':'')
-        + (cap.demanda>0?' · atende '+cap.atendePct.toFixed(1)+'%':'')+'</td></tr>';
+    if(cap.pphPorRecurso>0){
+      html += '<tr><td style="border:1px solid #ccd;padding:5px 7px">Pessoas → Peças/hora</td>'
+        + '<td style="border:1px solid #ccd;padding:5px 7px">'+cap.recursos+' pessoa(s) · Efic. '+cap.efic+'%</td>'
+        + '<td style="border:1px solid #ccd;padding:5px 7px"><strong>'+Math.floor(cap.pphReal)+' pç/h</strong>'
+        + (cap.gargSec>0?' (limite gargalo: '+Math.floor(cap.pphGargalo)+')':'')
+        + (cap.pphAlvo>0?' · atende '+cap.atendePct.toFixed(1)+'%':'')+'</td></tr>';
     }
     html += '</tbody></table>';
   }
@@ -9803,32 +9805,32 @@ function buildBalReportSection(){
 // para o Relatório Final e o PDF.
 function balCapacidadeReportHtml(bal, params){
   var c = balCapacidade(bal, params||{});
-  var temD1 = c.taktD>0, temD2 = c.pecasPorRecurso>0;
+  var temD1 = c.taktAlvo>0, temD2 = c.pphPorRecurso>0;
   if(!temD1 && !temD2) return '';
   var html = '<div class="res-section-title" style="margin-top:14px">📐 Capacidade × Recursos</div>'
+    + '<div style="font-size:10px;color:var(--text3);margin-bottom:6px">Conteúdo de trabalho: <strong style="color:var(--text2)">'+c.conteudo.toFixed(1)+'s</strong> por peça.</div>'
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:6px">';
   if(temD1){
     html += '<div style="background:var(--surface2);border:1px solid var(--border2);border-left:3px solid var(--purple);border-radius:9px;padding:12px">'
-      + '<div style="font-size:10px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Demanda → Recursos necessários</div>'
+      + '<div style="font-size:10px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Peças/hora → Pessoas necessárias</div>'
       + '<div style="font-size:11px;color:var(--text2);line-height:1.9">'
-      + 'Peças a produzir: <strong>'+c.demanda+'</strong><br>'
-      + 'Takt necessário: <strong style="color:var(--accent)">'+c.taktD.toFixed(1)+'s</strong><br>'
-      + 'Conteúdo de trabalho: <strong>'+c.conteudo.toFixed(1)+'s</strong><br>'
-      + 'Operadores (exato): <strong>'+c.opNecExato.toFixed(2)+'</strong><br>'
-      + 'Operadores necessários: <strong style="color:var(--purple);font-size:13px">'+c.opNec+'</strong><br>'
-      + 'Tempo-homem total: <strong>'+c.thNecHoras.toFixed(1)+' h</strong>'
+      + 'Meta de produção: <strong>'+c.pphAlvo+' peças/hora</strong><br>'
+      + 'Takt necessário: <strong style="color:var(--accent)">'+c.taktAlvo.toFixed(1)+'s</strong><br>'
+      + 'Pessoas (exato): <strong>'+c.opNecExato.toFixed(2)+'</strong><br>'
+      + 'Pessoas necessárias: <strong style="color:var(--purple);font-size:13px">'+c.opNec+'</strong>'
+      + (!c.metaViavel?'<br><span style="color:var(--red)">⚠️ gargalo limita a linha a '+Math.floor(c.pphMaxGargalo)+' pç/h</span>':'')
       + '</div></div>';
   }
   if(temD2){
     var atColor = c.atendePct>=100?'var(--green)':c.atendePct>=85?'var(--orange)':'var(--red)';
     html += '<div style="background:var(--surface2);border:1px solid var(--border2);border-left:3px solid var(--green);border-radius:9px;padding:12px">'
-      + '<div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Recursos → Peças possíveis</div>'
+      + '<div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Pessoas → Peças/hora possíveis</div>'
       + '<div style="font-size:11px;color:var(--text2);line-height:1.9">'
-      + 'Operadores disponíveis: <strong>'+c.recursos+'</strong><br>'
-      + 'Peças (por recursos): <strong>'+Math.floor(c.pecasPorRecurso)+'</strong><br>'
-      + 'Peças (limite gargalo): <strong>'+(c.gargSec>0?Math.floor(c.pecasGargalo):'—')+'</strong><br>'
-      + 'Peças reais (capacidade): <strong style="color:var(--green);font-size:13px">'+Math.floor(c.pecasReais)+'</strong>'
-      + (c.demanda>0?'<br>Atendimento da demanda: <strong style="color:'+atColor+'">'+c.atendePct.toFixed(1)+'%</strong>':'')
+      + 'Pessoas disponíveis: <strong>'+c.recursos+'</strong><br>'
+      + 'Pç/h (mão de obra): <strong>'+Math.floor(c.pphPorRecurso)+'</strong><br>'
+      + 'Pç/h (limite gargalo): <strong>'+(c.gargSec>0?Math.floor(c.pphGargalo):'—')+'</strong><br>'
+      + 'Pç/h reais (capacidade): <strong style="color:var(--green);font-size:13px">'+Math.floor(c.pphReal)+'</strong>'
+      + (c.pphAlvo>0?'<br>Atende a meta: <strong style="color:'+atColor+'">'+c.atendePct.toFixed(1)+'%</strong>':'')
       + '</div></div>';
   }
   html += '</div>';
@@ -10482,23 +10484,24 @@ function prepararPrintRelatorio(){
 
       // Capacidade × Recursos no PDF
       var capR = balCapacidade(balR, balParams);
-      if(capR.taktD>0 || capR.pecasPorRecurso>0){
+      if(capR.taktAlvo>0 || capR.pphPorRecurso>0){
         html += '<div class="pa-h2">📐 Capacidade × Recursos</div>';
         html += '<table class="pa-table"><thead><tr><th>Cálculo</th><th>Parâmetros</th><th>Resultado</th></tr></thead><tbody>';
-        if(capR.taktD>0){
-          html += '<tr><td class="item">Demanda → Recursos</td>'
-            + '<td>'+capR.demanda+' pç · Takt '+capR.taktD.toFixed(1)+'s · Conteúdo '+capR.conteudo.toFixed(1)+'s</td>'
-            + '<td class="num"><b>'+capR.opNec+' operador(es)</b> ('+capR.opNecExato.toFixed(2)+' exato) · '+capR.thNecHoras.toFixed(1)+' h-homem</td></tr>';
+        if(capR.taktAlvo>0){
+          html += '<tr><td class="item">Peças/hora → Pessoas</td>'
+            + '<td>Meta '+capR.pphAlvo+' pç/h · Takt '+capR.taktAlvo.toFixed(1)+'s · Conteúdo '+capR.conteudo.toFixed(1)+'s · Efic. '+capR.efic+'%</td>'
+            + '<td class="num"><b>'+capR.opNec+' pessoa(s)</b> ('+capR.opNecExato.toFixed(2)+' exato)'
+            + (!capR.metaViavel?' · ⚠ gargalo limita a '+Math.floor(capR.pphMaxGargalo)+' pç/h':'')+'</td></tr>';
         }
-        if(capR.pecasPorRecurso>0){
-          html += '<tr><td class="item">Recursos → Peças</td>'
-            + '<td>'+capR.recursos+' operador(es) · Efic. '+capR.efic+'%</td>'
-            + '<td class="num"><b>'+Math.floor(capR.pecasReais)+' peças</b>'
-            + (capR.gargSec>0?' (limite gargalo: '+Math.floor(capR.pecasGargalo)+')':'')
-            + (capR.demanda>0?' · atende '+capR.atendePct.toFixed(1)+'%':'')+'</td></tr>';
+        if(capR.pphPorRecurso>0){
+          html += '<tr><td class="item">Pessoas → Peças/hora</td>'
+            + '<td>'+capR.recursos+' pessoa(s) · Efic. '+capR.efic+'%</td>'
+            + '<td class="num"><b>'+Math.floor(capR.pphReal)+' pç/h</b>'
+            + (capR.gargSec>0?' (limite gargalo: '+Math.floor(capR.pphGargalo)+')':'')
+            + (capR.pphAlvo>0?' · atende '+capR.atendePct.toFixed(1)+'%':'')+'</td></tr>';
         }
         html += '</tbody></table>';
-        html += '<div class="pa-note">Operadores = Conteúdo de trabalho ÷ Takt · Peças = (Tempo disp. × Eficiência% × Operadores) ÷ Conteúdo, limitado pelo gargalo.</div>';
+        html += '<div class="pa-note">Pessoas = Conteúdo de trabalho ÷ Takt · Peças/hora = (3600 × Efic% × Pessoas) ÷ Conteúdo, limitado pelo gargalo da linha.</div>';
       }
     }
   }catch(e){ console.error('Balanceamento PDF:', e); }
