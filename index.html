@@ -2981,8 +2981,8 @@ window.FIREBASE_CONFIG = {
     <button class="btn btn-primary" onclick="openProjectManager()" title="Gerenciador de Projetos" style="background:linear-gradient(135deg,#4f8ef7,#6366f1);border:none;color:#fff;font-weight:800;font-size:12px;padding:7px 16px">📁<span class="btn-lbl"> Projetos</span></button>
     <!-- separador visual -->
     <div style="width:1px;height:26px;background:var(--border2);margin:0 4px;flex-shrink:0"></div>
-    <button class="btn btn-ghost" onclick="startDirectMtmApp()" title="Ir para as folhas" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(0,212,255,.25)">📄<span class="btn-lbl"> Folhas</span></button>
-    <button class="btn btn-ghost" onclick="addSheet()" title="Nova Folha">＋<span class="btn-lbl"> Nova Folha</span></button>
+    <button class="btn btn-ghost" id="btn-folhas" onclick="startDirectMtmApp()" title="Ir para as folhas" style="display:none;background:var(--accentGradSoft);color:var(--accent);border-color:rgba(0,212,255,.25)">📄<span class="btn-lbl"> Folhas</span></button>
+    <button class="btn btn-ghost" id="btn-nova-folha" onclick="addSheet()" title="Nova Folha" style="display:none">＋<span class="btn-lbl"> Nova Folha</span></button>
     <button class="btn btn-ghost" onclick="openLibrary()" title="📚 Biblioteca MTM" style="letter-spacing:.2px">📚<span class="btn-lbl"> Biblioteca</span></button>
     <button class="btn btn-ghost" onclick="openBook()" title="Livro de Informações — Anote tudo sobre o processo" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(124,58,237,.28)">📖<span class="btn-lbl"> Livro</span></button>
     <button class="btn btn-ghost" onclick="openFadiga()" title="Análise de Fadiga & Ociosidade (TV + TER) — Tabela Ivan Antoneli" style="background:rgba(255,149,0,.10);color:var(--orange);border-color:rgba(255,149,0,.35)">🛌<span class="btn-lbl"> Fadiga</span></button>
@@ -3006,7 +3006,7 @@ window.FIREBASE_CONFIG = {
 </div>
 
 <div class="tabs-wrapper" id="tabs-bar">
-  <div class="tab-add" onclick="addSheet()">＋</div>
+  <div class="tab-add" id="tab-add-btn" onclick="addSheet()" style="display:none">＋</div>
 </div>
 
 <div id="sheets-container"></div>
@@ -7099,7 +7099,8 @@ function pmSave(){ localStorage.setItem(PM_KEY, JSON.stringify(pmData)); }
 function openProjectManager(){
   pmLoad();
   document.getElementById('pm-overlay').classList.add('open');
-  pmView('folders');
+  // pequeno delay para garantir que pmData está populado antes de renderizar
+  setTimeout(function(){ pmView('folders'); }, 30);
 }
 function closeProjectManager(){
   document.getElementById('pm-overlay').classList.remove('open');
@@ -7141,7 +7142,12 @@ function pmRenderBC(){
 
 /* ── FOLDERS ── */
 function pmRenderFolders(){
-  const keys = Object.keys(pmData);
+  if(typeof pmLoad === 'function') pmLoad();
+  if(typeof _migrarFlatProjs === 'function') _migrarFlatProjs();
+
+  const FLAT_KEY = '__flat__';
+  const keys = Object.keys(pmData).filter(function(k){ return k !== FLAT_KEY; });
+
   const body = document.getElementById('pm-body');
   let html = `
     <div class="pm-sh">
@@ -7156,6 +7162,7 @@ function pmRenderFolders(){
   } else {
     keys.forEach(fid=>{
       const f = pmData[fid];
+      if(!f) return;
       const np = (f.projects||[]).length;
       const ns = (f.projects||[]).reduce((a,p)=>(a + (p.sheets||[]).length),0);
       const bannerHtml = f.logo
@@ -7169,7 +7176,7 @@ function pmRenderFolders(){
           <button class="pm-folder-rename" onclick="event.stopPropagation();pmRenameFolder('${fid}')" title="Renomear pasta">✏️</button>
           <div class="pm-folder-banner">${bannerHtml}</div>
           <div class="pm-folder-info">
-            <div class="pm-folder-name">${esc(f.name)}</div>
+            <div class="pm-folder-name">${esc(f.name||'Pasta')}</div>
             <div class="pm-folder-meta">${np} projeto(s) · ${ns} folha(s)</div>
           </div>
         </div>`;
@@ -7486,6 +7493,17 @@ function pmNewSheet(){
   const p = pmGetProject();
   closeProjectManager();
   hideDashboard();
+
+  // ── Persistir projeto ativo e mostrar botões de folha ──
+  if(p && p.id){
+    try{ localStorage.setItem('mtm_last_pid', p.id); }catch(e){}
+    if(typeof _atualizarProjetoAtivo === 'function') _atualizarProjetoAtivo(p.name || 'Projeto');
+    var bf = document.getElementById('btn-folhas');
+    var bn = document.getElementById('btn-nova-folha');
+    if(bf) bf.style.display = '';
+    if(bn) bn.style.display = '';
+  }
+
   // Se hideDashboard acabou de criar uma FOLHA 1 vazia, reutilizá-la em vez de criar FOLHA 2
   var sid;
   if(sheets.length === 1 && sheets[0].rows.length === 0){
@@ -7507,6 +7525,18 @@ function pmNewSheet(){
 function pmOpenSheet(sid){
   closeProjectManager();
   hideDashboard();
+
+  // ── Persistir projeto ativo e mostrar botões de folha ──
+  var p = (typeof pmGetProject === 'function') ? pmGetProject() : null;
+  if(p && p.id){
+    try{ localStorage.setItem('mtm_last_pid', p.id); }catch(e){}
+    if(typeof _atualizarProjetoAtivo === 'function') _atualizarProjetoAtivo(p.name || 'Projeto');
+    var bf = document.getElementById('btn-folhas');
+    var bn = document.getElementById('btn-nova-folha');
+    if(bf) bf.style.display = '';
+    if(bn) bn.style.display = '';
+  }
+
   if(typeof setActive==='function') setActive(sid);
   if(!document.getElementById('c-'+sid) && typeof renderContent==='function') renderContent(sid);
   window.scrollTo({top:0,behavior:'smooth'});
@@ -7985,24 +8015,58 @@ function startDirectMtmApp(){
   var db = document.getElementById('dashboard');
   if(db){ db.classList.remove('active'); db.style.display='none'; }
 
-  // Carrega/restaura folhas e mostra direto a área de trabalho.
-  if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
+  // ── Carregar dados e migrar legado __flat__ → pastas reais ──
   if(typeof pmLoad === 'function') pmLoad();
+  _migrarFlatProjs(); // migração silenciosa dos projetos legados
 
+  var lastPid = null;
+  try{ lastPid = localStorage.getItem('mtm_last_pid'); }catch(e){}
+
+  if(lastPid && typeof dbFindByPid === 'function'){
+    var found = dbFindByPid(lastPid);
+    if(found){
+      pmFolderId   = found.fid;
+      pmProjectIdx = found.idx;
+      var p = found.p;
+      _atualizarProjetoAtivo(p.name || 'Projeto');
+      var bf = document.getElementById('btn-folhas');
+      var bn = document.getElementById('btn-nova-folha');
+      if(bf) bf.style.display = '';
+      if(bn) bn.style.display = '';
+      if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
+      if(typeof sheets !== 'undefined' && sheets.length > 0){
+        sheets.forEach(function(sh){
+          if(!document.getElementById('c-'+sh.id) && typeof renderContent === 'function') renderContent(sh.id);
+        });
+        if(typeof renderTabs === 'function') renderTabs();
+        var firstSid = p.sheets && p.sheets.length > 0 ? p.sheets[0] : (sheets[0] ? sheets[0].id : null);
+        if(firstSid && typeof setActive === 'function') setActive(firstSid);
+      } else if(typeof addSheet === 'function'){
+        var newSid = addSheet(true);
+        p.sheets = [newSid];
+        if(typeof pmSave === 'function') pmSave();
+        if(typeof setActive === 'function') setActive(newSid);
+        if(!document.getElementById('c-'+newSid) && typeof renderContent === 'function') renderContent(newSid);
+      }
+      document.body.style.overflow = '';
+      return;
+    }
+  }
+
+  // Sem projeto anterior → comportamento padrão
+  if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
   if(typeof sheets !== 'undefined' && sheets.length > 0){
     sheets.forEach(function(sh){
-      if(!document.getElementById('c-'+sh.id) && typeof renderContent === 'function'){
-        renderContent(sh.id);
-      }
+      if(!document.getElementById('c-'+sh.id) && typeof renderContent === 'function') renderContent(sh.id);
     });
     if(typeof renderTabs === 'function') renderTabs();
     if(!activeId && sheets[0] && typeof setActive === 'function') setActive(sheets[0].id);
-  }else if(typeof addSheet === 'function'){
+  } else if(typeof addSheet === 'function'){
     addSheet('FOLHA 1');
   }
-
   document.body.style.overflow = '';
 }
+
 
 function showDashboard(){
   // Dashboard removido no modo direto. Mantém compatibilidade com botões antigos.
@@ -10092,6 +10156,19 @@ function dbOpenById(pid){
   pmFolderId = found.fid;
   pmProjectIdx = found.idx;
   var p = found.p;
+
+  // ── Persistir último projeto aberto para restauração automática ──
+  try{ localStorage.setItem('mtm_last_pid', pid); }catch(e){}
+
+  // ── Mostrar botões de folha (ficam ocultos fora de um projeto) ──
+  var bf = document.getElementById('btn-folhas');
+  var bn = document.getElementById('btn-nova-folha');
+  if(bf) bf.style.display = '';
+  if(bn) bn.style.display = '';
+
+  // ── Título do projeto na barra de abas ──
+  _atualizarProjetoAtivo(p.name || 'Projeto');
+
   var sid;
   if(p.sheets && p.sheets.length > 0){
     sid = p.sheets[0];
@@ -13693,6 +13770,71 @@ function balFmtDur(sec){
 function balEsc(s){
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+/* ── Migração silenciosa: projetos em __flat__ → pastas reais ── */
+function _migrarFlatProjs(){
+  var FLAT_KEY = '__flat__';
+  var flatProjs = (pmData[FLAT_KEY] && pmData[FLAT_KEY].projects) || [];
+  if(!flatProjs.length) return;
+  var folderIds = Object.keys(pmData).filter(function(k){ return k !== FLAT_KEY; });
+  flatProjs.forEach(function(p){
+    var clientName = (p.client || p.name || 'Projetos').trim();
+    var match = folderIds.find(function(fid){
+      return (pmData[fid] && (pmData[fid].name||'').toLowerCase()) === clientName.toLowerCase();
+    });
+    var targetFid;
+    if(match){
+      targetFid = match;
+    } else {
+      targetFid = 'f_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+      pmData[targetFid] = { name: clientName, logo: p.logo || null, projects: [] };
+      folderIds.push(targetFid);
+    }
+    pmData[targetFid].projects = pmData[targetFid].projects || [];
+    // Evitar duplicata
+    var jaExiste = pmData[targetFid].projects.some(function(x){ return x.id === p.id; });
+    if(!jaExiste) pmData[targetFid].projects.push(p);
+  });
+  pmData[FLAT_KEY].projects = [];
+  if(typeof pmSave === 'function') pmSave();
+}
+
+/* ── Atualiza indicador de projeto ativo na barra ── */
+function _atualizarProjetoAtivo(nome){
+  var el = document.getElementById('projeto-ativo-label');
+  if(!el){
+    // criar elemento na toolbar se não existe
+    var toolbar = document.querySelector('.toolbar-actions');
+    if(toolbar){
+      el = document.createElement('span');
+      el.id = 'projeto-ativo-label';
+      el.style.cssText = 'font-size:11px;font-weight:700;color:var(--accent);background:var(--accentBg);border:1px solid rgba(0,212,255,.25);border-radius:6px;padding:4px 10px;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis;cursor:pointer;flex-shrink:0;';
+      el.title = 'Projeto ativo — clique para trocar';
+      el.onclick = function(){ openProjectManager(); };
+      // inserir antes do primeiro botão
+      toolbar.insertBefore(el, toolbar.firstChild);
+    }
+  }
+  if(el) el.textContent = '📁 ' + (nome || 'Projeto');
+  // Mostrar o + da barra de abas
+  var tabAdd = document.getElementById('tab-add-btn');
+  if(tabAdd) tabAdd.style.display = '';
+}
+
+/* ── Limpar projeto ativo (ao voltar para o gerenciador sem projeto) ── */
+function _limparProjetoAtivo(){
+  try{ localStorage.removeItem('mtm_last_pid'); }catch(e){}
+  var el = document.getElementById('projeto-ativo-label');
+  if(el) el.remove();
+  var bf = document.getElementById('btn-folhas');
+  var bn = document.getElementById('btn-nova-folha');
+  if(bf) bf.style.display = 'none';
+  if(bn) bn.style.display = 'none';
+  // Esconder o + da barra de abas
+  var tabAdd = document.getElementById('tab-add-btn');
+  if(tabAdd) tabAdd.style.display = 'none';
+}
+
 
 /* ══════════════════════════════════════════════════════════════
    DIMENSIONAMENTO DA DEMANDA — 3 modos
