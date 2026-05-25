@@ -10152,6 +10152,320 @@ function balPrintKpiCell(v,l){
 // Seção de Balanceamento embutida no Relatório Final Consolidado.
 // Usa as folhas abertas (sheets) como postos da linha. Se houver um
 // projeto ativo no gerenciador, aproveita os parâmetros de Takt dele.
+// ═══════════════════════════════════════════════════════════════
+// SEÇÃO TTP · TAKT · CAPACIDADE + YAMAZUMI — para o Relatório Final
+// ═══════════════════════════════════════════════════════════════
+function buildTTPSection(){
+  if(!sheets || !sheets.length) return '';
+  var R = mtmCollectFinalReport();
+  var allMetrics = R.allMetrics;
+  var html = '<div class="res-section-title">⏱️ Análise TTP · Takt · Capacidade por Folha</div>';
+
+  allMetrics.forEach(function(x){
+    var s  = x.sheet;
+    var m  = x.m;
+    var h  = 8; // padrão 8h (o campo hours não é salvo no header, é input do painel TTP)
+    var dem= parseFloat((s.header && s.header.demand) || '') || 0;
+    var allow   = x.allowUsed;
+    var ttp     = 100 - allow;
+    var tdis    = h * 3600;
+    var tprod   = tdis * (ttp / 100);
+    var ts      = x.stdSec;
+    var takt    = dem > 0 ? tprod / dem : 0;
+    var capUm   = takt > 0 ? Math.floor(tprod / takt) : 0;
+    var colabNeed = (ts > 0 && takt > 0) ? Math.ceil(ts / takt) : 0;
+    var capColab  = (colabNeed > 0 && ts > 0) ? Math.floor(tprod * colabNeed / ts) : 0;
+    var ocio    = m.takt > 0 ? Math.max(0, m.takt - ts) : 0;
+    var ocioRel = m.takt > 0 ? ((m.takt - ts) / m.takt * 100) : null;
+
+    // Cores
+    var corTtp   = ttp >= 90 ? 'var(--green)' : ttp >= 80 ? 'var(--orange)' : 'var(--red)';
+    var corTakt  = takt > 0  ? 'var(--accent)' : 'var(--text3)';
+    var corColab = colabNeed > 0 ? 'var(--purple)' : 'var(--text3)';
+    var corOcio  = ocioRel !== null ? (ocioRel >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--text3)';
+
+    html += '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;margin-bottom:14px;position:relative;overflow:hidden">'
+      + '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--accentGrad)"></div>'
+      + '<div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:12px">'
+      +   '⏱️ ' + (s.label||'Folha') + (s.header && s.header.processo ? ' — ' + s.header.processo : '')
+      + '</div>'
+      // Grade de KPIs
+      + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px">'
+
+      + kpiBoxTTP('Jornada', h + ' h', 'var(--text2)')
+      + kpiBoxTTP('Tempo Disponível', tdis.toLocaleString('pt-BR') + ' s', 'var(--text)')
+      + kpiBoxTTP('Allowance Total', allow.toFixed(2) + ' %', allow >= 18 ? 'var(--red)' : allow >= 13 ? 'var(--orange)' : 'var(--green)')
+      + kpiBoxTTP('TTP (%)', ttp.toFixed(2) + ' %', corTtp)
+      + kpiBoxTTP('Tempo Produtivo', Math.round(tprod).toLocaleString('pt-BR') + ' s', 'var(--green)')
+      + kpiBoxTTP('Demanda', dem > 0 ? dem.toLocaleString('pt-BR') + ' itens' : '—', 'var(--text2)')
+      + kpiBoxTTP('Takt Time', takt > 0 ? takt.toFixed(2) + ' s' : '—', corTakt)
+      + kpiBoxTTP('Cap. Máx. (1 colab.)', capUm > 0 ? capUm.toLocaleString('pt-BR') + ' itens' : '—', 'var(--text)')
+      + kpiBoxTTP('TS (Tempo Padrão)', ts > 0 ? ts.toFixed(3) + ' s' : '—', 'var(--green)')
+      + kpiBoxTTP('Colab. Necessários', colabNeed > 0 ? colabNeed : '—', corColab)
+      + kpiBoxTTP('Cap. c/ ' + (colabNeed||'?') + ' Colab.', capColab > 0 ? capColab.toLocaleString('pt-BR') + ' itens' : '—', 'var(--purple)')
+      + kpiBoxTTP('Ociosidade vs Takt', ocioRel !== null ? ocio.toFixed(2) + 's (' + ocioRel.toFixed(1) + '%)' : '—', corOcio)
+      + kpiBoxTTP('% Saturação', m.takt > 0 ? (ts / m.takt * 100).toFixed(1) + '%' : '—', m.takt > 0 && (ts / m.takt) > 1 ? 'var(--red)' : 'var(--green)')
+      + kpiBoxTTP('Peças/hora', x.pphInt > 0 ? x.pphInt : '—', 'var(--purple)')
+
+      + '</div>';
+
+    // Fórmula da memória de cálculo
+    if(dem > 0 && takt > 0){
+      html += '<div style="background:var(--surface2);border-radius:6px;padding:8px 12px;font-size:10px;color:var(--text3);line-height:2;margin-bottom:8px">'
+        + '<strong style="color:var(--text2)">Memória de cálculo:</strong><br>'
+        + 'T. Disponível = ' + h + 'h × 3600 = ' + tdis.toLocaleString('pt-BR') + ' s | '
+        + 'T. Produtivo = ' + tdis.toLocaleString('pt-BR') + ' × ' + ttp.toFixed(1) + '% = ' + Math.round(tprod).toLocaleString('pt-BR') + ' s<br>'
+        + 'Takt = ' + Math.round(tprod).toLocaleString('pt-BR') + ' ÷ ' + dem.toLocaleString('pt-BR') + ' = ' + takt.toFixed(2) + ' s | '
+        + 'Colab. = ⌈' + ts.toFixed(2) + ' ÷ ' + takt.toFixed(2) + '⌉ = ' + colabNeed
+        + (capColab > 0 ? ' → Capacidade: ' + capColab.toLocaleString('pt-BR') + ' itens/jornada' : '')
+        + '</div>';
+    }
+
+    html += '</div>';
+  });
+
+  // ── YAMAZUMI consolidado (todos os postos) ──
+  html += buildYamazumiSection(allMetrics);
+
+  return html;
+}
+
+function kpiBoxTTP(lbl, val, cor){
+  return '<div style="text-align:center;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:9px 6px">'
+    + '<div style="font-size:15px;font-weight:800;color:' + cor + ';font-family:\'JetBrains Mono\',monospace;line-height:1.2">' + val + '</div>'
+    + '<div style="font-size:8px;color:var(--text3);font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-top:3px">' + lbl + '</div>'
+    + '</div>';
+}
+
+function buildYamazumiSection(allMetrics){
+  if(!allMetrics || !allMetrics.length) return '';
+  // Calcula takt médio/máximo
+  var takts = allMetrics.filter(function(x){ return x.m.takt > 0; });
+  var taktRef = takts.length ? takts.reduce(function(a,x){ return Math.max(a, x.m.takt); }, 0) : 0;
+  // Usa o maior TS como takt de referência se não há takt definido
+  var maxTs = allMetrics.reduce(function(a,x){ return Math.max(a, x.stdSec||0); }, 0);
+  if(!taktRef) taktRef = maxTs * 1.1; // 10% acima do maior TS
+
+  var barW = 80;
+  var gap  = 24;
+  var svgH = 220;
+  var padT = 36; var padB = 44; var padL = 52; var padR = 20;
+  var chartH = svgH - padT - padB;
+  var totalW = padL + allMetrics.length * (barW + gap) + padR;
+
+  // Escala Y
+  var yMax = Math.max(taktRef * 1.15, maxTs * 1.15);
+  function yPx(v){ return padT + chartH - (v / yMax) * chartH; }
+
+  var svg = '<svg viewBox="0 0 ' + totalW + ' ' + svgH + '" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-height:' + svgH + 'px;display:block">';
+
+  // Grid e eixo Y
+  var gridSteps = 5;
+  for(var gi = 0; gi <= gridSteps; gi++){
+    var gv = (yMax / gridSteps) * gi;
+    var gy = yPx(gv);
+    svg += '<line x1="' + padL + '" x2="' + (totalW - padR) + '" y1="' + gy + '" y2="' + gy + '" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>';
+    svg += '<text x="' + (padL - 6) + '" y="' + (gy + 4) + '" text-anchor="end" font-size="9" fill="rgba(255,255,255,0.35)">' + Math.round(gv) + 's</text>';
+  }
+
+  // Linha do Takt
+  if(taktRef > 0){
+    var ty = yPx(taktRef);
+    svg += '<line x1="' + padL + '" x2="' + (totalW - padR) + '" y1="' + ty + '" y2="' + ty + '" stroke="#00d4ff" stroke-width="1.5" stroke-dasharray="6,3"/>';
+    svg += '<text x="' + (totalW - padR + 4) + '" y="' + (ty + 4) + '" font-size="9" fill="#00d4ff">TAKT ' + taktRef.toFixed(1) + 's</text>';
+  }
+
+  // Barras por folha
+  allMetrics.forEach(function(x, i){
+    var ts  = x.stdSec || 0;
+    var bx  = padL + i * (barW + gap);
+    // Decompõe VA/NNVA/NVA se disponível
+    var va=0, nnva=0, nva=0;
+    var hasDecomp = false;
+    if(x.m && x.m.totalSec > 0){
+      // Tenta pegar decomposição da folha
+      try{
+        var rows = x.sheet.rows || [];
+        rows.forEach(function(r){
+          var ag = (r.agrega||'').toUpperCase();
+          var t  = parseFloat(r.tsec)||0;
+          if(ag==='VA') va+=t;
+          else if(ag==='NNVA') nnva+=t;
+          else nva+=t;
+        });
+        va*=(1+x.allowUsed/100); nnva*=(1+x.allowUsed/100); nva*=(1+x.allowUsed/100);
+        hasDecomp = (va+nnva+nva)>0;
+      }catch(e){}
+    }
+
+    var pct = taktRef > 0 ? (ts / taktRef * 100).toFixed(1) : '—';
+    var corBorda = ts > taktRef ? '#ff4d6d' : ts >= taktRef * 0.9 ? '#ffd60a' : '#00e5a0';
+
+    // Barra total
+    var barH = Math.min((ts / yMax) * chartH, chartH);
+    var barY = padT + chartH - barH;
+
+    if(hasDecomp && ts > 0){
+      // Empilhado: VA (verde), NNVA (laranja), NVA (vermelho)
+      var hVA   = (va   / yMax) * chartH;
+      var hNNVA = (nnva / yMax) * chartH;
+      var hNVA  = (nva  / yMax) * chartH;
+      var yNVA  = padT + chartH - hVA - hNNVA - hNVA;
+      if(hNVA > 0) svg += '<rect x="' + bx + '" y="' + yNVA + '" width="' + barW + '" height="' + hNVA + '" fill="#ff4d6d" rx="2"/>';
+      var yNNVA = yNVA + hNVA;
+      if(hNNVA>0) svg += '<rect x="' + bx + '" y="' + yNNVA + '" width="' + barW + '" height="' + hNNVA + '" fill="#ff9500" rx="2"/>';
+      var yVA   = yNNVA + hNNVA;
+      if(hVA  >0) svg += '<rect x="' + bx + '" y="' + yVA + '" width="' + barW + '" height="' + hVA + '" fill="#00e5a0" rx="2"/>';
+    } else {
+      svg += '<rect x="' + bx + '" y="' + barY + '" width="' + barW + '" height="' + barH + '" fill="' + corBorda + '" rx="3" opacity="0.85"/>';
+    }
+
+    // Borda saturação
+    svg += '<rect x="' + bx + '" y="' + barY + '" width="' + barW + '" height="' + barH + '" fill="none" stroke="' + corBorda + '" stroke-width="1.5" rx="3"/>';
+
+    // % no topo da barra
+    var lblY = Math.max(barY - 4, padT + 8);
+    svg += '<text x="' + (bx + barW/2) + '" y="' + lblY + '" text-anchor="middle" font-size="9" font-weight="bold" fill="' + corBorda + '">' + pct + '%</text>';
+
+    // TS acima
+    svg += '<text x="' + (bx + barW/2) + '" y="' + Math.max(barY - 14, padT + 18) + '" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.55)">' + ts.toFixed(2) + 's</text>';
+
+    // Label abaixo
+    var label = (x.sheet.label||'').substring(0,14);
+    svg += '<text x="' + (bx + barW/2) + '" y="' + (padT + chartH + 14) + '" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.7)">' + label + '</text>';
+  });
+
+  svg += '</svg>';
+
+  // Legenda
+  var legenda = '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--text3);margin-top:6px">'
+    + '<span><span style="display:inline-block;width:12px;height:12px;background:#00e5a0;border-radius:2px;vertical-align:middle;margin-right:4px"></span>VA</span>'
+    + '<span><span style="display:inline-block;width:12px;height:12px;background:#ff9500;border-radius:2px;vertical-align:middle;margin-right:4px"></span>NNVA</span>'
+    + '<span><span style="display:inline-block;width:12px;height:12px;background:#ff4d6d;border-radius:2px;vertical-align:middle;margin-right:4px"></span>NVA</span>'
+    + '<span style="color:#00d4ff">— — Takt</span>'
+    + '</div>';
+
+  // Tabela de saturação detalhada
+  var tabelaYama = '<div style="overflow-x:auto;margin-top:10px">'
+    + '<table style="width:100%;border-collapse:collapse;font-size:11px;min-width:500px">'
+    + '<thead><tr style="background:var(--header-bg);border-bottom:2px solid var(--accent)">'
+    + '<th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.6px;text-transform:uppercase">N°</th>'
+    + '<th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.6px;text-transform:uppercase">Posto / Folha</th>'
+    + '<th style="padding:7px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--green);letter-spacing:.6px;text-transform:uppercase">TS (s)</th>'
+    + '<th style="padding:7px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.6px;text-transform:uppercase">Takt (s)</th>'
+    + '<th style="padding:7px 8px;text-align:right;font-size:9px;font-weight:700;text-transform:uppercase">Saturação</th>'
+    + '<th style="padding:7px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.6px;text-transform:uppercase">Ociosidade (s)</th>'
+    + '<th style="padding:7px 8px;text-align:right;font-size:9px;font-weight:700;text-transform:uppercase">Status</th>'
+    + '</tr></thead><tbody>';
+
+  allMetrics.forEach(function(x, i){
+    var ts    = x.stdSec || 0;
+    var takt  = x.m.takt > 0 ? x.m.takt : taktRef;
+    var sat   = takt > 0 ? (ts / takt * 100) : 0;
+    var ocio  = takt > 0 ? Math.max(0, takt - ts) : 0;
+    var corSat, status;
+    if(sat > 100){ corSat = 'var(--red)';    status = '🔴 Gargalo'; }
+    else if(sat >= 90){ corSat = 'var(--orange)'; status = '🟡 Saturado'; }
+    else if(sat >= 70){ corSat = 'var(--green)';  status = '🟢 Ótimo'; }
+    else { corSat = 'var(--blue)'; status = '🔵 Subutilizado'; }
+
+    tabelaYama += '<tr style="background:' + (i%2===0?'var(--row-even)':'var(--row-odd)') + '">'
+      + '<td style="padding:6px 10px;text-align:center;color:var(--text3);font-size:10px">' + (i+1) + '</td>'
+      + '<td style="padding:6px 10px;font-weight:700;color:var(--accent)">' + (x.sheet.label||'Folha') + '</td>'
+      + '<td style="padding:6px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--green);font-weight:700">' + ts.toFixed(2) + '</td>'
+      + '<td style="padding:6px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--accent)">' + (takt > 0 ? takt.toFixed(2) : '—') + '</td>'
+      + '<td style="padding:6px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:' + corSat + ';font-weight:800">' + (sat > 0 ? sat.toFixed(1) + '%' : '—') + '</td>'
+      + '<td style="padding:6px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--text2)">' + (ocio > 0 ? ocio.toFixed(2) : '0.00') + '</td>'
+      + '<td style="padding:6px 8px;font-weight:600;color:' + corSat + '">' + status + '</td>'
+      + '</tr>';
+  });
+  tabelaYama += '</tbody></table></div>';
+
+  return '<div class="res-section-title" style="margin-top:20px">📊 Gráfico Yamazumi — Todos os Postos</div>'
+    + '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:14px;margin-bottom:20px">'
+    + svg + legenda + tabelaYama
+    + '</div>';
+}
+
+// Versão PDF da seção TTP
+function buildTTPSectionPDF(allMetrics, fmt){
+  if(!allMetrics || !allMetrics.length) return '';
+  var html = '<div class="pa-h2">⏱️ Análise TTP · Takt · Capacidade por Folha</div>';
+
+  allMetrics.forEach(function(x){
+    var s   = x.sheet;
+    var m   = x.m;
+    var h   = 8; // padrão 8h
+    var dem = parseFloat((s.header && s.header.demand) || '') || 0;
+    var allow  = x.allowUsed;
+    var ttp    = 100 - allow;
+    var tdis   = h * 3600;
+    var tprod  = tdis * (ttp / 100);
+    var ts     = x.stdSec;
+    var takt   = dem > 0 ? tprod / dem : 0;
+    var capUm  = takt > 0 ? Math.floor(tprod / takt) : 0;
+    var colabNeed = (ts > 0 && takt > 0) ? Math.ceil(ts / takt) : 0;
+    var capColab  = (colabNeed > 0 && ts > 0) ? Math.floor(tprod * colabNeed / ts) : 0;
+    var ocio   = m.takt > 0 ? Math.max(0, m.takt - ts) : 0;
+    var ocioRel= m.takt > 0 ? ((m.takt - ts) / m.takt * 100) : null;
+    var sat    = m.takt > 0 ? (ts / m.takt * 100) : null;
+    var horasNec = (dem > 0 && colabNeed > 0 && ttp > 0) ? ((dem * ts) / colabNeed) / (ttp / 100) / 3600 : null;
+
+    html += '<div class="pa-h3">' + (s.label||'Folha') + (s.header && s.header.processo ? ' — ' + s.header.processo : '') + '</div>';
+    html += '<table class="pa-table"><thead><tr>'
+      + '<th>Parâmetro</th><th>Valor</th><th>Parâmetro</th><th>Valor</th>'
+      + '</tr></thead><tbody>';
+    html += '<tr><td class="item">Jornada</td><td class="num">' + h + ' h</td>'
+          + '<td class="item">Tempo Disponível</td><td class="num">' + tdis.toLocaleString('pt-BR') + ' s</td></tr>';
+    html += '<tr><td class="item">Allowance Total</td><td class="num">' + fmt(allow,2) + ' %</td>'
+          + '<td class="item">TTP (%)</td><td class="num">' + fmt(ttp,2) + ' %</td></tr>';
+    html += '<tr><td class="item">Tempo Produtivo</td><td class="num">' + Math.round(tprod).toLocaleString('pt-BR') + ' s</td>'
+          + '<td class="item">Demanda</td><td class="num">' + (dem>0 ? dem.toLocaleString('pt-BR') + ' itens' : '—') + '</td></tr>';
+    html += '<tr><td class="item">Takt Time</td><td class="num">' + (takt>0 ? takt.toFixed(2) + ' s' : '—') + '</td>'
+          + '<td class="item">Cap. Máx. (1 colab.)</td><td class="num">' + (capUm>0 ? capUm.toLocaleString('pt-BR') + ' itens' : '—') + '</td></tr>';
+    html += '<tr><td class="item">TS — Tempo Padrão</td><td class="num">' + fmt(ts,3) + ' s</td>'
+          + '<td class="item">Colaboradores Necessários</td><td class="num"><b>' + (colabNeed||'—') + '</b></td></tr>';
+    html += '<tr><td class="item">Cap. c/ ' + (colabNeed||'?') + ' Colab.</td><td class="num">' + (capColab>0 ? capColab.toLocaleString('pt-BR') + ' itens' : '—') + '</td>'
+          + '<td class="item">Horas p/ atingir demanda</td><td class="num">' + (horasNec ? horasNec.toFixed(2) + ' h' : '—') + '</td></tr>';
+    html += '<tr><td class="item">Saturação vs Takt</td><td class="num ' + (sat > 100 ? 'bad' : 'ok') + '">' + (sat!==null ? sat.toFixed(1) + '%' : '—') + '</td>'
+          + '<td class="item">Ociosidade vs Takt</td><td class="num ' + (ocioRel !== null && ocioRel >= 0 ? 'ok' : 'bad') + '">' + (ocioRel!==null ? ocio.toFixed(2) + 's (' + ocioRel.toFixed(1) + '%)' : '—') + '</td></tr>';
+    html += '</tbody></table>';
+
+    if(dem > 0 && takt > 0){
+      html += '<div class="pa-note">Memória: T.Disp=' + tdis.toLocaleString('pt-BR') + 's | T.Prod=' + Math.round(tprod).toLocaleString('pt-BR') + 's | Takt=' + takt.toFixed(2) + 's | Colab=⌈' + ts.toFixed(2) + '÷' + takt.toFixed(2) + '⌉=' + colabNeed + (capColab>0?' → Cap. ' + capColab.toLocaleString('pt-BR') + ' itens/jornada':'') + '</div>';
+    }
+  });
+
+  // Tabela Yamazumi no PDF
+  html += '<div class="pa-h2">📊 Yamazumi — Análise de Saturação por Posto</div>';
+  html += '<table class="pa-table"><thead><tr>'
+    + '<th>N°</th><th>Posto / Folha</th><th>TS (s)</th><th>Takt (s)</th>'
+    + '<th>Saturação</th><th>Ociosidade (s)</th><th>Status</th>'
+    + '</tr></thead><tbody>';
+
+  var maxTs2 = allMetrics.reduce(function(a,x){ return Math.max(a, x.stdSec||0); }, 0);
+  var takts2 = allMetrics.filter(function(x){ return x.m.takt > 0; });
+  var taktRef2 = takts2.length ? takts2.reduce(function(a,x){ return Math.max(a, x.m.takt); }, 0) : maxTs2 * 1.1;
+
+  allMetrics.forEach(function(x, i){
+    var ts   = x.stdSec || 0;
+    var takt = x.m.takt > 0 ? x.m.takt : taktRef2;
+    var sat  = takt > 0 ? (ts / takt * 100) : 0;
+    var ocio = takt > 0 ? Math.max(0, takt - ts) : 0;
+    var status = sat > 100 ? 'Gargalo' : sat >= 90 ? 'Saturado' : sat >= 70 ? 'Ótimo' : 'Subutilizado';
+    var cls  = sat > 100 ? 'bad' : sat >= 70 ? 'ok' : '';
+    html += '<tr><td class="num">' + (i+1) + '</td>'
+      + '<td class="item">' + (x.sheet.label||'Folha') + '</td>'
+      + '<td class="num">' + ts.toFixed(2) + '</td>'
+      + '<td class="num">' + (takt > 0 ? takt.toFixed(2) : '—') + '</td>'
+      + '<td class="num ' + cls + '">' + (sat > 0 ? sat.toFixed(1) + '%' : '—') + '</td>'
+      + '<td class="num">' + ocio.toFixed(2) + '</td>'
+      + '<td>' + status + '</td></tr>';
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
 function buildBalReportSection(){
   if(!sheets || !sheets.length) return '';
   // Projeto virtual com as folhas abertas
@@ -10854,6 +11168,9 @@ function prepararPrintRelatorio(){
   html += '</tbody></table>';
   html += '<div class="pa-note">SOMA = todos os postos produzindo simultaneamente · Tempos Padrão já com o Allowance Total da Análise de Fadiga.</div>';
 
+  // ── SEÇÃO TTP · TAKT · CAPACIDADE + YAMAZUMI ──
+  html += buildTTPSectionPDF(allMetrics, fmt);
+
   // ── Balanceamento de Linha (parte do relatório consolidado) ──
   try{
     var balVProj = { name:'(Folhas abertas)', sheets: sheets.map(function(s){return s.id;}) };
@@ -11156,6 +11473,7 @@ function showFinalReport(){
     +     '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-bottom:20px">'+cardsHtml+'</div>'
     +     fadSection
     +     compTable
+    +     buildTTPSection()
     +     balReportSection
     +     tableHtml
     +     '<div style="padding:12px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;font-size:10px;color:var(--text3);line-height:1.7">'
