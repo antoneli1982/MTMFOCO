@@ -4820,6 +4820,114 @@ function renderContent(id){
         <div style="flex:1"></div>
         <button class="btn btn-primary" style="font-size:12px;padding:6px 14px" onclick="showResults('${id}')">📊 Resultados</button>
       </div>
+    </div>
+
+    <!-- ═══ PAINEL TTP — ANÁLISE FINAL ═══ -->
+    <div class="ttp-panel" id="ttp-${id}" style="
+      margin:18px 0 8px;
+      background:var(--surface2);
+      border:1px solid var(--border2);
+      border-radius:var(--radius);
+      overflow:hidden;
+    ">
+      <!-- Cabeçalho clicável -->
+      <div onclick="ttpToggle('${id}')" style="
+        display:flex;align-items:center;justify-content:space-between;
+        padding:12px 18px;cursor:pointer;
+        background:linear-gradient(90deg,var(--accentBg),transparent);
+        border-bottom:1px solid var(--border);
+      ">
+        <span style="font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.4px;">
+          ⚙️ ANÁLISE FINAL — TTP · TAKT · CAPACIDADE
+        </span>
+        <span id="ttp-arrow-${id}" style="font-size:12px;color:var(--text2);transition:transform .25s;">▼</span>
+      </div>
+
+      <!-- Corpo expansível -->
+      <div id="ttp-body-${id}" style="padding:16px 18px;">
+
+        <!-- Linha de entradas -->
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+
+          <div style="flex:1;min-width:130px;">
+            <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Horas de trabalho</div>
+            <input id="ttp-h-${id}" type="number" min="0.5" max="24" step="0.5" value="8"
+              onchange="ttpCalc('${id}')" oninput="ttpCalc('${id}')"
+              style="width:100%;padding:8px 10px;background:var(--surface3);border:1px solid var(--border2);
+                border-radius:var(--radius-sm);color:var(--text);font-size:15px;font-weight:700;font-family:inherit;">
+          </div>
+
+          <div style="flex:1;min-width:130px;">
+            <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Demanda (itens)</div>
+            <input id="ttp-dem-${id}" type="number" min="1" step="1" value="${esc(s.header.demand||'')}" placeholder="ex: 600"
+              onchange="ttpCalc('${id}')" oninput="ttpCalc('${id}')"
+              style="width:100%;padding:8px 10px;background:var(--surface3);border:1px solid var(--border2);
+                border-radius:var(--radius-sm);color:var(--text);font-size:15px;font-weight:700;font-family:inherit;">
+          </div>
+
+          <div style="flex:1;min-width:130px;background:var(--greenBg);border:1px solid rgba(0,229,160,.15);border-radius:var(--radius-sm);padding:8px 10px;">
+            <div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Allowance Total (%)</div>
+            <div id="ttp-allow-${id}" style="font-size:18px;font-weight:800;color:var(--green);">—</div>
+            <div style="font-size:10px;color:var(--text2);margin-top:2px;">calculado da análise</div>
+          </div>
+
+          <div style="flex:1;min-width:130px;background:var(--accentBg);border:1px solid rgba(0,212,255,.12);border-radius:var(--radius-sm);padding:8px 10px;">
+            <div style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">TTP (%)</div>
+            <div id="ttp-pct-${id}" style="font-size:18px;font-weight:800;color:var(--accent);">—</div>
+            <div style="font-size:10px;color:var(--text2);margin-top:2px;">100 − Allowance</div>
+          </div>
+
+        </div>
+
+        <!-- KPIs resultado -->
+        <div id="ttp-res-${id}" style="display:none;">
+
+          <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+            <div style="flex:1;min-width:110px;background:var(--surface3);border-radius:var(--radius-sm);padding:10px 12px;text-align:center;">
+              <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">Tempo disponível</div>
+              <div id="ttp-kpi-tdis-${id}" style="font-size:16px;font-weight:700;color:var(--text);"></div>
+            </div>
+            <div style="flex:1;min-width:110px;background:var(--surface3);border-radius:var(--radius-sm);padding:10px 12px;text-align:center;">
+              <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">Tempo produtivo</div>
+              <div id="ttp-kpi-tprod-${id}" style="font-size:16px;font-weight:700;color:var(--green);"></div>
+            </div>
+            <div style="flex:1;min-width:110px;background:var(--accentBg);border:1px solid rgba(0,212,255,.12);border-radius:var(--radius-sm);padding:10px 12px;text-align:center;">
+              <div style="font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">Takt Time</div>
+              <div id="ttp-kpi-takt-${id}" style="font-size:16px;font-weight:700;color:var(--accent);"></div>
+            </div>
+            <div style="flex:1;min-width:110px;background:var(--surface3);border-radius:var(--radius-sm);padding:10px 12px;text-align:center;">
+              <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">Capacidade máx.</div>
+              <div id="ttp-kpi-cap-${id}" style="font-size:16px;font-weight:700;color:var(--text);"></div>
+            </div>
+          </div>
+
+          <!-- Tabela por hora -->
+          <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">
+            Produção por hora — com TTP aplicado
+          </div>
+          <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:14px;">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;" id="ttp-tbl-${id}">
+              <thead>
+                <tr style="background:var(--header-bg);">
+                  <th style="padding:7px 12px;text-align:left;color:var(--text2);font-weight:600;border-bottom:1px solid var(--border);">Hora</th>
+                  <th style="padding:7px 12px;text-align:right;color:var(--text2);font-weight:600;border-bottom:1px solid var(--border);">T. produtivo acum. (s)</th>
+                  <th style="padding:7px 12px;text-align:right;color:var(--text2);font-weight:600;border-bottom:1px solid var(--border);">Itens / hora</th>
+                  <th style="padding:7px 12px;text-align:right;color:var(--text2);font-weight:600;border-bottom:1px solid var(--border);">Itens acumulados</th>
+                </tr>
+              </thead>
+              <tbody id="ttp-tbody-${id}"></tbody>
+            </table>
+          </div>
+
+          <!-- Memória de cálculo -->
+          <div style="background:var(--surface3);border-radius:var(--radius-sm);padding:10px 14px;font-size:11px;color:var(--text2);line-height:2;" id="ttp-mem-${id}"></div>
+
+          <!-- Veredicto TS vs Takt -->
+          <div id="ttp-verd-${id}" style="margin-top:12px;padding:10px 14px;border-radius:var(--radius-sm);font-size:12px;display:none;"></div>
+
+        </div>
+
+      </div>
     </div>`;
   document.getElementById('sheets-container').appendChild(div);
   div.querySelectorAll('.f-input[data-key]').forEach(inp=>{
@@ -5045,6 +5153,104 @@ function updateTotals(sid){
     } else {
       satRow.style.display='none';
     }
+  }
+}
+
+// ============================================================
+// TTP — ANÁLISE FINAL POR FOLHA
+// ============================================================
+function ttpToggle(sid){
+  var body  = document.getElementById('ttp-body-'+sid);
+  var arrow = document.getElementById('ttp-arrow-'+sid);
+  if(!body) return;
+  var hidden = body.style.display === 'none';
+  body.style.display = hidden ? 'block' : 'none';
+  if(arrow) arrow.style.transform = hidden ? 'rotate(0deg)' : 'rotate(-90deg)';
+}
+
+function ttpCalc(sid){
+  var s = get(sid);
+  if(!s) return;
+  var m     = computeSheetMetrics(s);
+  var allow = +(m.allowPct||0);
+  var ts    = m.stdSec || 0;
+  var h     = parseFloat(document.getElementById('ttp-h-'+sid)  .value) || 8;
+  var dem   = parseFloat(document.getElementById('ttp-dem-'+sid).value) || 0;
+  var ttp   = 100 - allow;
+  var tdis  = h * 3600;
+  var tprod = tdis * (ttp / 100);
+  var elAllow = document.getElementById('ttp-allow-'+sid);
+  var elPct   = document.getElementById('ttp-pct-'+sid);
+  if(elAllow) elAllow.textContent = allow.toFixed(2) + ' %';
+  if(elPct)   elPct.textContent   = ttp.toFixed(2)   + ' %';
+  var res = document.getElementById('ttp-res-'+sid);
+  if(!dem || dem <= 0){ if(res) res.style.display='none'; return; }
+  if(res) res.style.display = 'block';
+  var takt = tprod / dem;
+  var cap  = Math.floor(tprod / takt);
+  var kTdis  = document.getElementById('ttp-kpi-tdis-'+sid);
+  var kTprod = document.getElementById('ttp-kpi-tprod-'+sid);
+  var kTakt  = document.getElementById('ttp-kpi-takt-'+sid);
+  var kCap   = document.getElementById('ttp-kpi-cap-'+sid);
+  if(kTdis)  kTdis.textContent  = tdis.toLocaleString('pt-BR') + ' s';
+  if(kTprod) kTprod.textContent = Math.round(tprod).toLocaleString('pt-BR') + ' s';
+  if(kTakt)  kTakt.textContent  = takt.toFixed(2) + ' s';
+  if(kCap)   kCap.textContent   = cap + ' itens';
+  var tbody = document.getElementById('ttp-tbody-'+sid);
+  if(tbody){
+    var rows = '';
+    var totalH = Math.ceil(h);
+    for(var i=1;i<=totalH;i++){
+      var frac   = Math.min(i, h);
+      var fracH  = Math.min(1, h-(i-1));
+      var tpAcum = Math.round(frac  * 3600 * (ttp/100));
+      var itH    = Math.round(fracH * 3600 * (ttp/100) / takt);
+      var itAcum = Math.floor(frac  * 3600 * (ttp/100) / takt);
+      var bg = i%2===0 ? 'var(--row-even)' : 'var(--row-odd)';
+      rows += '<tr style="background:'+bg+';">'
+        +'<td style="padding:6px 12px;color:var(--text);">Hora '+i+'</td>'
+        +'<td style="padding:6px 12px;text-align:right;color:var(--text2);">'+tpAcum.toLocaleString('pt-BR')+'</td>'
+        +'<td style="padding:6px 12px;text-align:right;color:var(--text);">'+itH+'</td>'
+        +'<td style="padding:6px 12px;text-align:right;font-weight:700;color:var(--accent);">'+itAcum+'</td>'
+        +'</tr>';
+    }
+    tbody.innerHTML = rows;
+  }
+  var mem = document.getElementById('ttp-mem-'+sid);
+  if(mem){
+    mem.innerHTML =
+      '<b style="color:var(--text)">TTP</b> = 100 − '+allow.toFixed(2)+' = <b style="color:var(--accent)">'+ttp.toFixed(2)+'%</b> &nbsp;|&nbsp; '
+      +'<b style="color:var(--text)">Disponível</b> = '+h+'h × 3.600 = <b>'+tdis.toLocaleString('pt-BR')+' s</b> &nbsp;|&nbsp; '
+      +'<b style="color:var(--text)">Produtivo</b> = <b style="color:var(--green)">'+Math.round(tprod).toLocaleString('pt-BR')+' s</b><br>'
+      +'<b style="color:var(--text)">Takt Time</b> = '+Math.round(tprod).toLocaleString('pt-BR')+' ÷ '+dem+' = <b style="color:var(--accent)">'+takt.toFixed(2)+' s/item</b> &nbsp;|&nbsp; '
+      +'<b style="color:var(--text)">Capacidade</b> = <b>'+cap+' itens em '+h+'h</b>';
+  }
+  var verd = document.getElementById('ttp-verd-'+sid);
+  if(verd){
+    if(ts > 0){
+      var satPct = (ts/takt)*100;
+      var diff   = takt - ts;
+      var cor, icn, msg;
+      if(satPct>100){ cor='var(--red)';    icn='🔴'; msg='<b>Sobrecarga — TS ('+ts.toFixed(2)+'s) maior que Takt ('+takt.toFixed(2)+'s).</b> Revisar conteúdo de trabalho ou nº de operadores.'; }
+      else if(satPct>=85){ cor='var(--green)'; icn='🟢'; msg='<b>Ótimo — saturação '+satPct.toFixed(1)+'%.</b> TS dentro do Takt. Folga de '+diff.toFixed(2)+' s. Demanda de '+dem+' itens em '+h+'h atendida.'; }
+      else { cor='var(--orange)'; icn='🟡'; msg='<b>Processo ocioso — saturação '+satPct.toFixed(1)+'%.</b> Folga de '+diff.toFixed(2)+'s. Avaliar redistribuição de atividades.'; }
+      verd.style.display='block';
+      verd.style.background= satPct>100?'var(--redBg)':satPct>=85?'var(--greenBg)':'var(--orangeBg)';
+      verd.style.border='1px solid '+cor;
+      verd.style.color=cor;
+      verd.innerHTML=icn+' '+msg+'<br><span style="font-size:11px;opacity:.8;">Saturação: '+satPct.toFixed(1)+'% | Takt−TS: '+(diff>=0?'+':'')+diff.toFixed(2)+'s</span>';
+    } else {
+      verd.style.display='none';
+    }
+  }
+  // Sincroniza demanda e recalcula painel TTP
+  if(typeof ttpCalc === 'function'){
+    var s2 = get(sid);
+    if(s2 && s2.header){
+      var demInp2 = document.getElementById('ttp-dem-'+sid);
+      if(demInp2 && !demInp2._userEdited && s2.header.demand) demInp2.value = s2.header.demand;
+    }
+    ttpCalc(sid);
   }
 }
 
