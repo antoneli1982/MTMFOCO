@@ -9341,6 +9341,9 @@ function pmRenderBalanceamento(el){
   // Gráfico Yamazumi
   html += balChartHtml(bal);
 
+  // Painel Capacidade × Recursos (cálculo nos dois sentidos)
+  html += balCapacidadeHtml(bal);
+
   // Tabela detalhada
   html += ''
     + '<div class="res-section-title" style="margin-top:14px">Detalhamento por Posto</div>'
@@ -9390,6 +9393,119 @@ function balKpi(val,lbl,color){
     + '<div style="font-size:18px;font-weight:800;color:'+color+';font-family:\'JetBrains Mono\',monospace">'+val+'</div>'
     + '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-top:3px">'+lbl+'</div>'
     + '</div>';
+}
+
+// ── Cálculo de capacidade nos dois sentidos ──
+// Conteúdo de trabalho = soma dos tempos padrão de todas as folhas (s).
+// params: { tDisp, efic, demanda, recursos }
+function balCapacidade(bal, params){
+  params = params || {};
+  var conteudo = bal.totalStd;                 // Σ tempo padrão (s)
+  var tDisp = parseFloat(params.tDisp)||0;     // tempo disponível por operador (s)
+  var efic  = parseFloat(params.efic); if(isNaN(efic)) efic = 100;
+  var efFrac = efic/100;
+  var demanda = parseFloat(params.demanda)||0; // peças desejadas
+  var recursos = parseFloat(params.recursos)||0; // operadores disponíveis
+
+  // SENTIDO 1 — Demanda → Recursos necessários
+  // Takt = (tDisp × efic) / demanda ; Operadores = conteúdo / Takt
+  var taktD = (tDisp>0 && demanda>0) ? (tDisp*efFrac)/demanda : 0;
+  var opNecExato = taktD>0 ? conteudo/taktD : 0;
+  var opNec = opNecExato>0 ? Math.ceil(opNecExato) : 0;
+  // Tempo-homem total exigido pela demanda (s) e em horas
+  var thNecSec = conteudo * demanda;           // s-homem para toda a demanda
+  var thNecHoras = thNecSec/3600;
+
+  // SENTIDO 2 — Recursos → Peças que consigo produzir
+  // Capacidade = (tDisp × efic × recursos) / conteúdo
+  var pecasPorRecurso = (tDisp>0 && recursos>0 && conteudo>0)
+      ? (tDisp*efFrac*recursos)/conteudo : 0;
+  // Capacidade limitada pelo gargalo: cada peça "sai" a cada gargalo segundos
+  var gargSec = bal.gargalo ? bal.gargalo.stdSec : 0;
+  var pecasGargalo = (tDisp>0 && gargSec>0) ? (tDisp*efFrac)/gargSec : 0;
+  // A capacidade real é a menor entre as duas
+  var pecasReais = pecasGargalo>0 ? Math.min(pecasPorRecurso, pecasGargalo) : pecasPorRecurso;
+
+  // Atendimento da demanda com os recursos informados
+  var atendePct = (demanda>0 && pecasReais>0) ? (pecasReais/demanda*100) : 0;
+
+  return {
+    conteudo: conteudo, tDisp: tDisp, efic: efic, demanda: demanda, recursos: recursos,
+    taktD: taktD, opNecExato: opNecExato, opNec: opNec,
+    thNecSec: thNecSec, thNecHoras: thNecHoras,
+    pecasPorRecurso: pecasPorRecurso, pecasGargalo: pecasGargalo, pecasReais: pecasReais,
+    gargSec: gargSec, atendePct: atendePct
+  };
+}
+
+// Painel HTML "Capacidade × Recursos" para a aba de balanceamento.
+function balCapacidadeHtml(bal){
+  var p = (typeof pmGetProject==='function') ? pmGetProject() : null;
+  var bp = (p && p.balanceamento) ? p.balanceamento : {};
+  var c = balCapacidade(bal, bp);
+  var temD1 = c.taktD>0;
+  var temD2 = c.pecasPorRecurso>0;
+
+  var html = '<div class="res-section-title" style="margin-top:18px">📐 Capacidade × Recursos</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:8px">';
+
+  // ── BLOCO 1: Demanda → Recursos ──
+  html += '<div style="background:var(--surface2);border:1px solid var(--border2);border-left:3px solid var(--purple);border-radius:9px;padding:14px">'
+    + '<div style="font-size:10px;font-weight:700;color:var(--purple);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">1 · Quantas peças → quantos recursos</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">'
+    + balField('bal-demanda2','Peças a produzir', bp.demanda, 'Ex: 480')
+    + balField('bal-tdisp2','Tempo disp./operador (s)', bp.tDisp, 'Ex: 27000')
+    + '</div>';
+  if(temD1){
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + balKpi(c.taktD.toFixed(1)+'s','Takt necessário','var(--accent)')
+      + balKpi(c.opNecExato.toFixed(2),'Operadores (exato)','var(--purple)')
+      + balKpi(c.opNec,'Operadores (prática)','var(--purple)')
+      + '</div>'
+      + '<div style="font-size:10px;color:var(--text3);margin-top:8px;line-height:1.6">'
+      + 'Conteúdo de trabalho: <strong>'+c.conteudo.toFixed(1)+'s</strong> · '
+      + 'Tempo-homem total p/ a demanda: <strong>'+c.thNecHoras.toFixed(1)+' h</strong>.<br>'
+      + 'Operadores = Conteúdo ÷ Takt — arredonde sempre para cima.'
+      + '</div>';
+  } else {
+    html += '<div style="font-size:11px;color:var(--text3);padding:6px 0">Informe peças e tempo disponível para calcular os recursos necessários.</div>';
+  }
+  html += '</div>';
+
+  // ── BLOCO 2: Recursos → Peças ──
+  html += '<div style="background:var(--surface2);border:1px solid var(--border2);border-left:3px solid var(--green);border-radius:9px;padding:14px">'
+    + '<div style="font-size:10px;font-weight:700;color:var(--green);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">2 · Quantos recursos → quantas peças</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">'
+    + balField('bal-recursos','Operadores disponíveis', bp.recursos, 'Ex: 4')
+    + balField('bal-efic2','Eficiência (%)', bp.efic, 'Ex: 92')
+    + '</div>';
+  if(temD2){
+    var atColor = c.atendePct>=100?'var(--green)':c.atendePct>=85?'var(--orange)':'var(--red)';
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + balKpi(Math.floor(c.pecasPorRecurso),'Peças (por recursos)','var(--green)')
+      + balKpi(c.gargSec>0?Math.floor(c.pecasGargalo):'—','Peças (limite gargalo)','var(--orange)')
+      + balKpi(Math.floor(c.pecasReais),'Peças reais','var(--green)')
+      + '</div>';
+    if(c.demanda>0){
+      html += '<div style="margin-top:8px;padding:7px 10px;border-radius:7px;background:var(--surface);border:1px solid var(--border2);font-size:11px;font-weight:700;color:'+atColor+'">'
+        + 'Atendimento da demanda de '+c.demanda+' pç: '+c.atendePct.toFixed(1)+'% '
+        + (c.atendePct>=100?'✅ atende':'⚠️ não atende — faltam '+Math.max(0,Math.ceil(c.demanda-c.pecasReais))+' pç')
+        + '</div>';
+    }
+    html += '<div style="font-size:10px;color:var(--text3);margin-top:8px;line-height:1.6">'
+      + 'Peças = (Tempo disp. × Eficiência% × Operadores) ÷ Conteúdo de trabalho.<br>'
+      + 'A capacidade real é limitada pelo gargalo da linha.'
+      + '</div>';
+  } else {
+    html += '<div style="font-size:11px;color:var(--text3);padding:6px 0">Informe o número de operadores disponíveis para calcular a produção possível.</div>';
+  }
+  html += '</div>';
+
+  html += '</div>'  // fim grid
+    + '<div style="display:flex;gap:8px;justify-content:flex-end;margin:2px 0 6px">'
+    + '<button class="pm-btn pm-btn-green" onclick="pmSaveBalanceamento()">💾 Calcular / Salvar</button>'
+    + '</div>';
+  return html;
 }
 
 // Gráfico Yamazumi (barras) para um objeto bal.
@@ -9473,10 +9589,20 @@ function pmSaveBalanceamento(){
   if(!p) return;
   if(!p.balanceamento) p.balanceamento = {};
   var g = function(id){ var e=document.getElementById(id); return e?e.value:''; };
-  p.balanceamento.tDisp     = g('bal-tdisp');
-  p.balanceamento.efic      = g('bal-efic');
-  p.balanceamento.demanda   = g('bal-demanda');
+  // Alguns parâmetros aparecem em dois painéis (Takt e Capacidade).
+  // Lê de ambos os IDs e usa o que estiver preenchido; em empate, o
+  // painel de Capacidade (sufixo "2") tem prioridade por ser o mais usado.
+  var pick = function(idCap, idTakt){
+    var vc = g(idCap), vt = g(idTakt);
+    if(vc !== '' && vc != null) return vc;
+    if(vt !== '' && vt != null) return vt;
+    return '';
+  };
+  p.balanceamento.tDisp     = pick('bal-tdisp2','bal-tdisp');
+  p.balanceamento.efic      = pick('bal-efic2','bal-efic');
+  p.balanceamento.demanda   = pick('bal-demanda2','bal-demanda');
   p.balanceamento.taktManual= g('bal-taktman');
+  p.balanceamento.recursos  = g('bal-recursos');
   pmSave();
   pmRenderProjTab();
   if(typeof showToast === 'function') showToast('⚖️ Balanceamento salvo no projeto');
@@ -9546,6 +9672,31 @@ function buildBalanceamentoPrintHTML(proj, bal){
       + '</tr>';
   });
   html += '</tbody></table>';
+
+  // Capacidade × Recursos
+  var cap = balCapacidade(bal, (proj.balanceamento||{}));
+  if(cap.taktD>0 || cap.pecasPorRecurso>0){
+    html += '<div style="font-size:11px;font-weight:700;color:#0066cc;margin:8px 0 4px">📐 Capacidade × Recursos</div>';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px">'
+      + '<thead><tr style="background:#eef1f9">'
+      + '<th style="border:1px solid #ccd;padding:5px 7px;text-align:left">Cálculo</th>'
+      + '<th style="border:1px solid #ccd;padding:5px 7px;text-align:left">Parâmetros</th>'
+      + '<th style="border:1px solid #ccd;padding:5px 7px;text-align:left">Resultado</th>'
+      + '</tr></thead><tbody>';
+    if(cap.taktD>0){
+      html += '<tr><td style="border:1px solid #ccd;padding:5px 7px">Demanda → Recursos</td>'
+        + '<td style="border:1px solid #ccd;padding:5px 7px">'+cap.demanda+' pç · Takt '+cap.taktD.toFixed(1)+'s · Conteúdo '+cap.conteudo.toFixed(1)+'s</td>'
+        + '<td style="border:1px solid #ccd;padding:5px 7px"><strong>'+cap.opNec+' operador(es)</strong> ('+cap.opNecExato.toFixed(2)+' exato) · '+cap.thNecHoras.toFixed(1)+' h-homem</td></tr>';
+    }
+    if(cap.pecasPorRecurso>0){
+      html += '<tr><td style="border:1px solid #ccd;padding:5px 7px">Recursos → Peças</td>'
+        + '<td style="border:1px solid #ccd;padding:5px 7px">'+cap.recursos+' operador(es) · Efic. '+cap.efic+'%</td>'
+        + '<td style="border:1px solid #ccd;padding:5px 7px"><strong>'+Math.floor(cap.pecasReais)+' peças</strong>'
+        + (cap.gargSec>0?' (limite gargalo: '+Math.floor(cap.pecasGargalo)+')':'')
+        + (cap.demanda>0?' · atende '+cap.atendePct.toFixed(1)+'%':'')+'</td></tr>';
+    }
+    html += '</tbody></table>';
+  }
 
   // Gráfico simples (barras com altura proporcional)
   var maxStd=0; bal.posts.forEach(function(p){if(p.stdSec>maxStd)maxStd=p.stdSec;});
@@ -9642,7 +9793,44 @@ function buildBalReportSection(){
       + '</tr>';
   });
   html += '</tbody></table></div>';
+  html += balCapacidadeReportHtml(bal, params);
   html += balDiagnostico(bal);
+  html += '</div>';
+  return html;
+}
+
+// Versão de leitura (sem inputs) do painel Capacidade × Recursos,
+// para o Relatório Final e o PDF.
+function balCapacidadeReportHtml(bal, params){
+  var c = balCapacidade(bal, params||{});
+  var temD1 = c.taktD>0, temD2 = c.pecasPorRecurso>0;
+  if(!temD1 && !temD2) return '';
+  var html = '<div class="res-section-title" style="margin-top:14px">📐 Capacidade × Recursos</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:6px">';
+  if(temD1){
+    html += '<div style="background:var(--surface2);border:1px solid var(--border2);border-left:3px solid var(--purple);border-radius:9px;padding:12px">'
+      + '<div style="font-size:10px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Demanda → Recursos necessários</div>'
+      + '<div style="font-size:11px;color:var(--text2);line-height:1.9">'
+      + 'Peças a produzir: <strong>'+c.demanda+'</strong><br>'
+      + 'Takt necessário: <strong style="color:var(--accent)">'+c.taktD.toFixed(1)+'s</strong><br>'
+      + 'Conteúdo de trabalho: <strong>'+c.conteudo.toFixed(1)+'s</strong><br>'
+      + 'Operadores (exato): <strong>'+c.opNecExato.toFixed(2)+'</strong><br>'
+      + 'Operadores necessários: <strong style="color:var(--purple);font-size:13px">'+c.opNec+'</strong><br>'
+      + 'Tempo-homem total: <strong>'+c.thNecHoras.toFixed(1)+' h</strong>'
+      + '</div></div>';
+  }
+  if(temD2){
+    var atColor = c.atendePct>=100?'var(--green)':c.atendePct>=85?'var(--orange)':'var(--red)';
+    html += '<div style="background:var(--surface2);border:1px solid var(--border2);border-left:3px solid var(--green);border-radius:9px;padding:12px">'
+      + '<div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Recursos → Peças possíveis</div>'
+      + '<div style="font-size:11px;color:var(--text2);line-height:1.9">'
+      + 'Operadores disponíveis: <strong>'+c.recursos+'</strong><br>'
+      + 'Peças (por recursos): <strong>'+Math.floor(c.pecasPorRecurso)+'</strong><br>'
+      + 'Peças (limite gargalo): <strong>'+(c.gargSec>0?Math.floor(c.pecasGargalo):'—')+'</strong><br>'
+      + 'Peças reais (capacidade): <strong style="color:var(--green);font-size:13px">'+Math.floor(c.pecasReais)+'</strong>'
+      + (c.demanda>0?'<br>Atendimento da demanda: <strong style="color:'+atColor+'">'+c.atendePct.toFixed(1)+'%</strong>':'')
+      + '</div></div>';
+  }
   html += '</div>';
   return html;
 }
@@ -10291,6 +10479,27 @@ function prepararPrintRelatorio(){
         + '<td><b>Efic. '+balR.eficBal.toFixed(1)+'%</b></td></tr></tfoot></table>';
       html += '<div class="pa-note">Takt: '+esc(balR.taktOrigem)+' · Operadores teóricos: '+balR.opTeoricos.toFixed(2)
         + ' · Capacidade limitada pelo gargalo: '+balR.capacidadeHora.toFixed(0)+' pç/h.</div>';
+
+      // Capacidade × Recursos no PDF
+      var capR = balCapacidade(balR, balParams);
+      if(capR.taktD>0 || capR.pecasPorRecurso>0){
+        html += '<div class="pa-h2">📐 Capacidade × Recursos</div>';
+        html += '<table class="pa-table"><thead><tr><th>Cálculo</th><th>Parâmetros</th><th>Resultado</th></tr></thead><tbody>';
+        if(capR.taktD>0){
+          html += '<tr><td class="item">Demanda → Recursos</td>'
+            + '<td>'+capR.demanda+' pç · Takt '+capR.taktD.toFixed(1)+'s · Conteúdo '+capR.conteudo.toFixed(1)+'s</td>'
+            + '<td class="num"><b>'+capR.opNec+' operador(es)</b> ('+capR.opNecExato.toFixed(2)+' exato) · '+capR.thNecHoras.toFixed(1)+' h-homem</td></tr>';
+        }
+        if(capR.pecasPorRecurso>0){
+          html += '<tr><td class="item">Recursos → Peças</td>'
+            + '<td>'+capR.recursos+' operador(es) · Efic. '+capR.efic+'%</td>'
+            + '<td class="num"><b>'+Math.floor(capR.pecasReais)+' peças</b>'
+            + (capR.gargSec>0?' (limite gargalo: '+Math.floor(capR.pecasGargalo)+')':'')
+            + (capR.demanda>0?' · atende '+capR.atendePct.toFixed(1)+'%':'')+'</td></tr>';
+        }
+        html += '</tbody></table>';
+        html += '<div class="pa-note">Operadores = Conteúdo de trabalho ÷ Takt · Peças = (Tempo disp. × Eficiência% × Operadores) ÷ Conteúdo, limitado pelo gargalo.</div>';
+      }
     }
   }catch(e){ console.error('Balanceamento PDF:', e); }
 
