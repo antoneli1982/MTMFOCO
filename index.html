@@ -4507,6 +4507,8 @@ function gid(){return 'sh'+(++cnt)+'_'+Date.now()}
    daquele projeto (sem misturar folhas de outros projetos).
    ════════════════════════════════════════════════════════════ */
 var activeProjectCtx = null;                 // { folderId, projectId } ou null (sem escopo = mostra todas, modo legado)
+var __homeFirstPending = true;               // a primeira entrada após o load deve cair na TELA INICIAL (home)
+var __enteredProject   = false;              // vira true quando o usuário abre um projeto (sai da home p/ o editor)
 var ACTIVE_PROJ_KEY  = 'mtm_active_proj_v1';
 
 function pmEnsureProjId(p){
@@ -8301,6 +8303,17 @@ document.addEventListener('keydown',e=>{
 var dbCurrentImg = null;
 
 function startDirectMtmApp(){
+  // HOME-FIRST: enquanto a tela inicial estiver aberta (ou na primeira entrada
+  // após o load), qualquer tentativa de abrir o editor volta para a HOME.
+  // O usuário sai da home apenas clicando em um projeto (que chama hideDashboard).
+  var _dbEl = document.getElementById('dashboard');
+  var _homeShowing = _dbEl && _dbEl.classList.contains('active');
+  if((__homeFirstPending || _homeShowing) && typeof showDashboard === 'function'){
+    __homeFirstPending = false;
+    showDashboard();
+    return;
+  }
+  __homeFirstPending = false;
   // Oculta qualquer tela de autenticação ou dashboard.
   var auth = document.getElementById('auth-screen');
   if(auth){ auth.style.display='none'; auth.style.opacity='1'; auth.style.pointerEvents='none'; }
@@ -8347,7 +8360,8 @@ function showDashboard(){
   var userEl = document.getElementById('db-user-name');
   if(userEl) userEl.textContent = name.split(' ')[0] + ' · MTM';
   var db = document.getElementById('dashboard');
-  if(db) db.classList.add('active');
+  if(db){ db.classList.add('active'); db.style.display='flex'; }
+  __homeFirstPending = false;
   // Garantir que o form está limpo
   var cl = document.getElementById('db-client');
   var pn = document.getElementById('db-proj-name');
@@ -8369,7 +8383,10 @@ function showDashboard(){
 function goHome(){ showDashboard(); }
 
 function hideDashboard(){
-  document.getElementById('dashboard').classList.remove('active');
+  var _db = document.getElementById('dashboard');
+  if(_db){ _db.classList.remove('active'); _db.style.display='none'; }
+  __homeFirstPending = false;
+  __enteredProject   = true;
   if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
   if(typeof loadActiveProjectCtx === 'function' && activeProjectCtx === null) loadActiveProjectCtx();
   var view = (typeof scopedSheets === 'function') ? scopedSheets() : sheets;
@@ -14409,6 +14426,8 @@ function balEsc(s){
   function bootHome(){
     try{
       if(typeof loadActiveProjectCtx === 'function') loadActiveProjectCtx();
+      // Só força a HOME se o usuário ainda não tiver entrado em um projeto neste load
+      if(typeof __enteredProject !== 'undefined' && __enteredProject) return;
       if(typeof showDashboard === 'function') showDashboard();
     }catch(e){ console.warn('bootHome falhou:', e); }
   }
@@ -14417,6 +14436,8 @@ function balEsc(s){
   } else {
     setTimeout(bootHome, 60);
   }
+  // Reasserção de segurança: depois que tudo (inclusive auth externo) carregar
+  window.addEventListener('load', function(){ setTimeout(bootHome, 250); });
 })();
 </script>
 
