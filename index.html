@@ -2982,7 +2982,7 @@ window.FIREBASE_CONFIG = {
     <!-- separador visual -->
     <div style="width:1px;height:26px;background:var(--border2);margin:0 4px;flex-shrink:0"></div>
     <button class="btn btn-ghost" onclick="startDirectMtmApp()" title="Ir para as folhas" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(0,212,255,.25)">📄<span class="btn-lbl"> Folhas</span></button>
-    <button class="btn btn-ghost" onclick="addSheet()" title="Nova Folha">＋<span class="btn-lbl"> Nova Folha</span></button>
+    <button class="btn btn-ghost" onclick="addSheetHere()" title="Nova Folha">＋<span class="btn-lbl"> Nova Folha</span></button>
     <button class="btn btn-ghost" onclick="openLibrary()" title="📚 Biblioteca MTM" style="letter-spacing:.2px">📚<span class="btn-lbl"> Biblioteca</span></button>
     <button class="btn btn-ghost" onclick="openBook()" title="Livro de Informações — Anote tudo sobre o processo" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(124,58,237,.28)">📖<span class="btn-lbl"> Livro</span></button>
     <button class="btn btn-ghost" onclick="openFadiga()" title="Análise de Fadiga & Ociosidade (TV + TER) — Tabela Ivan Antoneli" style="background:rgba(255,149,0,.10);color:var(--orange);border-color:rgba(255,149,0,.35)">🛌<span class="btn-lbl"> Fadiga</span></button>
@@ -3006,7 +3006,7 @@ window.FIREBASE_CONFIG = {
 </div>
 
 <div class="tabs-wrapper" id="tabs-bar">
-  <div class="tab-add" onclick="addSheet()">＋</div>
+  <div class="tab-add" onclick="addSheetHere()">＋</div>
 </div>
 
 <div id="sheets-container"></div>
@@ -4499,6 +4499,111 @@ const MATRIZ = {
 var sheets=[], activeId=null, cnt=0;
 function gid(){return 'sh'+(++cnt)+'_'+Date.now()}
 
+/* ════════════════════════════════════════════════════════════
+   ESCOPO DE PROJETO — cada projeto enxerga apenas as SUAS folhas.
+   Ao abrir um projeto, o editor passa a mostrar somente as folhas
+   daquele projeto (sem misturar folhas de outros projetos).
+   ════════════════════════════════════════════════════════════ */
+var activeProjectCtx = null;                 // { folderId, projectId } ou null (sem escopo = mostra todas, modo legado)
+var ACTIVE_PROJ_KEY  = 'mtm_active_proj_v1';
+
+function pmEnsureProjId(p){
+  if(p && !p.id) p.id = 'p_' + Date.now() + '_' + Math.floor(Math.random()*1e5);
+  return p ? p.id : null;
+}
+
+// Define qual projeto está aberto no editor (folderId + projeto por índice OU objeto)
+function setActiveProjectCtx(folderId, projOrIdx){
+  try{
+    var f = (typeof pmData !== 'undefined') ? pmData[folderId] : null;
+    var p = null;
+    if(f && f.projects){
+      p = (typeof projOrIdx === 'number') ? f.projects[projOrIdx] : projOrIdx;
+    }
+    if(!f || !p){
+      activeProjectCtx = null;
+    } else {
+      pmEnsureProjId(p);
+      activeProjectCtx = { folderId: folderId, projectId: p.id };
+    }
+    try{ localStorage.setItem(ACTIVE_PROJ_KEY, JSON.stringify(activeProjectCtx)); }catch(e){}
+  }catch(e){ activeProjectCtx = null; }
+}
+
+function clearActiveProjectCtx(){
+  activeProjectCtx = null;
+  try{ localStorage.removeItem(ACTIVE_PROJ_KEY); }catch(e){}
+}
+
+function loadActiveProjectCtx(){
+  try{ var r = localStorage.getItem(ACTIVE_PROJ_KEY); activeProjectCtx = r ? (JSON.parse(r)||null) : null; }
+  catch(e){ activeProjectCtx = null; }
+}
+
+// Retorna o objeto do projeto ativo (resolvido sempre a partir de pmData), ou null
+function getActiveProject(){
+  if(!activeProjectCtx) return null;
+  try{
+    if(typeof pmData === 'undefined') return null;
+    var f = pmData[activeProjectCtx.folderId];
+    if(!f || !f.projects) return null;
+    return f.projects.find(function(p){ return p && p.id === activeProjectCtx.projectId; }) || null;
+  }catch(e){ return null; }
+}
+
+// Lista de IDs de folha do projeto ativo, ou null se não há projeto ativo
+function projectScopeIds(){
+  var p = getActiveProject();
+  if(!p) return null;
+  return Array.isArray(p.sheets) ? p.sheets : [];
+}
+
+// Folhas visíveis segundo o escopo atual (somente as do projeto ativo)
+function scopedSheets(){
+  var ids = projectScopeIds();
+  if(ids === null) return sheets.slice();
+  return sheets.filter(function(s){ return ids.indexOf(s.id) !== -1; });
+}
+
+function sheetInScope(sid){
+  var ids = projectScopeIds();
+  if(ids === null) return true;
+  return ids.indexOf(sid) !== -1;
+}
+
+// Vincula uma folha ao projeto aberto (idempotente)
+function attachSheetToActiveProject(sid){
+  var p = getActiveProject();
+  if(!p) return false;
+  if(!p.sheets) p.sheets = [];
+  if(p.sheets.indexOf(sid) === -1){
+    p.sheets.push(sid);
+    if(typeof pmSave === 'function') pmSave();
+  }
+  return true;
+}
+
+// Remove o vínculo da folha com o projeto aberto
+function detachSheetFromActiveProject(sid){
+  var p = getActiveProject();
+  if(!p || !p.sheets) return;
+  var i = p.sheets.indexOf(sid);
+  if(i !== -1){ p.sheets.splice(i,1); if(typeof pmSave === 'function') pmSave(); }
+}
+
+// Cria uma folha JÁ vinculada ao projeto aberto e a exibe (usado pelos botões "Nova Folha")
+function addSheetHere(){
+  // Sem projeto aberto: comportamento normal (folha global)
+  if(!getActiveProject()){ return addSheet(); }
+  var id = gid();
+  var label = 'FOLHA ' + (scopedSheets().length + 1);
+  sheets.push({id:id, label:label, rows:[], header:{}, book:'', fadiga:null});
+  attachSheetToActiveProject(id);   // vincula ANTES de renderizar para a aba aparecer
+  renderTabs(); setActive(id); renderContent(id);
+  if(typeof saveSheets === 'function') saveSheets();
+  return id;
+}
+
 // ============================================================
 // PERSISTÊNCIA DE FOLHAS (autosave em localStorage)
 // ============================================================
@@ -4615,13 +4720,17 @@ function addSheet(silent){
 }
 
 function deleteCurrentSheet(){
-  if(sheets.length<=1){alert('Mínimo uma folha.');return}
+  const scoped=scopedSheets();
+  if(scoped.length<=1){alert('Mínimo uma folha neste projeto.');return}
   if(!confirm(`Excluir "${get(activeId).label}"?`))return;
-  const idx=sheets.findIndex(s=>s.id===activeId);
-  sheets=sheets.filter(s=>s.id!==activeId);
-  document.getElementById('c-'+activeId)?.remove();
-  const nid=sheets[Math.min(idx,sheets.length-1)].id;
-  activeId=null; renderTabs(); setActive(nid);
+  const sIdx=scoped.findIndex(s=>s.id===activeId);
+  const delId=activeId;
+  sheets=sheets.filter(s=>s.id!==delId);
+  document.getElementById('c-'+delId)?.remove();
+  detachSheetFromActiveProject(delId);
+  const remaining=scopedSheets();
+  const nid = remaining.length ? remaining[Math.min(sIdx,remaining.length-1)].id : (sheets[0]&&sheets[0].id);
+  activeId=null; renderTabs(); if(nid) setActive(nid);
   saveSheets();
 }
 
@@ -4647,7 +4756,7 @@ function renderTabs(){
   const bar=document.getElementById('tabs-bar');
   bar.querySelectorAll('.tab').forEach(e=>e.remove());
   const add=bar.querySelector('.tab-add');
-  sheets.forEach(s=>{
+  scopedSheets().forEach(s=>{
     const t=document.createElement('div');
     t.className='tab'+(s.id===activeId?' active':'');
     t.innerHTML=`<span onclick="setActive('${s.id}')" style="pointer-events:auto">${esc(s.label)}</span>
@@ -4679,14 +4788,18 @@ function renameById(id){
 }
 
 function delById(id){
-  if(sheets.length<=1){alert('Mínimo uma folha.');return}
+  const scoped=scopedSheets();
+  if(scoped.length<=1){alert('Mínimo uma folha neste projeto.');return}
   if(!confirm(`Excluir "${get(id).label}"?`))return;
-  const idx=sheets.findIndex(s=>s.id===id);
+  const sIdx=scoped.findIndex(s=>s.id===id);
   sheets=sheets.filter(s=>s.id!==id);
   document.getElementById('c-'+id)?.remove();
-  const nid=sheets[Math.min(idx,sheets.length-1)].id;
+  detachSheetFromActiveProject(id);
+  const remaining=scopedSheets();
+  const nid = remaining.length ? remaining[Math.min(sIdx,remaining.length-1)].id : (sheets[0]&&sheets[0].id);
   if(activeId===id)activeId=null;
-  renderTabs(); setActive(nid);
+  renderTabs(); if(nid) setActive(nid);
+  if(typeof saveSheets==='function') saveSheets();
 }
 
 function setActive(id){
@@ -5435,7 +5548,7 @@ function exportPDF(){
 function prepararPrint(){
   var box = document.getElementById('print-area');
   if(!box) return;
-  if(!sheets || !sheets.length){ box.innerHTML = ''; return; }
+  if(!scopedSheets().length){ box.innerHTML = ''; return; }
 
   // ─── Helpers locais ───
   function esc(s){
@@ -5525,7 +5638,7 @@ function prepararPrint(){
   var html = '';
   var dataGer = new Date().toLocaleString('pt-BR');
 
-  sheets.forEach(function(s, idx){
+  scopedSheets().forEach(function(s, idx){
     var h = s.header||{};
     var m = calcMetrics(s);
     var fad = calcFad(s.fadiga);
@@ -7415,6 +7528,8 @@ function pmOpenFolder(fid){
 
 function pmDeleteFolder(fid){
   if(!confirm(`Excluir a pasta "${pmData[fid].name}" e tudo dentro dela?`)) return;
+  // Se o projeto aberto está nesta pasta, limpa o escopo
+  if(activeProjectCtx && activeProjectCtx.folderId === fid) clearActiveProjectCtx();
   // Remove sheets from MTM engine
   const f = pmData[fid];
   (f.projects||[]).forEach(p=>(p.sheets||[]).forEach(sid=>pmDetachSheet(sid)));
@@ -7476,6 +7591,8 @@ function pmDeleteProject(i){
   const f = pmGetFolder();
   const p = f.projects[i];
   if(!confirm(`Excluir o projeto "${p.name}" e todas as suas folhas e anotações?`)) return;
+  // Se este é o projeto aberto no editor, limpa o escopo
+  if(activeProjectCtx && p.id && activeProjectCtx.projectId === p.id) clearActiveProjectCtx();
   (p.sheets||[]).forEach(sid => pmDetachSheet(sid));
   f.projects.splice(i,1);
   pmSave(); pmRenderProjects();
@@ -7680,20 +7797,24 @@ function pmRenderNotes(el){
 /* ── Sheet integration ── */
 function pmNewSheet(){
   const p = pmGetProject();
+  // Define o escopo do projeto ANTES de criar a folha
+  setActiveProjectCtx(pmFolderId, pmProjectIdx);
   closeProjectManager();
   hideDashboard();
-  // Se hideDashboard acabou de criar uma FOLHA 1 vazia, reutilizá-la em vez de criar FOLHA 2
+  // Reaproveita uma folha vazia que JÁ pertença a este projeto (evita "FOLHA 2" fantasma)
   var sid;
-  if(sheets.length === 1 && sheets[0].rows.length === 0){
-    sid = sheets[0].id;
+  var scoped = scopedSheets();
+  if(scoped.length === 1 && scoped[0].rows.length === 0){
+    sid = scoped[0].id;
   } else {
     sid = addSheet(true);
   }
   if(!p.sheets) p.sheets = [];
-  p.sheets.push(sid);
+  if(p.sheets.indexOf(sid) === -1) p.sheets.push(sid);
   pmSave();
   // Activate the new sheet in the editor
   setTimeout(()=>{
+    if(typeof renderTabs==='function') renderTabs();
     if(typeof setActive==='function') setActive(sid);
     if(!document.getElementById('c-'+sid) && typeof renderContent==='function') renderContent(sid);
     window.scrollTo({top:0,behavior:'smooth'});
@@ -7701,10 +7822,13 @@ function pmNewSheet(){
 }
 
 function pmOpenSheet(sid){
+  // Define o escopo: a partir de agora o editor mostra só as folhas deste projeto
+  setActiveProjectCtx(pmFolderId, pmProjectIdx);
   closeProjectManager();
   hideDashboard();
   if(typeof setActive==='function') setActive(sid);
   if(!document.getElementById('c-'+sid) && typeof renderContent==='function') renderContent(sid);
+  if(typeof renderTabs==='function') renderTabs();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
@@ -8184,15 +8308,22 @@ function startDirectMtmApp(){
   // Carrega/restaura folhas e mostra direto a área de trabalho.
   if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
   if(typeof pmLoad === 'function') pmLoad();
+  if(typeof loadActiveProjectCtx === 'function') loadActiveProjectCtx();
 
-  if(typeof sheets !== 'undefined' && sheets.length > 0){
-    sheets.forEach(function(sh){
+  // Se há um projeto ativo, trabalha apenas com as folhas dele.
+  var view = (typeof scopedSheets === 'function') ? scopedSheets() : sheets;
+
+  if(view.length > 0){
+    view.forEach(function(sh){
       if(!document.getElementById('c-'+sh.id) && typeof renderContent === 'function'){
         renderContent(sh.id);
       }
     });
     if(typeof renderTabs === 'function') renderTabs();
-    if(!activeId && sheets[0] && typeof setActive === 'function') setActive(sheets[0].id);
+    if((!activeId || !sheetInScope(activeId)) && view[0] && typeof setActive === 'function') setActive(view[0].id);
+  }else if(getActiveProject()){
+    // Projeto ativo sem folhas: cria a primeira já vinculada a ele
+    if(typeof addSheetHere === 'function') addSheetHere();
   }else if(typeof addSheet === 'function'){
     addSheet('FOLHA 1');
   }
@@ -8232,16 +8363,20 @@ function showDashboard(){
 function hideDashboard(){
   document.getElementById('dashboard').classList.remove('active');
   if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
+  if(typeof loadActiveProjectCtx === 'function' && activeProjectCtx === null) loadActiveProjectCtx();
+  var view = (typeof scopedSheets === 'function') ? scopedSheets() : sheets;
   // Se já existem folhas (restauradas ou criadas), renderizá-las se ainda não estão no DOM
-  if(typeof sheets !== 'undefined' && sheets.length > 0){
-    sheets.forEach(function(s){
+  if(view.length > 0){
+    view.forEach(function(s){
       if(!document.getElementById('c-'+s.id) && typeof renderContent === 'function'){
         renderContent(s.id);
       }
     });
     if(typeof renderTabs === 'function') renderTabs();
-    // Ativar a primeira se nenhuma estiver ativa
-    if(!activeId && sheets[0]){ setActive(sheets[0].id); }
+    // Ativar a primeira do escopo se nenhuma estiver ativa
+    if((!activeId || !sheetInScope(activeId)) && view[0]){ setActive(view[0].id); }
+  } else if(getActiveProject()){
+    addSheetHere();
   } else {
     addSheet('FOLHA 1');
   }
@@ -10156,7 +10291,7 @@ function balPrintKpiCell(v,l){
 // SEÇÃO TTP · TAKT · CAPACIDADE + YAMAZUMI — para o Relatório Final
 // ═══════════════════════════════════════════════════════════════
 function buildTTPSection(){
-  if(!sheets || !sheets.length) return '';
+  if(!scopedSheets().length) return '';
   var R = mtmCollectFinalReport();
   var allMetrics = R.allMetrics;
   var html = '<div class="res-section-title">⏱️ Análise TTP · Takt · Capacidade por Folha</div>';
@@ -10467,9 +10602,10 @@ function buildTTPSectionPDF(allMetrics, fmt){
 }
 
 function buildBalReportSection(){
-  if(!sheets || !sheets.length) return '';
+  var _bs = (typeof scopedSheets==='function')?scopedSheets():sheets;
+  if(!_bs || !_bs.length) return '';
   // Projeto virtual com as folhas abertas
-  var virtualProj = { name:'(Folhas abertas)', sheets: sheets.map(function(s){return s.id;}) };
+  var virtualProj = { name:'(Folhas abertas)', sheets: _bs.map(function(s){return s.id;}) };
   var params = {};
   try{
     if(typeof pmProjectIdx !== 'undefined' && pmProjectIdx !== null && pmFolderId){
@@ -10602,6 +10738,8 @@ function dbOpenById(pid){
   pmFolderId = found.fid;
   pmProjectIdx = found.idx;
   var p = found.p;
+  // Escopo: editor mostra só as folhas deste projeto
+  setActiveProjectCtx(found.fid, found.idx);
   var sid;
   if(p.sheets && p.sheets.length > 0){
     sid = p.sheets[0];
@@ -10611,6 +10749,7 @@ function dbOpenById(pid){
     pmSave();
   }
   setTimeout(function(){
+    if(typeof renderTabs==='function') renderTabs();
     if(typeof setActive==='function') setActive(sid);
     if(!document.getElementById('c-'+sid) && typeof renderContent==='function') renderContent(sid);
     window.scrollTo({top:0,behavior:'smooth'});
@@ -10623,6 +10762,7 @@ function dbDelById(pid){
   if(!found) return;
   var p = found.p;
   if(!confirm('Excluir o projeto "' + p.name + '"?\n\nTodas as folhas de processo deste projeto serão removidas.')) return;
+  if(activeProjectCtx && p.id && activeProjectCtx.projectId === p.id) clearActiveProjectCtx();
   // Detach sheets from MTM engine
   (p.sheets || []).forEach(function(sid){
     if(typeof sheets !== 'undefined'){
@@ -10646,6 +10786,7 @@ function dbDelClient(client){
   if(!all.length) return;
   var projNames = all.map(function(i){ return '• ' + i.p.name; }).join('\n');
   if(!confirm('Excluir o cliente "' + client + '" e TODOS os seus projetos?\n\n' + projNames + '\n\nEsta ação não pode ser desfeita.')) return;
+  if(activeProjectCtx && all.some(function(item){ return item.p.id && item.p.id === activeProjectCtx.projectId; })) clearActiveProjectCtx();
   all.forEach(function(item){
     (item.p.sheets || []).forEach(function(sid){
       if(typeof sheets !== 'undefined'){
@@ -11007,7 +11148,7 @@ function mtmCalcFadiga(f){
 // ou 10% SESÉ) substitui o allowance do cabeçalho.
 // ════════════════════════════════════════════════════════════════
 function mtmCollectFinalReport(){
-  var allMetrics = (sheets||[]).map(function(s){
+  var allMetrics = (typeof scopedSheets==='function'?scopedSheets():(sheets||[])).map(function(s){
     var m   = computeSheetMetrics(s);
     var fad = (s.fadiga && typeof s.fadiga === 'object') ? mtmCalcFadiga(s.fadiga) : null;
     var allowUsed = fad ? fad.allowTotal : m.allowPct;
@@ -11045,7 +11186,7 @@ var _mtmPrintMode = 'folhas';
 function prepararPrintRelatorio(){
   var box = document.getElementById('print-area');
   if(!box) return;
-  if(!sheets || !sheets.length){ box.innerHTML = ''; return; }
+  if(!scopedSheets().length){ box.innerHTML = ''; return; }
 
   function esc(s){
     return String(s==null?'':s).replace(/[&<>"]/g, function(c){
@@ -11060,6 +11201,7 @@ function prepararPrintRelatorio(){
 
   var R = mtmCollectFinalReport();
   var allMetrics = R.allMetrics;
+  var _ps = (typeof scopedSheets==='function')?scopedSheets():sheets;
   var dataGer = new Date().toLocaleString('pt-BR');
 
   var jornadas = [
@@ -11073,7 +11215,7 @@ function prepararPrintRelatorio(){
   html += '<div class="pa-h1">📋 RELATÓRIO FINAL CONSOLIDADO — MTM</div>';
 
   // ── Identificação ──
-  var h0 = (sheets[0] && sheets[0].header) || {};
+  var h0 = (_ps[0] && _ps[0].header) || {};
   html += '<div class="pa-info">';
   html +=   '<div class="pa-info-row">';
   html +=     '<div class="pa-info-cell"><div class="lbl">Empresa / Cliente</div><div class="val">'+esc(h0.empresa||'—')+'</div></div>';
@@ -11081,7 +11223,7 @@ function prepararPrintRelatorio(){
   html +=     '<div class="pa-info-cell"><div class="lbl">Gerado em</div><div class="val">'+esc(dataGer)+'</div></div>';
   html +=   '</div>';
   html +=   '<div class="pa-info-row">';
-  html +=     '<div class="pa-info-cell"><div class="lbl">Total de Folhas</div><div class="val">'+sheets.length+'</div></div>';
+  html +=     '<div class="pa-info-cell"><div class="lbl">Total de Folhas</div><div class="val">'+_ps.length+'</div></div>';
   html +=     '<div class="pa-info-cell"><div class="lbl">Folhas c/ Análise de Fadiga</div><div class="val">'+R.withFad.length+'</div></div>';
   html +=     '<div class="pa-info-cell"><div class="lbl">Allowance Total Médio</div><div class="val">'+fmt(R.allowMedio,2)+' %</div></div>';
   html +=   '</div>';
@@ -11090,7 +11232,7 @@ function prepararPrintRelatorio(){
   // ── Resumo consolidado ──
   html += '<div class="pa-h2">Resumo Consolidado</div>';
   html += '<div class="pa-results"><div class="pa-results-row">';
-  html +=   '<div class="pa-results-cell"><div class="l">Folhas</div><div class="v">'+sheets.length+'</div></div>';
+  html +=   '<div class="pa-results-cell"><div class="l">Folhas</div><div class="v">'+_ps.length+'</div></div>';
   html +=   '<div class="pa-results-cell"><div class="l">TMU Total</div><div class="v">'+fmt(R.totalTmuSum,0)+'</div></div>';
   html +=   '<div class="pa-results-cell"><div class="l">Σ Tempo Padrão</div><div class="v">'+fmt(R.totalStdSec,2)+' s</div></div>';
   html +=   '<div class="pa-results-cell"><div class="l">Σ Peças/hora</div><div class="v">'+fmt(R.combinedPph,0)+'</div></div>';
@@ -11173,7 +11315,7 @@ function prepararPrintRelatorio(){
 
   // ── Balanceamento de Linha (parte do relatório consolidado) ──
   try{
-    var balVProj = { name:'(Folhas abertas)', sheets: sheets.map(function(s){return s.id;}) };
+    var balVProj = { name:'(Folhas abertas)', sheets: _ps.map(function(s){return s.id;}) };
     var balParams = {};
     if(typeof pmProjectIdx !== 'undefined' && pmProjectIdx !== null && pmFolderId){
       var balRealProj = pmData[pmFolderId] && pmData[pmFolderId].projects[pmProjectIdx];
@@ -11256,7 +11398,8 @@ function exportRelatorioPDF(){
 }
 
 function showFinalReport(){
-  if(!sheets || sheets.length === 0){
+  var _fr = (typeof scopedSheets==='function')?scopedSheets():sheets;
+  if(!_fr || _fr.length === 0){
     alert('Nenhuma folha disponível para gerar o relatório.');
     return;
   }
@@ -11439,7 +11582,7 @@ function showFinalReport(){
   // ── KPI Cards de topo ──
   var kpiHtml = ''
     + '<div class="res-kpis" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">'
-    +   '<div class="res-kpi"><div class="res-kpi-val" style="color:var(--accent)">'+sheets.length+'</div><div class="res-kpi-lbl">Folhas</div></div>'
+    +   '<div class="res-kpi"><div class="res-kpi-val" style="color:var(--accent)">'+scopedSheets().length+'</div><div class="res-kpi-lbl">Folhas</div></div>'
     +   '<div class="res-kpi"><div class="res-kpi-val" style="color:var(--text)">'+totalTmuSum.toFixed(0)+'</div><div class="res-kpi-lbl">TMU Total</div></div>'
     +   '<div class="res-kpi" style="background:var(--greenBg);border-color:var(--green)"><div class="res-kpi-val" style="color:var(--green)">'+totalStdSec.toFixed(2)+'<span style="font-size:12px">s</span></div><div class="res-kpi-lbl" style="color:var(--green)">Σ Tempo Padrão</div></div>'
     +   '<div class="res-kpi" style="background:var(--purpleBg);border-color:var(--purple)"><div class="res-kpi-val" style="color:var(--purple)">'+(combinedPph||'—')+'</div><div class="res-kpi-lbl" style="color:var(--purple)">Σ Peças/hora</div></div>'
@@ -11460,7 +11603,7 @@ function showFinalReport(){
     +   '<div class="res-header">'
     +     '<div>'
     +       '<div class="res-title" style="color:var(--green)">📋 Relatório Final Consolidado</div>'
-    +       '<div class="res-subtitle">'+sheets.length+' folha'+(sheets.length!==1?'s':'')+' · '+withFad.length+' com Análise de Fadiga · '+new Date().toLocaleDateString('pt-BR')+'</div>'
+    +       '<div class="res-subtitle">'+scopedSheets().length+' folha'+(scopedSheets().length!==1?'s':'')+' · '+withFad.length+' com Análise de Fadiga · '+new Date().toLocaleDateString('pt-BR')+'</div>'
     +     '</div>'
     +     '<div style="display:flex;gap:8px;align-items:center">'
     +       '<button class="btn btn-green" onclick="exportRelatorioPDF()" style="font-size:11px">⬇ PDF</button>'
@@ -11891,7 +12034,8 @@ function exportExcel(){
     showToast('Biblioteca XLSX ainda não carregou. Aguarde a página terminar de abrir.', true);
     return;
   }
-  if(!sheets.length){
+  var _xs = (typeof scopedSheets==='function')?scopedSheets():sheets;
+  if(!_xs.length){
     showToast('Nenhuma folha para exportar.', true);
     return;
   }
@@ -11985,13 +12129,13 @@ function exportExcel(){
       ['MTM_RESUMO_V1'],
       ['Ferramenta MTM — Relatório Consolidado'],
       ['Gerado em', new Date().toLocaleString('pt-BR')],
-      ['Total de folhas', sheets.length],
+      ['Total de folhas', _xs.length],
       [],
       ['Folha','Empresa','Projeto','Processo','Código','Data','Planta','Engenheiro','Operador/Posto',
        'TMU Total','Tempo Padrão (s)','Peças/h','Takt (s)','Allow Total (%)','Linhas']
     ];
     var grandTmu = 0, grandStd = 0;
-    sheets.forEach(function(s){
+    _xs.forEach(function(s){
       var h = s.header || {};
       var m = _xlCalcSheetMetrics(s);
       grandTmu += m.tmu; grandStd += m.stdSec;
@@ -12016,7 +12160,7 @@ function exportExcel(){
     XLSX.utils.book_append_sheet(wb, wsResumo, _xlSafeSheetName('Resumo', taken));
 
     /* ─── 2) Para CADA folha: 2 abas (Geral + MTM) ─── */
-    sheets.forEach(function(s, idx){
+    _xs.forEach(function(s, idx){
       var h = s.header || {};
       var m = _xlCalcSheetMetrics(s);
       var fad = calcFadiga(s.fadiga);
@@ -12263,7 +12407,7 @@ function exportExcel(){
     var stamp = new Date().toISOString().slice(0,10);
     var fname = 'MTM_Folhas_' + stamp + '.xlsx';
     XLSX.writeFile(wb, fname);
-    showToast('Exportado: ' + fname + ' · ' + sheets.length + ' folha(s) × 2 abas (Geral + MTM)');
+    showToast('Exportado: ' + fname + ' · ' + _xs.length + ' folha(s) × 2 abas (Geral + MTM)');
   }catch(e){
     console.error(e);
     showToast('Erro ao exportar: ' + e.message, true);
@@ -14101,13 +14245,14 @@ function balRenderDist(r){
 
 /* ── Importar das Folhas MTM ── */
 function balImportFromSheets(){
-  if(typeof sheets === 'undefined' || !sheets || !sheets.length){
+  var _bs = (typeof scopedSheets==='function')?scopedSheets():sheets;
+  if(typeof _bs === 'undefined' || !_bs || !_bs.length){
     if(typeof showToast === 'function') showToast('Nenhuma folha MTM aberta.', true);
     return;
   }
   // Coletar folhas com tempo padrão (TS)
   var imported = 0;
-  sheets.forEach(function(s){
+  _bs.forEach(function(s){
     if(!s || !s.rows) return;
     var m = (typeof computeSheetMetrics === 'function') ? computeSheetMetrics(s) : null;
     if(!m) return;
