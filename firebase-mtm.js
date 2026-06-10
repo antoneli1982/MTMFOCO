@@ -70,6 +70,11 @@ const C_SHEETS   = 'sheets';
 const C_PROJECTS = 'projects';
 const C_LOGOS    = 'logos';
 
+// Marca quando o PRIMEIRO snapshot de cada coleção já chegou da nuvem.
+// Enquanto não chegou, é PROIBIDO apagar algo na nuvem ou criar folha padrão —
+// senão o estado local vazio do boot apaga os dados reais ("F5 apaga tudo").
+const firstSnapshotDone = { sheets:false, projects:false, logos:false };
+
 function setStatus(kind, label){
   const badge = document.getElementById('mtm-sync-badge');
   if(!badge) return;
@@ -141,6 +146,7 @@ function applySheetsSnapshot(snap){
     rerenderSheets();
   } finally {
     state.applying = false;
+    firstSnapshotDone.sheets = true;
     finishInitialLoadIfReady();
   }
 }
@@ -177,6 +183,7 @@ function applyProjectsSnapshot(snap){
     }
   } finally {
     state.applying = false;
+    firstSnapshotDone.projects = true;
     finishInitialLoadIfReady();
   }
 }
@@ -205,6 +212,7 @@ function applyLogosSnapshot(snap){
     try{ localStorage.setItem('mtm_client_logos_v1', JSON.stringify(obj)); }catch(e){}
   } finally {
     state.applying = false;
+    firstSnapshotDone.logos = true;
     finishInitialLoadIfReady();
   }
 }
@@ -228,14 +236,21 @@ function rerenderSheets(){
 }
 
 let _initialLoadDone = false;
+let _defaultSheetChecked = false;
 function finishInitialLoadIfReady(){
+  // Só cria a FOLHA 1 padrão DEPOIS que o snapshot de folhas chegou da nuvem
+  // e confirmou que realmente não há nenhuma folha (caso de usuário novo).
+  // Antes disso, window.sheets pode estar vazio só porque ainda não carregou.
+  if(firstSnapshotDone.sheets && !_defaultSheetChecked){
+    _defaultSheetChecked = true;
+    if(window.sheets && window.sheets.length === 0 && typeof window.addSheet === 'function'){
+      window.addSheet('FOLHA 1');
+    }
+  }
   if(_initialLoadDone) return;
   _initialLoadDone = true;
   state.ready = true;
   bumpPending(0);
-  if(window.sheets && window.sheets.length === 0 && typeof window.addSheet === 'function'){
-    window.addSheet('FOLHA 1');
-  }
 }
 
 const writeQueue = {
@@ -331,7 +346,11 @@ function patchAppFunctions(){
         });
       });
       scheduleFlush();
-      syncDeletions(C_SHEETS, new Set((window.sheets||[]).map(s => s.id)));
+      // SEGURANÇA: só apaga folhas na nuvem depois que elas já foram carregadas.
+      // Sem isso, o estado local vazio do boot apagaria tudo no servidor.
+      if(firstSnapshotDone.sheets){
+        syncDeletions(C_SHEETS, new Set((window.sheets||[]).map(s => s.id)));
+      }
     };
     window.saveSheets.__fbPatched = true;
   }
@@ -352,7 +371,10 @@ function patchAppFunctions(){
         });
       });
       scheduleFlush();
-      syncDeletions(C_PROJECTS, new Set(Object.keys(data)));
+      // SEGURANÇA: só apaga empresas/projetos na nuvem depois de carregá-los.
+      if(firstSnapshotDone.projects){
+        syncDeletions(C_PROJECTS, new Set(Object.keys(data)));
+      }
     };
     window.pmSave.__fbPatched = true;
   }
@@ -376,6 +398,8 @@ function attachListeners(){
   cleanupListeners();
   _firstSheets = _firstProjects = _firstLogos = true;
   _initialLoadDone = false;
+  _defaultSheetChecked = false;
+  firstSnapshotDone.sheets = firstSnapshotDone.projects = firstSnapshotDone.logos = false;
 
   state.unsubs.push(onSnapshot(collection(db, C_SHEETS),
     snap => applySheetsSnapshot(snap),
