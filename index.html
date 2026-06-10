@@ -1639,8 +1639,9 @@ table.mtm tfoot tr.total-row td{
      Agora usamos Firebase v10 modular via ESM (firebase-mtm.js). -->
 
 <style id="mtm-no-initial-screen-override">
-/* MODO DIRETO: sem tela inicial, sem login e sem dashboard/home. */
-#auth-screen, #dashboard { display: none !important; }
+/* Tela inicial (home) reativada: mostra empresas e projetos.
+   Mantém apenas a tela de login antiga oculta (auth via firebase). */
+#auth-screen { display: none !important; }
 </style>
 <!-- ════════════════════════════════════════════════════════════
      FB-MTM · Configuração Firebase
@@ -2977,6 +2978,7 @@ window.FIREBASE_CONFIG = {
   <!-- Ações -->
   <div class="toolbar-actions" style="display:flex;align-items:center;gap:6px">
     <!-- ★ AÇÕES PRINCIPAIS — primeiro lugar para acesso rápido ★ -->
+    <button class="btn btn-ghost" onclick="goHome()" title="Voltar à tela inicial (empresas e projetos)" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(0,212,255,.25);font-weight:800;font-size:12px;padding:7px 14px">🏠<span class="btn-lbl"> Início</span></button>
     <button class="btn btn-primary" onclick="showFinalReport()" title="Relatório consolidado de todas as folhas — inclui o balanceamento" style="background:linear-gradient(135deg,#00e5a0,#00b87a);border:none;color:#001a12;font-weight:800;font-size:12px;padding:7px 16px">📋<span class="btn-lbl"> Relatório Final</span></button>
     <button class="btn btn-primary" onclick="openProjectManager()" title="Gerenciador de Projetos" style="background:linear-gradient(135deg,#4f8ef7,#6366f1);border:none;color:#fff;font-weight:800;font-size:12px;padding:7px 16px">📁<span class="btn-lbl"> Projetos</span></button>
     <!-- separador visual -->
@@ -8332,13 +8334,15 @@ function startDirectMtmApp(){
 }
 
 function showDashboard(){
-  // Dashboard removido no modo direto. Mantém compatibilidade com botões antigos.
-  if(typeof startDirectMtmApp === 'function') return startDirectMtmApp();
+  // TELA INICIAL (home): mostra empresas e projetos. NÃO entra direto no editor.
   // Garante que pmData está carregado
   if(typeof pmLoad === 'function') pmLoad();
   // Garante que sheets foram restauradas do localStorage (1x por sessão)
   if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
-  var sess = getSession();
+  // Volta sempre para a lista de empresas (não para uma pasta/projeto antigo)
+  if(typeof currentFolderId !== 'undefined') currentFolderId = null;
+  if(typeof currentCompany  !== 'undefined') currentCompany  = null;
+  var sess = (typeof getSession === 'function') ? getSession() : null;
   var name = sess ? sess.name : 'Usuário';
   var userEl = document.getElementById('db-user-name');
   if(userEl) userEl.textContent = name.split(' ')[0] + ' · MTM';
@@ -8356,9 +8360,13 @@ function showDashboard(){
   if(prev) prev.src = '';
   var err = document.getElementById('db-form-err');
   if(err) err.classList.remove('show');
-  // Renderizar: se há clientes/empresas, mostra página de empresas; senão form
+  // Renderizar: lista de empresas (cada uma com seus projetos)
   if(typeof dbRenderList === 'function') dbRenderList();
+  window.scrollTo({top:0, behavior:'auto'});
 }
+
+// Atalho semântico usado pelo botão "Início" do editor
+function goHome(){ showDashboard(); }
 
 function hideDashboard(){
   document.getElementById('dashboard').classList.remove('active');
@@ -9240,6 +9248,8 @@ function dbOpenProjectInFolder(fid, pi){
   hideDashboard();
   pmFolderId = fid;
   pmProjectIdx = pi;
+  // ESCOPO: editor passa a mostrar SÓ as folhas deste projeto
+  if(typeof setActiveProjectCtx === 'function') setActiveProjectCtx(fid, pi);
   var sid;
   if(p.sheets && p.sheets.length > 0){
     sid = p.sheets[0];
@@ -9281,6 +9291,7 @@ function dbOpenProjectInFolder(fid, pi){
     if(typeof saveSheets === 'function') saveSheets();
   }
   setTimeout(function(){
+    if(typeof renderTabs==='function') renderTabs();
     if(typeof setActive==='function') setActive(sid);
     if(!document.getElementById('c-'+sid) && typeof renderContent==='function') renderContent(sid);
     // Garantia final: depois do setActive, atualizar inputs caso tenha sido a primeira renderização
@@ -9303,6 +9314,7 @@ function dbDelProjectInFolder(fid, pi){
   var p = pmData[fid] && pmData[fid].projects && pmData[fid].projects[pi];
   if(!p) return;
   if(!confirm('Excluir o projeto "' + p.name + '"?\n\nTodas as folhas deste projeto serão removidas.')) return;
+  if(typeof activeProjectCtx !== 'undefined' && activeProjectCtx && p.id && activeProjectCtx.projectId === p.id && typeof clearActiveProjectCtx === 'function') clearActiveProjectCtx();
   (p.sheets||[]).forEach(function(sid){
     if(typeof sheets !== 'undefined'){
       var si = sheets.findIndex(function(s){return s.id===sid;});
@@ -14387,6 +14399,25 @@ function balFmtDur(sec){
 function balEsc(s){
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     TELA INICIAL (HOME) — abre primeiro mostrando empresas e projetos
+     ══════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  function bootHome(){
+    try{
+      if(typeof loadActiveProjectCtx === 'function') loadActiveProjectCtx();
+      if(typeof showDashboard === 'function') showDashboard();
+    }catch(e){ console.warn('bootHome falhou:', e); }
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(bootHome, 60); });
+  } else {
+    setTimeout(bootHome, 60);
+  }
+})();
 </script>
 
 </body>
