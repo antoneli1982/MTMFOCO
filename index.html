@@ -1664,6 +1664,115 @@ window.FIREBASE_CONFIG = {
 <body>
 
 <!-- ════════════════════════════════════════════════════════════
+     PORTARIA · Login por chapa do colaborador
+     (controle de acesso visual — exige 7 caracteres quaisquer)
+     ════════════════════════════════════════════════════════════ -->
+<style>
+#mtm-chapa-screen{
+  position:fixed; inset:0; z-index:999999;
+  display:flex; align-items:center; justify-content:center; padding:24px;
+  background:
+    radial-gradient(900px 500px at 50% -10%, rgba(0,212,255,.10), transparent 60%),
+    radial-gradient(700px 500px at 80% 110%, rgba(124,58,237,.10), transparent 60%),
+    var(--bg, #080b12);
+  -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px);
+}
+#mtm-chapa-screen.hidden{ display:none; }
+.mtm-chapa-card{
+  width:100%; max-width:380px;
+  background:var(--surface, #0e1420);
+  border:1px solid var(--border2, rgba(255,255,255,.10));
+  border-radius:18px; padding:34px 32px 28px;
+  box-shadow:0 24px 70px rgba(0,0,0,.55);
+  animation:mtmChapaIn .35s cubic-bezier(.22,1,.36,1);
+}
+@keyframes mtmChapaIn{ from{opacity:0; transform:translateY(10px) scale(.98)} to{opacity:1; transform:none} }
+.mtm-chapa-logo{ display:flex; align-items:center; gap:8px; font-weight:800; letter-spacing:.5px; }
+.mtm-chapa-logo b{ font-size:22px; background:var(--accentGrad); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+.mtm-chapa-logo span{ color:var(--border2); font-weight:300; }
+.mtm-chapa-logo small{ font-size:11px; color:var(--text2); font-weight:600; }
+.mtm-chapa-sub{ font-size:11px; color:var(--text3); margin:4px 0 26px; letter-spacing:.4px; }
+.mtm-chapa-title{ font-size:15px; font-weight:700; color:var(--text); margin-bottom:18px; }
+.mtm-chapa-card label{ display:block; font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:var(--text2); margin-bottom:8px; }
+#mtm-chapa-input{
+  width:100%; box-sizing:border-box; padding:14px 16px;
+  background:var(--surface2, #131a28);
+  border:1px solid var(--border2, rgba(255,255,255,.10)); border-radius:11px;
+  color:var(--text, #f0f4ff); font-size:20px; font-weight:700;
+  text-align:center; letter-spacing:.5em; text-indent:.5em;
+  font-family:'JetBrains Mono','SFMono-Regular',Consolas,monospace;
+  outline:none; transition:border-color .15s, box-shadow .15s;
+}
+#mtm-chapa-input::placeholder{ color:var(--text3); letter-spacing:.3em; font-weight:500; }
+#mtm-chapa-input:focus{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accentBg, rgba(0,212,255,.12)); }
+.mtm-chapa-err{ display:none; color:var(--red, #ff4d6d); font-size:12px; font-weight:600; margin-top:10px; }
+.mtm-chapa-err.show{ display:block; }
+#mtm-chapa-btn{
+  width:100%; margin-top:18px; padding:14px; border:none; border-radius:11px;
+  background:var(--accentGrad); color:#fff; font-size:14px; font-weight:700;
+  cursor:pointer; transition:filter .15s, transform .1s;
+}
+#mtm-chapa-btn:hover{ filter:brightness(1.08); }
+#mtm-chapa-btn:active{ transform:scale(.98); }
+.mtm-chapa-help{ font-size:11px; color:var(--text3); text-align:center; margin-top:16px; line-height:1.5; }
+</style>
+
+<div id="mtm-chapa-screen">
+  <div class="mtm-chapa-card">
+    <div class="mtm-chapa-logo"><b>MTM</b><span>/</span><small>Folha Padrão de Processo</small></div>
+    <div class="mtm-chapa-sub">ACESSO RESTRITO · COLABORADOR AUTORIZADO</div>
+    <div class="mtm-chapa-title">Identifique-se para acessar</div>
+    <label for="mtm-chapa-input">Chapa do colaborador autorizado</label>
+    <input id="mtm-chapa-input" type="text" inputmode="text" maxlength="7"
+           autocomplete="off" spellcheck="false" placeholder="0000000">
+    <div class="mtm-chapa-err" id="mtm-chapa-err"></div>
+    <button id="mtm-chapa-btn">Entrar na Ferramenta &#8594;</button>
+    <div class="mtm-chapa-help">Digite a sua chapa para liberar o acesso.</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var KEY = 'mtm_chapa_ok';
+  // Se já entrou nesta sessão, esconde imediatamente (evita piscar a tela)
+  try{
+    if(sessionStorage.getItem(KEY)){
+      var s = document.getElementById('mtm-chapa-screen');
+      if(s) s.classList.add('hidden');
+    }
+  }catch(e){}
+
+  function entrar(){
+    var inp = document.getElementById('mtm-chapa-input');
+    var err = document.getElementById('mtm-chapa-err');
+    var v = (inp && inp.value) ? inp.value : '';
+    if(v.length !== 7){
+      err.textContent = 'A chapa deve ter exatamente 7 caracteres.';
+      err.classList.add('show');
+      if(inp) inp.focus();
+      return;
+    }
+    err.classList.remove('show');
+    try{ sessionStorage.setItem(KEY, v); }catch(e){}
+    var scr = document.getElementById('mtm-chapa-screen');
+    if(scr) scr.classList.add('hidden');
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    var scr = document.getElementById('mtm-chapa-screen');
+    if(scr && scr.classList.contains('hidden')) return; // já estava logado
+    var btn = document.getElementById('mtm-chapa-btn');
+    var inp = document.getElementById('mtm-chapa-input');
+    if(btn) btn.addEventListener('click', entrar);
+    if(inp){
+      inp.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); entrar(); } });
+      setTimeout(function(){ try{ inp.focus(); }catch(e){} }, 120);
+    }
+  });
+})();
+</script>
+
+<!-- ════════════════════════════════════════════════════════════
      FB-MTM · TELA DE LOGIN (substitui o auth-screen antigo)
      ════════════════════════════════════════════════════════════ -->
 <div class="fb-overlay" id="fb-auth-screen">
@@ -5224,6 +5333,11 @@ function renderRow(sid,rid,focus=false){
     if(MATRIZ[v]&&!row.tmu){row.tmu=MATRIZ[v].tmu;tr.querySelector('[data-f="tmu"]').value=MATRIZ[v].tmu;calcRow(sid,rid);saveSheets();}
   });
 
+  // Recalcula TOTAL TMU / TOTAL (S) ao desenhar a linha. Corrige linhas
+  // carregadas do localStorage ou sincronizadas da nuvem que vinham com o
+  // total em branco mesmo tendo TMU, Q e F preenchidos.
+  calcRow(sid,rid);
+
   if(focus)setTimeout(()=>tr.querySelector('[data-f="desc"]')?.focus(),30);
 }
 
@@ -5250,7 +5364,11 @@ function showAC(val,list,onSel){
 
 function calcRow(sid,rid){
   const s=get(sid), row=s.rows.find(r=>r.id===rid);
-  const tmu=parseFloat(row.tmu)||0, q=parseFloat(row.q)||0, f=parseFloat(row.f)||0;
+  if(!row) return;
+  const tmu=parseFloat(row.tmu)||0;
+  // Q e F vazios valem 1 (igual ao placeholder), nunca 0 — senão TMU×0×0 zera o total.
+  const q=(row.q==null||String(row.q).trim()===''||isNaN(parseFloat(row.q)))?1:parseFloat(row.q);
+  const f=(row.f==null||String(row.f).trim()===''||isNaN(parseFloat(row.f)))?1:parseFloat(row.f);
   row.ttmu=+(tmu*q*f).toFixed(4);
   row.tsec=+(row.ttmu*0.036).toFixed(4);
   const tr=document.getElementById(rid);
