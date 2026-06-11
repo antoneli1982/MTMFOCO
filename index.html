@@ -8934,6 +8934,95 @@ function dbPickFolderLogo(fid){
   inp.click();
 }
 
+// ════════════════════════════════════════════════════════════════
+// IMAGEM DA PEÇA (opcional) — por projeto. Aparece no card e no relatório.
+// Guardada em p.img (data URL comprimido). Persiste no localStorage (pmSave).
+// ════════════════════════════════════════════════════════════════
+function dbProjectImgBox(p){
+  if(!p) return '';
+  var pid = p.id;
+  var idArg = "'" + pid + "'";
+  if(p.img){
+    return '<div id="projimg-' + pid + '" style="position:relative;margin-bottom:10px;border-radius:8px;overflow:hidden;border:1px solid var(--border2)">'
+      + '<img src="' + p.img + '" alt="Imagem da peça" style="width:100%;height:96px;object-fit:cover;display:block">'
+      + '<div style="position:absolute;bottom:4px;right:4px;display:flex;gap:4px">'
+      +   '<button onclick="event.stopPropagation();dbPickProjectImgById(' + idArg + ')" title="Trocar imagem da peça" style="background:rgba(0,0,0,.62);color:#fff;border:none;border-radius:5px;font-size:11px;padding:3px 7px;cursor:pointer">📷</button>'
+      +   '<button onclick="event.stopPropagation();dbRemoveProjectImgById(' + idArg + ')" title="Remover imagem da peça" style="background:rgba(0,0,0,.62);color:#fff;border:none;border-radius:5px;font-size:11px;padding:3px 7px;cursor:pointer">🗑</button>'
+      + '</div>'
+      + '</div>';
+  }
+  return '<div id="projimg-' + pid + '" onclick="event.stopPropagation();dbPickProjectImgById(' + idArg + ')" title="Adicionar imagem da peça (opcional)" '
+    + 'style="margin-bottom:10px;border:1px dashed var(--border3);border-radius:8px;height:44px;display:flex;align-items:center;justify-content:center;gap:6px;color:var(--text3);font-size:11px;cursor:pointer;background:var(--surface2)" '
+    + 'onmouseover="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--accent)\'" '
+    + 'onmouseout="this.style.borderColor=\'var(--border3)\';this.style.color=\'var(--text3)\'">'
+    + '📷 <span>Imagem da peça (opcional)</span>'
+    + '</div>';
+}
+
+function dbPickProjectImgById(pid){
+  var inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*'; inp.style.display = 'none';
+  inp.onchange = function(){
+    var file = inp.files && inp.files[0];
+    if(!file){ inp.remove(); return; }
+    if(file.size > 12 * 1024 * 1024){ alert('Imagem muito grande (máximo 12 MB).'); inp.remove(); return; }
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var src = e.target.result;
+      var imgEl = new Image();
+      imgEl.onload = function(){
+        var out = src;
+        try{
+          var max = 900, w = imgEl.width, h = imgEl.height;
+          if(w >= h && w > max){ h = Math.round(h * max / w); w = max; }
+          else if(h > w && h > max){ w = Math.round(w * max / h); h = max; }
+          var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+          cv.getContext('2d').drawImage(imgEl, 0, 0, w, h);
+          out = cv.toDataURL('image/jpeg', 0.85);
+          if(!out || out.length < 32) out = src;
+        }catch(err){ out = src; }
+        dbApplyProjectImg(pid, out);
+        inp.remove();
+      };
+      imgEl.onerror = function(){ dbApplyProjectImg(pid, src); inp.remove(); };
+      imgEl.src = src;
+    };
+    reader.onerror = function(){ alert('Erro ao ler a imagem.'); inp.remove(); };
+    reader.readAsDataURL(file);
+  };
+  document.body.appendChild(inp);
+  inp.click();
+}
+
+function dbApplyProjectImg(pid, dataUrl){
+  var found = (typeof dbFindByPid === 'function') ? dbFindByPid(pid) : null;
+  if(!found || !found.p){ return; }
+  found.p.img = dataUrl || null;
+  if(typeof pmSave === 'function') pmSave();
+  dbRefreshProjectImgBox(found.p);
+  if(typeof showToast === 'function') showToast('🖼️ Imagem da peça atualizada.');
+}
+
+function dbRemoveProjectImgById(pid){
+  var found = (typeof dbFindByPid === 'function') ? dbFindByPid(pid) : null;
+  if(!found || !found.p) return;
+  if(!confirm('Remover a imagem da peça deste projeto?')) return;
+  found.p.img = null;
+  if(typeof pmSave === 'function') pmSave();
+  dbRefreshProjectImgBox(found.p);
+}
+
+function dbRefreshProjectImgBox(p){
+  var el = document.getElementById('projimg-' + p.id);
+  if(el && el.parentNode){
+    var tmp = document.createElement('div');
+    tmp.innerHTML = dbProjectImgBox(p);
+    var fresh = tmp.firstElementChild;
+    if(fresh){ el.parentNode.replaceChild(fresh, el); return; }
+  }
+  if(typeof dbRenderList === 'function'){ try{ dbRenderList(); }catch(e){} }
+}
+
 // ─── Store dedicado de logos por nome de cliente ───────────────
 const CLIENT_LOGOS_KEY = 'mtm_client_logos_v1';
 function dbGetClientLogos(){
@@ -9143,6 +9232,7 @@ function openCompanyPage(clientName){
       + '<span>📋 <strong>' + ns + '</strong> folha(s)</span>'
       + '<span title="TTP = 100 − Allowance Total médio ponderado (TV + TER)">⏱ ' + pTTPText + '</span>'
       + '</div>'
+      + dbProjectImgBox(p)
       + '<button onclick="dbOpenById(' + JSON.stringify(p.id) + ')" style="width:100%;background:var(--accentGrad);color:#fff;border:none;padding:7px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700">Abrir Projeto →</button>'
       + '</div>';
   });
@@ -9331,6 +9421,7 @@ function openFolderPage(fid){
         + '<span>📋 <strong>' + ns + '</strong> folha(s)</span>'
         + '<span title="TTP = 100 − Allowance Total médio ponderado (TV + TER)">⏱ ' + pTTPText + '</span>'
         + '</div>'
+        + dbProjectImgBox(p)
         + '<button onclick="dbOpenProjectInFolder(\'' + fid + '\',' + pi + ')" style="width:100%;background:var(--accentGrad);color:#fff;border:none;padding:7px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700">Abrir Projeto →</button>'
         + '</div>';
     });
@@ -10837,7 +10928,7 @@ function buildYamazumiSection(allMetrics){
 // Versão PDF da seção TTP
 function buildTTPSectionPDF(allMetrics, fmt){
   if(!allMetrics || !allMetrics.length) return '';
-  var html = '<div class="pa-h2">⏱️ Análise TTP · Takt · Capacidade por Folha</div>';
+  var html = '<div class="pa-h2">📄 MTM por Folha + Análise Final (TTP · Takt · Capacidade)</div>';
 
   allMetrics.forEach(function(x){
     var s   = x.sheet;
@@ -10859,6 +10950,42 @@ function buildTTPSectionPDF(allMetrics, fmt){
     var horasNec = (dem > 0 && colabNeed > 0 && ttp > 0) ? ((dem * ts) / colabNeed) / (ttp / 100) / 3600 : null;
 
     html += '<div class="pa-h3">' + (s.label||'Folha') + (s.header && s.header.processo ? ' — ' + s.header.processo : '') + '</div>';
+
+    // ── Tabela MTM (linhas medidas da folha) — mesmas linhas da tela ──
+    var _rows = Array.isArray(s.rows) ? s.rows : [];
+    var _mtmBody = '', _nv = 0;
+    _rows.forEach(function(r){
+      var _tmu = parseFloat(String(r.tmu||'').replace(',','.'));
+      var _has = (r.code || r.desc || (!isNaN(_tmu) && _tmu !== 0));
+      if(!_has) return;
+      _nv++;
+      var _q = parseFloat(String(r.q||'').replace(',','.')); if(isNaN(_q)) _q = 1;
+      var _f = parseFloat(String(r.f||'').replace(',','.')); if(isNaN(_f)) _f = 1;
+      var _tt  = (!isNaN(_tmu)) ? +(_tmu * _q * _f).toFixed(4) : 0;
+      var _tsc = +(_tt * 0.036).toFixed(4);
+      _mtmBody += '<tr>'
+        + '<td class="num">' + _nv + '</td>'
+        + '<td>' + esc(r.desc||'') + '</td>'
+        + '<td class="ctr">' + esc(r.agrega||'—') + '</td>'
+        + '<td class="ctr">' + esc(r.code||'') + '</td>'
+        + '<td class="num">' + (isNaN(_tmu) ? '—' : fmt(_tmu, _tmu%1===0?0:2)) + '</td>'
+        + '<td class="num">' + _q + '</td>'
+        + '<td class="num">' + _f + '</td>'
+        + '<td class="num">' + (_tt ? fmt(_tt, _tt%1===0?0:2) : '—') + '</td>'
+        + '<td class="num">' + (_tt ? fmt(_tsc, 2) : '—') + '</td>'
+        + '</tr>';
+    });
+    if(!_mtmBody){ _mtmBody = '<tr><td colspan="9" class="ctr">Sem linhas preenchidas.</td></tr>'; }
+    html += '<table class="pa-table"><thead><tr>'
+      + '<th>N°</th><th>Descrição</th><th>Agrega</th><th>Código</th>'
+      + '<th>TMU</th><th>Q</th><th>F</th><th>Total TMU</th><th>Total (s)</th>'
+      + '</tr></thead><tbody>' + _mtmBody
+      + '<tr class="total-row"><td colspan="7" style="text-align:right">TOTAL</td>'
+      + '<td class="num">' + (m.totalTmu ? fmt(m.totalTmu, 0) : '0') + '</td>'
+      + '<td class="num">' + (m.totalSec ? fmt(m.totalSec, 2) : '0') + '</td>'
+      + '</tr></tbody></table>';
+
+    // ── Análise Final (TTP · Takt · Capacidade) ──
     html += '<table class="pa-table"><thead><tr>'
       + '<th>Parâmetro</th><th>Valor</th><th>Parâmetro</th><th>Valor</th>'
       + '</tr></thead><tbody>';
@@ -11459,6 +11586,38 @@ function mtmCalcFadiga(f){
 // Quando a folha tem Análise de Fadiga, o Allowance Total (TV + TER,
 // ou 10% SESÉ) substitui o allowance do cabeçalho.
 // ════════════════════════════════════════════════════════════════
+// Projeto ativo (pasta/índice ou escopo). Usado para a imagem da peça no relatório. Pode ser null.
+function mtmActiveProject(){
+  try{
+    if(typeof pmFolderId !== 'undefined' && pmFolderId &&
+       typeof pmProjectIdx !== 'undefined' && pmProjectIdx !== null &&
+       typeof pmData !== 'undefined' && pmData[pmFolderId] &&
+       pmData[pmFolderId].projects && pmData[pmFolderId].projects[pmProjectIdx]){
+      return pmData[pmFolderId].projects[pmProjectIdx];
+    }
+  }catch(e){}
+  try{
+    if(typeof activeProjectCtx !== 'undefined' && activeProjectCtx && activeProjectCtx.projectId &&
+       typeof dbFindByPid === 'function'){
+      var f = dbFindByPid(activeProjectCtx.projectId);
+      if(f && f.p) return f.p;
+    }
+  }catch(e){}
+  return null;
+}
+
+// Banner da imagem da peça para o relatório na TELA (vazio se não houver).
+function mtmReportImgHtml(){
+  var p = mtmActiveProject();
+  var img = p && p.img;
+  if(!img) return '';
+  var nm = (p && p.name) ? esc(p.name) : '';
+  return '<div style="text-align:center;margin-bottom:20px">'
+    + '<img src="' + img + '" alt="Imagem da peça" style="max-width:100%;max-height:300px;border-radius:12px;border:1px solid var(--border2);box-shadow:var(--shadow-sm)">'
+    + (nm ? '<div style="font-size:11px;color:var(--text3);margin-top:6px">Peça: <strong style="color:var(--text2)">' + nm + '</strong></div>' : '')
+    + '</div>';
+}
+
 function mtmCollectFinalReport(){
   var allMetrics = (typeof scopedSheets==='function'?scopedSheets():(sheets||[])).map(function(s){
     var m   = computeSheetMetrics(s);
@@ -11525,6 +11684,12 @@ function prepararPrintRelatorio(){
 
   // ── Título ──
   html += '<div class="pa-h1">📋 RELATÓRIO FINAL CONSOLIDADO — MTM</div>';
+
+  // ── Imagem da peça (opcional) ──
+  var _projImg = (mtmActiveProject() || {}).img;
+  if(_projImg){
+    html += '<div style="text-align:center;margin:4pt 0 7pt"><img src="' + _projImg + '" alt="Imagem da peça" style="max-width:88mm;max-height:58mm;object-fit:contain;border:1px solid #000"></div>';
+  }
 
   // ── Identificação ──
   var h0 = (_ps[0] && _ps[0].header) || {};
@@ -11924,6 +12089,7 @@ function showFinalReport(){
     +   '</div>'
     +   kpiHtml
     +   '<div class="res-body">'
+    +     mtmReportImgHtml()
     +     '<div class="res-section-title">🗂️ Visão Geral por Folha</div>'
     +     '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-bottom:20px">'+cardsHtml+'</div>'
     +     buildSheetDetailSection()
