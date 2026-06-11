@@ -10691,6 +10691,7 @@ function buildSheetDetailSection(){
     var analise = ''
       + '<div style="background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:12px 14px;margin-bottom:6px">'
       +   '<div style="font-size:12px;font-weight:800;color:var(--accent);margin-bottom:10px">⚙️ ANÁLISE FINAL — TTP · TAKT · CAPACIDADE</div>'
+      +   '<div id="frp-scope-'+s.id+'"></div>'
       +   '<div style="display:flex;flex-wrap:wrap;gap:8px">'
       +     inputBox('Horas de Trabalho', 'frp-h-'+s.id, 8, '8')
       +     inputBox('Demanda (itens)', 'frp-dem-'+s.id, demInit, 'ex: 600')
@@ -10703,6 +10704,7 @@ function buildSheetDetailSection(){
       +     box('Capacidade (1 colab.)', 'frp-cap-'+s.id, 'Tprod ÷ Takt', 'var(--purple)')
       +     box('Colab. Necessários', 'frp-colab-'+s.id, '⌈TS ÷ Takt⌉', 'var(--orange)')
       +   '</div>'
+      +   '<div id="frp-sum-'+s.id+'" style="display:none"></div>'
       + '</div>';
 
     html += '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:14px 16px;margin-bottom:18px;position:relative;overflow:hidden">'
@@ -10717,25 +10719,166 @@ function buildSheetDetailSection(){
   return html;
 }
 
+// ───────────────────────────────────────────────────────────────
+// ANÁLISE DE CAPACIDADE COMBINADA (somar folhas) — Relatório Final
+// Cada Análise Final pode incluir outras folhas preenchidas (botão "+"
+// por folha) ou somar TODAS (botão "Σ Somar todas"). O Tempo Padrão (TS)
+// usado no cálculo passa a ser a SOMA das folhas selecionadas — útil para
+// medir a capacidade/colaboradores de uma linha com vários postos/folhas.
+// ───────────────────────────────────────────────────────────────
+var FRP_SCOPE_KEY = 'mtm_frp_scope_v1';
+var _frpScope = null;
+function frpScopeLoad(){
+  if(_frpScope) return _frpScope;
+  try{ _frpScope = JSON.parse(localStorage.getItem(FRP_SCOPE_KEY)) || {}; }
+  catch(e){ _frpScope = {}; }
+  if(typeof _frpScope !== 'object' || !_frpScope) _frpScope = {};
+  return _frpScope;
+}
+function frpScopeSave(){
+  try{ localStorage.setItem(FRP_SCOPE_KEY, JSON.stringify(_frpScope||{})); }catch(e){}
+}
+// Folhas preenchidas (TS>0) dentro do escopo atual
+function frpFilledSheets(){
+  try{
+    var R = mtmCollectFinalReport();
+    return R.allMetrics.filter(function(x){ return x.stdSec > 0; });
+  }catch(e){ return []; }
+}
+// IDs selecionados para a análise da folha `sid` (sempre inclui `sid` como base)
+function frpGetScope(sid){
+  var store = frpScopeLoad();
+  var validIds = {}; frpFilledSheets().forEach(function(x){ validIds[x.sheet.id] = true; });
+  var sel = Array.isArray(store[sid]) ? store[sid].slice() : [];
+  sel = sel.filter(function(id){ return validIds[id]; });   // só ids ainda válidos
+  if(sel.indexOf(sid) === -1) sel.unshift(sid);             // garante a própria folha
+  return sel;
+}
+function frpSetScope(sid, arr){
+  var store = frpScopeLoad();
+  var seen = {}, out = [];
+  (arr||[]).forEach(function(id){ if(!seen[id]){ seen[id]=1; out.push(id); } });
+  if(out.indexOf(sid) === -1) out.unshift(sid);
+  store[sid] = out;
+  frpScopeSave();
+}
+function frpScopeToggle(sid, otherId){
+  var sel = frpGetScope(sid);
+  var i = sel.indexOf(otherId);
+  if(i === -1) sel.push(otherId);
+  else if(otherId !== sid) sel.splice(i, 1);  // a folha base não pode sair
+  frpSetScope(sid, sel);
+  frpAnalise(sid);
+}
+function frpScopeAll(sid){
+  frpSetScope(sid, frpFilledSheets().map(function(x){ return x.sheet.id; }));
+  frpAnalise(sid);
+}
+function frpScopeReset(sid){
+  frpSetScope(sid, [sid]);
+  frpAnalise(sid);
+}
+// Soma as métricas (TS e tempo bruto) das folhas selecionadas → allowance combinado
+function frpAggregate(sid){
+  var map = {};
+  try{ mtmCollectFinalReport().allMetrics.forEach(function(x){ map[x.sheet.id] = x; }); }catch(e){}
+  var sel = frpGetScope(sid);
+  var ts = 0, raw = 0, parts = [];
+  sel.forEach(function(id){
+    var x = map[id]; if(!x) return;
+    ts  += x.stdSec;
+    raw += x.tnSec;
+    parts.push({ id:id, label:(x.sheet.label||'Folha'), stdSec:x.stdSec, allow:x.allowUsed });
+  });
+  var allow = raw > 0 ? +(((ts/raw) - 1) * 100).toFixed(2) : (parts[0] ? parts[0].allow : 0);
+  return { ts:+ts.toFixed(4), raw:+raw.toFixed(4), allow:allow, parts:parts, combined: parts.length > 1, ids:sel };
+}
+// Renderiza os chips de seleção de folhas para a folha `sid`
+function frpRenderScope(sid){
+  var host = document.getElementById('frp-scope-'+sid);
+  if(!host) return;
+  var filled = frpFilledSheets();
+  // Nada a combinar: só uma (ou nenhuma) folha preenchida → mantém o layout original
+  if(filled.length <= 1){ host.style.display='none'; host.innerHTML=''; return; }
+
+  var agg = frpAggregate(sid);
+  var selIds = {}; agg.ids.forEach(function(id){ selIds[id]=1; });
+
+  var chip = function(label, sub, o){
+    o = o || {};
+    var bg  = o.active ? 'var(--accentBg)' : 'var(--surface3)';
+    var bd  = o.active ? 'var(--accent)'   : 'var(--border2)';
+    var col = o.active ? 'var(--accent)'   : 'var(--text2)';
+    var rm  = o.removable ? '<span style="margin-left:7px;color:var(--text3);font-weight:700">✕</span>' : '';
+    var pl  = o.add ? '<span style="margin-right:5px;font-weight:800;color:var(--green)">＋</span>' : '';
+    return '<button onclick="'+o.onclick+'" title="'+(o.title||'')+'" '
+      + 'style="display:inline-flex;align-items:center;background:'+bg+';border:1px '+(o.add?'dashed':'solid')+' '+bd+';'
+      + 'border-radius:999px;padding:5px 11px;font-size:11px;font-weight:700;color:'+col+';cursor:pointer">'
+      + pl + esc(label)
+      + (sub ? '<span style="margin-left:6px;font-weight:600;color:var(--text3)">'+sub+'</span>' : '')
+      + rm + '</button>';
+  };
+
+  var selChips = agg.parts.map(function(p){
+    var isBase = (p.id === sid);
+    return chip(p.label, p.stdSec.toFixed(1)+'s', {
+      active:true, removable:!isBase,
+      title: isBase ? 'Folha base desta análise' : 'Remover da análise',
+      onclick: isBase ? 'void(0)' : ('frpScopeToggle(\''+sid+'\',\''+p.id+'\')')
+    });
+  }).join(' ');
+
+  var addable = filled.filter(function(x){ return !selIds[x.sheet.id]; });
+  var addChips = addable.map(function(x){
+    return chip(x.sheet.label||'Folha', x.stdSec.toFixed(1)+'s', {
+      add:true, title:'Incluir esta folha na análise',
+      onclick:'frpScopeToggle(\''+sid+'\',\''+x.sheet.id+'\')'
+    });
+  }).join(' ');
+
+  var actions = ''
+    + '<button onclick="frpScopeAll(\''+sid+'\')" title="Somar o Tempo Padrão de todas as folhas preenchidas" style="background:var(--purpleBg);border:1px solid rgba(167,139,250,.45);border-radius:999px;padding:5px 12px;font-size:11px;font-weight:800;color:var(--purple);cursor:pointer">Σ Somar todas</button>'
+    + (agg.combined ? ' <button onclick="frpScopeReset(\''+sid+'\')" title="Voltar a analisar só esta folha" style="background:var(--surface3);border:1px solid var(--border2);border-radius:999px;padding:5px 12px;font-size:11px;font-weight:700;color:var(--text2);cursor:pointer">↺ Só esta folha</button>' : '');
+
+  host.style.cssText = 'display:block;margin-bottom:12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px';
+  host.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">'
+    +   '<span style="font-size:9px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.6px">📑 Folhas nesta análise de capacidade</span>'
+    +   '<span style="display:flex;gap:6px;flex-wrap:wrap">'+actions+'</span>'
+    + '</div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+    +   selChips
+    +   (addable.length ? '<span style="font-size:10px;color:var(--text3);margin:0 3px">incluir:</span>'+addChips : '')
+    + '</div>';
+}
+
 // Recalcula a Análise Final de uma folha no Relatório (Horas/Demanda editáveis).
-// Usa exatamente a fórmula do painel por folha (anexo):
+// Usa exatamente a fórmula do painel por folha (anexo), porém com o Tempo
+// Padrão = SOMA das folhas selecionadas (ver frpAggregate):
 //   TTP = 100 − Allowance · Tdisp = h×3600 · Tprod = Tdisp×TTP/100
 //   Takt = Tprod ÷ Demanda · Capacidade = ⌊Tprod ÷ Takt⌋ · Colab = ⌈TS ÷ Takt⌉
 function frpAnalise(sid){
   try{
     var s = (typeof get==='function') ? get(sid) : null; if(!s) return;
-    var R = mtmCollectFinalReport();
-    var x = R.allMetrics.find(function(a){ return a.sheet.id === sid; });
-    if(!x) return;
+    // Atualiza os chips de seleção/combinação de folhas
+    if(typeof frpRenderScope === 'function') frpRenderScope(sid);
+
+    var agg = (typeof frpAggregate === 'function') ? frpAggregate(sid) : null;
+    if(!agg){
+      var R0 = mtmCollectFinalReport();
+      var x0 = R0.allMetrics.find(function(a){ return a.sheet.id === sid; });
+      if(!x0) return;
+      agg = { ts:x0.stdSec, allow:x0.allowUsed, parts:[], combined:false };
+    }
     var hEl = document.getElementById('frp-h-'+sid);
     var dEl = document.getElementById('frp-dem-'+sid);
     var h   = parseFloat(hEl && hEl.value); if(isNaN(h) || h<=0) h = 8;
     var dem = parseFloat(dEl && dEl.value); if(isNaN(dem)) dem = 0;
-    var allow = x.allowUsed;
+    var allow = agg.allow;
     var ttp   = 100 - allow;
     var tdis  = h * 3600;
     var tprod = tdis * ttp / 100;
-    var ts    = x.stdSec;
+    var ts    = agg.ts;
     var takt  = dem > 0 ? tprod / dem : 0;
     var capUm = takt > 0 ? Math.floor(tprod / takt) : 0;
     var colab = (ts > 0 && takt > 0) ? Math.ceil(ts / takt) : 0;
@@ -10746,6 +10889,33 @@ function frpAnalise(sid){
     set('frp-takt-'+sid,  takt > 0 ? takt.toFixed(2) + ' s' : '—');
     set('frp-cap-'+sid,   capUm > 0 ? capUm.toLocaleString('pt-BR') + ' itens' : '—');
     set('frp-colab-'+sid, colab > 0 ? colab : '—');
+
+    // Memória da soma quando há combinação de folhas
+    var sumEl = document.getElementById('frp-sum-'+sid);
+    if(sumEl){
+      if(agg.combined){
+        var lines = agg.parts.map(function(p){
+          return '<div style="display:flex;justify-content:space-between;gap:10px;padding:2px 0">'
+            + '<span style="color:var(--text2)">'+esc(p.label)+'</span>'
+            + '<span style="font-family:\'JetBrains Mono\',monospace;color:var(--green)">'+p.stdSec.toFixed(2)+' s</span>'
+            + '</div>';
+        }).join('');
+        sumEl.style.cssText = 'display:block;margin-top:10px;padding:10px 12px;background:var(--surface2);border:1px dashed var(--accent);border-radius:8px;font-size:11px;line-height:1.6';
+        sumEl.innerHTML =
+            '<div style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">Σ Tempo Padrão combinado — '+agg.parts.length+' folhas</div>'
+          + lines
+          + '<div style="display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--border2);margin-top:6px;padding-top:6px;font-weight:800">'
+          +   '<span style="color:var(--text)">TS total (Σ)</span>'
+          +   '<span style="font-family:\'JetBrains Mono\',monospace;color:var(--accent)">'+ts.toFixed(2)+' s</span>'
+          + '</div>'
+          + (colab > 0
+              ? '<div style="margin-top:6px;color:var(--text3)">⌈TS '+ts.toFixed(2)+'s ÷ Takt '+(takt>0?takt.toFixed(2):'—')+'s⌉ = <b style="color:var(--orange)">'+colab+' colaborador(es)</b> para atender '+dem+' itens em '+h+'h.</div>'
+              : '');
+      } else {
+        sumEl.style.display = 'none';
+        sumEl.innerHTML = '';
+      }
+    }
   }catch(e){}
 }
 
@@ -11732,8 +11902,9 @@ function prepararPrintRelatorio(){
   // Clona o relatório exatamente como está na tela.
   var clone = modal.cloneNode(true);
 
-  // Remove apenas as ações de tela: botões (PDF/Fechar), o "X" e o rodapé de botões.
-  clone.querySelectorAll('.res-close, .res-footer, button').forEach(function(el){
+  // Remove apenas as ações de tela: botões (PDF/Fechar), o "X", o rodapé de
+  // botões e o seletor interativo de folhas (mantém a memória da soma "Σ").
+  clone.querySelectorAll('.res-close, .res-footer, button, [id^="frp-scope-"]').forEach(function(el){
     if(el && el.parentNode) el.parentNode.removeChild(el);
   });
 
