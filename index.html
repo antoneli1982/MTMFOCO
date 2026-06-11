@@ -10451,6 +10451,155 @@ function balPrintKpiCell(v,l){
 // Usa as folhas abertas (sheets) como postos da linha. Se houver um
 // projeto ativo no gerenciador, aproveita os parâmetros de Takt dele.
 // ═══════════════════════════════════════════════════════════════
+// SEÇÃO "MTM DE CADA FOLHA + ANÁLISE FINAL (editável)" — Relatório Final
+// Para cada folha: a tabela MTM (linhas) e, embaixo, a Análise Final
+// (Horas de Trabalho e Demanda editáveis → recalcula TTP·Takt·Capacidade).
+// ═══════════════════════════════════════════════════════════════
+function buildSheetDetailSection(){
+  var sheetsArr = (typeof scopedSheets==='function') ? scopedSheets() : (sheets||[]);
+  if(!sheetsArr.length) return '';
+  var R = mtmCollectFinalReport();
+  var byId = {};
+  R.allMetrics.forEach(function(x){ byId[x.sheet.id] = x; });
+
+  var html = '<div class="res-section-title">📄 MTM por Folha + Análise Final</div>';
+
+  sheetsArr.forEach(function(s){
+    var x = byId[s.id]; if(!x) return;
+    var m = x.m;
+    var rows = Array.isArray(s.rows) ? s.rows : [];
+
+    // ── Tabela MTM (linhas da folha) ──
+    var bodyRows = '';
+    var nVis = 0;
+    rows.forEach(function(r, i){
+      var tmu = parseFloat(String(r.tmu||'').replace(',','.'));
+      var hasData = (r.code||r.desc||(!isNaN(tmu)&&tmu!==0));
+      if(!hasData) return; // só mostra linhas preenchidas
+      nVis++;
+      var q = parseFloat(String(r.q||'').replace(',','.')); if(isNaN(q)) q=1;
+      var f = parseFloat(String(r.f||'').replace(',','.')); if(isNaN(f)) f=1;
+      var tt = (!isNaN(tmu)) ? +(tmu*q*f).toFixed(4) : 0;
+      var tsc= +(tt*0.036).toFixed(4);
+      bodyRows += '<tr>'
+        + '<td style="padding:5px 8px;text-align:center;color:var(--text3)">'+nVis+'</td>'
+        + '<td style="padding:5px 8px;text-align:left">'+esc(r.desc||'')+'</td>'
+        + '<td style="padding:5px 8px;text-align:center;color:var(--text2)">'+esc(r.agrega||'—')+'</td>'
+        + '<td style="padding:5px 8px;text-align:center;font-family:\'JetBrains Mono\',monospace;color:var(--accent)">'+esc(r.code||'')+'</td>'
+        + '<td style="padding:5px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--green)">'+(isNaN(tmu)?'':tmu)+'</td>'
+        + '<td style="padding:5px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace">'+q+'</td>'
+        + '<td style="padding:5px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace">'+f+'</td>'
+        + '<td style="padding:5px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:700;color:var(--accent)">'+(tt||'')+'</td>'
+        + '<td style="padding:5px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:700;color:var(--red)">'+(tt?tsc.toFixed(2).replace('.',','):'')+'</td>'
+        + '</tr>';
+    });
+    if(!bodyRows){
+      bodyRows = '<tr><td colspan="9" style="padding:10px;text-align:center;color:var(--text3)">Sem linhas preenchidas.</td></tr>';
+    }
+
+    var mtmTable = ''
+      + '<div style="overflow:auto;border:1px solid var(--border2);border-radius:8px;margin-bottom:10px">'
+      +   '<table style="width:100%;border-collapse:collapse;font-size:11.5px;min-width:620px">'
+      +     '<thead><tr style="background:var(--header-bg);border-bottom:2px solid var(--accent)">'
+      +       '<th style="padding:7px 8px;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">N°</th>'
+      +       '<th style="padding:7px 8px;font-size:9px;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;text-align:left">Descrição</th>'
+      +       '<th style="padding:7px 8px;font-size:9px;color:var(--purple);text-transform:uppercase;letter-spacing:.5px">Agrega</th>'
+      +       '<th style="padding:7px 8px;font-size:9px;color:var(--accent);text-transform:uppercase;letter-spacing:.5px">Código</th>'
+      +       '<th style="padding:7px 8px;font-size:9px;color:var(--green);text-transform:uppercase;letter-spacing:.5px;text-align:right">TMU</th>'
+      +       '<th style="padding:7px 8px;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;text-align:right">Q</th>'
+      +       '<th style="padding:7px 8px;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;text-align:right">F</th>'
+      +       '<th style="padding:7px 8px;font-size:9px;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;text-align:right">Total TMU</th>'
+      +       '<th style="padding:7px 8px;font-size:9px;color:var(--red);text-transform:uppercase;letter-spacing:.5px;text-align:right">Total (s)</th>'
+      +     '</tr></thead>'
+      +     '<tbody>'+bodyRows+'</tbody>'
+      +     '<tfoot><tr style="background:var(--total-bg);border-top:2px solid var(--accent)">'
+      +       '<td colspan="7" style="padding:7px 8px;text-align:right;font-weight:800;color:var(--accent);text-transform:uppercase;font-size:10px;letter-spacing:.6px">Total</td>'
+      +       '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:800;color:var(--accent)">'+(m.totalTmu?m.totalTmu.toFixed(0):'0')+'</td>'
+      +       '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:800;color:var(--red)">'+(m.totalSec?m.totalSec.toFixed(2).replace('.',','):'0')+'</td>'
+      +     '</tr></tfoot>'
+      +   '</table>'
+      + '</div>';
+
+    // ── Análise Final (editável) — igual ao painel do anexo ──
+    var demInit = parseFloat((s.header && s.header.demand) || '') || '';
+    var box = function(lbl, id, sub, color){
+      return '<div style="flex:1;min-width:120px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:8px 12px">'
+        + '<div style="font-size:9px;font-weight:700;color:'+(color||'var(--accent)')+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">'+lbl+'</div>'
+        + '<div id="'+id+'" style="font-size:16px;font-weight:800;color:'+(color||'var(--accent)')+';font-family:\'JetBrains Mono\',monospace">—</div>'
+        + (sub?'<div style="font-size:9px;color:var(--text3);margin-top:2px">'+sub+'</div>':'')
+        + '</div>';
+    };
+    var inputBox = function(lbl, id, val, ph){
+      return '<div style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:8px 12px">'
+        + '<div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">'+lbl+'</div>'
+        + '<input id="'+id+'" type="number" step="0.1" min="0" value="'+val+'" placeholder="'+(ph||'')+'" '
+        + 'oninput="frpAnalise(\''+s.id+'\')" '
+        + 'style="width:100%;background:transparent;border:none;outline:none;font-size:16px;font-weight:800;color:var(--text);font-family:\'JetBrains Mono\',monospace">'
+        + '</div>';
+    };
+
+    var analise = ''
+      + '<div style="background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:12px 14px;margin-bottom:6px">'
+      +   '<div style="font-size:12px;font-weight:800;color:var(--accent);margin-bottom:10px">⚙️ ANÁLISE FINAL — TTP · TAKT · CAPACIDADE</div>'
+      +   '<div style="display:flex;flex-wrap:wrap;gap:8px">'
+      +     inputBox('Horas de Trabalho', 'frp-h-'+s.id, 8, '8')
+      +     inputBox('Demanda (itens)', 'frp-dem-'+s.id, demInit, 'ex: 600')
+      +     box('Allowance Total (%)', 'frp-allow-'+s.id, 'calculado da análise', 'var(--green)')
+      +     box('TTP (%)', 'frp-ttp-'+s.id, '100 − Allowance', 'var(--accent)')
+      +   '</div>'
+      +   '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">'
+      +     box('Tempo Produtivo', 'frp-tprod-'+s.id, 'Tdisp × TTP', 'var(--green)')
+      +     box('Takt Time', 'frp-takt-'+s.id, 'Tprod ÷ Demanda', 'var(--accent)')
+      +     box('Capacidade (1 colab.)', 'frp-cap-'+s.id, 'Tprod ÷ Takt', 'var(--purple)')
+      +     box('Colab. Necessários', 'frp-colab-'+s.id, '⌈TS ÷ Takt⌉', 'var(--orange)')
+      +   '</div>'
+      + '</div>';
+
+    html += '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:14px 16px;margin-bottom:18px;position:relative;overflow:hidden">'
+      + '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--accentGrad)"></div>'
+      + '<div style="font-size:14px;font-weight:800;color:var(--accent);margin-bottom:4px">'+esc(s.label||'Folha')+'</div>'
+      + (s.header && s.header.processo ? '<div style="font-size:10px;color:var(--text3);margin-bottom:10px">'+esc(s.header.processo)+'</div>' : '<div style="margin-bottom:8px"></div>')
+      + mtmTable
+      + analise
+      + '</div>';
+  });
+
+  return html;
+}
+
+// Recalcula a Análise Final de uma folha no Relatório (Horas/Demanda editáveis).
+// Usa exatamente a fórmula do painel por folha (anexo):
+//   TTP = 100 − Allowance · Tdisp = h×3600 · Tprod = Tdisp×TTP/100
+//   Takt = Tprod ÷ Demanda · Capacidade = ⌊Tprod ÷ Takt⌋ · Colab = ⌈TS ÷ Takt⌉
+function frpAnalise(sid){
+  try{
+    var s = (typeof get==='function') ? get(sid) : null; if(!s) return;
+    var R = mtmCollectFinalReport();
+    var x = R.allMetrics.find(function(a){ return a.sheet.id === sid; });
+    if(!x) return;
+    var hEl = document.getElementById('frp-h-'+sid);
+    var dEl = document.getElementById('frp-dem-'+sid);
+    var h   = parseFloat(hEl && hEl.value); if(isNaN(h) || h<=0) h = 8;
+    var dem = parseFloat(dEl && dEl.value); if(isNaN(dem)) dem = 0;
+    var allow = x.allowUsed;
+    var ttp   = 100 - allow;
+    var tdis  = h * 3600;
+    var tprod = tdis * ttp / 100;
+    var ts    = x.stdSec;
+    var takt  = dem > 0 ? tprod / dem : 0;
+    var capUm = takt > 0 ? Math.floor(tprod / takt) : 0;
+    var colab = (ts > 0 && takt > 0) ? Math.ceil(ts / takt) : 0;
+    var set = function(id, txt){ var el = document.getElementById(id); if(el) el.textContent = txt; };
+    set('frp-allow-'+sid, allow.toFixed(2) + ' %');
+    set('frp-ttp-'+sid,   ttp.toFixed(2) + ' %');
+    set('frp-tprod-'+sid, Math.round(tprod).toLocaleString('pt-BR') + ' s');
+    set('frp-takt-'+sid,  takt > 0 ? takt.toFixed(2) + ' s' : '—');
+    set('frp-cap-'+sid,   capUm > 0 ? capUm.toLocaleString('pt-BR') + ' itens' : '—');
+    set('frp-colab-'+sid, colab > 0 ? colab : '—');
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════════════════════════
 // SEÇÃO TTP · TAKT · CAPACIDADE + YAMAZUMI — para o Relatório Final
 // ═══════════════════════════════════════════════════════════════
 function buildTTPSection(){
@@ -11777,6 +11926,7 @@ function showFinalReport(){
     +   '<div class="res-body">'
     +     '<div class="res-section-title">🗂️ Visão Geral por Folha</div>'
     +     '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-bottom:20px">'+cardsHtml+'</div>'
+    +     buildSheetDetailSection()
     +     fadSection
     +     compTable
     +     buildTTPSection()
@@ -11798,6 +11948,13 @@ function showFinalReport(){
 
   document.body.style.overflow = 'hidden';
   overlay.onclick = function(e){ if(e.target===overlay) closeFinalReport(); };
+
+  // Preenche os cálculos iniciais da Análise Final de cada folha (Horas=8 + Demanda)
+  try{
+    (typeof scopedSheets==='function'?scopedSheets():(sheets||[])).forEach(function(s){
+      if(typeof frpAnalise==='function') frpAnalise(s.id);
+    });
+  }catch(e){}
 }
 
 function closeFinalReport(){
