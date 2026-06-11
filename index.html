@@ -5395,44 +5395,6 @@ function recalcSheet(sid){
   try{ updateTotals(sid); }catch(e){}
 }
 
-// ── VIGIA DE RECÁLCULO ───────────────────────────────────────────────
-// Garante que TOTAL TMU e TOTAL (S) sempre apareçam — inclusive na versão
-// publicada (GitHub), onde a sincronização (Firebase) redesenha a tabela e
-// fazia os totais sumirem. Recalcula quando a tabela muda e periodicamente.
-(function(){
-  function healAllSheets(){
-    if(typeof sheets === 'undefined' || !Array.isArray(sheets)) return;
-    if(typeof recalcSheet !== 'function') return;
-    for(var i=0;i<sheets.length;i++){
-      var s = sheets[i];
-      if(!s || !s.id) continue;
-      if(!document.getElementById('c-'+s.id)) continue; // só folhas na tela
-      try{ recalcSheet(s.id); }catch(e){}
-    }
-  }
-  // Rede de segurança: recalcula periodicamente (leve; só mexe nas células de
-  // total e no rodapé, nunca no que o usuário está digitando).
-  try{ setInterval(healAllSheets, 1000); }catch(e){}
-  // Reação imediata: quando a sincronização recria as linhas da tabela.
-  function startObserver(){
-    var cont = document.getElementById('sheets-container');
-    if(!cont){ setTimeout(startObserver, 600); return; }
-    try{
-      var obs = new MutationObserver(function(){
-        obs.disconnect();              // evita laço com as próprias atualizações
-        healAllSheets();
-        obs.observe(cont, {childList:true, subtree:true});
-      });
-      obs.observe(cont, {childList:true, subtree:true});
-    }catch(e){}
-  }
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', startObserver);
-  } else {
-    startObserver();
-  }
-})();
-
 function delRow(sid,rid){
   const s=get(sid);
   s.rows=s.rows.filter(r=>r.id!==rid);
@@ -14671,26 +14633,32 @@ function balEsc(s){
       }
     }catch(e){}
   }
-  // 1) Rede de segurança periódica (leve; só escreve quando muda)
-  try{ setInterval(healDOM, 800); }catch(e){}
-  // 2) Reage na hora quando a tabela é redesenhada (ex.: sincronização)
+  // 1) Rede de segurança periódica (leve; só escreve quando o valor muda, e
+  //    nunca enquanto a lista de autocompletar estiver aberta, pra não travar).
   try{
-    var startObs = function(){
-      var cont = document.getElementById('sheets-container');
-      if(!cont){ setTimeout(startObs, 600); return; }
-      var obs = new MutationObserver(function(){
-        obs.disconnect(); healDOM(); obs.observe(cont, {childList:true, subtree:true});
-      });
-      obs.observe(cont, {childList:true, subtree:true});
-    };
-    if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startObs);
-    else startObs();
+    setInterval(function(){
+      if(document.querySelector('.ac-list.show')) return; // usuário escolhendo código
+      healDOM();
+    }, 1500);
   }catch(e){}
-  // 3) Recalcula imediatamente ao digitar TMU, Q ou F (captura global)
+  // 2) Recalcula imediatamente ao digitar/alterar TMU, Q ou F (captura global).
+  //    Cobre o uso normal e também a seleção de código na biblioteca/autocomplete.
   try{
-    document.addEventListener('input', function(ev){
+    document.addEventListener('input',  function(ev){
       var t = ev.target, f = t && t.getAttribute && t.getAttribute('data-f');
       if(f==='tmu' || f==='q' || f==='f') healDOM();
+    }, true);
+    document.addEventListener('change', function(ev){
+      var t = ev.target, f = t && t.getAttribute && t.getAttribute('data-f');
+      if(f==='tmu' || f==='q' || f==='f') healDOM();
+    }, true);
+    // Após escolher um código no autocomplete/biblioteca, o TMU é preenchido por
+    // código — recalcula logo em seguida.
+    document.addEventListener('click', function(ev){
+      var el = ev.target;
+      if(el && el.closest && (el.closest('.ac-item') || el.closest('[onclick*="libInsertCode"]'))){
+        setTimeout(healDOM, 30);
+      }
     }, true);
   }catch(e){}
 })();
