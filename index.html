@@ -1524,12 +1524,13 @@ table.mtm tfoot tr.total-row td{
     font-family:Arial,Helvetica,sans-serif;font-size:9pt;line-height:1.3;
     width:100%;margin:0;padding:0;
   }
-  /* Reset de cores forçando preto sobre branco */
+  /* Cores fiéis na impressão (sem forçar preto em tudo) */
   #print-area *{
-    color:#000 !important;
     -webkit-print-color-adjust:exact !important;
     print-color-adjust:exact !important;
   }
+  /* O layout antigo das folhas individuais (pa-*) segue preto sobre branco */
+  #print-area .pa-folha, #print-area .pa-folha *{ color:#000 !important; }
   /* Quebra de página entre folhas/seções */
   .pa-folha{page-break-after:always}
   .pa-folha:last-child{page-break-after:auto}
@@ -1627,6 +1628,63 @@ table.mtm tfoot tr.total-row td{
   .pa-status.bad{background:#f4d4d4 !important;color:#8a0a0a !important;font-weight:800;padding:2pt 6pt;border:1px solid #8a0a0a}
   .pa-status.ok *{color:#0a5a0a !important}
   .pa-status.bad *{color:#8a0a0a !important}
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RELATÓRIO FINAL — impressão FIEL à tela.
+   O PDF agora é um clone do relatório exibido (mesmo conteúdo
+   e ordem). Aqui só convertemos o tema escuro para claro (papel)
+   redefinindo as variáveis dentro de #print-area, e ajustamos o
+   layout para A4. Nada de reconstruir seções por fora.
+   ═══════════════════════════════════════════════════════════ */
+@media print{
+  #print-area .rep-print{
+    /* Tema CLARO para o papel — as variáveis usadas no conteúdo clonado
+       resolvem para estes valores, mantendo as cores de destaque legíveis. */
+    --bg:#ffffff; --surface:#ffffff; --surface2:#f6f7f9; --surface3:#eceff3;
+    --border:rgba(0,0,0,.14); --border2:rgba(0,0,0,.22); --border3:rgba(0,0,0,.30);
+    --accent:#0b66c2; --accent2:#6d28d9; --accentMid:#2563eb;
+    --accentBg:rgba(11,102,194,.10);
+    --accentGrad:linear-gradient(135deg,#0b66c2 0%,#2563eb 50%,#6d28d9 100%);
+    --accentGradSoft:linear-gradient(135deg,rgba(11,102,194,.12) 0%,rgba(109,40,217,.12) 100%);
+    --text:#0a0e1a; --text2:#3a4a63; --text3:#5e6c84;
+    --green:#0a7d3f; --greenBg:rgba(10,125,63,.12);
+    --red:#c01228;  --redBg:rgba(192,18,40,.10);
+    --blue:#1554b3; --blueBg:rgba(21,84,179,.10);
+    --purple:#6d28d9; --purpleBg:rgba(109,40,217,.10);
+    --orange:#b35a00; --orangeBg:rgba(179,90,0,.10);
+    --yellow:#9a7d00;
+    --row-even:#ffffff; --row-odd:#f6f7f9; --row-hover:#eef0f3;
+    --header-bg:#eef0f3; --total-bg:#f0f2f5;
+    --shadow:none; --shadow-sm:none; --shadow-glow:none;
+    --radius:10px; --radius-sm:8px;
+    color:var(--text);
+    font-size:9.5pt; line-height:1.35;
+  }
+  /* Sem sombras/animações no papel */
+  #print-area .rep-print *{ box-shadow:none !important; animation:none !important; text-shadow:none !important; }
+  /* Cabeçalho do relatório */
+  #print-area .res-header{ padding:0 0 8pt; border-bottom:1px solid var(--border2); }
+  #print-area .res-title{ font-size:16pt; }
+  #print-area .res-subtitle{ font-size:9pt; }
+  /* KPIs em moldura clara */
+  #print-area .res-kpis{ border:1px solid var(--border2); border-radius:6px; overflow:hidden; margin:8pt 0; }
+  #print-area .res-kpi{ padding:8pt 6pt; border-right:1px solid var(--border); }
+  #print-area .res-kpi-val{ font-size:14pt; }
+  #print-area .res-body{ padding:0; }
+  #print-area .res-section-title{ font-size:10pt; color:var(--text2); margin:10pt 0 6pt; border-bottom:1px solid var(--border2); padding-bottom:2pt; }
+  /* Tabelas */
+  #print-area .res-table{ font-size:8.5pt; }
+  #print-area .res-table thead th{ font-size:8pt; border-bottom:1.5px solid var(--accent); }
+  #print-area .res-table td{ font-size:8.5pt; padding:4pt 6pt; }
+  /* Imagem da peça não estoura a página */
+  #print-area .rep-print img{ max-width:100% !important; }
+  /* ── Quebras de página inteligentes ── */
+  #print-area .res-section-title{ page-break-after:avoid; }
+  #print-area table{ page-break-inside:auto; }
+  #print-area tr{ page-break-inside:avoid; }
+  /* Cada folha do detalhamento (MTM + Análise) tenta não partir no meio */
+  #print-area .rep-print > .res-body > div{ page-break-inside:auto; }
 }
 
 </style>
@@ -6015,7 +6073,8 @@ function prepararPrint(){
 // Respeita o modo atual: 'relatorio' (consolidado) ou 'folhas' (padrão).
 window.addEventListener('beforeprint', function(){
   try{
-    if(window._mtmPrintMode === 'relatorio' && typeof prepararPrintRelatorio === 'function'){
+    var repOpen = document.querySelector('#finalrep-overlay:not(.hidden) .res-modal');
+    if((window._mtmPrintMode === 'relatorio' || repOpen) && typeof prepararPrintRelatorio === 'function'){
       prepararPrintRelatorio();
     } else {
       prepararPrint();
@@ -11655,210 +11714,43 @@ var _mtmPrintMode = 'folhas';
 // Monta o RELATÓRIO FINAL CONSOLIDADO em #print-area (layout de PDF).
 // ════════════════════════════════════════════════════════════════
 function prepararPrintRelatorio(){
+  // O PDF do Relatório Final agora é um CLONE FIEL do relatório exibido
+  // na tela (mesmo conteúdo, mesma ordem, mesmas seções). Em vez de
+  // reconstruir um layout separado, copiamos o conteúdo do modal para a
+  // área de impressão e apenas o adaptamos para o papel.
   var box = document.getElementById('print-area');
   if(!box) return;
-  if(!scopedSheets().length){ box.innerHTML = ''; return; }
 
-  function esc(s){
-    return String(s==null?'':s).replace(/[&<>"]/g, function(c){
-      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];
-    });
+  var modal = document.querySelector('#finalrep-overlay .res-modal');
+  if(!modal){
+    // Garante que o relatório esteja montado (ex.: impressão direta via Ctrl+P).
+    if(typeof showFinalReport === 'function'){ try{ showFinalReport(); }catch(e){} }
+    modal = document.querySelector('#finalrep-overlay .res-modal');
   }
-  function fmt(v, d){
-    var n = parseFloat(v);
-    if(!isFinite(n)) return '—';
-    return n.toLocaleString('pt-BR',{minimumFractionDigits:(d!=null?d:2), maximumFractionDigits:(d!=null?d:2)});
-  }
+  if(!modal){ box.innerHTML = ''; return; }
 
-  var R = mtmCollectFinalReport();
-  var allMetrics = R.allMetrics;
-  var _ps = (typeof scopedSheets==='function')?scopedSheets():sheets;
-  var dataGer = new Date().toLocaleString('pt-BR');
+  // Clona o relatório exatamente como está na tela.
+  var clone = modal.cloneNode(true);
 
-  var jornadas = [
-    {h:7,lbl:'7 h'},{h:7.5,lbl:'7,5 h'},{h:8,lbl:'8 h'},
-    {h:8.5,lbl:'8,5 h'},{h:9,lbl:'9 h'}
-  ];
-
-  var html = '<div class="pa-folha">';
-
-  // ── Título ──
-  html += '<div class="pa-h1">📋 RELATÓRIO FINAL CONSOLIDADO — MTM</div>';
-
-  // ── Imagem da peça (opcional) ──
-  var _projImg = (mtmActiveProject() || {}).img;
-  if(_projImg){
-    html += '<div style="text-align:center;margin:4pt 0 7pt"><img src="' + _projImg + '" alt="Imagem da peça" style="max-width:88mm;max-height:58mm;object-fit:contain;border:1px solid #000"></div>';
-  }
-
-  // ── Identificação ──
-  var h0 = (_ps[0] && _ps[0].header) || {};
-  html += '<div class="pa-info">';
-  html +=   '<div class="pa-info-row">';
-  html +=     '<div class="pa-info-cell"><div class="lbl">Empresa / Cliente</div><div class="val">'+esc(h0.empresa||'—')+'</div></div>';
-  html +=     '<div class="pa-info-cell"><div class="lbl">Projeto</div><div class="val">'+esc(h0.projeto||'—')+'</div></div>';
-  html +=     '<div class="pa-info-cell"><div class="lbl">Gerado em</div><div class="val">'+esc(dataGer)+'</div></div>';
-  html +=   '</div>';
-  html +=   '<div class="pa-info-row">';
-  html +=     '<div class="pa-info-cell"><div class="lbl">Total de Folhas</div><div class="val">'+_ps.length+'</div></div>';
-  html +=     '<div class="pa-info-cell"><div class="lbl">Folhas c/ Análise de Fadiga</div><div class="val">'+R.withFad.length+'</div></div>';
-  html +=     '<div class="pa-info-cell"><div class="lbl">Allowance Total Médio</div><div class="val">'+fmt(R.allowMedio,2)+' %</div></div>';
-  html +=   '</div>';
-  html += '</div>';
-
-  // ── Resumo consolidado ──
-  html += '<div class="pa-h2">Resumo Consolidado</div>';
-  html += '<div class="pa-results"><div class="pa-results-row">';
-  html +=   '<div class="pa-results-cell"><div class="l">Folhas</div><div class="v">'+_ps.length+'</div></div>';
-  html +=   '<div class="pa-results-cell"><div class="l">TMU Total</div><div class="v">'+fmt(R.totalTmuSum,0)+'</div></div>';
-  html +=   '<div class="pa-results-cell"><div class="l">Σ Tempo Padrão</div><div class="v">'+fmt(R.totalStdSec,2)+' s</div></div>';
-  html +=   '<div class="pa-results-cell"><div class="l">Σ Peças/hora</div><div class="v">'+fmt(R.combinedPph,0)+'</div></div>';
-  html +=   '<div class="pa-results-cell"><div class="l">Allowance Médio</div><div class="v">'+fmt(R.allowMedio,2)+' %</div></div>';
-  html += '</div></div>';
-
-  // ── Análise Final de Fadiga & Allowance ──
-  html += '<div class="pa-h2">🛌 Análise Final de Fadiga &amp; Allowance</div>';
-  html += '<table class="pa-table"><thead><tr>';
-  html +=   '<th>Folha</th><th>TV (Distrib.)</th><th>TER (Fadiga)</th>';
-  html +=   '<th>Allowance Total</th><th>Premissa</th><th>TN (s)</th>';
-  html +=   '<th>TS — Padrão (s)</th><th>T. Trabalho</th><th>Ociosidade</th>';
-  html += '</tr></thead><tbody>';
-  allMetrics.forEach(function(x){
-    var f = x.fad;
-    var ocioRel = x.m.takt > 0 ? ((x.m.takt - x.stdSec)/x.m.takt*100) : null;
-    var ocioCls = ocioRel === null ? '' : (ocioRel >= 0 ? 'ok' : 'bad');
-    html += '<tr>';
-    html +=   '<td>'+esc(x.sheet.label)+'</td>';
-    html +=   '<td class="num">'+(f?fmt(f.tvTotal,2)+' %':'—')+'</td>';
-    html +=   '<td class="num">'+(f?fmt(f.terPct,2)+' %':'—')+'</td>';
-    html +=   '<td class="num"><b>'+fmt(x.allowUsed,2)+' %</b></td>';
-    html +=   '<td class="ctr">'+(f?(f.modoSESE?'SESÉ 10%':'TV + TER'):'Cabeçalho')+'</td>';
-    html +=   '<td class="num">'+fmt(x.tnSec,3)+'</td>';
-    html +=   '<td class="num"><b>'+fmt(x.stdSec,3)+'</b></td>';
-    html +=   '<td class="num">'+fmt(100-x.allowUsed,2)+' %</td>';
-    html +=   '<td class="num">'+(ocioRel===null?'—':'<span class="pa-status '+ocioCls+'">'+fmt(ocioRel,2)+' %</span>')+'</td>';
-    html += '</tr>';
+  // Remove apenas as ações de tela: botões (PDF/Fechar), o "X" e o rodapé de botões.
+  clone.querySelectorAll('.res-close, .res-footer, button').forEach(function(el){
+    if(el && el.parentNode) el.parentNode.removeChild(el);
   });
-  html += '</tbody></table>';
-  html += '<div class="pa-note">Allowance Total = TV (Tempo de Distribuição) + TER (Tempo de Recuperação da Fadiga), ou 10% fixo na premissa SESÉ. '
-       +  'TS = TN × (1 + Allowance/100). Tempo de Trabalho = 100% − Allowance Total. '
-       +  'Folhas sem Análise de Fadiga usam o allowance do cabeçalho.</div>';
 
-  // ── Comparativo de folhas ──
-  html += '<div class="pa-h2">Comparativo de Folhas</div>';
-  html += '<table class="pa-table"><thead><tr>';
-  html +=   '<th>Folha</th><th>Operador / Posto</th><th>TMU Total</th>';
-  html +=   '<th>Tempo Padrão (s)</th><th>Peças/hora</th><th>% Ocupação</th><th>Takt (s)</th>';
-  html += '</tr></thead><tbody>';
-  allMetrics.forEach(function(x){
-    var hh = x.sheet.header || {};
-    html += '<tr>';
-    html +=   '<td>'+esc(x.sheet.label)+'</td>';
-    html +=   '<td>'+esc(hh.operador||hh.operator||'—')+'</td>';
-    html +=   '<td class="num">'+fmt(x.m.totalTmu,1)+'</td>';
-    html +=   '<td class="num">'+fmt(x.stdSec,3)+'</td>';
-    html +=   '<td class="num">'+(x.pph||'—')+'</td>';
-    html +=   '<td class="num">'+(x.ocup!==null?fmt(x.ocup,1)+' %':'—')+'</td>';
-    html +=   '<td class="num">'+(x.m.takt>0?fmt(x.m.takt,2):'—')+'</td>';
-    html += '</tr>';
+  // Converte campos editáveis (Horas/Demanda) em texto fixo com o valor atual,
+  // para o PDF mostrar o número e não uma caixa de input.
+  clone.querySelectorAll('input, select, textarea').forEach(function(inp){
+    var span = document.createElement('span');
+    span.textContent = (inp.value != null ? String(inp.value) : '');
+    var st = inp.getAttribute('style');
+    if(st) span.setAttribute('style', st);
+    span.style.display = 'inline-block';
+    span.style.border = 'none';
+    span.style.background = 'transparent';
+    if(inp.parentNode) inp.parentNode.replaceChild(span, inp);
   });
-  html += '<tr class="total-row"><td colspan="2" style="text-align:right">TOTAL / SOMA</td>';
-  html += '<td class="num">'+fmt(R.totalTmuSum,1)+'</td>';
-  html += '<td class="num">'+fmt(R.totalStdSec,3)+'</td>';
-  html += '<td class="num">'+fmt(R.combinedPph,0)+'</td>';
-  html += '<td class="num">—</td><td class="num">—</td></tr>';
-  html += '</tbody></table>';
 
-  // ── Capacidade por jornada ──
-  html += '<div class="pa-h2">Capacidade por Jornada</div>';
-  html += '<table class="pa-table"><thead><tr><th>Jornada</th>';
-  allMetrics.forEach(function(x){ html += '<th>'+esc(x.sheet.label)+'</th>'; });
-  html += '<th>SOMA (pc/turno)</th></tr></thead><tbody>';
-  jornadas.forEach(function(j){
-    var jorSec = j.h * 3600;
-    html += '<tr><td class="item">'+j.lbl+'</td>';
-    allMetrics.forEach(function(x){
-      var pcs = x.stdSec > 0 ? Math.floor(jorSec/x.stdSec) : '—';
-      html += '<td class="num">'+pcs+'</td>';
-    });
-    var soma = R.totalStdSec > 0 ? Math.floor(jorSec/R.totalStdSec) : '—';
-    html += '<td class="num"><b>'+soma+'</b></td></tr>';
-  });
-  html += '</tbody></table>';
-  html += '<div class="pa-note">SOMA = todos os postos produzindo simultaneamente · Tempos Padrão já com o Allowance Total da Análise de Fadiga.</div>';
-
-  // ── SEÇÃO TTP · TAKT · CAPACIDADE + YAMAZUMI ──
-  html += buildTTPSectionPDF(allMetrics, fmt);
-
-  // ── Balanceamento de Linha (parte do relatório consolidado) ──
-  try{
-    var balVProj = { name:'(Folhas abertas)', sheets: _ps.map(function(s){return s.id;}) };
-    var balParams = {};
-    if(typeof pmProjectIdx !== 'undefined' && pmProjectIdx !== null && pmFolderId){
-      var balRealProj = pmData[pmFolderId] && pmData[pmFolderId].projects[pmProjectIdx];
-      if(balRealProj){
-        if(balRealProj.balanceamento) balParams = balRealProj.balanceamento;
-        balVProj.name = balRealProj.name;
-      }
-    }
-    var balR = balCalcProjeto(balVProj, balParams);
-    if(balR.nPostos){
-      html += '<div class="pa-h2">⚖️ Balanceamento de Linha</div>';
-      html += '<table class="pa-table"><thead><tr>'
-        + '<th>N°</th><th>Posto / Folha</th><th>Tempo Padrão (s)</th>'
-        + '<th>Saturação</th><th>Ociosidade (s)</th><th>Status</th></tr></thead><tbody>';
-      balR.posts.forEach(function(po,i){
-        var pct = balR.takt>0?(po.stdSec/balR.takt*100):0;
-        var ocio = balR.takt>0?Math.max(0,balR.takt-po.stdSec):0;
-        var stat = pct>100?'Gargalo':pct>90?'Saturado':pct>70?'Ótimo':'Subutilizado';
-        html += '<tr><td class="num">'+(i+1)+'</td>'
-          + '<td class="item">'+esc(po.operador)+' — '+esc(po.label)+'</td>'
-          + '<td class="num">'+po.stdSec.toFixed(2)+'</td>'
-          + '<td class="num">'+pct.toFixed(1)+'%</td>'
-          + '<td class="num">'+ocio.toFixed(2)+'</td>'
-          + '<td>'+stat+'</td></tr>';
-      });
-      html += '</tbody><tfoot><tr><td colspan="2" class="item"><b>TAKT / RESUMO</b></td>'
-        + '<td class="num"><b>'+balR.totalStd.toFixed(1)+'</b></td>'
-        + '<td class="num"><b>Takt '+(balR.takt>0?balR.takt.toFixed(1):'—')+'s</b></td>'
-        + '<td class="num"><b>'+balR.ociosaTotal.toFixed(1)+'</b></td>'
-        + '<td><b>Efic. '+balR.eficBal.toFixed(1)+'%</b></td></tr></tfoot></table>';
-      html += '<div class="pa-note">Takt: '+esc(balR.taktOrigem)+' · Operadores teóricos: '+balR.opTeoricos.toFixed(2)
-        + ' · Capacidade limitada pelo gargalo: '+balR.capacidadeHora.toFixed(0)+' pç/h.</div>';
-
-      // Capacidade × Recursos no PDF
-      var capR = balCapacidade(balR, balParams);
-      if(capR.taktAlvo>0 || capR.pphPorRecurso>0){
-        html += '<div class="pa-h2">📐 Capacidade × Recursos</div>';
-        html += '<table class="pa-table"><thead><tr><th>Cálculo</th><th>Parâmetros</th><th>Resultado</th></tr></thead><tbody>';
-        if(capR.taktAlvo>0){
-          html += '<tr><td class="item">Peças/hora → Pessoas</td>'
-            + '<td>Meta '+capR.pphAlvo+' pç/h · Takt '+capR.taktAlvo.toFixed(1)+'s · Conteúdo '+capR.conteudo.toFixed(1)+'s · Efic. '+capR.efic+'%</td>'
-            + '<td class="num"><b>'+capR.opNec+' pessoa(s)</b> ('+capR.opNecExato.toFixed(2)+' exato)'
-            + (!capR.metaViavel?' · ⚠ gargalo limita a '+Math.floor(capR.pphMaxGargalo)+' pç/h':'')+'</td></tr>';
-        }
-        if(capR.pphPorRecurso>0){
-          html += '<tr><td class="item">Pessoas → Peças/hora</td>'
-            + '<td>'+capR.recursos+' pessoa(s) · Efic. '+capR.efic+'%</td>'
-            + '<td class="num"><b>'+Math.floor(capR.pphReal)+' pç/h</b>'
-            + (capR.gargSec>0?' (limite gargalo: '+Math.floor(capR.pphGargalo)+')':'')
-            + (capR.pphAlvo>0?' · atende '+capR.atendePct.toFixed(1)+'%':'')+'</td></tr>';
-        }
-        html += '</tbody></table>';
-        html += '<div class="pa-note">Pessoas = Conteúdo de trabalho ÷ Takt · Peças/hora = (3600 × Efic% × Pessoas) ÷ Conteúdo, limitado pelo gargalo da linha.</div>';
-      }
-    }
-  }catch(e){ console.error('Balanceamento PDF:', e); }
-
-  // ── Rodapé ──
-  html += '<div class="pa-footer">';
-  html +=   '<div class="pa-footer-l"><div class="pa-note">Relatório consolidado gerado em '+esc(dataGer)+'</div></div>';
-  html +=   '<div class="pa-footer-r"><div class="pa-note">Ferramenta MTM · Engº Ivan Carlos Antoneli</div>';
-  html +=     '<div class="pa-note">Fonte: Manual de Tempos e Métodos + MTM-UAS</div></div>';
-  html += '</div>';
-
-  html += '</div>'; // fim .pa-folha
-  box.innerHTML = html;
+  box.innerHTML = '<div class="rep-print">' + clone.innerHTML + '</div>';
 }
 
 // Gera o PDF do RELATÓRIO FINAL CONSOLIDADO (não as folhas individuais).
@@ -11866,7 +11758,7 @@ function exportRelatorioPDF(){
   try{
     _mtmPrintMode = 'relatorio';
     prepararPrintRelatorio();
-    setTimeout(function(){ window.print(); }, 80);
+    setTimeout(function(){ window.print(); }, 150);
   }catch(e){
     console.error('Erro ao preparar PDF do relatório:', e);
     _mtmPrintMode = 'folhas';
