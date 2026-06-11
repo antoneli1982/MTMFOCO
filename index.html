@@ -3150,7 +3150,7 @@ window.FIREBASE_CONFIG = {
     <button class="btn btn-primary" onclick="showFinalReport()" title="Relatório consolidado de todas as folhas — inclui o balanceamento" style="background:linear-gradient(135deg,#00e5a0,#00b87a);border:none;color:#001a12;font-weight:800;font-size:12px;padding:7px 16px">📋<span class="btn-lbl"> Relatório Final</span></button>
     <button class="btn btn-primary" onclick="openProjectManager()" title="Gerenciador de Projetos" style="background:linear-gradient(135deg,#4f8ef7,#6366f1);border:none;color:#fff;font-weight:800;font-size:12px;padding:7px 16px">📁<span class="btn-lbl"> Projetos</span></button>
     <!-- separador visual -->
-    <div style="width:1px;height:26px;background:var(--border2);margin:0 4px;flex-shrink:0"></div>
+    <div class="tb-divider" style="width:1px;height:26px;background:var(--border2);margin:0 4px;flex-shrink:0"></div>
     <button class="btn btn-ghost" onclick="startDirectMtmApp()" title="Ir para as folhas" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(0,212,255,.25)">📄<span class="btn-lbl"> Folhas</span></button>
     <button class="btn btn-ghost" onclick="addSheetHere()" title="Nova Folha">＋<span class="btn-lbl"> Nova Folha</span></button>
     <button class="btn btn-ghost" onclick="openLibrary()" title="📚 Biblioteca MTM" style="letter-spacing:.2px">📚<span class="btn-lbl"> Biblioteca</span></button>
@@ -5141,7 +5141,7 @@ function renderContent(id){
 
           <div style="flex:1;min-width:130px;">
             <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Horas de trabalho</div>
-            <input id="ttp-h-${id}" type="number" min="0.5" max="24" step="0.5" value="8"
+            <input id="ttp-h-${id}" type="number" min="0.5" max="24" step="0.5" value="${esc((s.header.workHours)||8)}"
               onchange="ttpCalc('${id}')" oninput="ttpCalc('${id}')"
               style="width:100%;padding:8px 10px;background:var(--surface3);border:1px solid var(--border2);
                 border-radius:var(--radius-sm);color:var(--text);font-size:15px;font-weight:700;font-family:inherit;">
@@ -5294,6 +5294,7 @@ function renderContent(id){
       s.header[inp.dataset.key]=inp.value;
       updateTotals(id);
       saveSheets();
+      if(inp.dataset.key==='demand' && typeof syncDemandDisplay==='function') syncDemandDisplay(id, inp.value);
     });
   });
   // Restaurar rows se já existem (carregadas do localStorage)
@@ -5552,8 +5553,14 @@ function ttpCalc(sid){
   var m     = computeSheetMetrics(s);
   var allow = +(m.allowPct||0);
   var ts    = m.stdSec || 0;
-  var h     = parseFloat(document.getElementById('ttp-h-'+sid).value)   || 8;
-  var dem   = parseFloat(document.getElementById('ttp-dem-'+sid).value) || 0;
+  var hEl_  = document.getElementById('ttp-h-'+sid);
+  var dEl_  = document.getElementById('ttp-dem-'+sid);
+  var h     = parseFloat(hEl_ && hEl_.value)   || 8;
+  var dem   = parseFloat(dEl_ && dEl_.value) || 0;
+  // Auto-save: grava Horas/Demanda digitadas no cabeçalho da folha
+  if(typeof persistAnaliseInputs === 'function'){
+    persistAnaliseInputs(sid, (hEl_ ? hEl_.value : undefined), (dEl_ ? dEl_.value : undefined));
+  }
   var ttp   = 100 - allow;
   var tdis  = h * 3600;
   var tprod = tdis * (ttp / 100);
@@ -8258,6 +8265,256 @@ document.addEventListener('keydown',e=>{
 @media(max-width:600px){#ap-panel{max-width:100%}}
 </style>
 
+<style id="pro-redesign-v1">
+/* ════════════════════════════════════════════════════════════════
+   REFINO VISUAL PROFISSIONAL — "Precision Instrument"
+   Camada de polimento (cores, sombras, tipografia, profundidade e
+   acabamento de componentes). NÃO altera dados, IDs, estrutura nem
+   lógica — apenas redefine tokens e estilos visuais. Vem por último
+   para vencer a cascata. O PDF (#print-area) permanece intacto.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── TOKENS · TEMA ESCURO ──────────────────────────────────────── */
+[data-theme="dark"]{
+  --bg:        #0a0d14;
+  --surface:   #11151f;
+  --surface2:  #161b27;
+  --surface3:  #1e2533;
+  --border:    rgba(255,255,255,0.065);
+  --border2:   rgba(255,255,255,0.10);
+  --border3:   rgba(255,255,255,0.16);
+
+  --accent:    #00d4ff;
+  --accent2:   #8b5cf6;
+  --accentMid: #3b9bff;
+  --accentBg:  rgba(0,212,255,0.08);
+  --accentGrad:     linear-gradient(135deg,#00d4ff 0%,#3b9bff 52%,#8b5cf6 100%);
+  --accentGradSoft: linear-gradient(135deg,rgba(0,212,255,.16) 0%,rgba(139,92,246,.16) 100%);
+
+  --text:      #e8edf9;
+  --text2:     #8b9bb7;
+  --text3:     #56657f;
+
+  --green:     #1fd195; --greenBg:  rgba(31,209,149,0.10);
+  --red:       #fb5d72; --redBg:    rgba(251,93,114,0.11);
+  --blue:      #5b9bf7; --blueBg:   rgba(91,155,247,0.11);
+  --purple:    #a78bfa; --purpleBg: rgba(167,139,250,0.11);
+  --orange:    #ff9f2e; --orangeBg: rgba(255,159,46,0.11);
+  --yellow:    #ffce47;
+
+  --row-even:  #11151f;
+  --row-odd:   #141926;
+  --row-hover: #1b2230;
+  --header-bg: #161b27;
+  --total-bg:  #0d111a;
+
+  --shadow-sm:   0 1px 2px rgba(0,0,0,.30), 0 1px 3px rgba(0,0,0,.24);
+  --shadow:      0 2px 6px rgba(0,0,0,.30), 0 10px 28px rgba(0,0,0,.42);
+  --shadow-lg:   0 8px 20px rgba(0,0,0,.40), 0 28px 64px rgba(0,0,0,.58);
+  --shadow-glow: 0 0 0 1px rgba(0,212,255,.14);
+  --tab-bg:    #0a0d14;
+  --radius-xs: 6px;
+  --radius-sm: 9px;
+  --radius:    13px;
+  --radius-lg: 18px;
+}
+
+/* ── TOKENS · TEMA CLARO ───────────────────────────────────────── */
+[data-theme="light"]{
+  --bg:        #f3f6fb;
+  --surface:   #ffffff;
+  --surface2:  #f7f9fd;
+  --surface3:  #edf1f8;
+  --border:    rgba(16,26,48,0.08);
+  --border2:   rgba(16,26,48,0.13);
+  --border3:   rgba(16,26,48,0.20);
+
+  --accent:    #0073e6;
+  --accent2:   #7c3aed;
+  --accentMid: #2563eb;
+  --accentBg:  rgba(0,115,230,0.07);
+  --accentGrad:     linear-gradient(135deg,#0073e6 0%,#2563eb 52%,#7c3aed 100%);
+  --accentGradSoft: linear-gradient(135deg,rgba(0,115,230,.10) 0%,rgba(124,58,237,.10) 100%);
+
+  --text:      #0f1729;
+  --text2:     #56657f;
+  --text3:     #93a0b6;
+
+  --green:     #0a9d6e; --greenBg:  rgba(10,157,110,0.08);
+  --red:       #e0455b; --redBg:    rgba(224,69,91,0.08);
+  --blue:      #2f74e0; --blueBg:   rgba(47,116,224,0.08);
+  --purple:    #7c3aed; --purpleBg: rgba(124,58,237,0.08);
+  --orange:    #cf7a08; --orangeBg: rgba(207,122,8,0.08);
+  --yellow:    #b4790a;
+
+  --row-even:  #ffffff;
+  --row-odd:   #fafbfe;
+  --row-hover: #eef3fc;
+  --header-bg: #f4f8fd;
+  --total-bg:  #fbfcff;
+
+  --shadow-sm:   0 1px 2px rgba(16,26,48,.06), 0 1px 3px rgba(16,26,48,.08);
+  --shadow:      0 2px 8px rgba(16,26,48,.07), 0 12px 28px rgba(16,26,48,.10);
+  --shadow-lg:   0 12px 32px rgba(16,26,48,.12), 0 28px 64px rgba(16,26,48,.14);
+  --shadow-glow: 0 0 0 1px rgba(0,115,230,.12);
+  --tab-bg:    #f3f6fb;
+  --radius-xs: 6px;
+  --radius-sm: 9px;
+  --radius:    13px;
+  --radius-lg: 18px;
+}
+
+/* ── TIPOGRAFIA + PROFUNDIDADE AMBIENTE ────────────────────────── */
+body{
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  text-rendering:optimizeLegibility;
+  letter-spacing:-0.005em;
+}
+body::before{
+  content:''; position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(1100px 620px at 100% -8%, rgba(0,212,255,.06), transparent 58%),
+    radial-gradient(950px 600px at -8% 112%, rgba(139,92,246,.07), transparent 55%);
+}
+[data-theme="light"] body::before{
+  background:
+    radial-gradient(1100px 620px at 100% -8%, rgba(0,115,230,.06), transparent 58%),
+    radial-gradient(950px 600px at -8% 112%, rgba(124,58,237,.05), transparent 55%);
+}
+::selection{ background:rgba(0,212,255,.28); color:#fff; }
+[data-theme="light"] ::selection{ background:rgba(0,115,230,.20); color:#0f1729; }
+button:focus-visible,.btn:focus-visible,.tab:focus-visible,a:focus-visible,
+select:focus-visible,.float-btn:focus-visible{
+  outline:2px solid var(--accent); outline-offset:2px;
+}
+
+/* ── TOOLBAR (vidro refinado) ──────────────────────────────────── */
+.toolbar{
+  background:rgba(10,13,20,.72);
+  border-bottom:1px solid var(--border2);
+  box-shadow:0 1px 0 var(--border), 0 8px 24px rgba(0,0,0,.28);
+  backdrop-filter:saturate(180%) blur(22px);
+  -webkit-backdrop-filter:saturate(180%) blur(22px);
+}
+[data-theme="light"] .toolbar{
+  background:rgba(255,255,255,.78);
+  box-shadow:0 1px 0 var(--border), 0 8px 24px rgba(16,26,48,.06);
+}
+
+/* ── BOTÕES (estados tácteis, sem brilho “barato”) ─────────────── */
+.btn{ transition:background .18s, border-color .18s, color .18s, box-shadow .18s, transform .12s; }
+.btn:active{ transform:translateY(.5px); }
+.btn-primary{ box-shadow:0 1px 2px rgba(0,0,0,.25); }
+.btn-primary:hover{ filter:none; transform:translateY(-1px); box-shadow:0 6px 18px rgba(0,212,255,.26); }
+.btn-green{ box-shadow:0 1px 2px rgba(0,0,0,.25); }
+.btn-green:hover{ filter:none; transform:translateY(-1px); box-shadow:0 6px 18px rgba(31,209,149,.26); }
+
+/* ── ABAS ──────────────────────────────────────────────────────── */
+.tab{ transition:background .18s, color .18s, border-color .18s, box-shadow .18s; }
+.tab.active{
+  background:var(--accentGradSoft); color:var(--accent);
+  border-color:rgba(0,212,255,.28); box-shadow:0 1px 2px rgba(0,0,0,.2);
+}
+
+/* ── CARTÕES / SUPERFÍCIES (sombra em camadas + brilho de borda) ─ */
+.header-card,.table-wrapper{ box-shadow:var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,.03); }
+[data-theme="light"] .header-card,[data-theme="light"] .table-wrapper{ box-shadow:var(--shadow-sm); }
+
+/* ── CAMPOS / CÉLULAS (anel de foco refinado) ──────────────────── */
+.f-input{ transition:border-color .18s, background .25s, box-shadow .18s; }
+.f-input:focus{ border-color:var(--accent); background:var(--accentBg); box-shadow:0 0 0 3px rgba(0,212,255,.12); }
+.ci:focus{ border-color:rgba(0,212,255,.55); background:rgba(0,212,255,.05); box-shadow:0 0 0 2px rgba(0,212,255,.12); }
+.cell-select:focus{ box-shadow:0 0 0 2px rgba(0,212,255,.12); }
+
+/* ── TABELA (somente visual — sem mexer em densidade/padding) ──── */
+table.mtm thead tr{ background:var(--header-bg); }
+table.mtm tfoot tr.total-row td{ border-top:1.5px solid var(--accent); }
+
+/* ── MODAIS (cantos suaves + sombra profunda + fundo fosco) ────── */
+.modal{ border-radius:var(--radius-lg); box-shadow:var(--shadow-lg), var(--shadow-glow); }
+.res-modal{ border-radius:var(--radius-lg); box-shadow:var(--shadow-lg), var(--shadow-glow); }
+.res-overlay,.modal-overlay{
+  background:rgba(4,7,12,.62);
+  backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+}
+[data-theme="light"] .res-overlay,[data-theme="light"] .modal-overlay{ background:rgba(16,26,48,.40); }
+.res-title{ letter-spacing:-.2px; }
+.res-kpi-val{ letter-spacing:-.3px; }
+
+/* ── NAV FLUTUANTE ─────────────────────────────────────────────── */
+.float-btn{ background:var(--surface2); border:1px solid var(--border2); box-shadow:var(--shadow-sm); }
+.float-btn:hover{ background:var(--accentGradSoft); color:var(--accent); border-color:rgba(0,212,255,.35); box-shadow:var(--shadow); }
+
+/* ── SCROLLBAR (mais fácil de agarrar, arredondada) ────────────── */
+::-webkit-scrollbar{ width:10px; height:10px; }
+::-webkit-scrollbar-track{ background:transparent; }
+::-webkit-scrollbar-thumb{ background:var(--surface3); border-radius:8px; border:2px solid transparent; background-clip:padding-box; }
+::-webkit-scrollbar-thumb:hover{ background:rgba(0,212,255,.45); border:2px solid transparent; background-clip:padding-box; }
+*{ scrollbar-width:thin; scrollbar-color:var(--surface3) transparent; }
+
+/* ── ACABAMENTO: respeitar “reduzir movimento” ─────────────────── */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:.001ms!important; animation-iteration-count:1!important;
+    transition-duration:.001ms!important; scroll-behavior:auto!important;
+  }
+}
+</style>
+
+<style id="pro-sidebar-v1">
+/* ════════════════════════════════════════════════════════════════
+   NAVEGAÇÃO VERTICAL — barra lateral à esquerda (telas ≥ 781px).
+   Em telas ≤ 780px permanece a barra horizontal original (mobile).
+   Somente CSS: não altera HTML, dados nem lógica. Empilha TODOS os
+   botões da toolbar numa coluna, com o conteúdo recuado à direita.
+   ════════════════════════════════════════════════════════════════ */
+@media (min-width:781px){
+  /* Abre espaço para a sidebar empurrando o conteúdo à direita */
+  body{ padding-left:214px; }
+
+  /* A toolbar passa a ser uma coluna fixa à esquerda */
+  .toolbar{
+    position:fixed; top:0; left:0; bottom:0; width:214px;
+    flex-direction:column; align-items:stretch; justify-content:flex-start;
+    gap:4px; padding:16px 12px;
+    overflow-y:auto; overflow-x:hidden;
+    background:var(--surface);
+    border-bottom:none; border-right:1px solid var(--border2);
+    box-shadow:8px 0 28px rgba(0,0,0,.20);
+    backdrop-filter:none; -webkit-backdrop-filter:none;
+    z-index:120;
+  }
+  [data-theme="light"] .toolbar{ background:var(--surface); box-shadow:8px 0 28px rgba(16,26,48,.06); }
+
+  /* Marca no topo */
+  .toolbar > div:first-child{ width:100%; }
+  .toolbar .logo{ font-size:16px; padding:2px 6px; }
+
+  /* Crédito do desenvolvedor — bloco compacto sob a marca */
+  .dev-credit{ width:100%; padding:4px 6px 10px; margin-bottom:6px; border-bottom:1px solid var(--border); }
+
+  /* O espaçador não deve empurrar os botões para o rodapé numa coluna */
+  .toolbar .sep{ flex:0 0 auto; height:2px; }
+
+  /* Ações empilhadas, largura total */
+  .toolbar-actions{ flex-direction:column; align-items:stretch; gap:6px; width:100%; overflow:visible; }
+  .toolbar-actions .btn{
+    width:100%; justify-content:flex-start; text-align:left;
+    padding:10px 12px !important; font-size:12.5px !important;
+    min-height:0; white-space:nowrap;
+  }
+  /* Separador de grupo vira divisória horizontal */
+  .toolbar-actions .tb-divider{
+    width:100% !important; height:1px !important; margin:6px 2px !important;
+    align-self:stretch; flex-shrink:0;
+  }
+  /* Usuário e alternador de tema ao final da coluna */
+  .toolbar-actions .fb-user-slot{ width:100%; }
+  .toolbar-actions .theme-toggle{ justify-content:flex-start; padding:8px 6px; margin-top:4px; }
+}
+</style>
+
 <div id="ap-overlay" onclick="apCloseOnBg(event)">
   <div id="ap-panel">
     <div class="ap-header">
@@ -10693,7 +10950,7 @@ function buildSheetDetailSection(){
       +   '<div style="font-size:12px;font-weight:800;color:var(--accent);margin-bottom:10px">⚙️ ANÁLISE FINAL — TTP · TAKT · CAPACIDADE</div>'
       +   '<div id="frp-scope-'+s.id+'"></div>'
       +   '<div style="display:flex;flex-wrap:wrap;gap:8px">'
-      +     inputBox('Horas de Trabalho', 'frp-h-'+s.id, 8, '8')
+      +     inputBox('Horas de Trabalho', 'frp-h-'+s.id, (s.header && s.header.workHours) || 8, '8')
       +     inputBox('Demanda (itens)', 'frp-dem-'+s.id, demInit, 'ex: 600')
       +     box('Allowance Total (%)', 'frp-allow-'+s.id, 'calculado da análise', 'var(--green)')
       +     box('TTP (%)', 'frp-ttp-'+s.id, '100 − Allowance', 'var(--accent)')
@@ -10852,6 +11109,45 @@ function frpRenderScope(sid){
     + '</div>';
 }
 
+// ───────────────────────────────────────────────────────────────
+// AUTO-SAVE da Análise Final — Horas de Trabalho e Demanda
+// Fonte única de verdade no cabeçalho da folha (s.header.workHours e
+// s.header.demand). Ao digitar em QUALQUER ponto (campo do cabeçalho,
+// painel TTP da folha ou Relatório Final), o valor é gravado e espelhado
+// em todos os campos abertos, salvando no navegador automaticamente.
+// ───────────────────────────────────────────────────────────────
+function syncDemandDisplay(sid, val){
+  ['ttp-dem-'+sid, 'frp-dem-'+sid].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el && document.activeElement !== el) el.value = val;
+  });
+  var cont = document.getElementById('c-'+sid);
+  if(cont){
+    var hf = cont.querySelector('.f-input[data-key="demand"]');
+    if(hf && document.activeElement !== hf) hf.value = val;
+  }
+}
+function syncHoursDisplay(sid, val){
+  ['ttp-h-'+sid, 'frp-h-'+sid].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el && document.activeElement !== el) el.value = val;
+  });
+}
+// Grava Horas e/ou Demanda no cabeçalho da folha e salva (auto-save).
+function persistAnaliseInputs(sid, hoursVal, demVal){
+  var s = (typeof get==='function') ? get(sid) : null; if(!s) return;
+  if(!s.header) s.header = {};
+  if(hoursVal !== undefined && hoursVal !== null){
+    s.header.workHours = hoursVal;
+    syncHoursDisplay(sid, hoursVal);
+  }
+  if(demVal !== undefined && demVal !== null){
+    s.header.demand = demVal;
+    syncDemandDisplay(sid, demVal);
+  }
+  if(typeof saveSheets === 'function') saveSheets();
+}
+
 // Recalcula a Análise Final de uma folha no Relatório (Horas/Demanda editáveis).
 // Usa exatamente a fórmula do painel por folha (anexo), porém com o Tempo
 // Padrão = SOMA das folhas selecionadas (ver frpAggregate):
@@ -10874,6 +11170,10 @@ function frpAnalise(sid){
     var dEl = document.getElementById('frp-dem-'+sid);
     var h   = parseFloat(hEl && hEl.value); if(isNaN(h) || h<=0) h = 8;
     var dem = parseFloat(dEl && dEl.value); if(isNaN(dem)) dem = 0;
+    // Auto-save: grava os valores digitados (Horas e Demanda) no cabeçalho da folha
+    if(typeof persistAnaliseInputs === 'function'){
+      persistAnaliseInputs(sid, (hEl ? hEl.value : undefined), (dEl ? dEl.value : undefined));
+    }
     var allow = agg.allow;
     var ttp   = 100 - allow;
     var tdis  = h * 3600;
