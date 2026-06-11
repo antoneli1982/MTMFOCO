@@ -5395,6 +5395,44 @@ function recalcSheet(sid){
   try{ updateTotals(sid); }catch(e){}
 }
 
+// ── VIGIA DE RECÁLCULO ───────────────────────────────────────────────
+// Garante que TOTAL TMU e TOTAL (S) sempre apareçam — inclusive na versão
+// publicada (GitHub), onde a sincronização (Firebase) redesenha a tabela e
+// fazia os totais sumirem. Recalcula quando a tabela muda e periodicamente.
+(function(){
+  function healAllSheets(){
+    if(typeof sheets === 'undefined' || !Array.isArray(sheets)) return;
+    if(typeof recalcSheet !== 'function') return;
+    for(var i=0;i<sheets.length;i++){
+      var s = sheets[i];
+      if(!s || !s.id) continue;
+      if(!document.getElementById('c-'+s.id)) continue; // só folhas na tela
+      try{ recalcSheet(s.id); }catch(e){}
+    }
+  }
+  // Rede de segurança: recalcula periodicamente (leve; só mexe nas células de
+  // total e no rodapé, nunca no que o usuário está digitando).
+  try{ setInterval(healAllSheets, 1000); }catch(e){}
+  // Reação imediata: quando a sincronização recria as linhas da tabela.
+  function startObserver(){
+    var cont = document.getElementById('sheets-container');
+    if(!cont){ setTimeout(startObserver, 600); return; }
+    try{
+      var obs = new MutationObserver(function(){
+        obs.disconnect();              // evita laço com as próprias atualizações
+        healAllSheets();
+        obs.observe(cont, {childList:true, subtree:true});
+      });
+      obs.observe(cont, {childList:true, subtree:true});
+    }catch(e){}
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', startObserver);
+  } else {
+    startObserver();
+  }
+})();
+
 function delRow(sid,rid){
   const s=get(sid);
   s.rows=s.rows.filter(r=>r.id!==rid);
