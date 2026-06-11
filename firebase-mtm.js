@@ -107,7 +107,33 @@ let _firstSheets   = true;
 let _firstProjects = true;
 let _firstLogos    = true;
 
+// O usuário está digitando numa folha agora? (foco numa linha/cabeçalho da
+// folha, ou lista de autocomplete de código aberta). Se sim, NÃO podemos
+// sobrescrever window.sheets com o snapshot da nuvem — senão o que está sendo
+// digitado (ex.: o CÓDIGO) é apagado no meio.
+function isEditingSheet(){
+  try{
+    var ae = document.activeElement;
+    if(ae && ae.closest){
+      if(ae.closest('.folha-content')) return true;       // foco numa célula da folha
+      if(ae.tagName === 'INPUT' || ae.tagName === 'SELECT' || ae.tagName === 'TEXTAREA'){
+        if(ae.closest('#sheets-container')) return true;
+      }
+    }
+    if(document.querySelector('.ac-list.show')) return true; // autocomplete aberto
+  }catch(e){}
+  return false;
+}
+
 function applySheetsSnapshot(snap){
+  // Se está digitando numa folha, adia a aplicação do snapshot. Quando o usuário
+  // parar (tirar o foco), o próximo retry aplica os dados da nuvem sem apagar
+  // nada do que foi digitado.
+  if(isEditingSheet()){
+    clearTimeout(applySheetsSnapshot._deferTimer);
+    applySheetsSnapshot._deferTimer = setTimeout(function(){ applySheetsSnapshot(snap); }, 700);
+    return;
+  }
   state.applying = true;
   try{
     const remote = {};
