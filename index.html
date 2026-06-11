@@ -958,6 +958,7 @@ table.mtm tfoot tr.total-row td{
 .lib-code{font-family:'JetBrains Mono','Inter',monospace;font-size:11px;font-weight:700;color:var(--accent);background:var(--accentBg);padding:2px 6px;border-radius:4px;white-space:nowrap;border:1px solid rgba(0,212,255,.2)}
 .lib-desc{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px}
 .lib-tmu{font-family:'JetBrains Mono','Inter',monospace;font-weight:700;text-align:right;color:var(--green);font-size:12px;white-space:nowrap}
+.lib-sec{font-family:'JetBrains Mono','Inter',monospace;font-weight:700;text-align:right;color:var(--accent);font-size:12px;white-space:nowrap}
 .lib-cat{font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;white-space:nowrap;display:inline-block}
 .lc-comp{background:rgba(0,229,160,.1);color:var(--green);border:1px solid rgba(0,229,160,.2)}
 .lc-man{background:rgba(255,149,0,.1);color:var(--orange);border:1px solid rgba(255,149,0,.2)}
@@ -3372,6 +3373,7 @@ window.FIREBASE_CONFIG = {
           <th style="width:115px">Código</th>
           <th>Descrição</th>
           <th style="width:66px;text-align:right">TMU</th>
+          <th style="width:72px;text-align:right">Segundos</th>
           <th style="width:86px">Grupo</th>
         </tr></thead>
         <tbody id="lib-table-body"></tbody>
@@ -11851,7 +11853,7 @@ function renderLibrary(){
   cnt.textContent = data.length + ' código' + (data.length!==1?'s':'');
 
   if(!data.length){
-    tb.innerHTML = '<tr><td colspan="4" class="lib-no-results">🔍 Nenhum código encontrado.<br>Tente outro filtro ou busca.</td></tr>';
+    tb.innerHTML = '<tr><td colspan="5" class="lib-no-results">🔍 Nenhum código encontrado.<br>Tente outro filtro ou busca.</td></tr>';
     return;
   }
 
@@ -11872,6 +11874,7 @@ function renderLibrary(){
          + '<td><span class="lib-code">'+c.code+'</span></td>'
          + '<td class="lib-desc" title="'+d+'">'+c.desc+'</td>'
          + '<td class="lib-tmu">'+c.tmu+'</td>'
+         + '<td class="lib-sec">'+((Number(c.tmu)||0)*0.036).toFixed(2).replace('.',',')+'</td>'
          + '<td><span class="lib-cat '+cls+'">'+lbl+'</span></td>'
          + '</tr>';
   }).join('');
