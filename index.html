@@ -14614,5 +14614,87 @@ function balEsc(s){
 })();
 </script>
 
+<!-- ============================================================
+     VIGIA DE TOTAIS (À PROVA DE SINCRONIZAÇÃO)
+     Calcula TOTAL TMU e TOTAL (S) lendo DIRETO das células visíveis
+     (TMU x Q x F, e x0,036 para segundos). Bloco isolado e independente:
+     funciona mesmo que o Firebase redesenhe a tabela ou que algo antes falhe.
+     ============================================================ -->
+<script>
+(function(){
+  function num(v){
+    if(v==null) return null;
+    var n = parseFloat(String(v).replace(',', '.'));
+    return isNaN(n) ? null : n;
+  }
+  function fmt(n){
+    // remove zeros à direita desnecessários (40, 1.44, 0.9 ...)
+    return String(Math.round(n*10000)/10000);
+  }
+  function healDOM(){
+    try{
+      var bodies = document.querySelectorAll('tbody[id^="tb-"]');
+      for(var b=0; b<bodies.length; b++){
+        var tb  = bodies[b];
+        var sid = tb.id.slice(3); // tira "tb-"
+        var rows = tb.querySelectorAll('tr');
+        var somaTmu = 0;
+        for(var i=0; i<rows.length; i++){
+          var tr = rows[i];
+          var tmuEl  = tr.querySelector('[data-f="tmu"]');
+          var ttmuEl = tr.querySelector('[data-f="ttmu"]');
+          var tsecEl = tr.querySelector('[data-f="tsec"]');
+          if(!tmuEl || !ttmuEl || !tsecEl) continue;
+          var tmu = num(tmuEl.value);
+          if(tmu===null || tmu===0){
+            if(ttmuEl.value !== '') ttmuEl.value = '';
+            if(tsecEl.value !== '') tsecEl.value = '';
+            continue;
+          }
+          var qEl = tr.querySelector('[data-f="q"]');
+          var fEl = tr.querySelector('[data-f="f"]');
+          var q = num(qEl && qEl.value); if(q===null) q = 1;
+          var f = num(fEl && fEl.value); if(f===null) f = 1;
+          var ttmu = Math.round(tmu*q*f*10000)/10000;
+          var tsec = Math.round(ttmu*0.036*10000)/10000;
+          var ttmuStr = fmt(ttmu), tsecStr = fmt(tsec);
+          if(ttmuEl.value !== ttmuStr) ttmuEl.value = ttmuStr;
+          if(tsecEl.value !== tsecStr) tsecEl.value = tsecStr;
+          somaTmu += ttmu;
+        }
+        var fTmu = document.getElementById('ttmu-'+sid);
+        var fSec = document.getElementById('tsec-'+sid);
+        var vTmu = somaTmu ? somaTmu.toFixed(2)  : '0';
+        var vSec = somaTmu ? (somaTmu*0.036).toFixed(4) : '0';
+        if(fTmu && fTmu.textContent !== vTmu) fTmu.textContent = vTmu;
+        if(fSec && fSec.textContent !== vSec) fSec.textContent = vSec;
+      }
+    }catch(e){}
+  }
+  // 1) Rede de segurança periódica (leve; só escreve quando muda)
+  try{ setInterval(healDOM, 800); }catch(e){}
+  // 2) Reage na hora quando a tabela é redesenhada (ex.: sincronização)
+  try{
+    var startObs = function(){
+      var cont = document.getElementById('sheets-container');
+      if(!cont){ setTimeout(startObs, 600); return; }
+      var obs = new MutationObserver(function(){
+        obs.disconnect(); healDOM(); obs.observe(cont, {childList:true, subtree:true});
+      });
+      obs.observe(cont, {childList:true, subtree:true});
+    };
+    if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startObs);
+    else startObs();
+  }catch(e){}
+  // 3) Recalcula imediatamente ao digitar TMU, Q ou F (captura global)
+  try{
+    document.addEventListener('input', function(ev){
+      var t = ev.target, f = t && t.getAttribute && t.getAttribute('data-f');
+      if(f==='tmu' || f==='q' || f==='f') healDOM();
+    }, true);
+  }catch(e){}
+})();
+</script>
+
 </body>
 </html>
