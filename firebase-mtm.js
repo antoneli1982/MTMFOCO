@@ -259,11 +259,18 @@ function rerenderSheets(){
   if(!window.activeId && window.sheets[0] && typeof window.setActive === 'function'){
     window.setActive(window.sheets[0].id);
   }
-  // Reaplica a visibilidade da folha ativa (renderContent pode ter recriado o
-  // container; sem isto a folha redesenhada poderia ficar escondida).
-  if(window.activeId && typeof window.setActive === 'function'){
-    try{ window.setActive(window.activeId); }catch(e){}
-  }
+  // Garante que SÓ a folha ativa fique visível. Não dá para usar setActive aqui
+  // porque ele tem "if(activeId===id) return" e sairia sem esconder as outras —
+  // e o renderContent marca toda folha redesenhada como "active". Sem isto,
+  // várias folhas apareciam empilhadas em sequência.
+  try{
+    var act = window.activeId;
+    document.querySelectorAll('.folha-content').forEach(function(el){
+      var elId = el.id.replace(/^c-/, '');
+      if(act && elId === act) el.classList.add('active');
+      else el.classList.remove('active');
+    });
+  }catch(e){}
 }
 
 let _initialLoadDone = false;
