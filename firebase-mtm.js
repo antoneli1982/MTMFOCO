@@ -218,20 +218,51 @@ function applyLogosSnapshot(snap){
 }
 
 function rerenderSheets(){
+  // Remove containers de folhas que não existem mais na nuvem
   document.querySelectorAll('.folha-content').forEach(el => {
     const id = el.id.replace(/^c-/, '');
     if(!window.sheets.find(s => s.id === id)) el.remove();
   });
+
   window.sheets.forEach(s => {
-    if(!document.getElementById('c-' + s.id) && typeof window.renderContent === 'function'){
-      try{ window.renderContent(s.id); }catch(e){ console.warn(e); }
-    } else if(typeof window.recalc === 'function'){
-      try{ window.recalc(s.id); }catch(e){}
+    const cont = document.getElementById('c-' + s.id);
+    if(!cont){
+      // Folha ainda não desenhada → desenha do zero (cabeçalho + linhas)
+      if(typeof window.renderContent === 'function'){
+        try{ window.renderContent(s.id); }catch(e){ console.warn(e); }
+      }
+      return;
+    }
+    // Folha JÁ aberta na tela. Se o usuário NÃO estiver digitando nela agora,
+    // redesenha as linhas com os dados que chegaram da nuvem.
+    // (Antes aqui chamava window.recalc, que não existe no app — por isso as
+    //  linhas vindas da nuvem nunca apareciam no aparelho que já tinha a folha
+    //  aberta. O nome correto é recalcSheet / renderContent.)
+    const editingHere = document.activeElement && cont.contains(document.activeElement);
+    if(editingHere){
+      // Não mexe enquanto digita; só recalcula os totais com segurança.
+      if(typeof window.recalcSheet === 'function'){ try{ window.recalcSheet(s.id); }catch(e){} }
+      return;
+    }
+    if(typeof window.renderContent === 'function'){
+      try{
+        cont.remove();                 // remove a versão antiga
+        window.renderContent(s.id);    // redesenha com os dados novos da nuvem
+        if(typeof window.recalcSheet === 'function'){ try{ window.recalcSheet(s.id); }catch(e){} }
+      }catch(e){ console.warn(e); }
+    } else if(typeof window.recalcSheet === 'function'){
+      try{ window.recalcSheet(s.id); }catch(e){}
     }
   });
+
   if(typeof window.renderTabs === 'function') window.renderTabs();
   if(!window.activeId && window.sheets[0] && typeof window.setActive === 'function'){
     window.setActive(window.sheets[0].id);
+  }
+  // Reaplica a visibilidade da folha ativa (renderContent pode ter recriado o
+  // container; sem isto a folha redesenhada poderia ficar escondida).
+  if(window.activeId && typeof window.setActive === 'function'){
+    try{ window.setActive(window.activeId); }catch(e){}
   }
 }
 
