@@ -4923,6 +4923,10 @@ function setActive(id){
   if(!el)renderContent(id);
   el=document.getElementById('c-'+id);
   if(el)el.classList.add('active');
+  // Recalcula os totais (TOTAL TMU / TOTAL (S)) de todas as linhas ao exibir a
+  // folha — cobre folhas vindas do localStorage, importadas ou sincronizadas
+  // que chegam com o total salvo em branco.
+  if(typeof recalcSheet === 'function') recalcSheet(id);
   // Sincroniza Empresa/Projeto com o gerenciador (se houver vínculo)
   if(typeof syncSheetEmpresaProjeto === 'function') syncSheetEmpresaProjeto(id);
 }
@@ -5377,6 +5381,16 @@ function calcRow(sid,rid){
     tr.querySelector('[data-f="tsec"]').value=row.tsec||'';
   }
   updateTotals(sid);
+}
+
+// Recalcula TOTAL TMU e TOTAL (S) de TODAS as linhas de uma folha e o rodapé.
+// Usado ao exibir, carregar do localStorage, importar ou sincronizar uma folha —
+// garante que os totais nunca fiquem em branco mesmo quando chegam salvos com 0.
+function recalcSheet(sid){
+  const s = (typeof get === 'function') ? get(sid) : null;
+  if(!s || !s.rows) return;
+  s.rows.forEach(r=>{ try{ calcRow(sid, r.id); }catch(e){} });
+  try{ updateTotals(sid); }catch(e){}
 }
 
 function delRow(sid,rid){
@@ -9580,7 +9594,7 @@ function dbHandleProjectFileForFolder(input, fid){
       // 5) Recalcular folhas
       setTimeout(function(){
         rebuilt.forEach(function(s){
-          try{ updateNums(s.id); updateTotals(s.id); }catch(e){}
+          try{ updateNums(s.id); recalcSheet(s.id); }catch(e){}
         });
       }, 100);
 
@@ -12879,7 +12893,7 @@ function importExcelHandle(input){
       setActive(newSheets[0].id);
       setTimeout(function(){
         newSheets.forEach(function(s){
-          try{ updateNums(s.id); updateTotals(s.id); }catch(e){}
+          try{ updateNums(s.id); recalcSheet(s.id); }catch(e){}
         });
         saveSheets();
       }, 120);
@@ -14047,7 +14061,7 @@ function openProjectFileHandle(input){
 
         setTimeout(function(){
           rebuilt.forEach(function(s){
-            try{ updateNums(s.id); updateTotals(s.id); }catch(e){}
+            try{ updateNums(s.id); recalcSheet(s.id); }catch(e){}
           });
           if(typeof saveSheets === 'function') saveSheets();
         }, 120);
