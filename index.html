@@ -724,6 +724,12 @@ table.mtm tfoot tr.total-row td{
   display:inline-flex;align-items:center;justify-content:center;color:var(--text3);
 }
 .row-del:hover{background:var(--redBg);color:var(--red);border-color:var(--red)}
+.row-ins{
+  width:24px;height:24px;border-radius:5px;border:1px solid transparent;
+  background:transparent;cursor:pointer;font-size:15px;font-weight:700;transition:all .15s;
+  display:inline-flex;align-items:center;justify-content:center;color:var(--text3);margin-right:2px;
+}
+.row-ins:hover{background:var(--greenBg);color:var(--green);border-color:var(--green)}
 
 /* AUTOCOMPLETE */
 .code-wrap{position:relative}
@@ -811,7 +817,7 @@ table.mtm tfoot tr.total-row td{
   table.mtm td{padding:5px 4px}
   .ci{font-size:13px;padding:7px 6px}
   .ci::placeholder{font-size:10px}
-  .row-del{width:32px;height:32px;font-size:16px}
+  .row-del,.row-ins{width:32px;height:32px;font-size:16px}
   .cell-select{font-size:12px;padding:7px 5px}
   .ac-list{
     position:fixed;bottom:72px;left:16px;
@@ -911,7 +917,7 @@ table.mtm tfoot tr.total-row td{
 @media print{
   body{background:#fff;color:#000}
   .toolbar,.tabs-wrapper,.float-nav,.add-row-bar,
-  .row-del,.tab-close,.tab-rename,.tab-add,.modal-overlay{display:none!important}
+  .row-del,.row-ins,.tab-close,.tab-rename,.tab-add,.modal-overlay{display:none!important}
   .folha-content{display:block!important;page-break-after:always;padding:10px}
   .header-card{background:#f8f8f8!important;border-top:3px solid #e07b00!important}
   .f-input{background:transparent!important;border:none!important;color:#000!important}
@@ -1360,7 +1366,7 @@ table.mtm tfoot tr.total-row td{
 @media print{
   body{background:#fff;color:#000}
   .toolbar,.tabs-wrapper,.float-nav,.add-row-bar,
-  .row-del,.tab-close,.tab-rename,.tab-add,.modal-overlay{display:none!important}
+  .row-del,.row-ins,.tab-close,.tab-rename,.tab-add,.modal-overlay{display:none!important}
   .folha-content{display:block!important;page-break-after:always;padding:10px}
   .header-card{background:#f8f8f8!important}
   .header-card::before{display:none}
@@ -5325,6 +5331,32 @@ function addRow(sid,focus=true){
   saveSheets();
 }
 
+// Insere uma NOVA linha vazia IMEDIATAMENTE ACIMA da linha de referência.
+// Permite adicionar uma linha entre quaisquer duas linhas (e também no topo).
+function insertRowAbove(sid, refRid){
+  const s = get(sid);
+  if(!s || !s.rows) return;
+  const idx = s.rows.findIndex(r=>r.id===refRid);
+  if(idx < 0){ return addRow(sid, true); } // fallback: adiciona no fim
+  const rid = 'r_'+sid+'_'+Date.now()+'_'+Math.floor(Math.random()*9999);
+  const novo = {id:rid,desc:'',agrega:'',code:'',tmu:'',q:'',f:'',ttmu:0,tsec:0};
+  s.rows.splice(idx, 0, novo);          // entra ANTES da linha de referência no modelo
+  renderRow(sid, rid, false);           // cria o <tr> (vai para o fim do tbody)
+  // Move o <tr> recém-criado para a posição correta (antes da linha de referência)
+  const tbody = document.getElementById('tb-'+sid);
+  const novoTr = document.getElementById(rid);
+  const refTr  = document.getElementById(refRid);
+  if(tbody && novoTr && refTr){ tbody.insertBefore(novoTr, refTr); }
+  updateNums(sid); updateTotals(sid);
+  if(typeof saveSheets==='function') saveSheets();
+  if(typeof persistNow==='function') persistNow();
+  // Foca a descrição da linha nova para já começar a digitar
+  setTimeout(function(){
+    const el = novoTr && novoTr.querySelector('[data-f="desc"]');
+    if(el) el.focus();
+  }, 30);
+}
+
 function renderRow(sid,rid,focus=false){
   const tbody=document.getElementById('tb-'+sid);
   const s=get(sid); const row=s.rows.find(r=>r.id===rid);
@@ -5346,7 +5378,7 @@ function renderRow(sid,rid,focus=false){
     <td><input class="ci ci-num" placeholder="1" data-f="f" value="${esc(row.f||'')}"></td>
     <td><input class="ci ci-res" readonly data-f="ttmu" value="${row.ttmu||''}"></td>
     <td><input class="ci ci-sec" readonly data-f="tsec" value="${row.tsec||''}"></td>
-    <td><button class="row-del" onclick="delRow('${sid}','${rid}')" title="Excluir">✕</button></td>`;
+    <td style="white-space:nowrap"><button class="row-ins" onclick="insertRowAbove('${sid}','${rid}')" title="Inserir uma linha acima desta">＋</button><button class="row-del" onclick="delRow('${sid}','${rid}')" title="Excluir esta linha">✕</button></td>`;
   tbody.appendChild(tr);
 
   tr.querySelectorAll('[data-f]').forEach(el=>{
