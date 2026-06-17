@@ -15943,39 +15943,126 @@ function balEsc(s){
     inp.value=''; inp.click();
   };
 
+  // sub-workbook contendo APENAS uma aba (reusa o parser existente, sem duplicar lógica)
+  function _subWb(wb, nome){
+    var sh={}; sh[nome]=wb.Sheets[nome];
+    return { SheetNames:[nome], Sheets:sh };
+  }
+
+  // lista as abas do arquivo que realmente contêm uma tabela MTM (Código/TMU/Q/F)
+  function _abasComDados(wb){
+    var out=[];
+    (wb.SheetNames||[]).forEach(function(nome){
+      try{
+        var r=_parseFolhaFromWorkbook(_subWb(wb, nome));
+        if(r && r.rows && r.rows.length) out.push(nome);
+      }catch(e){}
+    });
+    return out;
+  }
+
   function _onArquivoNaFolha(input){
     var file = input.files && input.files[0]; if(!file) return;
     var alvo = null;
     try{ alvo = _alvoFolhaId ? get(_alvoFolhaId) : _folhaAtiva(); }catch(e){ alvo = _folhaAtiva(); }
     if(!alvo){ input.value=''; _alvoFolhaId=null; if(typeof showToast==='function') showToast('Folha de destino não encontrada.', true); return; }
 
+    function _limpar(){ input.value=''; _alvoFolhaId=null; }
+
     var reader = new FileReader();
     reader.onload = function(e){
       try{
-        var wb  = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
-        var src = _parseFolhaFromWorkbook(wb);
-        if(!src || !src.rows.length){
+        var wb   = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+        var abas = _abasComDados(wb);
+
+        if(!abas.length){
           if(typeof showToast==='function') showToast('Não encontrei no Excel uma tabela com colunas Código / TMU / Q / F.', true);
-          input.value=''; _alvoFolhaId=null; return;
+          _limpar(); return;
         }
-        var temLinhas = !!(alvo.rows && alvo.rows.length);
-        // Pergunta clara, com 3 opções nomeadas (Adicionar / Substituir / Cancelar)
-        _perguntarModoImport(alvo.label||'', src.rows.length, temLinhas, function(modo){
-          if(modo === 'cancel'){ input.value=''; _alvoFolhaId=null; return; }
-          _aplicarImportNaFolha(alvo, src, modo === 'add');
-          input.value=''; _alvoFolhaId=null;
-        });
+
+        // depois de definida a aba → pergunta Adicionar/Substituir e aplica SÓ nesta folha
+        function continuarCom(nomeAba){
+          var src = _parseFolhaFromWorkbook(_subWb(wb, nomeAba));
+          if(!src || !src.rows.length){
+            if(typeof showToast==='function') showToast('Essa aba não tem uma tabela válida (Código / TMU / Q / F).', true);
+            _limpar(); return;
+          }
+          var origem    = String(nomeAba).replace(/\s*[·•\-—]\s*(MTM|Geral)\s*$/i,'').trim() || nomeAba;
+          var temLinhas = !!(alvo.rows && alvo.rows.length);
+          _perguntarModoImport(alvo.label||'', src.rows.length, temLinhas, function(modo){
+            if(modo === 'cancel'){ _limpar(); return; }
+            _aplicarImportNaFolha(alvo, src, modo === 'add', origem);
+            _limpar();
+          });
+        }
+
+        if(abas.length === 1){
+          continuarCom(abas[0]);                 // só uma aba com dados → direto
+        }else{
+          // VÁRIAS abas → você escolhe qual vai para ESTA folha (cada folha independente)
+          _escolherAba(abas, alvo.label||'', function(nomeAba){
+            if(!nomeAba){ _limpar(); return; }    // cancelou
+            continuarCom(nomeAba);
+          });
+        }
       }catch(err){
         if(typeof showToast==='function') showToast('Erro ao importar Excel: ' + err.message, true);
-        input.value=''; _alvoFolhaId=null;
+        _limpar();
       }
     };
-    reader.onerror=function(){ if(typeof showToast==='function') showToast('Erro ao ler o arquivo.', true); input.value=''; _alvoFolhaId=null; };
+    reader.onerror=function(){ if(typeof showToast==='function') showToast('Erro ao ler o arquivo.', true); _limpar(); };
     reader.readAsArrayBuffer(file);
   }
 
+  // Janela para escolher QUAL aba do arquivo importar (aparece só quando há mais de uma)
+  function _escolherAba(nomes, folhaLabel, cb){
+    var done=false;
+    function finish(nome){
+      if(done) return; done=true;
+      try{ document.removeEventListener('keydown', onKey, true); }catch(e){}
+      if(ov && ov.parentNode) ov.parentNode.removeChild(ov);
+      cb(nome);
+    }
+    function onKey(ev){ if(ev.key==='Escape'){ ev.preventDefault(); finish(null); } }
+
+    var ov=document.createElement('div'); ov.className='modal-overlay'; ov.id='xlsx-aba-modal';
+    var card=document.createElement('div'); card.className='modal';
+    card.style.width='480px'; card.style.maxWidth='calc(100vw - 24px)';
+
+    var h=document.createElement('h3'); h.style.marginBottom='10px';
+    h.textContent='📑 Qual aba do Excel importar para “'+(folhaLabel||'')+'”?';
+
+    var p=document.createElement('p');
+    p.style.cssText='color:var(--text2);font-size:13px;line-height:1.55;margin-bottom:16px';
+    p.textContent='Este arquivo tem '+nomes.length+' abas com dados. Escolha qual vai para esta folha — cada folha pode receber uma aba diferente, de forma independente.';
+
+    var list=document.createElement('div');
+    list.style.cssText='display:flex;flex-direction:column;gap:8px;max-height:48vh;overflow:auto;margin-bottom:16px';
+    nomes.forEach(function(nm){
+      var b=document.createElement('button');
+      b.className='btn btn-ghost';
+      b.style.cssText='justify-content:flex-start;text-align:left;white-space:normal;font-weight:600';
+      var limpo=String(nm).replace(/\s*[·•\-—]\s*(MTM|Geral)\s*$/i,'').trim() || nm;
+      b.textContent='📄 '+limpo;
+      b.addEventListener('click', function(){ finish(nm); });
+      list.appendChild(b);
+    });
+
+    var actions=document.createElement('div'); actions.className='modal-actions';
+    var cancel=document.createElement('button'); cancel.className='btn btn-ghost';
+    cancel.textContent='Cancelar';
+    cancel.addEventListener('click', function(){ finish(null); });
+    actions.appendChild(cancel);
+
+    card.appendChild(h); card.appendChild(p); card.appendChild(list); card.appendChild(actions);
+    ov.appendChild(card);
+    ov.addEventListener('click', function(ev){ if(ev.target===ov) finish(null); });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(ov);
+  }
+
   // aplica os dados do Excel na folha (adicionar = mantém as linhas atuais)
-  function _aplicarImportNaFolha(alvo, src, adicionar){
+  function _aplicarImportNaFolha(alvo, src, adicionar, origem){
     var novas = src.rows.map(function(r,i){
       return {
         id:'r_imp_'+Date.now()+'_'+i+'_'+Math.floor(Math.random()*99999),
@@ -16014,8 +16101,10 @@ function balEsc(s){
 
     if(typeof saveSheets==='function') saveSheets();
     if(typeof persistNow==='function') persistNow();
-    if(typeof showToast==='function')
-      showToast('✅ ' + novas.length + ' linha(s) ' + (adicionar?'adicionadas a':'importadas para') + ' "' + (alvo.label||'') + '". As outras folhas continuam intactas.');
+    if(typeof showToast==='function'){
+      var _de = origem ? (' (aba “'+origem+'”)') : '';
+      showToast('✅ ' + novas.length + ' linha(s) ' + (adicionar?'adicionadas a':'importadas para') + ' "' + (alvo.label||'') + '"' + _de + '. As outras folhas continuam intactas.');
+    }
   }
 
   // Janela com 3 botões nomeados — substitui o confirm() OK/Cancelar
