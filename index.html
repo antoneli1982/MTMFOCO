@@ -3164,6 +3164,12 @@ window.FIREBASE_CONFIG = {
     <button class="btn btn-ghost" onclick="importExcelPrompt()" title="Importar planilha Excel (.xlsx)" style="background:rgba(0,229,160,.08);color:var(--green);border-color:rgba(0,229,160,.3)">📥<span class="btn-lbl"> Excel</span></button>
     <button class="btn btn-ghost" onclick="exportExcel()" title="Exportar todas as folhas para Excel (.xlsx)" style="background:rgba(0,229,160,.08);color:var(--green);border-color:rgba(0,229,160,.3)">📤<span class="btn-lbl"> Excel</span></button>
     <input type="file" id="xlsx-import-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="importExcelHandle(this)">
+    <!-- separador visual -->
+    <div class="tb-divider" style="width:1px;height:26px;background:var(--border2);margin:0 4px;flex-shrink:0"></div>
+    <!-- IMPORTAR / EXPORTAR POR FOLHA (individual) -->
+    <button class="btn btn-ghost" onclick="exportFolhaAtual()" title="Exportar SOMENTE esta folha para um arquivo (.folha.json)" style="background:var(--blueBg);color:var(--blue);border-color:rgba(79,142,247,.4)">📤<span class="btn-lbl"> Exportar Folha</span></button>
+    <button class="btn btn-ghost" onclick="importarFolhaPrompt()" title="Importar um arquivo de folha PARA esta folha (substitui o conteúdo da folha aberta)" style="background:var(--blueBg);color:var(--blue);border-color:rgba(79,142,247,.4)">📥<span class="btn-lbl"> Importar Folha</span></button>
+    <input type="file" id="folha-file-input" accept=".folha,.json,.folha.json,.mtm,.mtm.json,application/json" style="display:none" onchange="importarFolhaHandle(this)">
     <button class="btn btn-green" onclick="exportPDF()" title="Gerar PDF">⬇<span class="btn-lbl"> PDF</span></button>
     <!-- FB-MTM · slot do usuário Firebase -->
     <div class="fb-user-slot" id="fb-user-slot"></div>
@@ -15489,6 +15495,165 @@ function balEsc(s){
     var el = ev.target;
     if(el && el.getAttribute && el.getAttribute('data-f')) persistNow();
   }, true);
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     IMPORTAR / EXPORTAR POR FOLHA (individual)
+     • exportFolhaAtual(): salva SOMENTE a folha aberta num arquivo
+       .folha.json (formato MTM_SHEET).
+     • importarFolhaPrompt()/Handle(): carrega o conteúdo de um arquivo
+       de folha DENTRO da folha que está aberta (substitui o conteúdo
+       dela) — em vez de criar novas folhas. Assim os dados importados
+       aparecem na própria folha em que você está.
+     Bloco isolado: reaproveita as funções já existentes da ferramenta.
+     ══════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  // Garante que Livro/Fadiga abertos gravem seu estado na folha ativa
+  function _flushOverlays(){
+    try{
+      var bookOv = document.getElementById('book-overlay');
+      if(bookOv && !bookOv.classList.contains('hidden') && typeof bookPersistNow === 'function') bookPersistNow();
+    }catch(e){}
+    try{
+      var fadOv = document.getElementById('fad-overlay');
+      if(fadOv && !fadOv.classList.contains('hidden') && typeof activeId !== 'undefined' && activeId && typeof fadColetarEstado === 'function'){
+        var sA = get(activeId);
+        if(sA) sA.fadiga = fadColetarEstado();
+      }
+    }catch(e){}
+  }
+
+  function _sheetSerialize(s){
+    if(typeof _serializeSheet === 'function') return _serializeSheet(s);
+    return { id:s.id, label:s.label, header:s.header||{}, book:s.book||'', fadiga:s.fadiga||null, rows:s.rows||[] };
+  }
+
+  function _folhaAtiva(){
+    if(typeof activeId === 'undefined' || !activeId) return null;
+    try{ return get(activeId) || null; }catch(e){ return null; }
+  }
+
+  // ── EXPORTAR a folha ativa ──────────────────────────────────
+  window.exportFolhaAtual = function(){
+    try{
+      var s = _folhaAtiva();
+      if(!s){ if(typeof showToast==='function') showToast('Abra uma folha primeiro.', true); return; }
+      _flushOverlays();
+      var fileObj = {
+        format:    'MTM_SHEET',
+        version:   1,
+        app:       'Folha de Processo MTM',
+        createdAt: new Date().toISOString(),
+        empresa:   (s.header && s.header.empresa) || '',
+        projeto:   (s.header && s.header.projeto) || '',
+        sheet:     _sheetSerialize(s)
+      };
+      var base = [ (s.header&&s.header.empresa)||'', s.label||'Folha' ].filter(Boolean).join('_');
+      base = String(base).trim().replace(/[\\\/\?\*\[\]\:"<>\|]/g,'_').substring(0,55) || 'Folha';
+      var fname = base + '_' + new Date().toISOString().slice(0,10) + '.folha.json';
+
+      var blob = new Blob([JSON.stringify(fileObj,null,2)], {type:'application/json;charset=utf-8'});
+      var url  = URL.createObjectURL(blob);
+      var a    = document.createElement('a');
+      a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click();
+      setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+      if(typeof showToast==='function') showToast('✅ Folha "' + (s.label||'') + '" exportada → ' + fname);
+    }catch(e){
+      if(typeof showToast==='function') showToast('Erro ao exportar folha: ' + e.message, true);
+    }
+  };
+
+  // ── IMPORTAR para a folha ativa ─────────────────────────────
+  window.importarFolhaPrompt = function(){
+    if(!_folhaAtiva()){ if(typeof showToast==='function') showToast('Abra uma folha primeiro para importar dentro dela.', true); return; }
+    var inp = document.getElementById('folha-file-input');
+    if(!inp){ if(typeof showToast==='function') showToast('Campo de upload não encontrado.', true); return; }
+    inp.value=''; inp.click();
+  };
+
+  window.importarFolhaHandle = function(input){
+    var file = input.files && input.files[0];
+    if(!file) return;
+    var dest = _folhaAtiva();
+    if(!dest){ input.value=''; if(typeof showToast==='function') showToast('Folha de destino não encontrada.', true); return; }
+
+    var reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        var obj = JSON.parse(e.target.result);
+        // Extrai UMA folha de qualquer formato suportado
+        var src = null, nFolhas = 1;
+        if(obj && obj.format === 'MTM_SHEET' && obj.sheet){
+          src = obj.sheet; nFolhas = 1;
+        } else if(obj && obj.format === 'MTM_FILE' && Array.isArray(obj.sheets) && obj.sheets.length){
+          src = obj.sheets[0]; nFolhas = obj.sheets.length;
+        } else if(Array.isArray(obj) && obj.length){
+          src = obj[0]; nFolhas = obj.length;
+        } else if(obj && obj.rows){
+          src = obj; nFolhas = 1;
+        }
+        if(!src){
+          if(typeof showToast==='function') showToast('Arquivo não contém uma folha válida.', true);
+          input.value=''; return;
+        }
+
+        var aviso = nFolhas > 1
+          ? '\n\nObs.: o arquivo tem ' + nFolhas + ' folhas — apenas a 1ª será importada para esta folha.'
+          : '';
+        if(!confirm('Importar os dados do arquivo PARA a folha atual "' + (dest.label||'') + '"?\n\nO conteúdo atual desta folha (linhas, cabeçalho, livro e fadiga) será SUBSTITUÍDO pelos dados do arquivo.' + aviso)){
+          input.value=''; return;
+        }
+
+        // Reconstrói as linhas com ids novos
+        var rows = Array.isArray(src.rows) ? src.rows.map(function(r, ri){
+          return {
+            id:   'r_imp_' + Date.now() + '_' + ri,
+            desc: String(r.desc||''),
+            agrega: String(r.agrega||''),
+            code: String(r.code||''),
+            tmu:  (r.tmu==null?'':String(r.tmu)),
+            q:    (r.q==null?'':String(r.q)),
+            f:    (r.f==null?'':String(r.f)),
+            ttmu: parseFloat(r.ttmu)||0,
+            tsec: parseFloat(r.tsec)||0
+          };
+        }) : [];
+
+        // Aplica na folha de destino — mantém o ID e o NOME da aba atual
+        dest.header = (src.header && typeof src.header === 'object') ? src.header : {};
+        dest.book   = String(src.book||'');
+        dest.fadiga = (src.fadiga && typeof src.fadiga === 'object') ? src.fadiga : null;
+        dest.rows   = rows;
+
+        // Re-renderiza a folha atual com o novo conteúdo
+        var el = document.getElementById('c-'+dest.id);
+        if(el) el.remove();
+        if(typeof renderContent === 'function') renderContent(dest.id);
+        if(typeof updateNums === 'function') updateNums(dest.id);
+        if(typeof recalcSheet === 'function') recalcSheet(dest.id);
+        if(typeof updateTotals === 'function') updateTotals(dest.id);
+        // Garante a folha visível/ativa
+        var card = document.getElementById('c-'+dest.id);
+        if(card){
+          document.querySelectorAll('.folha-content').forEach(function(x){ x.classList.remove('active'); });
+          card.classList.add('active');
+        }
+
+        if(typeof saveSheets === 'function') saveSheets();
+        if(typeof persistNow === 'function') persistNow();
+
+        if(typeof showToast==='function') showToast('✅ Dados importados para a folha "' + (dest.label||'') + '" (' + rows.length + ' linha(s)).');
+      }catch(err){
+        if(typeof showToast==='function') showToast('Erro ao importar folha: ' + err.message, true);
+      }finally{
+        input.value='';
+      }
+    };
+    reader.readAsText(file);
+  };
 })();
 </script>
 
