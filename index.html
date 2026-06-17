@@ -9665,49 +9665,7 @@ function openFolderPage(fid){
     + '</div>'
     + '</div>';
 
-  // VA/NVA apenas se tiver dados
-  if(totalAg > 0){
-    var vaP = pct(totalVA), nvaP = pct(totalNVA), nnvaP = pct(totalNNVA), uncP = pct(totalUnc);
-    html += ''
-      + '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:18px;margin-bottom:18px">'
-      + '<div style="font-size:13px;font-weight:800;color:var(--text);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">🎯 Análise VA / NVA / NNVA Agregada</div>'
-      + '<div style="height:28px;display:flex;border-radius:8px;overflow:hidden;border:1px solid var(--border2);margin-bottom:12px">'
-      + (vaP>0?'<div style="width:'+vaP+'%;background:var(--green);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700">'+(vaP>6?'VA '+vaP+'%':'')+'</div>':'')
-      + (nnvaP>0?'<div style="width:'+nnvaP+'%;background:var(--orange);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700">'+(nnvaP>6?'NNVA '+nnvaP+'%':'')+'</div>':'')
-      + (nvaP>0?'<div style="width:'+nvaP+'%;background:var(--red);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700">'+(nvaP>6?'NVA '+nvaP+'%':'')+'</div>':'')
-      + (uncP>0?'<div style="width:'+uncP+'%;background:var(--text3);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700">'+(uncP>6?'? '+uncP+'%':'')+'</div>':'')
-      + '</div>'
-      + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;font-size:11px">'
-      + '<div style="color:var(--green)">🟢 VA: <strong>'+(totalVA*0.036).toFixed(1)+'s ('+vaP+'%)</strong></div>'
-      + '<div style="color:var(--orange)">🟡 NNVA: <strong>'+(totalNNVA*0.036).toFixed(1)+'s ('+nnvaP+'%)</strong></div>'
-      + '<div style="color:var(--red)">🔴 NVA: <strong>'+(totalNVA*0.036).toFixed(1)+'s ('+nvaP+'%)</strong></div>'
-      + (totalUnc>0?'<div style="color:var(--text3)">⚪ Sem class.: <strong>'+(totalUnc*0.036).toFixed(1)+'s</strong></div>':'')
-      + '</div>'
-      + '</div>';
-  }
-
-  // Top 10 códigos
-  if(topCodes.length){
-    var maxFreq = topCodes[0][1];
-    html += ''
-      + '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:18px;margin-bottom:18px">'
-      + '<div style="font-size:13px;font-weight:800;color:var(--text);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">📈 Top 10 Códigos MTM Mais Utilizados</div>';
-    topCodes.forEach(function(pair){
-      var code = pair[0], count = pair[1];
-      var info = typeof MATRIZ !== 'undefined' && MATRIZ[code] ? MATRIZ[code] : null;
-      var desc = info ? info.desc : '';
-      var w = (count/maxFreq*100).toFixed(1);
-      html += ''
-        + '<div style="margin-bottom:8px">'
-        + '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">'
-        + '<span><strong style="color:var(--accent);font-family:JetBrains Mono,monospace">' + dbEsc(code) + '</strong> <span style="color:var(--text2)">· ' + dbEsc(desc) + '</span></span>'
-        + '<span style="color:var(--text);font-weight:700">' + count + 'x</span>'
-        + '</div>'
-        + '<div style="height:6px;background:var(--surface3);border-radius:3px;overflow:hidden"><div style="height:100%;width:' + w + '%;background:var(--accentGrad)"></div></div>'
-        + '</div>';
-    });
-    html += '</div>';
-  }
+  // (Painéis "Análise VA/NVA/NNVA Agregada" e "Top 10 Códigos MTM" removidos da pasta — não agregavam.)
 
   // Lista de projetos com botões "+ Novo Projeto" e "📂 Abrir Projeto"
   html += ''
