@@ -5019,6 +5019,7 @@ function renderContent(id){
         <div class="folha-title-row">
           <span class="folha-title">${esc(s.label)}</span>
           <span class="badge">MTM</span>
+          <button class="btn btn-ghost folha-import-btn" onclick="importExcelParaFolha('${id}')" title="Importar um Excel (.xlsx/.xls/.csv) PARA esta folha. Adiciona as linhas aqui e NÃO mexe nas outras folhas." style="margin-left:auto;background:rgba(0,229,160,.10);color:var(--green);border-color:rgba(0,229,160,.45);font-size:11px;font-weight:700;padding:5px 11px;white-space:nowrap">📥<span class="btn-lbl"> Importar Excel nesta folha</span></button>
         </div>
       </div>
       <div class="f-group half-row" style="background:var(--orangeBg);border-left:3px solid var(--orange);padding:6px 10px;border-radius:6px">
@@ -15904,6 +15905,157 @@ function balEsc(s){
     reader.onerror=function(){ if(typeof showToast==='function') showToast('Erro ao ler o arquivo.', true); input.value=''; };
     reader.readAsArrayBuffer(file);
   };
+
+  // ════════════════════════════════════════════════════════════
+  // IMPORTAR EXCEL **DENTRO** DE UMA FOLHA ESPECÍFICA
+  // Chamado pelo botão "📥 Importar Excel nesta folha" que fica
+  // dentro de cada folha. Adiciona (ou substitui) as linhas APENAS
+  // na folha de destino — as outras folhas NUNCA são alteradas.
+  // ════════════════════════════════════════════════════════════
+  var _alvoFolhaId = null;
+
+  // input de arquivo dedicado (criado uma única vez)
+  function _inputNaFolha(){
+    var inp = document.getElementById('xlsx-into-folha-input');
+    if(!inp){
+      inp = document.createElement('input');
+      inp.type = 'file';
+      inp.id = 'xlsx-into-folha-input';
+      inp.accept = '.xlsx,.xls,.csv';
+      inp.style.display = 'none';
+      inp.addEventListener('change', function(){ _onArquivoNaFolha(this); });
+      document.body.appendChild(inp);
+    }
+    return inp;
+  }
+
+  // chamado pelo botão dentro da folha (recebe o id da folha)
+  window.importExcelParaFolha = function(folhaId){
+    if(typeof XLSX === 'undefined'){
+      if(typeof showToast==='function') showToast('Biblioteca XLSX ainda não carregou. Aguarde a página terminar de abrir.', true);
+      return;
+    }
+    var alvo = null;
+    try{ alvo = folhaId ? get(folhaId) : _folhaAtiva(); }catch(e){ alvo = _folhaAtiva(); }
+    if(!alvo){ if(typeof showToast==='function') showToast('Folha de destino não encontrada.', true); return; }
+    _alvoFolhaId = alvo.id;
+    var inp = _inputNaFolha();
+    inp.value=''; inp.click();
+  };
+
+  function _onArquivoNaFolha(input){
+    var file = input.files && input.files[0]; if(!file) return;
+    var alvo = null;
+    try{ alvo = _alvoFolhaId ? get(_alvoFolhaId) : _folhaAtiva(); }catch(e){ alvo = _folhaAtiva(); }
+    if(!alvo){ input.value=''; _alvoFolhaId=null; if(typeof showToast==='function') showToast('Folha de destino não encontrada.', true); return; }
+
+    var reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        var wb  = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+        var src = _parseFolhaFromWorkbook(wb);
+        if(!src || !src.rows.length){
+          if(typeof showToast==='function') showToast('Não encontrei no Excel uma tabela com colunas Código / TMU / Q / F.', true);
+          input.value=''; _alvoFolhaId=null; return;
+        }
+        var temLinhas = !!(alvo.rows && alvo.rows.length);
+        // Pergunta clara, com 3 opções nomeadas (Adicionar / Substituir / Cancelar)
+        _perguntarModoImport(alvo.label||'', src.rows.length, temLinhas, function(modo){
+          if(modo === 'cancel'){ input.value=''; _alvoFolhaId=null; return; }
+          _aplicarImportNaFolha(alvo, src, modo === 'add');
+          input.value=''; _alvoFolhaId=null;
+        });
+      }catch(err){
+        if(typeof showToast==='function') showToast('Erro ao importar Excel: ' + err.message, true);
+        input.value=''; _alvoFolhaId=null;
+      }
+    };
+    reader.onerror=function(){ if(typeof showToast==='function') showToast('Erro ao ler o arquivo.', true); input.value=''; _alvoFolhaId=null; };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // aplica os dados do Excel na folha (adicionar = mantém as linhas atuais)
+  function _aplicarImportNaFolha(alvo, src, adicionar){
+    var novas = src.rows.map(function(r,i){
+      return {
+        id:'r_imp_'+Date.now()+'_'+i+'_'+Math.floor(Math.random()*99999),
+        desc:String(r.desc||''), agrega:String(r.agrega||''), code:String(r.code||''),
+        tmu:(r.tmu==null?'':String(r.tmu)), q:(r.q==null?'':String(r.q)), f:(r.f==null?'':String(r.f)),
+        ttmu:parseFloat(r.ttmu)||0, tsec:parseFloat(r.tsec)||0
+      };
+    });
+
+    alvo.header = alvo.header || {};
+    if(adicionar){
+      // ADICIONA as novas linhas mantendo as existentes
+      alvo.rows = (alvo.rows||[]).concat(novas);
+      // header: só preenche campos que ainda estão vazios
+      for(var k in (src.header||{})){
+        if(alvo.header[k]===undefined || alvo.header[k]==='') alvo.header[k]=src.header[k];
+      }
+    }else{
+      // SUBSTITUI apenas as linhas desta folha; header recebe o que veio do arquivo
+      alvo.rows = novas;
+      for(var k2 in (src.header||{})) alvo.header[k2]=src.header[k2];
+      if(src.book) alvo.book = src.book;
+    }
+
+    // re-renderiza SOMENTE esta folha — nunca remove ou recria as outras
+    var el=document.getElementById('c-'+alvo.id); if(el) el.remove();
+    if(typeof renderContent==='function') renderContent(alvo.id);
+    if(typeof updateNums==='function')    updateNums(alvo.id);
+    if(typeof recalcSheet==='function')   recalcSheet(alvo.id);
+    if(typeof updateTotals==='function')  updateTotals(alvo.id);
+    var card=document.getElementById('c-'+alvo.id);
+    if(card){
+      document.querySelectorAll('.folha-content').forEach(function(x){ x.classList.remove('active'); });
+      card.classList.add('active');
+    }
+
+    if(typeof saveSheets==='function') saveSheets();
+    if(typeof persistNow==='function') persistNow();
+    if(typeof showToast==='function')
+      showToast('✅ ' + novas.length + ' linha(s) ' + (adicionar?'adicionadas a':'importadas para') + ' "' + (alvo.label||'') + '". As outras folhas continuam intactas.');
+  }
+
+  // Janela com 3 botões nomeados — substitui o confirm() OK/Cancelar
+  function _perguntarModoImport(label, nLinhas, temLinhas, cb){
+    var done=false;
+    function finish(modo){
+      if(done) return; done=true;
+      try{ document.removeEventListener('keydown', onKey, true); }catch(e){}
+      if(ov && ov.parentNode) ov.parentNode.removeChild(ov);
+      cb(modo);
+    }
+    function onKey(ev){ if(ev.key==='Escape'){ ev.preventDefault(); finish('cancel'); } }
+
+    var info = temLinhas
+      ? 'Esta folha já tem linhas. Escolha se quer <b style="color:var(--green)">juntar</b> as novas ou <b style="color:var(--red)">trocar</b> pelo conteúdo do arquivo.'
+      : 'Esta folha está vazia, então as linhas do arquivo serão carregadas nela.';
+
+    var ov=document.createElement('div');
+    ov.className='modal-overlay';
+    ov.id='xlsx-folha-modal';
+    ov.innerHTML =
+      '<div class="modal" style="width:460px;max-width:calc(100vw - 24px)">'
+      + '<h3 style="margin-bottom:12px">📥 Importar Excel para “' + esc(label) + '”</h3>'
+      + '<p style="color:var(--text2);font-size:13px;line-height:1.55;margin-bottom:8px">Encontrei <b style="color:var(--text)">' + nLinhas + ' linha(s)</b> no arquivo. ' + info + '</p>'
+      + '<p style="color:var(--text3);font-size:12px;line-height:1.5;margin-bottom:20px">Em qualquer opção, <b>as demais folhas não são alteradas</b>.</p>'
+      + '<div class="modal-actions" style="flex-wrap:wrap;gap:8px">'
+      +   '<button class="btn btn-ghost" data-act="cancel">Cancelar</button>'
+      +   '<button class="btn btn-danger" data-act="replace" title="Apaga as linhas atuais desta folha e coloca as do arquivo">🔁 Substituir conteúdo</button>'
+      +   '<button class="btn btn-green" data-act="add" title="Mantém as linhas atuais e adiciona as do arquivo no final">➕ Adicionar ao final</button>'
+      + '</div>'
+      + '</div>';
+
+    ov.addEventListener('click', function(ev){
+      if(ev.target===ov){ finish('cancel'); return; }   // clicou fora do cartão
+      var b = ev.target.closest && ev.target.closest('button[data-act]');
+      if(b) finish(b.getAttribute('data-act'));
+    });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(ov);
+  }
 })();
 </script>
 
