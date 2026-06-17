@@ -8904,12 +8904,33 @@ function dbCreateProject(){
   var idx = pmData[FLAT_KEY].projects.length - 1;
   pmFolderId = FLAT_KEY;
   pmProjectIdx = idx;
+  // Define o ESCOPO do projeto ANTES de criar a folha: o editor passa a mostrar
+  // SOMENTE as folhas deste novo projeto (não herda "Folha 4" nem folhas de outros projetos).
+  if(typeof setActiveProjectCtx === 'function') setActiveProjectCtx(FLAT_KEY, idx);
   var sid = addSheet(true);
   pmData[FLAT_KEY].projects[idx].sheets.push(sid);
+  // Primeira folha do projeto = "FOLHA 1", sem descrições, mantendo Empresa/Cliente e Projeto.
+  var novaFolha = sheets.find(function(s){ return s.id === sid; });
+  if(novaFolha){
+    novaFolha.label = 'FOLHA 1';
+    novaFolha.header = novaFolha.header || {};
+    novaFolha.header.empresa = client;
+    novaFolha.header.projeto = name;
+    if(typeof saveSheets === 'function') saveSheets();
+  }
   pmSave();
   setTimeout(function(){
+    if(typeof renderTabs === 'function') renderTabs();
     if(typeof setActive === 'function') setActive(sid);
     if(!document.getElementById('c-' + sid) && typeof renderContent === 'function') renderContent(sid);
+    // Garante que Empresa/Cliente e Projeto apareçam preenchidos nos inputs da folha
+    var card = document.getElementById('c-' + sid);
+    if(card && novaFolha){
+      var inpE = card.querySelector('input[data-key="empresa"]');
+      if(inpE && novaFolha.header.empresa) inpE.value = novaFolha.header.empresa;
+      var inpP = card.querySelector('input[data-key="projeto"]');
+      if(inpP && novaFolha.header.projeto) inpP.value = novaFolha.header.projeto;
+    }
     window.scrollTo({top:0, behavior:'smooth'});
   }, 80);
 }
@@ -9166,10 +9187,14 @@ function dbNewProjectInFolder(fid){
   hideDashboard();
   pmFolderId = fid;
   pmProjectIdx = pmData[fid].projects.length - 1;
+  // Define o ESCOPO do projeto ANTES de criar a folha: o editor passa a mostrar
+  // SOMENTE as folhas deste novo projeto (não herda folhas de outros projetos).
+  if(typeof setActiveProjectCtx === 'function') setActiveProjectCtx(fid, pmProjectIdx);
   var sid = addSheet(true);
-  // Auto-preencher Empresa e Projeto no header da nova folha
+  // Auto-preencher Empresa e Projeto no header da nova folha (= "FOLHA 1", sem descrições)
   var novaFolha = sheets.find(function(s){ return s.id === sid; });
   if(novaFolha){
+    novaFolha.label = 'FOLHA 1';
     novaFolha.header = novaFolha.header || {};
     novaFolha.header.empresa = pmData[fid].name;
     novaFolha.header.projeto = name;
@@ -13511,6 +13536,90 @@ function importExcelHandle(input){
                 tsec: parseFloat(rru[7])||0
               });
             }
+          }
+          return;
+        }
+
+        /* === NOVO FORMATO: Folha de Processo MTM "externa"/genérica ===
+           Detecta uma tabela cujo cabeçalho contenha as colunas Código + TMU + Q + F
+           (ex.: "N° | Descrição do elemento | Agrega | Código | TMU | Q | F | Total TMU | Total (s)")
+           — independente da posição das colunas — e importa SOMENTE as linhas que
+           possuem um código MTM válido (ignora bandas de seção, subtotais e resultados). */
+        var xH=-1, xCode=-1, xTmu=-1, xQ=-1, xF=-1, xDesc=-1, xAgr=-1, xTtmu=-1, xTsec=-1;
+        for(var xr=0; xr<aoa.length && xH<0; xr++){
+          var xrow = aoa[xr]||[];
+          var c_code=-1,c_tmu=-1,c_q=-1,c_f=-1,c_desc=-1,c_agr=-1,c_ttmu=-1,c_tsec=-1;
+          for(var xc=0; xc<xrow.length; xc++){
+            var xt = String(xrow[xc]==null?'':xrow[xc]).trim().toLowerCase();
+            if(!xt) continue;
+            if(c_code<0 && (xt==='código'||xt==='codigo')) c_code=xc;
+            if(c_tmu<0 && xt==='tmu') c_tmu=xc;
+            if(c_q<0 && xt==='q') c_q=xc;
+            if(c_f<0 && xt==='f') c_f=xc;
+            if(c_desc<0 && (xt.indexOf('descri')>=0 || xt.indexOf('elemento')>=0)) c_desc=xc;
+            if(c_agr<0 && xt.indexOf('agrega')>=0) c_agr=xc;
+            if(c_ttmu<0 && xt.indexOf('total tmu')>=0) c_ttmu=xc;
+            if(c_tsec<0 && (xt.indexOf('total (s)')>=0 || xt==='total s' || xt.indexOf('total (seg')>=0)) c_tsec=xc;
+          }
+          // exige Código + TMU + Q + F juntos (exclui a aba "Referência MTM", que não tem Q/F)
+          if(c_code>=0 && c_tmu>=0 && c_q>=0 && c_f>=0){
+            xH=xr; xCode=c_code; xTmu=c_tmu; xQ=c_q; xF=c_f;
+            xDesc=c_desc; xAgr=c_agr; xTtmu=c_ttmu; xTsec=c_tsec;
+          }
+        }
+        if(xH >= 0){
+          // metadados acima do cabeçalho (Operação→processo, Seção→planta)
+          var xMetaProc='', xMetaPlanta='';
+          for(var xm=0; xm<xH; xm++){
+            var xmr = aoa[xm]||[];
+            for(var xmc=0; xmc<xmr.length-1; xmc++){
+              var xk = String(xmr[xmc]==null?'':xmr[xmc]).trim().toLowerCase().replace(/[:：]\s*$/,'');
+              var xv = xmr[xmc+1];
+              if(!xk || xv===''||xv==null) continue;
+              if((xk==='operação'||xk==='operacao') && !xMetaProc) xMetaProc=String(xv).trim();
+              else if((xk==='seção'||xk==='secao') && !xMetaPlanta) xMetaPlanta=String(xv).trim();
+            }
+          }
+          // rótulo: usa a Operação quando a aba tem nome genérico
+          var xLabel = labelBase || sheetName;
+          if((/^folha de processo/i.test(xLabel) || !xLabel) && xMetaProc){
+            xLabel = xMetaProc.length>40 ? (xMetaProc.slice(0,40)+'…') : xMetaProc;
+          }
+          var xFolha = getOrCreate(xLabel);
+          if(xMetaProc   && !xFolha.header.processo) xFolha.header.processo = xMetaProc;
+          if(xMetaPlanta && !xFolha.header.planta)   xFolha.header.planta   = xMetaPlanta;
+
+          // código MTM: 1-4 letras + dígitos opcionais + sufixo opcional com hífen (ex.: KB, HUGA, AA1, M-SHS)
+          var xCodeRe = /^[A-Za-z]{1,4}\d{0,3}(-[A-Za-z0-9]{1,4})*$/;
+          var xIsCode = function(v){
+            var s = String(v==null?'':v).trim();
+            if(!s || s.length>12 || /\s/.test(s)) return false;   // bandas/subtotais têm espaços
+            if(/^\d+([.,]\d+)?$/.test(s)) return false;            // descarta números puros
+            return xCodeRe.test(s);
+          };
+
+          for(var xrr=xH+1; xrr<aoa.length; xrr++){
+            var xdr = aoa[xrr]||[];
+            var xcv = xdr[xCode];
+            if(!xIsCode(xcv)) continue;                            // <- apenas onde existe código
+            var xtmu = parseFloat(String(xdr[xTmu]).replace(',','.'));
+            var xq   = parseFloat(String(xdr[xQ]).replace(',','.')); if(isNaN(xq)) xq=1;
+            var xf   = parseFloat(String(xdr[xF]).replace(',','.')); if(isNaN(xf)) xf=1;
+            var xtt  = (xTtmu>=0 ? parseFloat(String(xdr[xTtmu]).replace(',','.')) : NaN);
+            if(isNaN(xtt)) xtt = (isNaN(xtmu)?0:xtmu)*xq*xf;
+            var xts  = (xTsec>=0 ? parseFloat(String(xdr[xTsec]).replace(',','.')) : NaN);
+            if(isNaN(xts)) xts = xtt*0.036;                        // 1 TMU = 0,036 s
+            xFolha.rows.push({
+              id: 'r_imp_'+Date.now()+'_'+Math.floor(Math.random()*99999)+'_'+xrr,
+              desc:   String(xDesc>=0 ? (xdr[xDesc]==null?'':xdr[xDesc]) : ''),
+              agrega: String(xAgr >=0 ? (xdr[xAgr] ==null?'':xdr[xAgr])  : ''),
+              code:   String(xcv).trim(),
+              tmu:    isNaN(xtmu)?'':String(xtmu),
+              q:      String(xq),
+              f:      String(xf),
+              ttmu:   xtt||0,
+              tsec:   xts||0
+            });
           }
           return;
         }
