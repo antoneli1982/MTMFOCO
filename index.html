@@ -3170,6 +3170,9 @@ window.FIREBASE_CONFIG = {
     <button class="btn btn-ghost" onclick="exportFolhaAtual()" title="Exportar SOMENTE esta folha para um arquivo (.folha.json)" style="background:var(--blueBg);color:var(--blue);border-color:rgba(79,142,247,.4)">📤<span class="btn-lbl"> Exportar Folha</span></button>
     <button class="btn btn-ghost" onclick="importarFolhaPrompt()" title="Importar um arquivo de folha PARA esta folha (substitui o conteúdo da folha aberta)" style="background:var(--blueBg);color:var(--blue);border-color:rgba(79,142,247,.4)">📥<span class="btn-lbl"> Importar Folha</span></button>
     <input type="file" id="folha-file-input" accept=".folha,.json,.folha.json,.mtm,.mtm.json,application/json" style="display:none" onchange="importarFolhaHandle(this)">
+    <button class="btn btn-ghost" onclick="exportFolhaExcelAtual()" title="Exportar SOMENTE esta folha para Excel (.xlsx)" style="background:rgba(0,229,160,.08);color:var(--green);border-color:rgba(0,229,160,.4)">📊<span class="btn-lbl"> Folha→Excel</span></button>
+    <button class="btn btn-ghost" onclick="importarFolhaExcelPrompt()" title="Importar um Excel (.xlsx) PARA esta folha (substitui o conteúdo da folha aberta)" style="background:rgba(0,229,160,.08);color:var(--green);border-color:rgba(0,229,160,.4)">📊<span class="btn-lbl"> Excel→Folha</span></button>
+    <input type="file" id="folha-xlsx-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="importarFolhaExcelHandle(this)">
     <button class="btn btn-green" onclick="exportPDF()" title="Gerar PDF">⬇<span class="btn-lbl"> PDF</span></button>
     <!-- FB-MTM · slot do usuário Firebase -->
     <div class="fb-user-slot" id="fb-user-slot"></div>
@@ -12868,12 +12871,13 @@ function _xlSafeSheetName(name, taken){
   return clean;
 }
 
-function exportExcel(){
+function exportExcel(only){
   if(typeof XLSX === 'undefined'){
     showToast('Biblioteca XLSX ainda não carregou. Aguarde a página terminar de abrir.', true);
     return;
   }
-  var _xs = (typeof scopedSheets==='function')?scopedSheets():sheets;
+  // Se "only" for um array de folhas, exporta SOMENTE elas (usado para exportar por folha).
+  var _xs = (Array.isArray(only) && only.length) ? only : ((typeof scopedSheets==='function')?scopedSheets():sheets);
   if(!_xs.length){
     showToast('Nenhuma folha para exportar.', true);
     return;
@@ -13244,9 +13248,15 @@ function exportExcel(){
 
     /* ─── 3) Salvar ─── */
     var stamp = new Date().toISOString().slice(0,10);
-    var fname = 'MTM_Folhas_' + stamp + '.xlsx';
+    var _solo = (_xs.length === 1) ? _xs[0] : null;
+    var _fnbase = _solo
+      ? ('MTM_' + String(((_solo.header&&_solo.header.empresa)? _solo.header.empresa+'_':'') + (_solo.label||'Folha')).trim().replace(/[\\\/\?\*\[\]\:"<>\|]/g,'_').substring(0,55))
+      : 'MTM_Folhas';
+    var fname = _fnbase + '_' + stamp + '.xlsx';
     XLSX.writeFile(wb, fname);
-    showToast('Exportado: ' + fname + ' · ' + _xs.length + ' folha(s) × 2 abas (Geral + MTM)');
+    showToast(_solo
+      ? ('Folha "' + (_solo.label||'') + '" exportada para Excel → ' + fname)
+      : ('Exportado: ' + fname + ' · ' + _xs.length + ' folha(s) × 2 abas (Geral + MTM)'));
   }catch(e){
     console.error(e);
     showToast('Erro ao exportar: ' + e.message, true);
@@ -15653,6 +15663,214 @@ function balEsc(s){
       }
     };
     reader.readAsText(file);
+  };
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     EXCEL POR FOLHA (individual)
+     • exportFolhaExcelAtual(): exporta SOMENTE a folha aberta para .xlsx
+       (reaproveita o exportExcel passando só a folha ativa).
+     • importarFolhaExcelPrompt()/Handle(): lê um .xlsx e carrega a 1ª
+       folha encontrada DENTRO da folha aberta (substitui o conteúdo
+       dela) — em vez de criar novas folhas.
+     ══════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  function _folhaAtiva(){
+    if(typeof activeId === 'undefined' || !activeId) return null;
+    try{ return get(activeId) || null; }catch(e){ return null; }
+  }
+
+  // ── EXPORTAR a folha ativa para Excel ───────────────────────
+  window.exportFolhaExcelAtual = function(){
+    if(typeof XLSX === 'undefined'){
+      if(typeof showToast==='function') showToast('Biblioteca XLSX ainda não carregou. Aguarde a página terminar de abrir.', true);
+      return;
+    }
+    var s = _folhaAtiva();
+    if(!s){ if(typeof showToast==='function') showToast('Abra uma folha primeiro.', true); return; }
+    // Reaproveita TODA a lógica do exportExcel, mas só com esta folha
+    if(typeof exportExcel === 'function') exportExcel([s]);
+  };
+
+  // ── Lê 1 folha (header + linhas + livro) de um workbook XLSX ──
+  function _parseFolhaFromWorkbook(wb){
+    if(!wb || !wb.SheetNames || !wb.SheetNames.length) return null;
+
+    var headerKeyMap = {
+      'processo':'processo','codigo':'codigo','código':'codigo','data':'data',
+      'inicio':'inicio','início':'inicio','fim':'fim','planta':'planta',
+      'engenheiro':'eng','eng':'eng','operador':'operator','operador/posto':'operator','posto':'operator',
+      'empresa':'empresa','empresa / cliente':'empresa','cliente':'empresa','projeto':'projeto',
+      'takt':'takt','takt (s)':'takt','demanda':'demand','demanda (peças)':'demand','demanda (pecas)':'demand',
+      'pessoal (%)':'allowPersonal','fadiga (%)':'allowFatigue',
+      'contingência (%)':'allowContingency','contingencia (%)':'allowContingency'
+    };
+    var codeRe = /^[A-Za-z]{1,4}\d{0,3}(-[A-Za-z0-9]{1,4})*$/;
+    var out = { header:{}, book:'', rows:[], label:'' };
+
+    // Localiza a linha de cabeçalho com Código+TMU+Q+F e extrai as linhas
+    function extrairLinhas(aoa){
+      var hIdx=-1,cCode=-1,cTmu=-1,cQ=-1,cF=-1,cDesc=-1,cAgr=-1,cTt=-1,cTs=-1;
+      for(var r=0;r<aoa.length && hIdx<0;r++){
+        var row=aoa[r]||[]; var _c=-1,_t=-1,_q=-1,_f=-1,_d=-1,_a=-1,_tt=-1,_ts=-1;
+        for(var c=0;c<row.length;c++){
+          var t=String(row[c]==null?'':row[c]).trim().toLowerCase(); if(!t) continue;
+          if(_c<0 && (t==='código'||t==='codigo')) _c=c;
+          if(_t<0 && t==='tmu') _t=c;
+          if(_q<0 && t==='q') _q=c;
+          if(_f<0 && t==='f') _f=c;
+          if(_d<0 && (t.indexOf('descri')>=0 || t.indexOf('elemento')>=0)) _d=c;
+          if(_a<0 && t.indexOf('agrega')>=0) _a=c;
+          if(_tt<0 && (t.indexOf('total tmu')>=0 || t.indexOf('tmu total')>=0)) _tt=c;
+          if(_ts<0 && (t.indexOf('total (s)')>=0 || t.indexOf('tempo (s)')>=0 || t==='total s')) _ts=c;
+        }
+        if(_c>=0 && _t>=0 && _q>=0 && _f>=0){ hIdx=r;cCode=_c;cTmu=_t;cQ=_q;cF=_f;cDesc=_d;cAgr=_a;cTt=_tt;cTs=_ts; }
+      }
+      if(hIdx<0) return null;
+      var rows=[];
+      for(var k=hIdx+1;k<aoa.length;k++){
+        var dr=aoa[k]||[];
+        var first=String(dr[cDesc>=0?cDesc:0]==null?'':dr[cDesc>=0?cDesc:0]).trim();
+        if(/^total/i.test(first) || /^=/.test(first) || /^╔/.test(first)) break;
+        var cv=String(dr[cCode]==null?'':dr[cCode]).trim();
+        var isCode = !!cv && cv.length<=12 && !/\s/.test(cv) && !/^\d+([.,]\d+)?$/.test(cv) && codeRe.test(cv);
+        var tmuNum=parseFloat(String(dr[cTmu]).replace(',','.'));
+        if(!isCode && !(first && !isNaN(tmuNum))) continue; // linha vazia/banda: pula
+        var q=parseFloat(String(dr[cQ]).replace(',','.')); if(isNaN(q)) q=1;
+        var f=parseFloat(String(dr[cF]).replace(',','.')); if(isNaN(f)) f=1;
+        var tt=cTt>=0?parseFloat(String(dr[cTt]).replace(',','.')):NaN; if(isNaN(tt)) tt=(isNaN(tmuNum)?0:tmuNum)*q*f;
+        var ts=cTs>=0?parseFloat(String(dr[cTs]).replace(',','.')):NaN; if(isNaN(ts)) ts=tt*0.036;
+        rows.push({
+          desc:String(cDesc>=0?(dr[cDesc]==null?'':dr[cDesc]):''),
+          agrega:String(cAgr>=0?(dr[cAgr]==null?'':dr[cAgr]):''),
+          code:isCode?cv:'',
+          tmu:isNaN(tmuNum)?'':String(tmuNum),
+          q:String(q), f:String(f), ttmu:tt||0, tsec:ts||0
+        });
+      }
+      return rows.length?rows:null;
+    }
+
+    // 1) Prioriza abas "· MTM"; depois qualquer aba com a tabela
+    var names = wb.SheetNames.slice().sort(function(a,b){
+      return (/·\s*MTM/i.test(a)?0:1) - (/·\s*MTM/i.test(b)?0:1);
+    });
+    for(var i=0;i<names.length;i++){
+      var ws=wb.Sheets[names[i]]; if(!ws) continue;
+      var aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
+      if(!aoa || !aoa.length) continue;
+      var marker=String((aoa[0]||[])[0]||'').trim().toUpperCase();
+      if(marker==='MTM_RESUMO_V1' || marker==='MTM_LIVROS_V1') continue;
+      var rows=extrairLinhas(aoa);
+      if(rows){
+        out.rows=rows;
+        out.label=String(names[i]).replace(/\s*[·•\-—]\s*(MTM|Geral)\s*$/i,'').trim();
+        // header básico em pares chave/valor nas primeiras linhas desta aba
+        for(var hr=0;hr<Math.min(8,aoa.length);hr++){
+          var rrow=aoa[hr]||[];
+          for(var cc=0;cc<rrow.length-1;cc+=2){
+            var kk=String(rrow[cc]==null?'':rrow[cc]).trim().toLowerCase().replace(/[:：]\s*$/,'');
+            var vv=rrow[cc+1], mapped=headerKeyMap[kk];
+            if(mapped && (out.header[mapped]===undefined||out.header[mapped]==='') && vv!=='' && vv!=null)
+              out.header[mapped]=String(vv).trim();
+          }
+        }
+        break;
+      }
+    }
+    if(!out.rows.length) return null;
+
+    // 2) Enriquece header + livro a partir de uma aba "· Geral" do mesmo label
+    for(var g=0;g<wb.SheetNames.length;g++){
+      var gn=wb.SheetNames[g];
+      if(!/·\s*Geral/i.test(gn)) continue;
+      var gbase=String(gn).replace(/\s*[·•\-—]\s*Geral\s*$/i,'').trim();
+      if(out.label && gbase && gbase.toLowerCase()!==out.label.toLowerCase()) continue;
+      var gws=wb.Sheets[gn]; if(!gws) continue;
+      var gaoa=XLSX.utils.sheet_to_json(gws,{header:1,defval:'',raw:true});
+      var emLivro=false, livro=[];
+      for(var p=0;p<gaoa.length;p++){
+        var pr=gaoa[p]||[]; var pk=String(pr[0]||'').trim();
+        if(/^╔/.test(pk)){ emLivro=/LIVRO DE INFORMAÇÕES/i.test(pk); continue; }
+        if(emLivro){ if(pk) livro.push(pk); continue; }
+        var mk=headerKeyMap[pk.toLowerCase()];
+        if(mk && (out.header[mk]===undefined||out.header[mk]==='') && pr[1]!=='' && pr[1]!=null)
+          out.header[mk]=String(pr[1]).trim();
+      }
+      if(livro.length && !out.book){
+        out.book=livro.map(function(l){ return '<p>'+l.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</p>'; }).join('');
+      }
+      break;
+    }
+    return out;
+  }
+
+  // ── IMPORTAR Excel para a folha ativa ───────────────────────
+  window.importarFolhaExcelPrompt = function(){
+    if(typeof XLSX === 'undefined'){
+      if(typeof showToast==='function') showToast('Biblioteca XLSX ainda não carregou. Aguarde a página terminar de abrir.', true);
+      return;
+    }
+    if(!_folhaAtiva()){ if(typeof showToast==='function') showToast('Abra uma folha primeiro para importar dentro dela.', true); return; }
+    var inp=document.getElementById('folha-xlsx-input');
+    if(!inp){ if(typeof showToast==='function') showToast('Campo de upload não encontrado.', true); return; }
+    inp.value=''; inp.click();
+  };
+
+  window.importarFolhaExcelHandle = function(input){
+    var file=input.files && input.files[0]; if(!file) return;
+    if(typeof XLSX === 'undefined'){ if(typeof showToast==='function') showToast('Biblioteca XLSX não carregada.', true); input.value=''; return; }
+    var dest=_folhaAtiva();
+    if(!dest){ input.value=''; if(typeof showToast==='function') showToast('Folha de destino não encontrada.', true); return; }
+
+    var reader=new FileReader();
+    reader.onload=function(e){
+      try{
+        var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+        var src=_parseFolhaFromWorkbook(wb);
+        if(!src || !src.rows.length){
+          if(typeof showToast==='function') showToast('Não encontrei no Excel uma tabela com colunas Código / TMU / Q / F.', true);
+          input.value=''; return;
+        }
+        if(!confirm('Importar os dados do Excel PARA a folha atual "' + (dest.label||'') + '"?\n\nO conteúdo atual desta folha (linhas) será SUBSTITUÍDO e o cabeçalho atualizado com os dados do arquivo.')){
+          input.value=''; return;
+        }
+        // Cabeçalho: mantém o atual e sobrepõe com o que veio do Excel
+        var novoHeader = {}; var hk;
+        for(hk in (dest.header||{})) novoHeader[hk]=dest.header[hk];
+        for(hk in (src.header||{})) novoHeader[hk]=src.header[hk];
+        dest.header = novoHeader;
+        if(src.book) dest.book = src.book;
+        dest.rows = src.rows.map(function(r,i){
+          return {
+            id:'r_imp_'+Date.now()+'_'+i,
+            desc:String(r.desc||''), agrega:String(r.agrega||''), code:String(r.code||''),
+            tmu:(r.tmu==null?'':String(r.tmu)), q:(r.q==null?'':String(r.q)), f:(r.f==null?'':String(r.f)),
+            ttmu:parseFloat(r.ttmu)||0, tsec:parseFloat(r.tsec)||0
+          };
+        });
+
+        var el=document.getElementById('c-'+dest.id); if(el) el.remove();
+        if(typeof renderContent==='function') renderContent(dest.id);
+        if(typeof updateNums==='function') updateNums(dest.id);
+        if(typeof recalcSheet==='function') recalcSheet(dest.id);
+        if(typeof updateTotals==='function') updateTotals(dest.id);
+        var card=document.getElementById('c-'+dest.id);
+        if(card){ document.querySelectorAll('.folha-content').forEach(function(x){ x.classList.remove('active'); }); card.classList.add('active'); }
+
+        if(typeof saveSheets==='function') saveSheets();
+        if(typeof persistNow==='function') persistNow();
+        if(typeof showToast==='function') showToast('✅ Excel importado para a folha "' + (dest.label||'') + '" (' + dest.rows.length + ' linha(s)).');
+      }catch(err){
+        if(typeof showToast==='function') showToast('Erro ao importar Excel: ' + err.message, true);
+      }finally{
+        input.value='';
+      }
+    };
+    reader.onerror=function(){ if(typeof showToast==='function') showToast('Erro ao ler o arquivo.', true); input.value=''; };
+    reader.readAsArrayBuffer(file);
   };
 })();
 </script>
