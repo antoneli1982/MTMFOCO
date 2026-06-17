@@ -15417,5 +15417,80 @@ function balEsc(s){
 })();
 </script>
 
+<!-- ══════════════════════════════════════════════════════════════
+     BLINDAGEM DE PERSISTÊNCIA — salva NA HORA, à prova de F5
+     • Grava o estado IMEDIATAMENTE ao atualizar (F5), sair ou fechar
+       a aba, e ao ocultar a aba no celular — SEM esperar o debounce
+       de 300ms. Assim nada que você digitou se perde.
+     • Rede de segurança: também grava logo após cada digitação nas
+       células da folha (leve, com throttle).
+     • Bloco isolado: NÃO altera nada do código existente; só adiciona
+       gravações extras usando a mesma chave (mtm_sheets_v1).
+     ══════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  // Serializa o estado atual no MESMO formato usado por saveSheets()
+  function _serialize(){
+    try{
+      if(typeof sheets === 'undefined' || !Array.isArray(sheets)) return null;
+      return sheets.map(function(s){
+        return {
+          id: s.id, label: s.label, header: s.header || {},
+          book: s.book || '',
+          fadiga: s.fadiga || null,
+          rows: (s.rows||[]).map(function(r){
+            return {
+              id:r.id, desc:r.desc||'', agrega:r.agrega||'', code:r.code||'',
+              tmu:r.tmu||'', q:r.q||'', f:r.f||'',
+              ttmu:r.ttmu||0, tsec:r.tsec||0
+            };
+          })
+        };
+      });
+    }catch(e){ return null; }
+  }
+
+  // Grava AGORA (síncrono), ignorando o debounce de 300ms
+  function persistNow(){
+    // cancela qualquer save adiado para não sobrescrever depois com dado velho
+    try{ if(typeof _saveTimer !== 'undefined' && _saveTimer){ clearTimeout(_saveTimer); } }catch(e){}
+    try{
+      var key = (typeof SHEETS_KEY !== 'undefined') ? SHEETS_KEY : 'mtm_sheets_v1';
+      var payload = _serialize();
+      // Só grava se houver algo a gravar (evita apagar dado por engano)
+      if(payload && payload.length){ localStorage.setItem(key, JSON.stringify(payload)); }
+      // Salva também o gerenciador de projetos (vínculo folha↔projeto), se existir
+      try{ if(typeof pmData !== 'undefined' && pmData){ localStorage.setItem('pmgr_v3', JSON.stringify(pmData)); } }catch(e){}
+    }catch(e){ /* localStorage cheio/indisponível: ignora silenciosamente */ }
+  }
+  // Disponibiliza globalmente, caso seja útil em outros pontos
+  window.persistNow = persistNow;
+
+  // 1) Salva IMEDIATAMENTE ao atualizar (F5), sair ou fechar a aba
+  window.addEventListener('beforeunload', persistNow);
+  window.addEventListener('pagehide',     persistNow);
+
+  // 2) Salva ao OCULTAR a aba (trocar de app, minimizar no celular, etc.)
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'hidden') persistNow();
+  });
+
+  // 3) Rede de segurança: grava logo após digitar numa célula da folha.
+  //    'input' é leve (throttle 500ms); 'change' grava na hora.
+  var _t = null;
+  document.addEventListener('input', function(ev){
+    var el = ev.target;
+    if(el && el.getAttribute && el.getAttribute('data-f')){
+      if(_t) return;
+      _t = setTimeout(function(){ _t = null; persistNow(); }, 500);
+    }
+  }, true);
+  document.addEventListener('change', function(ev){
+    var el = ev.target;
+    if(el && el.getAttribute && el.getAttribute('data-f')) persistNow();
+  }, true);
+})();
+</script>
+
 </body>
 </html>
