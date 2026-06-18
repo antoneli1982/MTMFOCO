@@ -1691,7 +1691,28 @@ table.mtm tfoot tr.total-row td{
   #print-area tr{ page-break-inside:avoid; }
   /* Cada folha do detalhamento (MTM + Análise) tenta não partir no meio */
   #print-area .rep-print > .res-body > div{ page-break-inside:auto; }
+  /* Segurança: blocos com a lâmpada apagada nunca saem no PDF */
+  #print-area .frp-pdf-off{ display:none !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   ANÁLISE FINAL — lâmpada (mostrar/ocultar bloco no PDF)
+   A lâmpada apagada (🌑) deixa o bloco esmaecido na tela e o
+   remove totalmente do PDF final. Acesa (💡) = aparece no PDF.
+   ═══════════════════════════════════════════════════════════ */
+.frp-block{ position:relative; transition:opacity .2s ease; }
+.frp-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+.frp-body{ transition:opacity .2s ease, filter .2s ease; }
+/* Quando a lâmpada está apagada: esmaece só o corpo (o cabeçalho/lâmpada
+   continuam nítidos e clicáveis para reativar). */
+.frp-block.frp-pdf-off .frp-body{ opacity:.4; filter:grayscale(.55); }
+.frp-lamp{ display:inline-flex; align-items:center; gap:6px; border-radius:999px;
+  padding:4px 11px; font-size:11px; font-weight:800; cursor:pointer;
+  font-family:inherit; line-height:1; user-select:none; }
+.frp-lamp .frp-lamp-ico{ font-size:14px; line-height:1; }
+.frp-lamp.on{ background:rgba(255,214,10,.13); border:1px solid rgba(255,214,10,.45); color:var(--yellow); }
+.frp-lamp.off{ background:var(--surface3); border:1px solid var(--border2); color:var(--text2); }
+.frp-lamp:hover{ filter:brightness(1.12); }
 
 </style>
 <!-- SheetJS (xlsx) — biblioteca para importar e exportar Excel -->
@@ -1885,7 +1906,7 @@ window.FIREBASE_CONFIG = {
       <div class="fb-panel" id="fb-panel-register">
         <div class="fb-field">
           <label>Nome completo</label>
-          <input type="text" class="fb-input" id="fb-r-name" autocomplete="name" placeholder="Ivan Antoneli">
+          <input type="text" class="fb-input" id="fb-r-name" autocomplete="name" placeholder="">
         </div>
         <div class="fb-field">
           <label>E-mail</label>
@@ -10970,23 +10991,30 @@ function buildSheetDetailSection(){
         + '</div>';
     };
 
+    var _frpOff = (typeof frpPdfIsOff==='function') ? frpPdfIsOff(s.id) : false;
+    var _frpLamp = (typeof frpLampBtn==='function') ? frpLampBtn(s.id) : '';
     var analise = ''
-      + '<div style="background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:12px 14px;margin-bottom:6px">'
-      +   '<div style="font-size:12px;font-weight:800;color:var(--accent);margin-bottom:10px">⚙️ ANÁLISE FINAL — TTP · TAKT · CAPACIDADE</div>'
-      +   '<div id="frp-scope-'+s.id+'"></div>'
-      +   '<div style="display:flex;flex-wrap:wrap;gap:8px">'
-      +     inputBox('Horas de Trabalho', 'frp-h-'+s.id, (s.header && s.header.workHours) || 8, '8')
-      +     inputBox('Demanda (itens)', 'frp-dem-'+s.id, demInit, 'ex: 600')
-      +     box('Allowance Total (%)', 'frp-allow-'+s.id, 'calculado da análise', 'var(--green)')
-      +     box('TTP (%)', 'frp-ttp-'+s.id, '100 − Allowance', 'var(--accent)')
-      +   '</div>'
-      +   '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">'
-      +     box('Tempo Produtivo', 'frp-tprod-'+s.id, 'Tdisp × TTP', 'var(--green)')
-      +     box('Takt Time', 'frp-takt-'+s.id, 'Tprod ÷ Demanda', 'var(--accent)')
-      +     box('Capacidade (1 colab.)', 'frp-cap-'+s.id, 'Tprod ÷ Takt', 'var(--purple)')
-      +     box('Colab. Necessários', 'frp-colab-'+s.id, '⌈TS ÷ Takt⌉', 'var(--orange)')
-      +   '</div>'
-      +   '<div id="frp-sum-'+s.id+'" style="display:none"></div>'
+      + '<div id="frpblk-'+s.id+'" data-frpblk="'+s.id+'" class="frp-block'+(_frpOff?' frp-pdf-off':'')+'" style="background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:12px 14px;margin-bottom:6px">'
+      + '<div class="frp-head">'
+      + '<div style="font-size:12px;font-weight:800;color:var(--accent)">⚙️ ANÁLISE FINAL — TTP · TAKT · CAPACIDADE</div>'
+      + _frpLamp
+      + '</div>'
+      + '<div class="frp-body">'
+      + '<div id="frp-scope-'+s.id+'"></div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:8px">'
+      + inputBox('Horas de Trabalho', 'frp-h-'+s.id, (s.header && s.header.workHours) || 8, '8')
+      + inputBox('Demanda (itens)', 'frp-dem-'+s.id, demInit, 'ex: 600')
+      + box('Allowance Total (%)', 'frp-allow-'+s.id, 'calculado da análise', 'var(--green)')
+      + box('TTP (%)', 'frp-ttp-'+s.id, '100 − Allowance', 'var(--accent)')
+      + '</div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">'
+      + box('Tempo Produtivo', 'frp-tprod-'+s.id, 'Tdisp × TTP', 'var(--green)')
+      + box('Takt Time', 'frp-takt-'+s.id, 'Tprod ÷ Demanda', 'var(--accent)')
+      + box('Capacidade (1 colab.)', 'frp-cap-'+s.id, 'Tprod ÷ Takt', 'var(--purple)')
+      + box('Colab. Necessários', 'frp-colab-'+s.id, '⌈TS ÷ Takt⌉', 'var(--orange)')
+      + '</div>'
+      + '<div id="frp-sum-'+s.id+'" style="display:none"></div>'
+      + '</div>'
       + '</div>';
 
     html += '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:14px 16px;margin-bottom:18px;position:relative;overflow:hidden">'
@@ -11240,6 +11268,194 @@ function frpAnalise(sid){
         sumEl.style.display = 'none';
         sumEl.innerHTML = '';
       }
+    }
+  }catch(e){}
+}
+
+// ───────────────────────────────────────────────────────────────
+// LÂMPADA — mostrar/ocultar um bloco de Análise Final no PDF
+// Cada bloco (de cada folha e o COMBINADO) ganha uma lâmpada 💡.
+// Apagada (🌑) → o bloco fica esmaecido na tela e é REMOVIDO do PDF.
+// Acesa (💡)  → o bloco aparece normalmente no PDF. O estado é salvo
+// no navegador (persistente entre aberturas do relatório).
+// ───────────────────────────────────────────────────────────────
+var FRP_PDFVIS_KEY = 'mtm_frp_pdfvis_v1';
+var _frpPdfVis = null;
+function frpPdfLoad(){
+  if(_frpPdfVis) return _frpPdfVis;
+  try{ _frpPdfVis = JSON.parse(localStorage.getItem(FRP_PDFVIS_KEY)) || {}; }
+  catch(e){ _frpPdfVis = {}; }
+  if(typeof _frpPdfVis !== 'object' || !_frpPdfVis) _frpPdfVis = {};
+  return _frpPdfVis;
+}
+function frpPdfSave(){
+  try{ localStorage.setItem(FRP_PDFVIS_KEY, JSON.stringify(_frpPdfVis||{})); }catch(e){}
+}
+// true  → bloco está OCULTO no PDF (lâmpada apagada)
+// false → bloco aparece no PDF (lâmpada acesa) — padrão
+function frpPdfIsOff(id){ return !!frpPdfLoad()[id]; }
+
+// Botão da lâmpada (HTML). id = id da folha ou '__ALL__' (combinado).
+function frpLampBtn(id){
+  var off = frpPdfIsOff(id);
+  var ico = off ? '🌑' : '💡';
+  var txt = off ? 'Oculto no PDF' : 'Visível no PDF';
+  var cls = off ? 'off' : 'on';
+  var tip = off ? 'Lâmpada apagada — este bloco NÃO sai no PDF. Clique para acender.'
+                : 'Lâmpada acesa — este bloco aparece no PDF. Clique para apagar.';
+  return '<button type="button" id="frplamp-'+id+'" class="frp-lamp '+cls+'" '
+    + 'onclick="frpTogglePdf(\''+id+'\')" title="'+tip+'">'
+    + '<span class="frp-lamp-ico">'+ico+'</span>'
+    + '<span class="frp-lamp-txt">'+txt+'</span>'
+    + '</button>';
+}
+// Liga/desliga a lâmpada de um bloco e atualiza tela + estado salvo.
+function frpTogglePdf(id){
+  var st = frpPdfLoad();
+  st[id] = !st[id];
+  frpPdfSave();
+  var off = !!st[id];
+  var blk = document.getElementById('frpblk-'+id);
+  if(blk) blk.classList.toggle('frp-pdf-off', off);
+  var lamp = document.getElementById('frplamp-'+id);
+  if(lamp) lamp.outerHTML = frpLampBtn(id);
+}
+
+// ───────────────────────────────────────────────────────────────
+// ANÁLISE FINAL COMBINADA — junção de TODAS as atividades
+// Soma o Tempo Padrão (TS) de TODAS as folhas preenchidas e calcula,
+// sobre esse total, TTP · Takt · Capacidade · Colaboradores.
+// Horas/Demanda são editáveis e ficam salvas no navegador.
+// ───────────────────────────────────────────────────────────────
+var FRP_ALL_KEY = 'mtm_frp_all_v1';
+function frpAllLoad(){
+  try{ var o = JSON.parse(localStorage.getItem(FRP_ALL_KEY)); return (o&&typeof o==='object')?o:{}; }
+  catch(e){ return {}; }
+}
+function frpAllSave(o){ try{ localStorage.setItem(FRP_ALL_KEY, JSON.stringify(o||{})); }catch(e){} }
+
+// Soma das métricas de TODAS as folhas preenchidas (TS, tempo bruto, TMU).
+function frpAggregateAll(){
+  var ts = 0, raw = 0, tmu = 0, parts = [];
+  try{
+    frpFilledSheets().forEach(function(x){
+      ts  += x.stdSec;
+      raw += x.tnSec;
+      tmu += (x.m && x.m.totalTmu) ? x.m.totalTmu : 0;
+      parts.push({ label:(x.sheet.label||'Folha'), stdSec:x.stdSec, tmu:(x.m&&x.m.totalTmu)||0 });
+    });
+  }catch(e){}
+  var allow = raw > 0 ? +(((ts/raw) - 1) * 100).toFixed(2) : 0;
+  return { ts:+ts.toFixed(4), raw:+raw.toFixed(4), tmu:+tmu.toFixed(2), allow:allow, parts:parts };
+}
+
+// Monta a seção da Análise Final Combinada (todas as atividades).
+function buildCombinedAnalysisSection(){
+  var filled = (typeof frpFilledSheets==='function') ? frpFilledSheets() : [];
+  if(filled.length < 1) return '';
+  var saved = frpAllLoad();
+  // Valores iniciais: salvos > 1ª folha preenchida > padrão
+  var hDef = (saved.h != null && saved.h !== '') ? saved.h
+           : ((filled[0].sheet.header && filled[0].sheet.header.workHours) || 8);
+  var demDef = (saved.dem != null && saved.dem !== '') ? saved.dem
+             : ((filled[0].sheet.header && filled[0].sheet.header.demand) || '');
+
+  var lamp = frpLampBtn('__ALL__');
+  var off  = frpPdfIsOff('__ALL__');
+
+  var box = function(lbl, id, sub, color){
+    return '<div style="flex:1;min-width:120px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:8px 12px">'
+      + '<div style="font-size:9px;font-weight:700;color:'+(color||'var(--accent)')+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">'+lbl+'</div>'
+      + '<div id="'+id+'" style="font-size:16px;font-weight:800;color:'+(color||'var(--accent)')+';font-family:\'JetBrains Mono\',monospace">—</div>'
+      + (sub?'<div style="font-size:9px;color:var(--text3);margin-top:2px">'+sub+'</div>':'')
+      + '</div>';
+  };
+  var inputBox = function(lbl, id, val, ph){
+    return '<div style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:8px 12px">'
+      + '<div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">'+lbl+'</div>'
+      + '<input id="'+id+'" type="number" step="0.1" min="0" value="'+val+'" placeholder="'+(ph||'')+'" '
+      + 'oninput="frpAnaliseAll()" '
+      + 'style="width:100%;background:transparent;border:none;outline:none;font-size:16px;font-weight:800;color:var(--text);font-family:\'JetBrains Mono\',monospace">'
+      + '</div>';
+  };
+
+  var html = ''
+    + '<div class="res-section-title">Σ Análise Final Combinada — Todas as Atividades</div>'
+    + '<div id="frpblk-__ALL__" data-frpblk="__ALL__" class="frp-block'+(off?' frp-pdf-off':'')
+    + '" style="background:var(--surface);border:1px solid var(--purple);border-radius:12px;padding:14px 16px;margin-bottom:18px;position:relative;overflow:hidden">'
+    + '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--purple),var(--accent))"></div>'
+    + '<div class="frp-head">'
+    + '<div style="font-size:12px;font-weight:800;color:var(--purple)">🧮 ANÁLISE FINAL COMBINADA — TODAS AS ATIVIDADES</div>'
+    + lamp
+    + '</div>'
+    + '<div class="frp-body">'
+    + '<div style="font-size:10px;color:var(--text3);margin-bottom:10px">Soma o Tempo Padrão de <b style="color:var(--text2)">'+filled.length+' folha'+(filled.length!==1?'s':'')+'</b> e dimensiona a linha inteira.</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:8px">'
+    + inputBox('Horas de Trabalho', 'frp-h-__ALL__', hDef, '8')
+    + inputBox('Demanda (itens)', 'frp-dem-__ALL__', demDef, 'ex: 600')
+    + box('Allowance Médio (%)', 'frp-allow-__ALL__', 'ponderado das folhas', 'var(--green)')
+    + box('TTP (%)', 'frp-ttp-__ALL__', '100 − Allowance', 'var(--accent)')
+    + '</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">'
+    + box('Tempo Produtivo', 'frp-tprod-__ALL__', 'Tdisp × TTP', 'var(--green)')
+    + box('Takt Time', 'frp-takt-__ALL__', 'Tprod ÷ Demanda', 'var(--accent)')
+    + box('Capacidade (1 colab.)', 'frp-cap-__ALL__', 'Tprod ÷ Takt', 'var(--purple)')
+    + box('Colab. Necessários', 'frp-colab-__ALL__', '⌈Σ TS ÷ Takt⌉', 'var(--orange)')
+    + '</div>'
+    + '<div id="frp-sum-__ALL__" style="margin-top:10px"></div>'
+    + '</div>'
+    + '</div>';
+  return html;
+}
+
+// Recalcula a Análise Final Combinada (todas as folhas somadas).
+function frpAnaliseAll(){
+  try{
+    var agg = frpAggregateAll();
+    if(!agg.parts.length) return;
+    var hEl = document.getElementById('frp-h-__ALL__');
+    var dEl = document.getElementById('frp-dem-__ALL__');
+    var h   = parseFloat(hEl && hEl.value); if(isNaN(h) || h<=0) h = 8;
+    var dem = parseFloat(dEl && dEl.value); if(isNaN(dem)) dem = 0;
+    // Auto-save dos valores digitados
+    frpAllSave({ h:(hEl?hEl.value:''), dem:(dEl?dEl.value:'') });
+
+    var allow = agg.allow;
+    var ttp   = 100 - allow;
+    var tdis  = h * 3600;
+    var tprod = tdis * ttp / 100;
+    var ts    = agg.ts;
+    var takt  = dem > 0 ? tprod / dem : 0;
+    var capUm = takt > 0 ? Math.floor(tprod / takt) : 0;
+    var colab = (ts > 0 && takt > 0) ? Math.ceil(ts / takt) : 0;
+
+    var set = function(id, txt){ var el = document.getElementById(id); if(el) el.textContent = txt; };
+    set('frp-allow-__ALL__', allow.toFixed(2) + ' %');
+    set('frp-ttp-__ALL__',   ttp.toFixed(2) + ' %');
+    set('frp-tprod-__ALL__', Math.round(tprod).toLocaleString('pt-BR') + ' s');
+    set('frp-takt-__ALL__',  takt > 0 ? takt.toFixed(2) + ' s' : '—');
+    set('frp-cap-__ALL__',   capUm > 0 ? capUm.toLocaleString('pt-BR') + ' itens' : '—');
+    set('frp-colab-__ALL__', colab > 0 ? colab : '—');
+
+    var sumEl = document.getElementById('frp-sum-__ALL__');
+    if(sumEl){
+      var lines = agg.parts.map(function(p){
+        return '<div style="display:flex;justify-content:space-between;gap:10px;padding:2px 0">'
+          + '<span style="color:var(--text2)">'+esc(p.label)+'</span>'
+          + '<span style="font-family:\'JetBrains Mono\',monospace;color:var(--green)">'+p.stdSec.toFixed(2)+' s</span>'
+          + '</div>';
+      }).join('');
+      sumEl.style.cssText = 'padding:10px 12px;background:var(--surface2);border:1px dashed var(--purple);border-radius:8px;font-size:11px;line-height:1.6';
+      sumEl.innerHTML =
+          '<div style="font-size:9px;font-weight:800;color:var(--purple);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">Σ Tempo Padrão de todas as atividades — '+agg.parts.length+' folhas</div>'
+        + lines
+        + '<div style="display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--border2);margin-top:6px;padding-top:6px;font-weight:800">'
+        +   '<span style="color:var(--text)">Σ TS total</span>'
+        +   '<span style="font-family:\'JetBrains Mono\',monospace;color:var(--accent)">'+ts.toFixed(2)+' s  ·  '+agg.tmu.toFixed(0)+' TMU</span>'
+        + '</div>'
+        + (colab > 0
+            ? '<div style="margin-top:6px;color:var(--text3)">⌈Σ TS '+ts.toFixed(2)+'s ÷ Takt '+(takt>0?takt.toFixed(2):'—')+'s⌉ = <b style="color:var(--orange)">'+colab+' colaborador(es)</b> para atender '+dem+' itens em '+h+'h.</div>'
+            : '<div style="margin-top:6px;color:var(--text3)">Informe a <b>Demanda</b> para calcular Takt e Colaboradores.</div>');
     }
   }catch(e){}
 }
@@ -12227,9 +12443,11 @@ function prepararPrintRelatorio(){
   // Clona o relatório exatamente como está na tela.
   var clone = modal.cloneNode(true);
 
-  // Remove apenas as ações de tela: botões (PDF/Fechar), o "X", o rodapé de
-  // botões e o seletor interativo de folhas (mantém a memória da soma "Σ").
-  clone.querySelectorAll('.res-close, .res-footer, button, [id^="frp-scope-"]').forEach(function(el){
+  // Remove apenas as ações de tela: botões (PDF/Fechar/lâmpadas), o "X",
+  // o rodapé de botões e o seletor interativo de folhas (mantém a memória
+  // da soma "Σ"). Também remove os blocos com a LÂMPADA APAGADA (.frp-pdf-off),
+  // que o usuário optou por ocultar no PDF final.
+  clone.querySelectorAll('.frp-pdf-off, .res-close, .res-footer, button, [id^="frp-scope-"]').forEach(function(el){
     if(el && el.parentNode) el.parentNode.removeChild(el);
   });
 
@@ -12481,6 +12699,7 @@ function showFinalReport(){
     +     '<div class="res-section-title">🗂️ Visão Geral por Folha</div>'
     +     '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-bottom:20px">'+cardsHtml+'</div>'
     +     buildSheetDetailSection()
+    +     buildCombinedAnalysisSection()
     +     fadSection
     +     compTable
     +     buildTTPSection()
@@ -12508,6 +12727,7 @@ function showFinalReport(){
     (typeof scopedSheets==='function'?scopedSheets():(sheets||[])).forEach(function(s){
       if(typeof frpAnalise==='function') frpAnalise(s.id);
     });
+    if(typeof frpAnaliseAll==='function') frpAnaliseAll();
   }catch(e){}
 }
 
