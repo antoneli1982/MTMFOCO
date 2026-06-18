@@ -1708,7 +1708,8 @@ table.mtm tfoot tr.total-row td{
 .frp-block.frp-pdf-off .frp-body{ opacity:.4; filter:grayscale(.55); }
 .frp-lamp{ display:inline-flex; align-items:center; gap:6px; border-radius:999px;
   padding:4px 11px; font-size:11px; font-weight:800; cursor:pointer;
-  font-family:inherit; line-height:1; user-select:none; }
+  font-family:inherit; line-height:1; user-select:none;
+  text-transform:none; letter-spacing:normal; flex-shrink:0; }
 .frp-lamp .frp-lamp-ico{ font-size:14px; line-height:1; }
 .frp-lamp.on{ background:rgba(255,214,10,.13); border:1px solid rgba(255,214,10,.45); color:var(--yellow); }
 .frp-lamp.off{ background:var(--surface3); border:1px solid var(--border2); color:var(--text2); }
@@ -2120,8 +2121,7 @@ window.FIREBASE_CONFIG = {
               style="font-size:20px;font-weight:800;letter-spacing:4px;text-align:center">
           </div>
           <div class="code-hint" style="margin-bottom:14px">
-            Não possui código? Solicite ao desenvolvedor:<br>
-            <b>Engº Ivan Carlos Antoneli</b>
+            Não possui código? Solicite ao administrador do sistema.
           </div>
 
           <!-- badges de tipo de acesso (aparecem ao validar) -->
@@ -3164,11 +3164,8 @@ window.FIREBASE_CONFIG = {
     <div class="logo">MTM <span>/ Folha de Processo</span></div>
     <div style="width:1px;height:28px;background:var(--border2);display:none" class="tb-sep-v"></div>
   </div>
-  <!-- Crédito — some em mobile, vira linha abaixo -->
-  <div class="dev-credit" style="display:flex;flex-direction:column;gap:1px;flex-shrink:0">
-    <span class="dev-label" style="font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text3)">Desenvolvido por</span>
-    <span class="dev-name" style="font-size:12px;font-weight:700;background:var(--accentGrad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Engº Ivan Carlos Antoneli</span>
-  </div>
+  <!-- Crédito removido a pedido -->
+  <div class="dev-credit" style="display:none"></div>
   <div class="sep"></div>
   <!-- Ações -->
   <div class="toolbar-actions" style="display:flex;align-items:center;gap:6px">
@@ -3182,7 +3179,7 @@ window.FIREBASE_CONFIG = {
     <button class="btn btn-ghost" onclick="addSheetHere()" title="Nova Folha">＋<span class="btn-lbl"> Nova Folha</span></button>
     <button class="btn btn-ghost" onclick="openLibrary()" title="📚 Biblioteca MTM" style="letter-spacing:.2px">📚<span class="btn-lbl"> Biblioteca</span></button>
     <button class="btn btn-ghost" onclick="openBook()" title="Livro de Informações — Anote tudo sobre o processo" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(124,58,237,.28)">📖<span class="btn-lbl"> Livro</span></button>
-    <button class="btn btn-ghost" onclick="openFadiga()" title="Análise de Fadiga & Ociosidade (TV + TER) — Tabela Ivan Antoneli" style="background:rgba(255,149,0,.10);color:var(--orange);border-color:rgba(255,149,0,.35)">🛌<span class="btn-lbl"> Fadiga</span></button>
+    <button class="btn btn-ghost" onclick="openFadiga()" title="Análise de Fadiga & Ociosidade (TV + TER)" style="background:rgba(255,149,0,.10);color:var(--orange);border-color:rgba(255,149,0,.35)">🛌<span class="btn-lbl"> Fadiga</span></button>
     <button class="btn btn-ghost" onclick="renameCurrentSheet()" title="Renomear">✏️<span class="btn-lbl"> Renomear</span></button>
     <button class="btn btn-danger" onclick="deleteCurrentSheet()" title="Excluir">✕<span class="btn-lbl"> Excluir</span></button>
     <button class="btn btn-green" onclick="salvarAgora()" title="Salvar no navegador (Ctrl+S) — memória temporária. Use o botão 💾 em cada projeto para arquivo permanente." id="btn-salvar">💾<span class="btn-lbl"> Salvar local</span></button>
@@ -4241,7 +4238,7 @@ window.FIREBASE_CONFIG = {
           <b style="color:var(--orange)">📚 Fonte:</b>
           Manual de Tempos e Métodos
           <b style="color:var(--red)">(Argens Valente da Silva / Rubens R. C. Coimbra — Editora Hemus)</b>
-          + MTM-UAS · Planilha Engº <b style="color:var(--red)">Ivan Antoneli</b><br>
+          + MTM-UAS<br>
           <span style="font-size:10px;color:var(--text2)">
             <b>FADIGA</b> (Biológica, Trabalho e Motora): cansaço = perda da capacidade de rendimento, equilibrada pelo repouso.
             <b>Trabalho</b>: dispêndio de energia, reduzida com pausas.
@@ -4311,7 +4308,7 @@ window.FIREBASE_CONFIG = {
     </div>
 
     <div class="fad-footer">
-      <span>* Fonte: Manual de Tempos e Métodos · Planilha Engº <b style="color:var(--orange)">Ivan Antoneli</b></span>
+      <span>* Fonte: Manual de Tempos e Métodos</span>
       <span class="sp"></span>
       <button onclick="fadResetDefaults()" title="Restaurar valores padrão">↺ Resetar</button>
       <button onclick="fadAplicarPadraoSESE()" title="Aplicar allowance total fixo de 10% — Tempo de Trabalho 90%" style="background:rgba(0,229,160,.12);color:var(--green);border-color:rgba(0,229,160,.4)">📐 Padrão SESÉ 10%</button>
@@ -6126,7 +6123,7 @@ function prepararPrint(){
     html +=     '<div class="pa-note">Engº responsável: '+esc(h.eng||'—')+' · Folha gerada em '+dataGer+'</div>';
     html +=   '</div>';
     html +=   '<div class="pa-footer-r">';
-    html +=     '<div class="pa-note">Ferramenta MTM · Engº Ivan Carlos Antoneli</div>';
+    html +=     '<div class="pa-note">Ferramenta MTM</div>';
     html +=     '<div class="pa-note">Fonte: Manual de Tempos e Métodos (Argens Valente / R. Coimbra · Hemus) + MTM-UAS</div>';
     html +=   '</div>';
     html += '</div>';
@@ -6653,7 +6650,7 @@ function doRegister(){
   if(!code){ showMsg('err-register','⚠️ Digite o código de acesso do desenvolvedor.'); return; }
 
   const access = DEV_CODES[code];
-  if(!access){ showMsg('err-register','✕ Código inválido. Solicite ao Engº Ivan Carlos Antoneli.'); return; }
+  if(!access){ showMsg('err-register','✕ Código inválido. Solicite ao administrador do sistema.'); return; }
 
   // Mostra badge de tipo de acesso
   document.getElementById('badge-trial').classList.toggle('show', access.type==='trial');
@@ -10235,7 +10232,7 @@ function openYamazumi(clientName){
     var chartH = 320;
     var html = ''
       + '<div class="res-section-title">📊 Gráfico Yamazumi (por posto)</div>'
-      + '<div style="position:relative;padding:10px 0 40px 60px;background:var(--surface);border-radius:10px;border:1px solid var(--border);margin-bottom:16px">'
+      + '<div style="position:relative;padding:10px 0 72px 60px;background:var(--surface);border-radius:10px;border:1px solid var(--border);margin-bottom:16px">'
       // Linha do takt
       + (refLine > 0 ? '<div style="position:absolute;left:60px;right:10px;top:' + (10 + chartH - (refLine/scaleMax*chartH)) + 'px;height:0;border-top:2px dashed var(--accent);z-index:5"><span style="position:absolute;left:-55px;top:-9px;font-size:10px;font-weight:700;color:var(--accent);background:var(--surface);padding:2px 4px;border-radius:3px">TAKT ' + refLine.toFixed(1) + 's</span></div>' : '')
       // Eixo Y
@@ -10270,7 +10267,7 @@ function openYamazumi(clientName){
         + (nvaH>0?'<div style="height:'+nvaH+'px;background:var(--red)"></div>':'')
         + (uncH>0?'<div style="height:'+uncH+'px;background:var(--text3)"></div>':'')
         + '</div>'
-        + '<div style="margin-top:6px;font-size:10px;color:var(--text2);font-weight:600;text-align:center;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + dbEsc(p.label) + '">' + dbEsc(p.shortLabel) + '</div>'
+        + '<div style="position:absolute;top:100%;left:0;right:0;margin-top:6px;font-size:10px;color:var(--text2);font-weight:600;text-align:center;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.15" title="' + dbEsc(p.label) + '">' + dbEsc(p.shortLabel) + '</div>'
         + '</div>';
     });
 
@@ -10678,7 +10675,7 @@ function balChartHtml(bal){
   var scaleMax = Math.max(bal.takt, maxStd) * 1.12 || 1;
   var html = ''
     + '<div class="res-section-title">📊 Gráfico Yamazumi</div>'
-    + '<div style="position:relative;padding:10px 0 40px 60px;background:var(--surface);border-radius:10px;border:1px solid var(--border)">'
+    + '<div style="position:relative;padding:10px 0 72px 60px;background:var(--surface);border-radius:10px;border:1px solid var(--border)">'
     + (bal.takt>0 ? '<div style="position:absolute;left:60px;right:10px;top:'+(10+chartH-(bal.takt/scaleMax*chartH))+'px;height:0;border-top:2px dashed var(--accent);z-index:5"><span style="position:absolute;left:-55px;top:-9px;font-size:10px;font-weight:700;color:var(--accent);background:var(--surface);padding:2px 4px;border-radius:3px">TAKT '+bal.takt.toFixed(1)+'s</span></div>' : '')
     + '<div style="position:absolute;left:10px;top:10px;bottom:40px;width:48px;display:flex;flex-direction:column-reverse;justify-content:space-between;font-size:9px;color:var(--text3)">'
     + [0,0.25,0.5,0.75,1].map(function(f){return '<div style="text-align:right;padding-right:4px">'+(scaleMax*f).toFixed(0)+'s</div>';}).join('')
@@ -10703,7 +10700,7 @@ function balChartHtml(bal){
       + (nvaH>0?'<div style="height:'+nvaH+'px;background:var(--red)"></div>':'')
       + (uncH>0?'<div style="height:'+uncH+'px;background:var(--text3)"></div>':'')
       + '</div>'
-      + '<div style="margin-top:6px;font-size:10px;color:var(--text2);font-weight:600;text-align:center;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+dbEsc(po.operador)+'">'+dbEsc(po.operador)+'</div>'
+      + '<div style="position:absolute;top:100%;left:0;right:0;margin-top:6px;font-size:10px;color:var(--text2);font-weight:600;text-align:center;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.15" title="'+dbEsc(po.operador)+'">'+dbEsc(po.operador)+'</div>'
       + '</div>';
   });
   html += '</div></div>'
@@ -10864,7 +10861,7 @@ function buildBalanceamentoPrintHTML(proj, bal){
   var scaleMax = Math.max(bal.takt,maxStd)*1.12||1;
   var chH=170;
   html += '<div style="font-size:11px;font-weight:700;color:#0066cc;margin:6px 0 4px">Gráfico Yamazumi</div>'
-    + '<div style="position:relative;border:1px solid #ccd;border-radius:6px;padding:8px 8px 26px;background:#f8faff">';
+    + '<div style="position:relative;border:1px solid #ccd;border-radius:6px;padding:8px 8px 52px;background:#f8faff">';
   if(bal.takt>0){
     html += '<div style="position:absolute;left:8px;right:8px;top:'+(8+chH-(bal.takt/scaleMax*chH))+'px;border-top:1.5px dashed #0066cc"><span style="font-size:8px;color:#0066cc;background:#f8faff;padding:0 3px">Takt '+bal.takt.toFixed(1)+'s</span></div>';
   }
@@ -10873,10 +10870,10 @@ function buildBalanceamentoPrintHTML(proj, bal){
     var barH=(po.stdSec/scaleMax)*chH;
     var pct=bal.takt>0?(po.stdSec/bal.takt*100):0;
     var color=pct>100?'#dc2626':pct>90?'#d97706':pct>70?'#059669':'#2563eb';
-    html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center">'
+    html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;position:relative">'
       + '<div style="font-size:8px;color:#333">'+po.stdSec.toFixed(0)+'s</div>'
       + '<div style="width:70%;height:'+barH+'px;background:'+color+';border-radius:3px 3px 0 0"></div>'
-      + '<div style="font-size:8px;color:#546280;margin-top:2px;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e(po.operador)+'</div>'
+      + '<div style="position:absolute;top:100%;left:0;right:0;margin-top:2px;font-size:8px;color:#546280;text-align:center;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.1">'+e(po.operador)+'</div>'
       + '</div>';
   });
   html += '</div></div>';
@@ -10915,7 +10912,7 @@ function buildSheetDetailSection(){
   var byId = {};
   R.allMetrics.forEach(function(x){ byId[x.sheet.id] = x; });
 
-  var html = '<div class="res-section-title">📄 MTM por Folha + Análise Final</div>';
+  var html = '';
 
   sheetsArr.forEach(function(s){
     var x = byId[s.id]; if(!x) return;
@@ -11026,7 +11023,7 @@ function buildSheetDetailSection(){
       + '</div>';
   });
 
-  return html;
+  return frpSection('sec-detail', '📄 MTM por Folha + Análise Final', html);
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -11321,6 +11318,23 @@ function frpTogglePdf(id){
   if(lamp) lamp.outerHTML = frpLampBtn(id);
 }
 
+// Envolve uma SEÇÃO inteira do relatório num quadro com lâmpada.
+// A lâmpada entra no próprio título da seção (à direita). Apagada → o
+// quadro inteiro (título + conteúdo) é removido do PDF. Se não houver
+// conteúdo (bodyHtml vazio), não renderiza nada.
+function frpSection(id, titleHtml, bodyHtml, titleStyle){
+  if(bodyHtml == null || String(bodyHtml).trim() === '') return '';
+  var off = frpPdfIsOff(id);
+  var ts  = titleStyle ? (';'+titleStyle) : '';
+  return '<div id="frpblk-'+id+'" data-frpblk="'+id+'" class="frp-block frp-sec'+(off?' frp-pdf-off':'')+'">'
+    + '<div class="res-section-title frp-sec-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px'+ts+'">'
+    + '<span>'+titleHtml+'</span>'
+    + frpLampBtn(id)
+    + '</div>'
+    + '<div class="frp-body">'+bodyHtml+'</div>'
+    + '</div>';
+}
+
 // ───────────────────────────────────────────────────────────────
 // ANÁLISE FINAL COMBINADA — junção de TODAS as atividades
 // Soma o Tempo Padrão (TS) de TODAS as folhas preenchidas e calcula,
@@ -11380,7 +11394,6 @@ function buildCombinedAnalysisSection(){
   };
 
   var html = ''
-    + '<div class="res-section-title">Σ Análise Final Combinada — Todas as Atividades</div>'
     + '<div id="frpblk-__ALL__" data-frpblk="__ALL__" class="frp-block'+(off?' frp-pdf-off':'')
     + '" style="background:var(--surface);border:1px solid var(--purple);border-radius:12px;padding:14px 16px;margin-bottom:18px;position:relative;overflow:hidden">'
     + '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--purple),var(--accent))"></div>'
@@ -11467,7 +11480,7 @@ function buildTTPSection(){
   if(!scopedSheets().length) return '';
   var R = mtmCollectFinalReport();
   var allMetrics = R.allMetrics;
-  var html = '<div class="res-section-title">⏱️ Análise TTP · Takt · Capacidade por Folha</div>';
+  var html = '';
 
   allMetrics.forEach(function(x){
     var s  = x.sheet;
@@ -11535,7 +11548,7 @@ function buildTTPSection(){
   // ── YAMAZUMI consolidado (todos os postos) ──
   html += buildYamazumiSection(allMetrics);
 
-  return html;
+  return frpSection('sec-ttp', '⏱️ Análise TTP · Takt · Capacidade por Folha', html);
 }
 
 function kpiBoxTTP(lbl, val, cor){
@@ -11543,6 +11556,35 @@ function kpiBoxTTP(lbl, val, cor){
     + '<div style="font-size:15px;font-weight:800;color:' + cor + ';font-family:\'JetBrains Mono\',monospace;line-height:1.2">' + val + '</div>'
     + '<div style="font-size:8px;color:var(--text3);font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-top:3px">' + lbl + '</div>'
     + '</div>';
+}
+
+// Quebra um rótulo em várias linhas para uso em SVG (que não quebra texto sozinho).
+function wrapSvgLabel(text, maxChars, maxLines){
+  text = String(text == null ? '' : text).trim();
+  maxChars = maxChars || 13;
+  maxLines = maxLines || 6;
+  if(!text) return [''];
+  var words = text.split(/\s+/);
+  var lines = [];
+  var cur = '';
+  for(var i = 0; i < words.length; i++){
+    var w = words[i];
+    while(w.length > maxChars){            // palavra maior que a linha → fatia
+      if(cur){ lines.push(cur); cur = ''; }
+      lines.push(w.slice(0, maxChars));
+      w = w.slice(maxChars);
+    }
+    if(!cur) cur = w;
+    else if((cur + ' ' + w).length <= maxChars) cur += ' ' + w;
+    else { lines.push(cur); cur = w; }
+  }
+  if(cur) lines.push(cur);
+  if(lines.length > maxLines){
+    lines = lines.slice(0, maxLines);
+    var last = lines[maxLines - 1];
+    lines[maxLines - 1] = (last.length > maxChars - 1 ? last.slice(0, maxChars - 1) : last) + '…';
+  }
+  return lines.length ? lines : [''];
 }
 
 function buildYamazumiSection(allMetrics){
@@ -11556,9 +11598,14 @@ function buildYamazumiSection(allMetrics){
 
   var barW = 80;
   var gap  = 24;
-  var svgH = 220;
-  var padT = 36; var padB = 44; var padL = 52; var padR = 20;
-  var chartH = svgH - padT - padB;
+  var padT = 36; var padL = 52; var padR = 20;
+  var chartH = 140;
+  // Rótulos quebrados em várias linhas (SVG não quebra texto sozinho)
+  var lblMaxChars = 13, lblLineH = 11;
+  var labelLines = allMetrics.map(function(x){ return wrapSvgLabel(x.sheet.label || '', lblMaxChars, 6); });
+  var maxLines = labelLines.reduce(function(a, ls){ return Math.max(a, ls.length); }, 1);
+  var padB = 18 + maxLines * lblLineH;             // espaço inferior cresce com o nº de linhas
+  var svgH = padT + chartH + padB;
   var totalW = padL + allMetrics.length * (barW + gap) + padR;
 
   // Escala Y
@@ -11638,9 +11685,15 @@ function buildYamazumiSection(allMetrics){
     // TS acima
     svg += '<text x="' + (bx + barW/2) + '" y="' + Math.max(barY - 14, padT + 18) + '" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.55)">' + ts.toFixed(2) + 's</text>';
 
-    // Label abaixo
-    var label = (x.sheet.label||'').substring(0,14);
-    svg += '<text x="' + (bx + barW/2) + '" y="' + (padT + chartH + 14) + '" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.7)">' + label + '</text>';
+    // Label abaixo — quebra em várias linhas (em vez de cortar)
+    var lns = labelLines[i] || [''];
+    var lblCx = bx + barW / 2;
+    var lblTxt = '<text x="' + lblCx + '" y="' + (padT + chartH + 14) + '" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.7)">';
+    lns.forEach(function(ln, li){
+      lblTxt += '<tspan x="' + lblCx + '" dy="' + (li === 0 ? 0 : lblLineH) + '">' + esc(ln) + '</tspan>';
+    });
+    lblTxt += '</text>';
+    svg += lblTxt;
   });
 
   svg += '</svg>';
@@ -11829,7 +11882,7 @@ function buildBalReportSection(){
   if(!bal.nPostos) return '';
 
   var eficColor = bal.eficBal>85?'var(--green)':bal.eficBal>70?'var(--orange)':'var(--red)';
-  var html = '<div class="res-section-title">⚖️ Balanceamento de Linha</div>'
+  var html = ''
     + '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:14px;margin-bottom:20px">'
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px">'
     + balKpi(bal.nPostos,'Postos','var(--blue)')
@@ -11901,7 +11954,7 @@ function balCapacidadeReportHtml(bal, params){
       + '</div></div>';
   }
   html += '</div>';
-  return html;
+  return frpSection('sec-bal', '⚖️ Balanceamento de Linha', html);
 }
 
 // ============================================================
@@ -12521,8 +12574,8 @@ function showFinalReport(){
     var pphColor  = x.pph > 0 ? 'var(--purple)' : 'var(--text3)';
     return '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden">'
       + '<div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--accentGrad)"></div>'
-      + '<div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+x.sheet.label+'</div>'
-      + (s.header.processo ? '<div style="font-size:10px;color:var(--text3);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+s.header.processo+'</div>' : '')
+      + '<div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:10px;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.25">'+x.sheet.label+'</div>'
+      + (s.header.processo ? '<div style="font-size:10px;color:var(--text3);margin-bottom:8px;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.3">'+s.header.processo+'</div>' : '')
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
       +   '<div style="text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 4px">'
       +     '<div style="font-size:16px;font-weight:800;color:var(--accent);font-family:\'JetBrains Mono\',monospace">'+(m.totalTmu?m.totalTmu.toFixed(0):'—')+'</div>'
@@ -12568,8 +12621,7 @@ function showFinalReport(){
       + '</tr>';
   }).join('');
 
-  var fadSection = ''
-    + '<div class="res-section-title">🛌 Análise Final de Fadiga &amp; Allowance</div>'
+  var fadSection = frpSection('sec-fadiga', '🛌 Análise Final de Fadiga &amp; Allowance', ''
     + '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;overflow:auto;margin-bottom:8px">'
     +   '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:640px">'
     +     '<thead><tr style="background:var(--header-bg);border-bottom:2px solid var(--accent)">'
@@ -12592,11 +12644,11 @@ function showFinalReport(){
     +   '<strong style="color:var(--green)">TS</strong> = TN × (1 + Allowance/100). '
     +   '<strong style="color:var(--text2)">Tempo de Trabalho</strong> = 100% − Allowance Total. '
     +   'Folhas sem Análise de Fadiga usam o allowance lançado no cabeçalho da folha.'
-    + '</div>';
+    + '</div>');
 
   // ── Tabela consolidada por jornada ──
   var theadCells = allMetrics.map(function(x){
-    return '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--purple);letter-spacing:.6px;border-right:1px solid var(--border2);max-width:100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+x.sheet.label+'</th>';
+    return '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--purple);letter-spacing:.6px;border-right:1px solid var(--border2);white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.25">'+x.sheet.label+'</th>';
   }).join('');
   var tableRows = jornadas.map(function(j){
     var jorSec = j.h * 3600;
@@ -12608,8 +12660,7 @@ function showFinalReport(){
     return '<tr><td style="padding:6px 10px;font-weight:700;color:var(--text);border-right:1px solid var(--border2)">'+j.lbl+'</td>'+cells
       + '<td style="padding:6px 10px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--accent);font-weight:800;background:var(--accentBg)">'+totalPcs+'</td></tr>';
   }).join('');
-  var tableHtml = allMetrics.length > 1 ? ''
-    + '<div class="res-section-title" style="margin-top:24px">⚙️ Capacidade por Jornada — Todas as Folhas</div>'
+  var tableHtml = allMetrics.length > 1 ? frpSection('sec-jornada', '⚙️ Capacidade por Jornada — Todas as Folhas', ''
     + '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;overflow:auto;margin-bottom:20px">'
     +   '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:400px">'
     +     '<thead><tr style="background:var(--header-bg);border-bottom:2px solid var(--accent)">'
@@ -12619,7 +12670,7 @@ function showFinalReport(){
     +     '</tr></thead><tbody>'+tableRows+'</tbody>'
     +   '</table>'
     +   '<div style="padding:8px 12px;background:var(--surface2);border-top:1px solid var(--border);font-size:10px;color:var(--text3)">SOMA = todos os operadores produzindo simultaneamente · Tempos Padrão já com Allowance Total</div>'
-    + '</div>' : '';
+    + '</div>', 'margin-top:24px') : '';
 
   // ── Comparativo de folhas ──
   var compRows = allMetrics.map(function(x){
@@ -12635,8 +12686,7 @@ function showFinalReport(){
       + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--text3)">'+(x.m.takt>0?x.m.takt+'s':'—')+'</td>'
       + '</tr>';
   }).join('');
-  var compTable = ''
-    + '<div class="res-section-title">📊 Comparativo de Folhas</div>'
+  var compTable = frpSection('sec-comp', '📊 Comparativo de Folhas', ''
     + '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;overflow:auto;margin-bottom:20px">'
     +   '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px">'
     +     '<thead><tr style="background:var(--header-bg);border-bottom:2px solid var(--accent)">'
@@ -12657,7 +12707,7 @@ function showFinalReport(){
     +       '<td colspan="2" style="padding:8px 8px;text-align:right;font-size:10px;color:var(--text3)">—</td>'
     +     '</tr></tfoot>'
     +   '</table>'
-    + '</div>';
+    + '</div>');
 
   // ── Seção de Balanceamento (parte do Relatório Final) ──
   var balReportSection = buildBalReportSection();
@@ -12696,8 +12746,7 @@ function showFinalReport(){
     +   kpiHtml
     +   '<div class="res-body">'
     +     mtmReportImgHtml()
-    +     '<div class="res-section-title">🗂️ Visão Geral por Folha</div>'
-    +     '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-bottom:20px">'+cardsHtml+'</div>'
+    +     frpSection('sec-overview', '🗂️ Visão Geral por Folha', '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-bottom:20px">'+cardsHtml+'</div>')
     +     buildSheetDetailSection()
     +     buildCombinedAnalysisSection()
     +     fadSection
@@ -14434,7 +14483,7 @@ function fadShowTab(name){
 }
 
 function fadResetDefaults(){
-  if(!confirm('Restaurar todos os valores para os padrões da tabela do Ivan Antoneli?')) return;
+  if(!confirm('Restaurar todos os valores para os padrões da tabela?')) return;
   fadAplicarEstado(FAD_DEFAULTS);
   fadRecalc();
   if(typeof showToast === 'function') showToast('Valores padrão restaurados.');
@@ -14699,7 +14748,7 @@ function saveProjectFile(){
       format:      'MTM_FILE',
       version:     1,
       app:         'Folha de Processo MTM',
-      author:      'Engº Ivan Carlos Antoneli',
+      author:      'Folha de Processo MTM',
       createdAt:   new Date().toISOString(),
       modo:        modoSalvar,
       empresa:     nomeEmpresa,
@@ -14821,7 +14870,7 @@ function dbSalvarProjetoIndividual(fid, pi){
     format:         'MTM_FILE',
     version:        1,
     app:            'Folha de Processo MTM',
-    author:         'Engº Ivan Carlos Antoneli',
+    author:         'Folha de Processo MTM',
     createdAt:      new Date().toISOString(),
     modo:           'individual',
     empresa:        folder.name,
