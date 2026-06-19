@@ -11958,7 +11958,9 @@ function buildBalReportSection(){
     + balKpi(bal.eficBal.toFixed(1)+'%','Eficiência Balanc.',eficColor)
     + balKpi(bal.capacidadeHora.toFixed(0),'Capacidade pç/h','var(--green)')
     + '</div>';
-  html += balChartHtml(bal);
+  // Gráfico Yamazumi removido do Relatório Final a pedido.
+  // A tabela "Detalhamento por Posto" abaixo mantém os mesmos dados.
+  // (para reexibir, restaure a linha:  html += balChartHtml(bal);  )
   html += '<div style="overflow-x:auto;margin-top:12px"><table class="res-table"><thead><tr>'
     + '<th>N°</th><th>Posto / Folha</th><th class="r">Tempo Padrão (s)</th>'
     + '<th class="r">Saturação</th><th class="r">Ociosidade (s)</th><th>Status</th>'
