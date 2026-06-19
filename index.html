@@ -10482,7 +10482,7 @@ function pmRenderBalanceamento(el){
     + '</div>';
 
   // Gráfico Yamazumi
-  html += balChartHtml(bal);
+  html += balChartHtml(bal, { toggle:true });
 
   // Painel Capacidade × Recursos (cálculo nos dois sentidos)
   html += balCapacidadeHtml(bal);
@@ -10522,6 +10522,7 @@ function pmRenderBalanceamento(el){
     + '</div>';
 
   el.innerHTML = html;
+  applyBalChartVis();
   // Renderiza os resultados iniciais do painel Capacidade × Recursos.
   if(typeof balLiveUpdate === 'function') balLiveUpdate();
 }
@@ -10696,13 +10697,18 @@ function balLiveUpdate(){
 }
 
 // Gráfico Yamazumi (barras) para um objeto bal.
-function balChartHtml(bal){
+function balChartHtml(bal, opts){
+  opts = opts || {};
   var chartH = 300;
   var maxStd = 0;
   bal.posts.forEach(function(p){ if(p.stdSec>maxStd) maxStd=p.stdSec; });
   var scaleMax = Math.max(bal.takt, maxStd) * 1.12 || 1;
+  // Título: com botão de ocultar quando opts.toggle (tela do projeto);
+  // sem botão nos demais usos (relatório/PDF), preservando o layout antigo.
+  var titulo = opts.toggle
+    ? '<div class="res-section-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>📊 Gráfico Yamazumi</span><button type="button" id="bal-chart-toggle" class="btn btn-ghost" onclick="toggleBalChart()" style="text-transform:none;letter-spacing:.2px">🙈 Ocultar gráfico</button></div>'
+    : '<div class="res-section-title">📊 Gráfico Yamazumi</div>';
   var html = ''
-    + '<div class="res-section-title">📊 Gráfico Yamazumi</div>'
     + '<div style="position:relative;padding:10px 0 72px 60px;background:var(--surface);border-radius:10px;border:1px solid var(--border)">'
     + (bal.takt>0 ? '<div style="position:absolute;left:60px;right:10px;top:'+(10+chartH-(bal.takt/scaleMax*chartH))+'px;height:0;border-top:2px dashed var(--accent);z-index:5"><span style="position:absolute;left:-55px;top:-9px;font-size:10px;font-weight:700;color:var(--accent);background:var(--surface);padding:2px 4px;border-radius:3px">TAKT '+bal.takt.toFixed(1)+'s</span></div>' : '')
     + '<div style="position:absolute;left:10px;top:10px;bottom:40px;width:48px;display:flex;flex-direction:column-reverse;justify-content:space-between;font-size:9px;color:var(--text3)">'
@@ -10738,7 +10744,39 @@ function balChartHtml(bal){
     + '<div><span style="display:inline-block;width:13px;height:13px;background:var(--red);border-radius:3px;vertical-align:middle;margin-right:5px"></span>NVA</div>'
     + '<div><span style="display:inline-block;width:13px;height:13px;background:var(--text3);border-radius:3px;vertical-align:middle;margin-right:5px"></span>Sem classif.</div>'
     + '</div>';
-  return html;
+  // Na tela do projeto, gráfico+legenda ficam num invólucro que pode ser ocultado;
+  // o título (com o botão) continua visível para trazer o gráfico de volta.
+  if(opts.toggle) return titulo + '<div id="bal-chart-area">' + html + '</div>';
+  return titulo + html;
+}
+
+// ── Ocultar / mostrar o gráfico na tela de Balanceamento do projeto ──
+// Some apenas o gráfico (barras + legenda); KPIs, painel de capacidade,
+// tabela "Detalhamento" e diagnóstico continuam visíveis. O estado é
+// salvo POR PROJETO (cada projeto lembra o seu) e reaplicado ao renderizar.
+var BAL_CHART_HIDE_KEY = 'mtm_bal_chart_hidden_v1';
+function _balHideMap(){
+  try{ var m = JSON.parse(localStorage.getItem(BAL_CHART_HIDE_KEY)); return (m && typeof m==='object') ? m : {}; }
+  catch(e){ return {}; }
+}
+function _balCurPid(){
+  try{ var p = pmGetProject(); return p ? (p.id || p.name || '__cur__') : '__cur__'; }
+  catch(e){ return '__cur__'; }
+}
+function balChartHidden(){ return !!_balHideMap()[_balCurPid()]; }
+function applyBalChartVis(){
+  var area = document.getElementById('bal-chart-area');
+  var btn  = document.getElementById('bal-chart-toggle');
+  var hidden = balChartHidden();
+  if(area) area.style.display = hidden ? 'none' : '';
+  if(btn)  btn.innerHTML = hidden ? '👁 Mostrar gráfico' : '🙈 Ocultar gráfico';
+}
+function toggleBalChart(){
+  var map = _balHideMap();
+  var pid = _balCurPid();
+  map[pid] = !map[pid];
+  try{ localStorage.setItem(BAL_CHART_HIDE_KEY, JSON.stringify(map)); }catch(e){}
+  applyBalChartVis();
 }
 
 // Diagnóstico textual do balanceamento.
