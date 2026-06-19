@@ -10231,7 +10231,11 @@ function openYamazumi(clientName){
   } else {
     var chartH = 320;
     var html = ''
-      + '<div class="res-section-title">📊 Gráfico Yamazumi (por posto)</div>'
+      + '<div class="res-section-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px">'
+      +   '<span>📊 Gráfico Yamazumi (por posto)</span>'
+      +   '<button type="button" id="yama-chart-toggle" class="btn btn-ghost" onclick="toggleYamaChart()" style="text-transform:none;letter-spacing:.2px">🙈 Ocultar gráfico</button>'
+      + '</div>'
+      + '<div id="yama-chart-area">'
       + '<div style="position:relative;padding:10px 0 72px 60px;background:var(--surface);border-radius:10px;border:1px solid var(--border);margin-bottom:16px">'
       // Linha do takt
       + (refLine > 0 ? '<div style="position:absolute;left:60px;right:10px;top:' + (10 + chartH - (refLine/scaleMax*chartH)) + 'px;height:0;border-top:2px dashed var(--accent);z-index:5"><span style="position:absolute;left:-55px;top:-9px;font-size:10px;font-weight:700;color:var(--accent);background:var(--surface);padding:2px 4px;border-radius:3px">TAKT ' + refLine.toFixed(1) + 's</span></div>' : '')
@@ -10277,7 +10281,8 @@ function openYamazumi(clientName){
       + '<div><span style="display:inline-block;width:14px;height:14px;background:var(--orange);border-radius:3px;vertical-align:middle;margin-right:5px"></span>NNVA (Necessário)</div>'
       + '<div><span style="display:inline-block;width:14px;height:14px;background:var(--red);border-radius:3px;vertical-align:middle;margin-right:5px"></span>NVA (Não agrega)</div>'
       + '<div><span style="display:inline-block;width:14px;height:14px;background:var(--text3);border-radius:3px;vertical-align:middle;margin-right:5px"></span>Sem classificação</div>'
-      + '</div>';
+      + '</div>'
+      + '</div>'; // fecha #yama-chart-area (KPIs e tabela "Detalhamento" continuam visíveis)
 
     // Tabela detalhada
     html += ''
@@ -10307,6 +10312,7 @@ function openYamazumi(clientName){
     html += '</tbody></table></div>';
 
     body.innerHTML = html;
+    applyYamaChartVis();
   }
 
   overlay.classList.remove('hidden');
@@ -10317,6 +10323,28 @@ function closeYamazumi(){
   var o = document.getElementById('yama-overlay');
   if(o) o.classList.add('hidden');
   document.body.style.overflow = '';
+}
+
+// ── Ocultar / mostrar o gráfico dentro do modal Yamazumi (por empresa) ──
+// Some apenas o gráfico (barras + legenda); os KPIs e a tabela
+// "Detalhamento por Posto" continuam visíveis. O botão fica sempre no
+// título, então dá para trazer o gráfico de volta. O estado é salvo no
+// navegador e reaplicado toda vez que o modal é aberto.
+var YAMA_CHART_HIDE_KEY = 'mtm_yama_chart_hidden_v1';
+function yamaChartHidden(){
+  try{ return localStorage.getItem(YAMA_CHART_HIDE_KEY) === '1'; }catch(e){ return false; }
+}
+function applyYamaChartVis(){
+  var area = document.getElementById('yama-chart-area');
+  var btn  = document.getElementById('yama-chart-toggle');
+  var hidden = yamaChartHidden();
+  if(area) area.style.display = hidden ? 'none' : '';
+  if(btn)  btn.innerHTML = hidden ? '👁 Mostrar gráfico' : '🙈 Ocultar gráfico';
+}
+function toggleYamaChart(){
+  var hidden = !yamaChartHidden();
+  try{ localStorage.setItem(YAMA_CHART_HIDE_KEY, hidden ? '1' : '0'); }catch(e){}
+  applyYamaChartVis();
 }
 
 // ============================================================
