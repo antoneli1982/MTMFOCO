@@ -12601,6 +12601,51 @@ function exportRelatorioPDF(){
   }
 }
 
+// Bloco de identificação do Relatório Final Consolidado:
+// Empresa/Cliente, Projeto, Engº Especialista e Data. Puxa o primeiro
+// valor preenchido entre as folhas do escopo (os campos ficam no
+// cabeçalho de cada folha) e, como reforço, do projeto/pasta ativos.
+function buildReportIdentHtml(){
+  function _esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; }); }
+  var _sheets = (typeof scopedSheets==='function') ? scopedSheets() : (typeof sheets!=='undefined'?sheets:[]);
+  function firstHeader(key){
+    for(var i=0;i<_sheets.length;i++){
+      var v = (_sheets[i] && _sheets[i].header) ? _sheets[i].header[key] : '';
+      if(v != null && String(v).trim() !== '') return String(v).trim();
+    }
+    return '';
+  }
+  var proj = null;
+  try{ proj = (typeof pmGetProject==='function') ? pmGetProject() : null; }catch(e){}
+
+  var empresa      = firstHeader('empresa') || (proj && proj.client ? String(proj.client) : '') || '—';
+  var projeto      = firstHeader('projeto') || (proj && proj.name   ? String(proj.name)   : '') || '—';
+  var especialista = firstHeader('eng') || '—';
+
+  // Data: usa a data do cabeçalho (formato AAAA-MM-DD), senão a data de hoje.
+  var dataStr = firstHeader('data'), dataFmt;
+  if(dataStr){
+    var d = new Date(dataStr + 'T00:00:00');
+    dataFmt = isNaN(d.getTime()) ? dataStr : d.toLocaleDateString('pt-BR');
+  } else {
+    dataFmt = new Date().toLocaleDateString('pt-BR');
+  }
+
+  function cell(label, val, cor){
+    return '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;min-width:0">'
+      + '<div style="font-size:8px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin-bottom:3px">'+label+'</div>'
+      + '<div style="font-size:13px;font-weight:700;color:'+(cor||'var(--text)')+';overflow-wrap:anywhere;line-height:1.25">'+_esc(val)+'</div>'
+      + '</div>';
+  }
+
+  return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:0 24px 4px">'
+    + cell('🏢 Empresa / Cliente', empresa, 'var(--orange)')
+    + cell('📁 Projeto', projeto, 'var(--orange)')
+    + cell('👷 Engº Especialista', especialista, 'var(--text)')
+    + cell('📅 Data', dataFmt, 'var(--accent)')
+    + '</div>';
+}
+
 function showFinalReport(){
   var _fr = (typeof scopedSheets==='function')?scopedSheets():sheets;
   if(!_fr || _fr.length === 0){
@@ -12811,6 +12856,7 @@ function showFinalReport(){
     +       '<button class="res-close" onclick="closeFinalReport()">✕</button>'
     +     '</div>'
     +   '</div>'
+    +   buildReportIdentHtml()
     +   kpiHtml
     +   '<div class="res-body">'
     +     mtmReportImgHtml()
