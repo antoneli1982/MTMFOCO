@@ -4267,14 +4267,18 @@ window.FIREBASE_CONFIG = {
         <div class="fad-premissa">
           <div class="fad-premissa-tit">⚙ Premissa de Allowance — base do cálculo</div>
           <div class="fad-premissa-opts">
+            <label class="fad-prem-opt is-active" id="fad-prem-none">
+              <input type="radio" name="fad-modo-allow" value="none" checked onchange="fadSetModoAllow('none')">
+              <span><b>Sem fadiga</b> — Allowance Total <b>0%</b> · Tempo de Trabalho <b>100%</b> &nbsp;<i style="color:var(--text3);font-style:normal">(padrão)</i></span>
+              <span class="fad-prem-tag" id="fad-prem-tag">Premissa ativa</span>
+            </label>
             <label class="fad-prem-opt" id="fad-prem-calc">
               <input type="radio" name="fad-modo-allow" value="calc" onchange="fadSetModoAllow('calc')">
               <span>Cálculo detalhado &nbsp;<b style="color:var(--accent)">TV + TER</b>&nbsp; (abas Distribuição + Fadiga)</span>
             </label>
-            <label class="fad-prem-opt is-active" id="fad-prem-sese">
-              <input type="radio" name="fad-modo-allow" value="sese" checked onchange="fadSetModoAllow('sese')">
+            <label class="fad-prem-opt" id="fad-prem-sese">
+              <input type="radio" name="fad-modo-allow" value="sese" onchange="fadSetModoAllow('sese')">
               <span>Padrão <b>SESÉ</b> — Allowance Total fixo de <b>10%</b> · Tempo de Trabalho <b>90%</b></span>
-              <span class="fad-prem-tag" id="fad-prem-tag">Premissa ativa</span>
             </label>
             <label class="fad-prem-opt" id="fad-prem-global">
               <input type="radio" name="fad-modo-allow" value="global" onchange="fadSetModoAllow('global')">
@@ -6006,7 +6010,7 @@ function prepararPrint(){
     html += '</div>';
 
     // ═══ FADIGA & OCIOSIDADE (se preenchida) ═══
-    if(fad){
+    if(fad && s.fadiga.modoAllow !== 'none'){
       html += '<div class="pa-h2">🛌 Análise de Fadiga & Ociosidade</div>';
 
       // Cabeçalho da planilha de fadiga (Tipo/Seção/Operação/Descrição)
@@ -12234,6 +12238,7 @@ function bootSheetsOnce(){
       if(mm){ var n = parseInt(mm[1],10); if(n > cnt) cnt = n; }
     });
   }
+  if(typeof fadMigrateAutoSESEOnce === 'function') fadMigrateAutoSESEOnce();
 }
 
 function dbEsc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -12637,12 +12642,12 @@ function mtmCalcFadiga(f){
   var terCoef = (fa * fb) + mM + ca;
   var terPct  = terCoef * 100;
   // ── Allowance Total conforme a premissa escolhida ──
-  var fixPct     = f.modoAllow === 'global' ? 15 : (f.modoAllow === 'sese' ? 10 : null);
+  var fixPct     = f.modoAllow === 'none' ? 0 : (f.modoAllow === 'global' ? 15 : (f.modoAllow === 'sese' ? 10 : null));
   var modoSESE   = (f.modoAllow === 'sese');
   var modoGlobal = (f.modoAllow === 'global');
   var allowCalc  = tvTotal + terPct;
   var allowTotal = (fixPct != null) ? fixPct : allowCalc;
-  var premLabel  = modoGlobal ? 'Global 15%' : (modoSESE ? 'SESÉ 10%' : 'TV + TER');
+  var premLabel  = (f.modoAllow === 'none') ? 'Sem fadiga' : (modoGlobal ? 'Global 15%' : (modoSESE ? 'SESÉ 10%' : 'TV + TER'));
   return {
     pcts: p, tvTotal: tvTotal,
     fa: fa, fb: fb, mM: mM, ca: ca,
@@ -12690,7 +12695,42 @@ function mtmReportImgHtml(){
     + '</div>';
 }
 
+// Migração única: limpa o allowance de 10% que a premissa SESÉ aplicava
+// AUTOMATICAMENTE ao abrir/fechar o painel de Fadiga (modoAllow 'sese' +
+// cabeçalho Pessoal/Fadiga/Contingência = 5/4/1). Roda só uma vez; escolhas
+// futuras de SESÉ/Global feitas de propósito não são afetadas.
+var _fadAutoSESEMigrated = false;
+function fadMigrateAutoSESEOnce(){
+  if(_fadAutoSESEMigrated) return;
+  try{ if(localStorage.getItem('mtm_fad_autosese_migrated') === '1'){ _fadAutoSESEMigrated = true; return; } }catch(e){}
+  _fadAutoSESEMigrated = true;
+  var changed = false;
+  try{
+    (sheets||[]).forEach(function(s){
+      if(!s) return;
+      if(s.fadiga && typeof s.fadiga === 'object' && s.fadiga.modoAllow === 'sese'){
+        s.fadiga.modoAllow = 'none';
+        changed = true;
+      }
+      if(s.header){
+        var aP = parseFloat(s.header.allowPersonal),
+            aF = parseFloat(s.header.allowFatigue),
+            aC = parseFloat(s.header.allowContingency);
+        if(aP === 5 && aF === 4 && aC === 1){
+          s.header.allowPersonal = 0;
+          s.header.allowFatigue = 0;
+          s.header.allowContingency = 0;
+          changed = true;
+        }
+      }
+    });
+    if(changed && typeof saveSheets === 'function') saveSheets();
+  }catch(e){}
+  try{ localStorage.setItem('mtm_fad_autosese_migrated','1'); }catch(e){}
+}
+
 function mtmCollectFinalReport(){
+  fadMigrateAutoSESEOnce();
   var allMetrics = (typeof scopedSheets==='function'?scopedSheets():(sheets||[])).map(function(s){
     var m   = computeSheetMetrics(s);
     var fad = (s.fadiga && typeof s.fadiga === 'object') ? mtmCalcFadiga(s.fadiga) : null;
@@ -13598,7 +13638,7 @@ function exportExcel(only){
       aoaG.push([]);
 
       // Fadiga detalhada (se foi preenchida) — filtra linhas vazias
-      if(fad){
+      if(fad && s.fadiga.modoAllow !== 'none'){
         aoaG.push(['╔ TV — TEMPO DE DISTRIBUIÇÃO (Ociosidade de Rotina) ╗']);
         aoaG.push(['Item','Descrição','Valor informado','Base','% calculado']);
 
@@ -13685,7 +13725,7 @@ function exportExcel(only){
         aoaG.push([]);
 
         aoaG.push(['╔ ANÁLISE DE OCIOSIDADE ╗']);
-        var _premPctG = (s.fadiga && s.fadiga.modoAllow==='global') ? 15 : ((s.fadiga && s.fadiga.modoAllow==='sese') ? 10 : null);
+        var _premPctG = (s.fadiga && s.fadiga.modoAllow==='none') ? 0 : ((s.fadiga && s.fadiga.modoAllow==='global') ? 15 : ((s.fadiga && s.fadiga.modoAllow==='sese') ? 10 : null));
         var allowTotalFad = (_premPctG != null) ? _premPctG : (fad.tvTotal + fad.fadigaPct);
         var tnFad = m.tmu * 0.036;
         var tsFad = tnFad * (1 + allowTotalFad/100);
@@ -13781,8 +13821,8 @@ function exportExcel(only){
       aoaM.push(['','','','','','TOTAL', +m.tmu.toFixed(2), +m.stdSec.toFixed(3)]);
 
       // Fadiga resumida ao final da aba MTM (se foi preenchida)
-      if(fad){
-        var _premPctM = (s.fadiga && s.fadiga.modoAllow==='global') ? 15 : ((s.fadiga && s.fadiga.modoAllow==='sese') ? 10 : null);
+      if(fad && s.fadiga.modoAllow !== 'none'){
+        var _premPctM = (s.fadiga && s.fadiga.modoAllow==='none') ? 0 : ((s.fadiga && s.fadiga.modoAllow==='global') ? 15 : ((s.fadiga && s.fadiga.modoAllow==='sese') ? 10 : null));
         var allowTotalFad = (_premPctM != null) ? _premPctM : (fad.tvTotal + fad.fadigaPct);
         var tnFad = m.tmu * 0.036;
         var tsFad = tnFad * (1 + allowTotalFad/100);
@@ -14634,7 +14674,7 @@ function fadAplicarEstado(st){
   setVal('ter-umid',    st.terUmid);
   setVal('ter-vibr',    st.terVibr);
   // Premissa de allowance (TV+TER detalhado · SESÉ 10% · Global 15%)
-  if(st.modoAllow === 'sese' || st.modoAllow === 'calc' || st.modoAllow === 'global'){
+  if(st.modoAllow === 'sese' || st.modoAllow === 'calc' || st.modoAllow === 'global' || st.modoAllow === 'none'){
     var rbMod = document.querySelector('input[name="fad-modo-allow"][value="'+st.modoAllow+'"]');
     if(rbMod) rbMod.checked = true;
   }
@@ -14721,7 +14761,9 @@ function closeFadiga(){
       s.fadiga = fadColetarEstado();
       try{
         var modoEl = document.querySelector('input[name="fad-modo-allow"]:checked');
-        if(modoEl && modoEl.value === 'sese'){
+        if(modoEl && modoEl.value === 'none'){
+          /* Sem fadiga: não aplica nenhum allowance ao cabeçalho da folha. */
+        } else if(modoEl && modoEl.value === 'sese'){
           fadAplicarPadraoSESE();   // premissa SESÉ (10% fixo)
         } else if(modoEl && modoEl.value === 'global'){
           fadAplicarPadraoGlobal(); // premissa Global (15% fixo)
@@ -14895,11 +14937,13 @@ function fadAplicarPadraoGlobal(){
 function fadSetModoAllow(modo){
   if(typeof fadRecalc === 'function'){ try{ fadRecalc(); }catch(e){} }
   if(typeof showToast === 'function'){
-    showToast(modo === 'sese'
+    showToast(modo === 'none'
+      ? '🚫 Premissa: Sem fadiga — Allowance 0% · Tempo de Trabalho 100%'
+      : (modo === 'sese'
       ? '📐 Premissa: Padrão SESÉ — Allowance 10% · Tempo de Trabalho 90%'
       : (modo === 'global'
           ? '🌐 Premissa: Padrão Global — Allowance 15% · Tempo de Trabalho 85%'
-          : 'Premissa: Cálculo detalhado TV + TER'));
+          : 'Premissa: Cálculo detalhado TV + TER')));
   }
 }
 
