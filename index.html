@@ -5093,6 +5093,10 @@ function renderContent(id){
         <span class="f-label" style="color:var(--accent)">Demanda / turno</span>
         <input class="f-input" type="number" min="0" placeholder="480" data-key="demand" value="${esc(h.demand||'')}">
       </div>
+      <div class="f-group" style="background:var(--purpleBg);border-left:2px solid var(--purple);padding-left:8px">
+        <span class="f-label" style="color:var(--purple)">Peças por ciclo</span>
+        <input class="f-input" type="number" step="1" min="1" placeholder="1" title="Quantas peças saem em cada ciclo (ex.: 2 peças por vez na máquina). Multiplica peças/hora e capacidade." data-key="pcsCiclo" value="${esc(h.pcsCiclo||'')}">
+      </div>
       <div class="f-group" style="background:var(--greenBg);border-left:2px solid var(--green);padding-left:8px">
         <span class="f-label" style="color:var(--green)">Fator Pessoal (%)</span>
         <input class="f-input" type="number" step="0.5" min="0" max="20" placeholder="5" data-key="allowPersonal" value="${esc(h.allowPersonal||'5')}">
@@ -5560,6 +5564,7 @@ function computeSheetMetrics(s){
   return {
     totalTmu, totalSec, allowPct, stdSec, stdTmu, takt, saturation,
     va, nva, nnva, unc,
+    pcsCiclo: (function(){ var v = parseFloat(h.pcsCiclo); return (isFinite(v) && v > 0) ? v : 1; })(),
     demand: parseFloat(h.demand)||0,
     rowCount: rows.filter(r=>(parseFloat(r.ttmu)||0)>0).length
   };
@@ -5899,8 +5904,9 @@ function prepararPrint(){
     var h = s.header||{};
     var allow = (parseFloat(h.allowPersonal)||0) + (parseFloat(h.allowFatigue)||0) + (parseFloat(h.allowContingency)||0);
     var ts = tn * (1 + allow/100);
-    var pph = ts > 0 ? Math.floor(3600/ts) : 0;
-    return {tmu:tmu, tn:tn, ts:ts, allow:allow, pph:pph};
+    var pcsCic = (function(){ var v = parseFloat(h.pcsCiclo); return (isFinite(v) && v > 0) ? v : 1; })();
+    var pph = ts > 0 ? Math.floor((3600/ts) * pcsCic) : 0;
+    return {tmu:tmu, tn:tn, ts:ts, allow:allow, pph:pph, pcsCiclo:pcsCic};
   }
 
   var html = '';
@@ -6201,8 +6207,9 @@ function showResults(sid){
   const totalMin = +(totalSec / 60).toFixed(4);
 
   /* ─── PEÇAS / HORA e TTP = 100 − Allowance Total ─── */
-  const pph      = m.stdSec > 0 ? +(3600 / m.stdSec).toFixed(2) : 0;
-  const pphInt   = m.stdSec > 0 ? Math.floor(3600 / m.stdSec) : 0;
+  const pcsCic   = (m.pcsCiclo && m.pcsCiclo > 0) ? m.pcsCiclo : 1;
+  const pph      = m.stdSec > 0 ? +((3600 / m.stdSec) * pcsCic).toFixed(2) : 0;
+  const pphInt   = m.stdSec > 0 ? Math.floor((3600 / m.stdSec) * pcsCic) : 0;
   // TTP agora = 100 − Allowance Total (TV + TER = aP + aF + aC)
   const allowTotal = +(m.allowPct||0).toFixed(2);
   const ttp        = +(100 - allowTotal).toFixed(2);
@@ -6266,7 +6273,7 @@ function showResults(sid){
     if(m.stdSec > 0){
       jornadasHtml = jornadas.map(j => {
         const jorSec = j.h * 3600;
-        const pcs = Math.floor(jorSec / m.stdSec);
+        const pcs = Math.floor(jorSec / m.stdSec) * pcsCic;
         // Coluna TTP agora exibe 100 − Allowance Total (constante na jornada)
         const ttpCell = allowTotal > 0
           ? `<td style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:${ttpColor};font-weight:700">${ttp}%</td>`
@@ -11692,10 +11699,11 @@ function buildTTPSection(){
     var tdis    = h * 3600;
     var tprod   = tdis * (ttp / 100);
     var ts      = x.stdSec;
+    var pcsCic  = (m.pcsCiclo && m.pcsCiclo > 0) ? m.pcsCiclo : 1;
     var takt    = dem > 0 ? tprod / dem : 0;
-    var capUm   = takt > 0 ? Math.floor(tprod / takt) : 0;
+    var capUm   = takt > 0 ? Math.floor(tprod / takt) * pcsCic : 0;
     var colabNeed = (ts > 0 && takt > 0) ? Math.ceil(ts / takt) : 0;
-    var capColab  = (colabNeed > 0 && ts > 0) ? Math.floor(tprod * colabNeed / ts) : 0;
+    var capColab  = (colabNeed > 0 && ts > 0) ? Math.floor(tprod * colabNeed / ts) * pcsCic : 0;
     var ocio    = m.takt > 0 ? Math.max(0, m.takt - ts) : 0;
     var ocioRel = m.takt > 0 ? ((m.takt - ts) / m.takt * 100) : null;
 
@@ -12653,19 +12661,23 @@ function mtmCollectFinalReport(){
     var allowUsed = fad ? fad.allowTotal : m.allowPct;
     var tnSec     = m.totalSec;
     var stdSec    = +(tnSec * (1 + allowUsed/100)).toFixed(4);
+    var pcsCiclo  = (m.pcsCiclo && m.pcsCiclo > 0) ? m.pcsCiclo : 1;
     return {
       sheet: s, m: m, fad: fad,
       allowUsed: allowUsed,
       tnSec:  tnSec,
       stdSec: stdSec,
-      pph:    stdSec > 0 ? +(3600/stdSec).toFixed(2) : 0,
-      pphInt: stdSec > 0 ? Math.floor(3600/stdSec) : 0,
+      pcsCiclo: pcsCiclo,
+      pph:    stdSec > 0 ? +((3600/stdSec) * pcsCiclo).toFixed(2) : 0,
+      pphInt: stdSec > 0 ? Math.floor((3600/stdSec) * pcsCiclo) : 0,
       ocup:   m.takt > 0 ? +(stdSec/m.takt*100).toFixed(1) : null
     };
   });
   var totalStdSec = allMetrics.reduce(function(a,x){ return a + x.stdSec; }, 0);
   var totalTmuSum = allMetrics.reduce(function(a,x){ return a + x.m.totalTmu; }, 0);
-  var combinedPph = totalStdSec > 0 ? +(3600/totalStdSec).toFixed(2) : 0;
+  // Peças/hora combinada = soma das peças/hora reais de cada folha (todos os
+  // postos produzindo simultaneamente), já considerando as peças por ciclo.
+  var combinedPph = +allMetrics.reduce(function(a,x){ return a + x.pph; }, 0).toFixed(2);
   var withFad     = allMetrics.filter(function(x){ return !!x.fad; });
   var allowMedio  = allMetrics.length
     ? allMetrics.reduce(function(a,x){ return a + x.allowUsed; }, 0) / allMetrics.length
@@ -12847,6 +12859,7 @@ function showFinalReport(){
       + '<div style="font-size:9px;color:var(--text3);margin-top:8px;text-align:right">'
       +   (x.fad ? '🛌 Fadiga: TV '+fmt(x.fad.tvTotal,1)+'% + TER '+fmt(x.fad.terPct,1)+'%'+((x.fad.modoSESE||x.fad.modoGlobal)?' · '+x.fad.premLabel:'') : '⚙ Allowance do cabeçalho')
       +   (m.takt > 0 ? ' · Takt '+m.takt+'s' : '')
+      +   ((x.pcsCiclo && x.pcsCiclo > 1) ? ' · <span style="color:var(--purple);font-weight:700">'+x.pcsCiclo+' pç/ciclo</span>' : '')
       + '</div>'
       + '</div>';
   }).join('');
@@ -12902,11 +12915,15 @@ function showFinalReport(){
   }).join('');
   var tableRows = jornadas.map(function(j){
     var jorSec = j.h * 3600;
+    var somaPcs = 0;
     var cells = allMetrics.map(function(x){
-      var pcs = x.stdSec > 0 ? Math.floor(jorSec/x.stdSec) : '—';
+      var pcsCic = (x.pcsCiclo && x.pcsCiclo > 0) ? x.pcsCiclo : 1;
+      var pcsN = x.stdSec > 0 ? Math.floor(jorSec/x.stdSec) * pcsCic : 0;
+      if(x.stdSec > 0) somaPcs += pcsN;
+      var pcs = x.stdSec > 0 ? pcsN : '—';
       return '<td style="padding:6px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--purple);font-weight:700;border-right:1px solid var(--border)">'+pcs+'</td>';
     }).join('');
-    var totalPcs = totalStdSec > 0 ? Math.floor(jorSec/totalStdSec) : '—';
+    var totalPcs = somaPcs > 0 ? somaPcs : '—';
     return '<tr><td style="padding:6px 10px;font-weight:700;color:var(--text);border-right:1px solid var(--border2)">'+j.lbl+'</td>'+cells
       + '<td style="padding:6px 10px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--accent);font-weight:800;background:var(--accentBg)">'+totalPcs+'</td></tr>';
   }).join('');
@@ -12919,7 +12936,7 @@ function showFinalReport(){
     +       '<th style="padding:8px 10px;text-align:right;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.8px;background:var(--accentBg)">SOMA (pc/turno)</th>'
     +     '</tr></thead><tbody>'+tableRows+'</tbody>'
     +   '</table>'
-    +   '<div style="padding:8px 12px;background:var(--surface2);border-top:1px solid var(--border);font-size:10px;color:var(--text3)">SOMA = todos os operadores produzindo simultaneamente · Tempos Padrão já com Allowance Total</div>'
+    +   '<div style="padding:8px 12px;background:var(--surface2);border-top:1px solid var(--border);font-size:10px;color:var(--text3)">SOMA = todos os operadores produzindo simultaneamente · Tempos Padrão já com Allowance Total · capacidade já multiplicada pelas Peças por ciclo de cada folha</div>'
     + '</div>', 'margin-top:24px') : '';
 
   // ── Comparativo de folhas ──
@@ -13415,8 +13432,9 @@ function _xlCalcSheetMetrics(s){
   var _fad = (s.fadiga && typeof s.fadiga==='object' && typeof mtmCalcFadiga==='function') ? mtmCalcFadiga(s.fadiga) : null;
   var allowTotal = _fad ? _fad.allowTotal : allowHeader;
   var stdSec = (tmu * 0.036) * (1 + allowTotal/100);
-  var pph = stdSec > 0 ? Math.floor(3600/stdSec) : 0;
-  return {tmu:tmu, stdSec:stdSec, pph:pph, allow:allowTotal};
+  var pcsCiclo = (function(){ var v = parseFloat(h.pcsCiclo); return (isFinite(v) && v > 0) ? v : 1; })();
+  var pph = stdSec > 0 ? Math.floor((3600/stdSec) * pcsCiclo) : 0;
+  return {tmu:tmu, stdSec:stdSec, pph:pph, allow:allowTotal, pcsCiclo:pcsCiclo};
 }
 
 function _xlSafeSheetName(name, taken){
@@ -13586,6 +13604,7 @@ function exportExcel(only){
       aoaG.push(['Operador/Posto',  h.operator||'']);
       aoaG.push(['Takt (s)',        parseFloat(h.takt)||'']);
       aoaG.push(['Demanda (peças)', parseFloat(h.demand)||'']);
+      aoaG.push(['Peças por ciclo', m.pcsCiclo]);
       aoaG.push([]);
 
       aoaG.push(['╔ ALLOWANCES APLICADAS ╗']);
@@ -13710,6 +13729,7 @@ function exportExcel(only){
       aoaG.push(['TMU Total',           +m.tmu.toFixed(2)]);
       aoaG.push(['Tempo Padrão (s)',    +m.stdSec.toFixed(3)]);
       aoaG.push(['Peças/hora',          m.pph]);
+      aoaG.push(['Peças por ciclo',     m.pcsCiclo]);
       aoaG.push(['Allowance Total (%)', m.allow]);
       aoaG.push(['Linhas da análise',   (s.rows||[]).length]);
       aoaG.push([]);
@@ -13861,6 +13881,7 @@ function importExcelHandle(input){
         'operador':'operator','operador/posto':'operator','posto':'operator',
         'takt':'takt','takt (s)':'takt','takt time':'takt',
         'demanda':'demand','demanda (peças)':'demand','demanda (pecas)':'demand',
+        'peças por ciclo':'pcsCiclo','pecas por ciclo':'pcsCiclo','peças/ciclo':'pcsCiclo','pecas/ciclo':'pcsCiclo',
         'pessoal':'allowPersonal','pessoal (%)':'allowPersonal',
         'fadiga':'allowFatigue','fadiga (%)':'allowFatigue',
         'contingência':'allowContingency','contingencia':'allowContingency',
