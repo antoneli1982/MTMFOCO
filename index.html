@@ -9510,8 +9510,11 @@ function openCompanyPage(clientName){
       var sh = typeof get === 'function' ? get(sid) : null;
       if(sh){
         var m = computeSheetMetrics(sh);
+        var _fadD = (sh.fadiga && typeof sh.fadiga==='object') ? mtmCalcFadiga(sh.fadiga) : null;
+        var _allowD = _fadD ? _fadD.allowTotal : m.allowPct;
+        var _stdD = +(m.totalSec * (1 + _allowD/100)).toFixed(4);
         totalSecBruto += m.totalSec;
-        totalStdSec += m.stdSec;
+        totalStdSec += _stdD;
         totalVA += m.va; totalNVA += m.nva; totalNNVA += m.nnva; totalUnc += m.unc;
         allSheets.push({ sheet: sh, projectName: p.name, metrics: m });
         (sh.rows||[]).forEach(function(r){
@@ -9689,8 +9692,11 @@ function openFolderPage(fid){
       var sh = typeof get === 'function' ? get(sid) : null;
       if(sh){
         var m = computeSheetMetrics(sh);
+        var _fadD = (sh.fadiga && typeof sh.fadiga==='object') ? mtmCalcFadiga(sh.fadiga) : null;
+        var _allowD = _fadD ? _fadD.allowTotal : m.allowPct;
+        var _stdD = +(m.totalSec * (1 + _allowD/100)).toFixed(4);
         totalSecBruto += m.totalSec;
-        totalStdSec += m.stdSec;
+        totalStdSec += _stdD;
         totalVA += m.va; totalNVA += m.nva; totalNNVA += m.nnva; totalUnc += m.unc;
         (sh.rows||[]).forEach(function(r){
           var c = (r.code||'').toUpperCase().trim();
@@ -13403,7 +13409,11 @@ function _xlCalcSheetMetrics(s){
   var aP = parseFloat(h.allowPersonal)||0;
   var aF = parseFloat(h.allowFatigue)||0;
   var aC = parseFloat(h.allowContingency)||0;
-  var allowTotal = aP+aF+aC;
+  var allowHeader = aP+aF+aC;
+  // Tempo Padrão usa a premissa de fadiga (TV+TER / SESÉ 10% / Global 15%) quando há
+  // Análise de Fadiga na folha; só cai no allowance do cabeçalho se não houver análise.
+  var _fad = (s.fadiga && typeof s.fadiga==='object' && typeof mtmCalcFadiga==='function') ? mtmCalcFadiga(s.fadiga) : null;
+  var allowTotal = _fad ? _fad.allowTotal : allowHeader;
   var stdSec = (tmu * 0.036) * (1 + allowTotal/100);
   var pph = stdSec > 0 ? Math.floor(3600/stdSec) : 0;
   return {tmu:tmu, stdSec:stdSec, pph:pph, allow:allowTotal};
@@ -13673,7 +13683,8 @@ function exportExcel(only){
         aoaG.push([]);
 
         aoaG.push(['╔ ANÁLISE DE OCIOSIDADE ╗']);
-        var allowTotalFad = fad.tvTotal + fad.fadigaPct;
+        var _premPctG = (s.fadiga && s.fadiga.modoAllow==='global') ? 15 : ((s.fadiga && s.fadiga.modoAllow==='sese') ? 10 : null);
+        var allowTotalFad = (_premPctG != null) ? _premPctG : (fad.tvTotal + fad.fadigaPct);
         var tnFad = m.tmu * 0.036;
         var tsFad = tnFad * (1 + allowTotalFad/100);
         var takt  = parseFloat(h.takt)||0;
@@ -13768,7 +13779,8 @@ function exportExcel(only){
 
       // Fadiga resumida ao final da aba MTM (se foi preenchida)
       if(fad){
-        var allowTotalFad = fad.tvTotal + fad.fadigaPct;
+        var _premPctM = (s.fadiga && s.fadiga.modoAllow==='global') ? 15 : ((s.fadiga && s.fadiga.modoAllow==='sese') ? 10 : null);
+        var allowTotalFad = (_premPctM != null) ? _premPctM : (fad.tvTotal + fad.fadigaPct);
         var tnFad = m.tmu * 0.036;
         var tsFad = tnFad * (1 + allowTotalFad/100);
         var takt  = parseFloat(h.takt)||0;
