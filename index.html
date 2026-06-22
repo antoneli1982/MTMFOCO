@@ -11019,7 +11019,7 @@ function buildSheetDetailSection(){
       var tsc= +(tt*0.036).toFixed(4);
       bodyRows += '<tr>'
         + '<td style="padding:5px 8px;text-align:center;color:var(--text3)">'+nVis+'</td>'
-        + '<td style="padding:5px 8px;text-align:left">'+esc(r.desc||'')+'</td>'
+        + '<td style="padding:5px 8px;text-align:left;white-space:normal;word-break:break-word;overflow-wrap:anywhere;min-width:200px;max-width:420px;line-height:1.35">'+esc(r.desc||'')+'</td>'
         + '<td style="padding:5px 8px;text-align:center;color:var(--text2)">'+esc(r.agrega||'—')+'</td>'
         + '<td style="padding:5px 8px;text-align:center;font-family:\'JetBrains Mono\',monospace;color:var(--accent)">'+esc(r.code||'')+'</td>'
         + '<td style="padding:5px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--green)">'+(isNaN(tmu)?'':tmu)+'</td>'
@@ -11089,6 +11089,11 @@ function buildSheetDetailSection(){
       + inputBox('Demanda (itens)', 'frp-dem-'+s.id, demInit, 'ex: 600')
       + box('Allowance Total (%)', 'frp-allow-'+s.id, 'calculado da análise', 'var(--green)')
       + box('TTP (%)', 'frp-ttp-'+s.id, '100 − Allowance', 'var(--accent)')
+      + '<div style="flex:1;min-width:140px;background:var(--surface2);border:1px solid var(--green);border-radius:8px;padding:8px 12px">'
+      +   '<div style="font-size:9px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Tempo de Ciclo Final (TS)</div>'
+      +   '<div style="font-size:16px;font-weight:800;color:var(--green);font-family:\'JetBrains Mono\',monospace">'+(x.stdSec ? x.stdSec.toFixed(2).replace('.',',') : '—')+' s</div>'
+      +   '<div style="font-size:9px;color:var(--text3);margin-top:2px">TN × (1 + Allowance/100)'+((x.pcsCiclo&&x.pcsCiclo>1)?' · '+x.pcsCiclo+' pç/ciclo':'')+'</div>'
+      + '</div>'
       + '</div>'
       + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">'
       + box('Tempo Produtivo', 'frp-tprod-'+s.id, 'Tdisp × TTP', 'var(--green)')
@@ -13721,7 +13726,7 @@ function exportExcel(only){
           aoaG.push(['Ociosidade relativa (%)',   +ocioRel.toFixed(2)]);
           aoaG.push(['Status', ocioRel>=0 ? 'FOLGA — posto atende ao Takt' : 'GARGALO — posto sobrecarregado']);
         }
-        aoaG.push(['Peças/hora teóricas',         tsFad>0 ? Math.floor(3600/tsFad) : 0]);
+        aoaG.push(['Peças/hora teóricas',         tsFad>0 ? Math.floor((3600/tsFad) * (m.pcsCiclo||1)) : 0]);
         aoaG.push([]);
       }
 
@@ -14484,7 +14489,8 @@ function fadRecalc(){
   var hasTakt = isFinite(takt) && takt > 0;
   var ocioAbs = hasTakt ? (takt - ts) : null;
   var ocioRel = hasTakt ? ((takt - ts) / takt * 100) : null;
-  var pph     = ts > 0 ? Math.floor(3600 / ts) : 0;
+  var _pcsCicF = activeId ? (function(){ var v = parseFloat(((get(activeId)||{}).header||{}).pcsCiclo); return (isFinite(v) && v>0)?v:1; })() : 1;
+  var pph     = ts > 0 ? Math.floor((3600 / ts) * _pcsCicF) : 0;
 
   function setT(id, txt){ var e = document.getElementById(id); if(e) e.textContent = txt; }
   setT('ana-tv', fadFmt(tv.tvTotal,2)+' %');
