@@ -11490,8 +11490,6 @@ function buildCombinedAnalysisSection(){
            : ((filled[0].sheet.header && filled[0].sheet.header.workHours) || 8);
   var demDef = (saved.dem != null && saved.dem !== '') ? saved.dem
              : ((filled[0].sheet.header && filled[0].sheet.header.demand) || '');
-  var premDef   = (saved.premiseMode != null && saved.premiseMode !== '') ? saved.premiseMode : 'real';
-  var manualDef = (saved.premiseManual != null && saved.premiseManual !== '') ? saved.premiseManual : '';
   var peopleDef = (saved.people != null && saved.people !== '') ? saved.people : 1;
 
   var lamp = frpLampBtn('__ALL__');
@@ -11521,29 +11519,6 @@ function buildCombinedAnalysisSection(){
       + 'style="width:100%;background:transparent;border:none;outline:none;font-size:16px;font-weight:800;color:'+(color||'var(--purple)')+';font-family:\'JetBrains Mono\',monospace">'
       + '</div>';
   };
-  // Seletor da premissa de fadiga/allowance
-  var selOpt = function(v,t,sel){ return '<option value="'+v+'"'+(sel===v?' selected':'')+'>'+t+'</option>'; };
-  var premiseBox = function(){
-    return '<div style="flex:1;min-width:160px;background:var(--surface);border:1px solid var(--green);border-radius:8px;padding:8px 12px">'
-      + '<div style="font-size:9px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Premissa de Fadiga / Allowance</div>'
-      + '<select id="frp-prem-__ALL__" onchange="frpAnaliseAll()" '
-      + 'style="width:100%;background:transparent;border:none;outline:none;font-size:13px;font-weight:800;color:var(--text);font-family:inherit;cursor:pointer">'
-      + selOpt('real','Real por folha', premDef)
-      + selOpt('sese','Padrão SESÉ (10%)', premDef)
-      + selOpt('global','Padrão Global (85%)', premDef)
-      + selOpt('manual','Manual (%)', premDef)
-      + '</select>'
-      + '</div>';
-  };
-  // Campo de % manual (exibido só quando premissa = manual; visibilidade ajustada no recálculo)
-  var manualBox = function(){
-    return '<div id="frp-prem-manual-wrap-__ALL__" style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--green);border-radius:8px;padding:8px 12px'+(premDef==='manual'?'':';display:none')+'">'
-      + '<div style="font-size:9px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Allowance Manual (%)</div>'
-      + '<input id="frp-prem-pct-__ALL__" type="number" step="0.1" min="0" value="'+manualDef+'" placeholder="ex: 12" '
-      + 'oninput="frpAnaliseAll()" '
-      + 'style="width:100%;background:transparent;border:none;outline:none;font-size:16px;font-weight:800;color:var(--green);font-family:\'JetBrains Mono\',monospace">'
-      + '</div>';
-  };
 
   var html = ''
     + '<div id="frpblk-__ALL__" data-frpblk="__ALL__" class="frp-block'+(off?' frp-pdf-off':'')
@@ -11555,18 +11530,10 @@ function buildCombinedAnalysisSection(){
     + '</div>'
     + '<div class="frp-body">'
     + '<div style="font-size:10px;color:var(--text3);margin-bottom:10px">Soma o Tempo Padrão de <b style="color:var(--text2)">'+filled.length+' folha'+(filled.length!==1?'s':'')+'</b> e dimensiona a linha inteira.</div>'
-    + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">'
-    + premiseBox()
-    + manualBox()
-    + '</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:8px">'
     + inputBox('Horas de Trabalho', 'frp-h-__ALL__', hDef, '8')
     + inputBox('Demanda (itens)', 'frp-dem-__ALL__', demDef, 'ex: 600')
     + intInput('Nº de Pessoas (simulação)', 'frp-people-__ALL__', peopleDef, '1')
-    + '</div>'
-    + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">'
-    + box('Allowance Médio (%)', 'frp-allow-__ALL__', 'conforme premissa', 'var(--green)')
-    + box('TTP (%)', 'frp-ttp-__ALL__', '100 − Allowance', 'var(--accent)')
     + '</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">'
     + box('Tempo Produtivo', 'frp-tprod-__ALL__', 'Tdisp × TTP', 'var(--green)')
@@ -11587,14 +11554,10 @@ function frpAnaliseAll(){
     var hEl = document.getElementById('frp-h-__ALL__');
     var dEl = document.getElementById('frp-dem-__ALL__');
     var pEl = document.getElementById('frp-people-__ALL__');
-    var premEl = document.getElementById('frp-prem-__ALL__');
-    var pctEl  = document.getElementById('frp-prem-pct-__ALL__');
-    var wrapEl = document.getElementById('frp-prem-manual-wrap-__ALL__');
 
-    var premise = (premEl && premEl.value) ? premEl.value : 'real';
-    var manualPct = pctEl ? pctEl.value : '';
-    // Mostra/oculta o campo de % manual conforme a premissa
-    if(wrapEl) wrapEl.style.display = (premise === 'manual') ? '' : 'none';
+    // Premissa fixa em "real por folha": usa o allowance já lançado em cada folha.
+    var premise = 'real';
+    var manualPct = '';
 
     var agg = frpAggregateAll(premise, manualPct);
     if(!agg.parts.length) return;
@@ -11620,8 +11583,6 @@ function frpAnaliseAll(){
     var colab = (ts > 0 && takt > 0) ? Math.ceil(ts / takt) : 0;
 
     var set = function(id, txt){ var el = document.getElementById(id); if(el) el.textContent = txt; };
-    set('frp-allow-__ALL__', allow.toFixed(2) + ' %');
-    set('frp-ttp-__ALL__',   ttp.toFixed(2) + ' %');
     set('frp-tprod-__ALL__', Math.round(tprod).toLocaleString('pt-BR') + ' s');
     set('frp-takt-__ALL__',  takt > 0 ? takt.toFixed(2) + ' s' : '—');
     set('frp-cap-__ALL__',   capUm > 0 ? capUm.toLocaleString('pt-BR') + ' itens' : '—');
@@ -12907,7 +12868,6 @@ function showFinalReport(){
   var cardsHtml = allMetrics.map(function(x){
     var s = x.sheet; var m = x.m;
     var ocupColor = x.ocup !== null ? (x.ocup>100?'var(--red)':x.ocup>95?'var(--orange)':x.ocup>80?'var(--yellow)':'var(--green)') : 'var(--text3)';
-    var pphColor  = x.pph > 0 ? 'var(--purple)' : 'var(--text3)';
     return '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden">'
       + '<div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--accentGrad)"></div>'
       + '<div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:10px;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.25">'+x.sheet.label+'</div>'
@@ -12920,10 +12880,6 @@ function showFinalReport(){
       +   '<div style="text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 4px">'
       +     '<div style="font-size:16px;font-weight:800;color:var(--green);font-family:\'JetBrains Mono\',monospace">'+(x.stdSec?x.stdSec.toFixed(2):'—')+'<span style="font-size:9px">s</span></div>'
       +     '<div style="font-size:8px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-top:2px">Tempo Padrão</div>'
-      +   '</div>'
-      +   '<div style="text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 4px">'
-      +     '<div style="font-size:16px;font-weight:800;color:'+pphColor+';font-family:\'JetBrains Mono\',monospace">'+(x.pph||'—')+'</div>'
-      +     '<div style="font-size:8px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-top:2px">Peças/hora</div>'
       +   '</div>'
       +   '<div style="text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 4px">'
       +     '<div style="font-size:16px;font-weight:800;color:'+allowColor(x.allowUsed)+';font-family:\'JetBrains Mono\',monospace">'+fmt(x.allowUsed,1)+'%</div>'
