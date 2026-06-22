@@ -12076,27 +12076,77 @@ function buildTTPSectionPDF(allMetrics, fmt){
   return html;
 }
 
-function buildBalReportSection(){
-  var _bs = (typeof scopedSheets==='function')?scopedSheets():sheets;
-  if(!_bs || !_bs.length) return '';
-  // Projeto virtual com as folhas abertas
-  var virtualProj = { name:'(Folhas abertas)', sheets: _bs.map(function(s){return s.id;}) };
+// Quantidade de peças (demanda) digitada no Relatório Final para o balanceamento.
+// Persiste durante a sessão. Quando 'qtd' e 'horas' estão preenchidos, viram a
+// meta de peças/hora (pphAlvo) que define o Takt da linha.
+var frpBalInput = { qtd:'', horas:'8', efic:'100' };
+
+function _frpNum(v){ var n = parseFloat(String(v==null?'':v).replace(',','.')); return isFinite(n)?n:0; }
+
+// Parâmetros do balanceamento = params do projeto + override pela quantidade digitada.
+function frpBalProjParams(){
   var params = {};
   try{
     if(typeof pmProjectIdx !== 'undefined' && pmProjectIdx !== null && pmFolderId){
       var realProj = pmData[pmFolderId] && pmData[pmFolderId].projects[pmProjectIdx];
-      if(realProj){
-        if(realProj.balanceamento) params = realProj.balanceamento;
-        virtualProj.name = realProj.name;
-      }
+      if(realProj && realProj.balanceamento) params = realProj.balanceamento;
     }
   }catch(e){}
+  var q = _frpNum(frpBalInput.qtd), h = _frpNum(frpBalInput.horas), e = _frpNum(frpBalInput.efic);
+  if(q > 0 && h > 0){
+    var o = {}; for(var k in params) o[k] = params[k];
+    o.pphAlvo = q / h;              // peças por hora derivadas da quantidade no período
+    o.efic = e > 0 ? e : 100;
+    o.recursos = params.recursos;   // mantém recursos do projeto, se houver
+    params = o;
+  }
+  return params;
+}
+
+// Painel de entrada (Quantidade de peças / Período / Eficiência) — parte estática
+// do relatório, não é re-renderizada para preservar o foco ao digitar.
+function frpBalInputPanel(){
+  function fld(id,label,val,ph){
+    return '<div>'
+      + '<label for="'+id+'" style="font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.5px;text-transform:uppercase;display:block;margin-bottom:3px">'+label+'</label>'
+      + '<input type="number" inputmode="decimal" step="any" min="0" id="'+id+'" value="'+(val!=null?String(val):'')+'" placeholder="'+ph+'" oninput="frpBalRecalc()" '
+      + 'style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:9px 10px;color:var(--text);font-family:\'JetBrains Mono\',monospace;font-size:13px;outline:none">'
+      + '</div>';
+  }
+  return '<div style="background:var(--surface2);border:1px solid var(--border2);border-left:3px solid var(--accent);border-radius:9px;padding:12px;margin-bottom:14px">'
+    + '<div style="font-size:10px;font-weight:700;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">📦 Quantidade de peças → Balanceamento</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">'
+    +   fld('frp-bal-qtd','Quantidade de peças', frpBalInput.qtd, 'ex: 1200')
+    +   fld('frp-bal-horas','Período (horas)', frpBalInput.horas, '8')
+    +   fld('frp-bal-efic','Eficiência (%)', frpBalInput.efic, '100')
+    + '</div>'
+    + '<div style="font-size:10px;color:var(--text3);margin-top:8px;line-height:1.6">'
+    +   'Informe a <strong style="color:var(--text2)">quantidade de peças</strong> a produzir no período. '
+    +   'O Takt da linha passa a ser <code>(Horas × 3600 × Efic%) ÷ Quantidade</code>. '
+    +   'Deixe a quantidade em branco para usar o Takt das folhas / do projeto.'
+    + '</div>'
+    + '</div>';
+}
+
+// Conteúdo dinâmico do balanceamento (KPIs + tabela + capacidade + diagnóstico),
+// recalculado conforme a quantidade digitada.
+function frpBalDynHtml(){
+  var _bs = (typeof scopedSheets==='function')?scopedSheets():sheets;
+  var virtualProj = { name:'(Folhas abertas)', sheets: (_bs||[]).map(function(s){return s.id;}) };
+  try{
+    if(typeof pmProjectIdx !== 'undefined' && pmProjectIdx !== null && pmFolderId){
+      var realProj = pmData[pmFolderId] && pmData[pmFolderId].projects[pmProjectIdx];
+      if(realProj) virtualProj.name = realProj.name;
+    }
+  }catch(e){}
+  var params = frpBalProjParams();
   var bal = balCalcProjeto(virtualProj, params);
-  if(!bal.nPostos) return '';
+  if(!bal.nPostos){
+    return '<div style="padding:14px;text-align:center;color:var(--text3);font-size:12px">Nenhuma folha com tempo para balancear.</div>';
+  }
 
   var eficColor = bal.eficBal>85?'var(--green)':bal.eficBal>70?'var(--orange)':'var(--red)';
   var html = ''
-    + '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:14px;margin-bottom:20px">'
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px">'
     + balKpi(bal.nPostos,'Postos','var(--blue)')
     + balKpi(bal.totalStd.toFixed(1)+'s','Tempo Total','var(--text)')
@@ -12105,9 +12155,6 @@ function buildBalReportSection(){
     + balKpi(bal.eficBal.toFixed(1)+'%','Eficiência Balanc.',eficColor)
     + balKpi(bal.capacidadeHora.toFixed(0),'Capacidade pç/h','var(--green)')
     + '</div>';
-  // Gráfico Yamazumi removido do Relatório Final a pedido.
-  // A tabela "Detalhamento por Posto" abaixo mantém os mesmos dados.
-  // (para reexibir, restaure a linha:  html += balChartHtml(bal);  )
   html += '<div style="overflow-x:auto;margin-top:12px"><table class="res-table"><thead><tr>'
     + '<th>N°</th><th>Posto / Folha</th><th class="r">Tempo Padrão (s)</th>'
     + '<th class="r">Saturação</th><th class="r">Ociosidade (s)</th><th>Status</th>'
@@ -12132,8 +12179,31 @@ function buildBalReportSection(){
   html += '</tbody></table></div>';
   html += balCapacidadeReportHtml(bal, params);
   html += balDiagnostico(bal);
-  html += '</div>';
   return html;
+}
+
+// Recalcula o balanceamento ao digitar a quantidade de peças (sem recriar os campos).
+function frpBalRecalc(){
+  var q = document.getElementById('frp-bal-qtd');
+  var h = document.getElementById('frp-bal-horas');
+  var e = document.getElementById('frp-bal-efic');
+  if(q) frpBalInput.qtd = q.value;
+  if(h) frpBalInput.horas = h.value;
+  if(e) frpBalInput.efic = e.value;
+  var dyn = document.getElementById('frp-bal-dyn');
+  if(dyn) dyn.innerHTML = frpBalDynHtml();
+}
+
+function buildBalReportSection(){
+  var _bs = (typeof scopedSheets==='function')?scopedSheets():sheets;
+  if(!_bs || !_bs.length) return '';
+  // Sem nenhum posto com tempo → não exibe a seção (comportamento original).
+  var probe = balCalcProjeto({ sheets:_bs.map(function(s){return s.id;}) }, {});
+  if(!probe.nPostos) return '';
+  return '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:14px;margin-bottom:20px">'
+    + frpBalInputPanel()
+    + '<div id="frp-bal-dyn">' + frpBalDynHtml() + '</div>'
+    + '</div>';
 }
 
 // Versão de leitura (sem inputs) do painel Capacidade × Recursos,
@@ -12818,7 +12888,6 @@ function showFinalReport(){
   var totalStdSec = R.totalStdSec;
   var totalTmuSum = R.totalTmuSum;
   var combinedPph = R.combinedPph;
-  var withFad     = R.withFad;
   var allowMedio  = R.allowMedio;
 
   var jornadas = [
@@ -12862,57 +12931,11 @@ function showFinalReport(){
       +   '</div>'
       + '</div>'
       + '<div style="font-size:9px;color:var(--text3);margin-top:8px;text-align:right">'
-      +   (x.fad ? '🛌 Fadiga: TV '+fmt(x.fad.tvTotal,1)+'% + TER '+fmt(x.fad.terPct,1)+'%'+((x.fad.modoSESE||x.fad.modoGlobal)?' · '+x.fad.premLabel:'') : '⚙ Allowance do cabeçalho')
-      +   (m.takt > 0 ? ' · Takt '+m.takt+'s' : '')
-      +   ((x.pcsCiclo && x.pcsCiclo > 1) ? ' · <span style="color:var(--purple);font-weight:700">'+x.pcsCiclo+' pç/ciclo</span>' : '')
+      +   (m.takt > 0 ? 'Takt '+m.takt+'s' : '')
+      +   ((x.pcsCiclo && x.pcsCiclo > 1) ? (m.takt > 0 ? ' · ' : '')+'<span style="color:var(--purple);font-weight:700">'+x.pcsCiclo+' pç/ciclo</span>' : '')
       + '</div>'
       + '</div>';
   }).join('');
-
-  // ── SEÇÃO FADIGA & ALLOWANCE — tabela detalhada ──
-  var fadRows = allMetrics.map(function(x){
-    var f = x.fad;
-    var aColor = allowColor(x.allowUsed);
-    var tn = x.tnSec, ts = x.stdSec;
-    var ocioRel = x.m.takt > 0 ? +((x.m.takt - ts)/x.m.takt*100).toFixed(2) : null;
-    var ocioColor = ocioRel === null ? 'var(--text3)' : (ocioRel >= 0 ? 'var(--green)' : 'var(--red)');
-    return '<tr>'
-      + '<td style="padding:7px 10px;font-weight:700;color:var(--accent)">'+x.sheet.label+'</td>'
-      + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--accent)">'+(f?fmt(f.tvTotal,2)+'%':'—')+'</td>'
-      + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--orange)">'+(f?fmt(f.terPct,2)+'%':'—')+'</td>'
-      + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:800;color:'+aColor+'">'+fmt(x.allowUsed,2)+'%</td>'
-      + '<td style="padding:7px 8px;text-align:center;font-size:10px;color:var(--text2)">'+(f?f.premLabel:'Cabeçalho')+'</td>'
-      + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--text2)">'+fmt(tn,3)+'s</td>'
-      + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:700;color:var(--green)">'+fmt(ts,3)+'s</td>'
-      + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--text2)">'+fmt(100-x.allowUsed,1)+'%</td>'
-      + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:'+ocioColor+'">'+(ocioRel===null?'—':fmt(ocioRel,2)+'%')+'</td>'
-      + '</tr>';
-  }).join('');
-
-  var fadSection = frpSection('sec-fadiga', '🛌 Análise Final de Fadiga &amp; Allowance', ''
-    + '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;overflow:auto;margin-bottom:8px">'
-    +   '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:640px">'
-    +     '<thead><tr style="background:var(--header-bg);border-bottom:2px solid var(--accent)">'
-    +       '<th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.6px;text-transform:uppercase">Folha</th>'
-    +       '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.6px;text-transform:uppercase">TV (Distrib.)</th>'
-    +       '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--orange);letter-spacing:.6px;text-transform:uppercase">TER (Fadiga)</th>'
-    +       '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:800;color:var(--green);letter-spacing:.6px;text-transform:uppercase">Allowance Total</th>'
-    +       '<th style="padding:8px 8px;text-align:center;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.6px;text-transform:uppercase">Premissa</th>'
-    +       '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.6px;text-transform:uppercase">TN</th>'
-    +       '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--green);letter-spacing:.6px;text-transform:uppercase">TS — Padrão</th>'
-    +       '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.6px;text-transform:uppercase">T. Trabalho</th>'
-    +       '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.6px;text-transform:uppercase">Ociosidade</th>'
-    +     '</tr></thead>'
-    +     '<tbody>'+fadRows+'</tbody>'
-    +   '</table>'
-    + '</div>'
-    + '<div style="padding:10px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;font-size:10px;color:var(--text3);line-height:1.7;margin-bottom:20px">'
-    +   '<strong style="color:var(--text2)">Allowance Total</strong> = TV (Tempo de Distribuição) + TER (Tempo de Recuperação da Fadiga), '
-    +   'ou 10% fixo quando a premissa <strong>SESÉ</strong> está ativa. '
-    +   '<strong style="color:var(--green)">TS</strong> = TN × (1 + Allowance/100). '
-    +   '<strong style="color:var(--text2)">Tempo de Trabalho</strong> = 100% − Allowance Total. '
-    +   'Folhas sem Análise de Fadiga usam o allowance lançado no cabeçalho da folha.'
-    + '</div>');
 
   // ── Tabela consolidada por jornada ──
   var theadCells = allMetrics.map(function(x){
@@ -13008,7 +13031,7 @@ function showFinalReport(){
     +   '<div class="res-header">'
     +     '<div>'
     +       '<div class="res-title" style="color:var(--green)">📋 Relatório Final Consolidado</div>'
-    +       '<div class="res-subtitle">'+scopedSheets().length+' folha'+(scopedSheets().length!==1?'s':'')+' · '+withFad.length+' com Análise de Fadiga · '+new Date().toLocaleDateString('pt-BR')+'</div>'
+    +       '<div class="res-subtitle">'+scopedSheets().length+' folha'+(scopedSheets().length!==1?'s':'')+' · '+new Date().toLocaleDateString('pt-BR')+'</div>'
     +     '</div>'
     +     '<div style="display:flex;gap:8px;align-items:center">'
     +       '<button class="btn btn-green" onclick="exportRelatorioPDF()" style="font-size:11px">⬇ PDF</button>'
@@ -13022,7 +13045,6 @@ function showFinalReport(){
     +     frpSection('sec-overview', '🗂️ Visão Geral por Folha', '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-bottom:20px">'+cardsHtml+'</div>')
     +     buildSheetDetailSection()
     +     buildCombinedAnalysisSection()
-    +     fadSection
     +     compTable
     +     buildTTPSection()
     +     balReportSection
