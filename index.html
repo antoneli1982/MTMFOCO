@@ -4276,6 +4276,10 @@ window.FIREBASE_CONFIG = {
               <span>Padrão <b>SESÉ</b> — Allowance Total fixo de <b>10%</b> · Tempo de Trabalho <b>90%</b></span>
               <span class="fad-prem-tag" id="fad-prem-tag">Premissa ativa</span>
             </label>
+            <label class="fad-prem-opt" id="fad-prem-global">
+              <input type="radio" name="fad-modo-allow" value="global" onchange="fadSetModoAllow('global')">
+              <span>Padrão <b>Global</b> — Allowance Total fixo de <b>15%</b> · Tempo de Trabalho <b>85%</b></span>
+            </label>
           </div>
         </div>
 
@@ -4312,6 +4316,7 @@ window.FIREBASE_CONFIG = {
       <span class="sp"></span>
       <button onclick="fadResetDefaults()" title="Restaurar valores padrão">↺ Resetar</button>
       <button onclick="fadAplicarPadraoSESE()" title="Aplicar allowance total fixo de 10% — Tempo de Trabalho 90%" style="background:rgba(0,229,160,.12);color:var(--green);border-color:rgba(0,229,160,.4)">📐 Padrão SESÉ 10%</button>
+      <button onclick="fadAplicarPadraoGlobal()" title="Aplicar allowance total fixo de 15% — Tempo de Trabalho 85%" style="background:rgba(124,92,255,.12);color:var(--purple);border-color:rgba(124,92,255,.4)">🌐 Padrão Global 15%</button>
       <button class="btn-apply" onclick="fadAplicarFolha()" title="Aplicar TV+TER ao cabeçalho da folha">✓ Aplicar à Folha</button>
       <button class="btn-close" onclick="closeFadiga()">Fechar</button>
     </div>
@@ -6088,9 +6093,11 @@ function prepararPrint(){
       html += '<div class="pa-formula">Fadiga = ('+fmtN(fad.fa,3)+' × '+fmtN(fad.fb,2)+') + '+fmtN(fad.mM,3)+' + '+fmtN(fad.ca,3)+' = <span class="res">'+fmtN(fad.fadigaCoef,4)+' = <b>'+fmtN(fad.fadigaPct,2)+' %</b></span></div>';
 
       // ── Análise de Ociosidade final ──
-      var modoSESEfad = (s.fadiga && s.fadiga.modoAllow === 'sese');
+      var modoAllowFad = (s.fadiga && s.fadiga.modoAllow) || 'calc';
+      var fixFad = modoAllowFad === 'global' ? 15 : (modoAllowFad === 'sese' ? 10 : null);
+      var modoSESEfad = (modoAllowFad === 'sese');
       var allowCalcFad = fad.tvTotal + fad.fadigaPct;
-      var allowFad = modoSESEfad ? 10 : allowCalcFad;
+      var allowFad = (fixFad != null) ? fixFad : allowCalcFad;
       var tnFad = m.tmu * 0.036;
       var tsFad = tnFad * (1 + allowFad/100);
       var taktV = parseFloat(h.takt)||0;
@@ -6099,7 +6106,7 @@ function prepararPrint(){
       html +=   '<div class="pa-results-row">';
       html +=     '<div class="pa-results-cell"><div class="l">TV — Distribuição</div><div class="v">'+fmtN(fad.tvTotal,2)+' %</div></div>';
       html +=     '<div class="pa-results-cell"><div class="l">TER — Fadiga</div><div class="v">'+fmtN(fad.fadigaPct,2)+' %</div></div>';
-      html +=     '<div class="pa-results-cell"><div class="l">Allowance Total</div><div class="v">'+fmtN(allowFad,2)+' %'+(modoSESEfad?' <span style="font-size:7pt;font-weight:700">(Premissa SESÉ)</span>':'')+'</div></div>';
+      html +=     '<div class="pa-results-cell"><div class="l">Allowance Total</div><div class="v">'+fmtN(allowFad,2)+' %'+(fixFad!=null?' <span style="font-size:7pt;font-weight:700">(Premissa '+(modoAllowFad==='global'?'Global':'SESÉ')+')</span>':'')+'</div></div>';
       html +=     '<div class="pa-results-cell"><div class="l">Tempo de Trabalho</div><div class="v">'+fmtN(100-allowFad,2)+' %</div></div>';
       html +=     '<div class="pa-results-cell"><div class="l">TN</div><div class="v">'+fmtN(tnFad,3)+' s</div></div>';
       html +=     '<div class="pa-results-cell"><div class="l">TS — Padrão</div><div class="v">'+fmtN(tsFad,3)+' s</div></div>';
@@ -11437,6 +11444,9 @@ function frpAggregateAll(premissa, manualPct){
   if(premissa === 'sese'){
     allow = 10;
     ts = raw * 1.10;
+  } else if(premissa === 'global'){
+    allow = 15;          // Padrão Global: TTP de 85% → allowance de 15%
+    ts = raw * 1.15;
   } else if(premissa === 'manual'){
     var mp = parseFloat(manualPct);
     allow = (isNaN(mp) || mp < 0) ? 0 : mp;
@@ -11502,6 +11512,7 @@ function buildCombinedAnalysisSection(){
       + 'style="width:100%;background:transparent;border:none;outline:none;font-size:13px;font-weight:800;color:var(--text);font-family:inherit;cursor:pointer">'
       + selOpt('real','Real por folha', premDef)
       + selOpt('sese','Padrão SESÉ (10%)', premDef)
+      + selOpt('global','Padrão Global (85%)', premDef)
       + selOpt('manual','Manual (%)', premDef)
       + '</select>'
       + '</div>';
@@ -11634,7 +11645,7 @@ function frpAnaliseAll(){
 
     var sumEl = document.getElementById('frp-sum-__ALL__');
     if(sumEl){
-      var premLbl = premise==='sese' ? 'Padrão SESÉ 10%' : (premise==='manual' ? 'Manual '+allow.toFixed(1)+'%' : 'Real por folha');
+      var premLbl = premise==='sese' ? 'Padrão SESÉ 10%' : (premise==='global' ? 'Padrão Global 85% (allow 15%)' : (premise==='manual' ? 'Manual '+allow.toFixed(1)+'%' : 'Real por folha'));
       var lines = agg.parts.map(function(p){
         return '<div style="display:flex;justify-content:space-between;gap:10px;padding:2px 0">'
           + '<span style="color:var(--text2)">'+esc(p.label)+'</span>'
@@ -12576,14 +12587,17 @@ function mtmCalcFadiga(f){
   var terCoef = (fa * fb) + mM + ca;
   var terPct  = terCoef * 100;
   // ── Allowance Total conforme a premissa escolhida ──
+  var fixPct     = f.modoAllow === 'global' ? 15 : (f.modoAllow === 'sese' ? 10 : null);
   var modoSESE   = (f.modoAllow === 'sese');
+  var modoGlobal = (f.modoAllow === 'global');
   var allowCalc  = tvTotal + terPct;
-  var allowTotal = modoSESE ? 10 : allowCalc;
+  var allowTotal = (fixPct != null) ? fixPct : allowCalc;
+  var premLabel  = modoGlobal ? 'Global 15%' : (modoSESE ? 'SESÉ 10%' : 'TV + TER');
   return {
     pcts: p, tvTotal: tvTotal,
     fa: fa, fb: fb, mM: mM, ca: ca,
     terCoef: terCoef, terPct: terPct,
-    modoSESE: modoSESE, allowCalc: allowCalc,
+    modoSESE: modoSESE, modoGlobal: modoGlobal, premLabel: premLabel, allowCalc: allowCalc,
     allowTotal: allowTotal, tempoTrabalho: 100 - allowTotal
   };
 }
@@ -12825,7 +12839,7 @@ function showFinalReport(){
       +   '</div>'
       + '</div>'
       + '<div style="font-size:9px;color:var(--text3);margin-top:8px;text-align:right">'
-      +   (x.fad ? '🛌 Fadiga: TV '+fmt(x.fad.tvTotal,1)+'% + TER '+fmt(x.fad.terPct,1)+'%'+(x.fad.modoSESE?' · SESÉ 10%':'') : '⚙ Allowance do cabeçalho')
+      +   (x.fad ? '🛌 Fadiga: TV '+fmt(x.fad.tvTotal,1)+'% + TER '+fmt(x.fad.terPct,1)+'%'+((x.fad.modoSESE||x.fad.modoGlobal)?' · '+x.fad.premLabel:'') : '⚙ Allowance do cabeçalho')
       +   (m.takt > 0 ? ' · Takt '+m.takt+'s' : '')
       + '</div>'
       + '</div>';
@@ -12843,7 +12857,7 @@ function showFinalReport(){
       + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--accent)">'+(f?fmt(f.tvTotal,2)+'%':'—')+'</td>'
       + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--orange)">'+(f?fmt(f.terPct,2)+'%':'—')+'</td>'
       + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:800;color:'+aColor+'">'+fmt(x.allowUsed,2)+'%</td>'
-      + '<td style="padding:7px 8px;text-align:center;font-size:10px;color:var(--text2)">'+(f?(f.modoSESE?'SESÉ 10%':'TV + TER'):'Cabeçalho')+'</td>'
+      + '<td style="padding:7px 8px;text-align:center;font-size:10px;color:var(--text2)">'+(f?f.premLabel:'Cabeçalho')+'</td>'
       + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--text2)">'+fmt(tn,3)+'s</td>'
       + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:700;color:var(--green)">'+fmt(ts,3)+'s</td>'
       + '<td style="padding:7px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--text2)">'+fmt(100-x.allowUsed,1)+'%</td>'
@@ -14422,12 +14436,14 @@ function fadRecalc(){
   var tmuTotal = fadCalcTMUFolha();
   var tn = tmuTotal * 0.036;               // s
 
-  // Premissa de allowance: 'calc' (TV+TER) ou 'sese' (fixo 10%)
+  // Premissa de allowance: 'calc' (TV+TER), 'sese' (fixo 10%) ou 'global' (fixo 15%)
   var modoEl = document.querySelector('input[name="fad-modo-allow"]:checked');
-  var modoSESE = modoEl && modoEl.value === 'sese';
+  var modoVal = modoEl ? modoEl.value : 'calc';
+  var fixPct  = modoVal === 'global' ? 15 : (modoVal === 'sese' ? 10 : null);
+  var modoSESE = (modoVal === 'sese');
 
   var allowCalc  = tv.tvTotal + ter.pct;            // % detalhado
-  var allowTotal = modoSESE ? 10 : allowCalc;       // % aplicado
+  var allowTotal = (fixPct != null) ? fixPct : allowCalc;  // % aplicado
   var ts = tn * (1 + allowTotal/100);               // s
   var tempoTrab = 100 - allowTotal;                 // % tempo de trabalho
 
@@ -14447,19 +14463,21 @@ function fadRecalc(){
   var totalCard = document.querySelector('.fad-ana-card.total');
   var totalVal  = document.getElementById('ana-total');
   if(totalVal){
-    if(modoSESE){
-      totalVal.innerHTML = '10,00 %<span class="badge-prem">Premissa SESÉ</span>';
+    if(fixPct != null){
+      totalVal.innerHTML = fadFmt(fixPct,2)+' %<span class="badge-prem">Premissa '+(modoVal==='global'?'Global':'SESÉ')+'</span>';
     } else {
       totalVal.innerHTML = fadFmt(allowTotal,2)+' %';
     }
   }
-  if(totalCard) totalCard.classList.toggle('is-sese', !!modoSESE);
+  if(totalCard) totalCard.classList.toggle('is-sese', fixPct != null);
 
   // Sincroniza realce visual das opções de premissa
   var optCalc = document.getElementById('fad-prem-calc');
   var optSese = document.getElementById('fad-prem-sese');
-  if(optCalc) optCalc.classList.toggle('is-active', !modoSESE);
-  if(optSese) optSese.classList.toggle('is-active', !!modoSESE);
+  var optGlobal = document.getElementById('fad-prem-global');
+  if(optCalc)   optCalc.classList.toggle('is-active', modoVal==='calc');
+  if(optSese)   optSese.classList.toggle('is-active', modoVal==='sese');
+  if(optGlobal) optGlobal.classList.toggle('is-active', modoVal==='global');
 
   var ocioEl = document.getElementById('ana-ocio');
   if(ocioEl){
@@ -14482,7 +14500,7 @@ function fadRecalc(){
   setT('ana-tv-row', fadFmt(tv.tvTotal,2)+' %');
   setT('ana-ter-row', fadFmt(ter.pct,2)+' %');
   setT('ana-allow-row', fadFmt(allowTotal,2)+' %'
-       + (modoSESE ? '  (Premissa SESÉ — Tempo de Trabalho '+fadFmt(tempoTrab,0)+'%)' : ''));
+       + (fixPct != null ? '  (Premissa '+(modoVal==='global'?'Global':'SESÉ')+' — Tempo de Trabalho '+fadFmt(tempoTrab,0)+'%)' : ''));
   setT('ana-ts-row', fadFmt(ts,2)+' s');
   setT('ana-takt-row', hasTakt ? (fadFmt(takt,2)+' s') : '— s');
   setT('ana-ocio-abs', hasTakt ? (fadFmt(ocioAbs,2)+' s') : '— s');
@@ -14598,8 +14616,8 @@ function fadAplicarEstado(st){
   setVal('ter-ruido',   st.terRuido);
   setVal('ter-umid',    st.terUmid);
   setVal('ter-vibr',    st.terVibr);
-  // Premissa de allowance (TV+TER detalhado x SESÉ 10%)
-  if(st.modoAllow === 'sese' || st.modoAllow === 'calc'){
+  // Premissa de allowance (TV+TER detalhado · SESÉ 10% · Global 15%)
+  if(st.modoAllow === 'sese' || st.modoAllow === 'calc' || st.modoAllow === 'global'){
     var rbMod = document.querySelector('input[name="fad-modo-allow"][value="'+st.modoAllow+'"]');
     if(rbMod) rbMod.checked = true;
   }
@@ -14688,6 +14706,8 @@ function closeFadiga(){
         var modoEl = document.querySelector('input[name="fad-modo-allow"]:checked');
         if(modoEl && modoEl.value === 'sese'){
           fadAplicarPadraoSESE();   // premissa SESÉ (10% fixo)
+        } else if(modoEl && modoEl.value === 'global'){
+          fadAplicarPadraoGlobal(); // premissa Global (15% fixo)
         } else {
           fadAplicarFolha();        // premissa calculada (TV + TER)
         }
@@ -14809,13 +14829,60 @@ function fadAplicarPadraoSESE(){
     showToast('📐 Padrão SESÉ aplicado · Allowance Total 10% · Tempo de Trabalho 90%');
 }
 
+// ────────────────────────────────────────────────────────────
+// PADRÃO GLOBAL — Allowance total fixo de 15% (Tempo de Trabalho 85%)
+// Distribuído como Pessoal 5% + Fadiga 8% + Contingência 2% = 15%.
+// Resultado: TTP / Tempo de Trabalho = 100 − 15 = 85%.
+// ────────────────────────────────────────────────────────────
+function fadAplicarPadraoGlobal(){
+  if(!activeId){ if(typeof showToast === 'function') showToast('Sem folha ativa.', true); return; }
+  var s = get(activeId);
+  if(!s) return;
+  if(!s.header) s.header = {};
+
+  // Allowance total = 15%  →  Tempo de Trabalho = 85%
+  var pPersonal    = 5;
+  var pFatigue     = 8;
+  var pContingency = 2;
+
+  s.header.allowPersonal    = pPersonal;
+  s.header.allowFatigue     = pFatigue;
+  s.header.allowContingency = pContingency;
+
+  // Atualiza os campos visuais no cabeçalho da folha (se existirem)
+  function setHF(field, val){
+    var inp = document.querySelector('#c-'+activeId+' [data-key="'+field+'"]');
+    if(inp){ inp.value = val; }
+  }
+  setHF('allowPersonal',    pPersonal);
+  setHF('allowFatigue',     pFatigue);
+  setHF('allowContingency', pContingency);
+
+  // Ativa a premissa "Padrão Global" na aba de Análise
+  var radioGlobal = document.querySelector('input[name="fad-modo-allow"][value="global"]');
+  if(radioGlobal){ radioGlobal.checked = true; }
+
+  // Recalcular folha e totais
+  try{ updateNums(activeId); updateTotals(activeId); }catch(e){}
+  if(typeof updateTotals === 'function'){ try{ updateTotals(activeId); }catch(e){} }
+  if(typeof saveSheets === 'function') saveSheets();
+
+  // Atualizar a aba de Análise do painel de fadiga
+  if(typeof fadRecalc === 'function'){ try{ fadRecalc(); }catch(e){} }
+
+  if(typeof showToast === 'function')
+    showToast('🌐 Padrão Global aplicado · Allowance Total 15% · Tempo de Trabalho 85%');
+}
+
 // Alterna a premissa de allowance da aba Análise (TV+TER  ou  Padrão SESÉ)
 function fadSetModoAllow(modo){
   if(typeof fadRecalc === 'function'){ try{ fadRecalc(); }catch(e){} }
   if(typeof showToast === 'function'){
     showToast(modo === 'sese'
       ? '📐 Premissa: Padrão SESÉ — Allowance 10% · Tempo de Trabalho 90%'
-      : 'Premissa: Cálculo detalhado TV + TER');
+      : (modo === 'global'
+          ? '🌐 Premissa: Padrão Global — Allowance 15% · Tempo de Trabalho 85%'
+          : 'Premissa: Cálculo detalhado TV + TER'));
   }
 }
 
