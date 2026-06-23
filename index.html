@@ -4800,13 +4800,16 @@ function computeSheetMetrics(s){
   const aF = parseFloat(h.allowFatigue)||0;
   const aC = parseFloat(h.allowContingency)||0;
   const allowPct = aP + aF + aC;
-  // TTP Manual: quando > 0 → Tempo Padrão = Bruto × (100/TTP); quando = 0 → usar Bruto diretamente
+  // TTP Manual: quando > 0 → Allowance implícito = (100 − TTP) aplicado pela fórmula aditiva original
+  // Fórmula aditiva (padrão MTM): TP = TN × (1 + allowance/100)
+  // Quando TTP = 0 → usar Total Bruto diretamente (sem allowance)
   const manualTTP = parseFloat(h.manualTTP)||0;
+  const impliedAllow = manualTTP > 0 ? (100 - manualTTP) : 0;
   const stdSec = manualTTP > 0
-    ? +(totalSec * (100 / manualTTP)).toFixed(4)
+    ? +(totalSec * (1 + impliedAllow / 100)).toFixed(4)
     : +(totalSec).toFixed(4);
   const stdTmu = manualTTP > 0
-    ? +(totalTmu * (100 / manualTTP)).toFixed(2)
+    ? +(totalTmu * (1 + impliedAllow / 100)).toFixed(2)
     : +(totalTmu).toFixed(2);
   const takt = parseFloat(h.takt)||0;
   const saturation = takt > 0 ? +(stdSec / takt * 100).toFixed(1) : 0;
@@ -9666,7 +9669,7 @@ function balCalcProjeto(proj, params){
     // Quando TTP manual está definido, usa allowance implícito; quando = 0, bruto (allow = 0)
     var manualTTP = parseFloat((sh.header && sh.header.manualTTP) || 0) || 0;
     var allowUsed = manualTTP > 0 ? +(100 - manualTTP).toFixed(4) : 0;
-    // m.stdSec já reflete o TTP manual corretamente
+    // m.stdSec usa fórmula aditiva: TN × (1 + impliedAllow/100)
     var stdSec = m.stdSec;
     if(stdSec <= 0) return;
     posts.push({
@@ -12039,11 +12042,11 @@ function mtmCollectFinalReport(){
   var allMetrics = (typeof scopedSheets==='function'?scopedSheets():(sheets||[])).map(function(s){
     var m   = computeSheetMetrics(s);
     var fad = (s.fadiga && typeof s.fadiga === 'object') ? mtmCalcFadiga(s.fadiga) : null;
-    // Quando TTP manual está definido, usa-o como fonte única de allowance implícito.
-    // Quando = 0, stdSec já é o bruto (allowance = 0).
+    // Quando TTP manual está definido: allowance implícito = 100 − TTP (fórmula aditiva).
+    // Quando TTP = 0: allowance = 0 e stdSec = bruto.
     var manualTTP  = parseFloat((s.header && s.header.manualTTP) || 0) || 0;
     var allowUsed  = manualTTP > 0 ? +(100 - manualTTP).toFixed(4) : 0;
-    // m.stdSec já foi calculado corretamente em computeSheetMetrics com o TTP manual
+    // m.stdSec já reflete a fórmula aditiva: TN × (1 + impliedAllow/100)
     var stdSec     = m.stdSec;
     var tnSec      = m.totalSec;
     var pcsCiclo   = (m.pcsCiclo && m.pcsCiclo > 0) ? m.pcsCiclo : 1;
@@ -15181,8 +15184,11 @@ function balImportFromSheets(){
     var m = (typeof computeSheetMetrics === 'function') ? computeSheetMetrics(s) : null;
     if(!m) return;
     var fad = (s.fadiga && typeof mtmCalcFadiga === 'function') ? mtmCalcFadiga(s.fadiga) : null;
-    var allow = fad ? fad.allowTotal : m.allowPct;
-    var stdSec = m.totalSec * (1 + allow/100);
+    // m.stdSec já usa TTP manual (fórmula aditiva); fallback para fadiga se não houver TTP manual
+    var manualTTPBal = parseFloat((s.header && s.header.manualTTP) || 0) || 0;
+    var stdSec = manualTTPBal > 0 ? m.stdSec
+               : fad ? +(m.totalSec * (1 + fad.allowTotal/100)).toFixed(4)
+               : m.totalSec;
     if(stdSec <= 0) return;
     // Procurar se já existe linha com mesmo label
     var existing = balRows.find(function(r){
