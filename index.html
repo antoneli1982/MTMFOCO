@@ -10371,12 +10371,21 @@ function buildSheetDetailSection(){
       +   '<div style="font-size:16px;font-weight:800;color:var(--green);font-family:\'JetBrains Mono\',monospace">'+(x.stdSec ? x.stdSec.toFixed(2).replace('.',',') : '—')+' s</div>'
       +   '<div style="font-size:9px;color:var(--text3);margin-top:2px">TN × (1 + Allowance/100)'+((x.pcsCiclo&&x.pcsCiclo>1)?' · '+x.pcsCiclo+' pç/ciclo':'')+'</div>'
       + '</div>'
+      + '<div style="flex:1;min-width:120px;background:'+(x.pcsCiclo&&x.pcsCiclo>1?'var(--purpleBg)':'var(--surface2)')+';border:1px solid '+(x.pcsCiclo&&x.pcsCiclo>1?'var(--purple)':'var(--border2)')+';border-radius:8px;padding:8px 12px">'
+      +   '<div style="font-size:9px;font-weight:700;color:'+(x.pcsCiclo&&x.pcsCiclo>1?'var(--purple)':'var(--text3)')+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Peças por Ciclo</div>'
+      +   '<div style="font-size:22px;font-weight:800;color:'+(x.pcsCiclo&&x.pcsCiclo>1?'var(--purple)':'var(--text3)')+';font-family:\'JetBrains Mono\',monospace">'+(x.pcsCiclo||1)+'</div>'
+      +   '<div style="font-size:9px;color:var(--text3);margin-top:2px">'+(x.pcsCiclo&&x.pcsCiclo>1?'multiplica capacidade':'padrão — 1 peça/ciclo')+'</div>'
+      + '</div>'
       + '</div>'
       + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">'
       + box('Tempo Produtivo', 'frp-tprod-'+s.id, 'Tdisp × TTP', 'var(--green)')
       + box('Takt Time', 'frp-takt-'+s.id, 'Tprod ÷ Demanda', 'var(--accent)')
-      + box('Capacidade (1 colab.)', 'frp-cap-'+s.id, 'Tprod ÷ Takt', 'var(--purple)')
-      + box('Colab. Necessários', 'frp-colab-'+s.id, '⌈TS ÷ Takt⌉', 'var(--orange)')
+      + box('Capacidade (1 colab.)', 'frp-cap-'+s.id,
+          (x.pcsCiclo&&x.pcsCiclo>1 ? '⌊Tprod÷TS⌋ × '+x.pcsCiclo+' pç/ciclo' : '⌊Tprod ÷ TS⌋'),
+          'var(--purple)')
+      + box('Colab. Necessários', 'frp-colab-'+s.id,
+          (x.pcsCiclo&&x.pcsCiclo>1 ? '⌈TS ÷ (Takt × '+x.pcsCiclo+')⌉' : '⌈TS ÷ Takt⌉'),
+          'var(--orange)')
       + '</div>'
       + '<div id="frp-sum-'+s.id+'" style="display:none"></div>'
       + '</div>'
@@ -10624,7 +10633,11 @@ function frpAnalise(sid){
     set('frp-allow-'+sid, allow.toFixed(2) + ' %');
     set('frp-ttp-'+sid,   ttp.toFixed(2) + ' %');
     set('frp-tprod-'+sid, Math.round(tprod).toLocaleString('pt-BR') + ' s');
-    set('frp-takt-'+sid,  takt > 0 ? takt.toFixed(2) + ' s' : '—');
+    set('frp-takt-'+sid,  takt > 0
+        ? (pcsCic > 1
+            ? takt.toFixed(2) + ' s  (' + (takt * pcsCic).toFixed(2) + 's/ciclo)'
+            : takt.toFixed(2) + ' s')
+        : '—');
     set('frp-cap-'+sid,   capUm > 0 ? capUm.toLocaleString('pt-BR') + ' itens' : '—');
     set('frp-colab-'+sid, colab > 0 ? colab : '—');
 
