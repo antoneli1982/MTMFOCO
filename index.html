@@ -12484,6 +12484,117 @@ function buildReportIdentHtml(){
     + '</div>';
 }
 
+// ═══════════════════════════════════════════════════════════════
+// CONCLUSÃO FINAL — Dimensionamento de Pessoas por Operação
+// Exibe quantas pessoas são necessárias em cada operação,
+// excluindo processos marcados como "Processo de Máquina".
+// Fórmula: ⌈TS × (Demanda ÷ PçsPorCiclo) ÷ (Horas × 3600)⌉
+// ═══════════════════════════════════════════════════════════════
+function buildFinalConclusaoHtml(allMetrics){
+  if(!allMetrics || !allMetrics.length) return '';
+
+  var _tppStore = (typeof frpTppLoad==='function') ? frpTppLoad() : {};
+
+  var humanOps   = allMetrics.filter(function(x){ return !(x.sheet && x.sheet.header && x.sheet.header.maquina); });
+  var machineOps = allMetrics.filter(function(x){ return !!(x.sheet && x.sheet.header && x.sheet.header.maquina); });
+
+  if(!humanOps.length && !machineOps.length) return '';
+
+  function _getDemand(x){
+    var s = x.sheet;
+    var tppVal  = (_tppStore[s.id] != null) ? String(_tppStore[s.id]) : '';
+    var demHead = (s.header && s.header.demand) ? String(s.header.demand) : '';
+    return parseFloat(tppVal !== '' ? tppVal : demHead) || 0;
+  }
+
+  function _calcColab(x){
+    var demand = _getDemand(x);
+    if(demand <= 0 || x.stdSec <= 0) return null;
+    var s      = x.sheet;
+    var workH  = parseFloat((s.header && s.header.workHours) || 8) || 8;
+    var pcsCic = x.pcsCiclo || 1;
+    return Math.ceil(x.stdSec * (demand / pcsCic) / (workH * 3600));
+  }
+
+  var rows = humanOps.map(function(x){
+    var s         = x.sheet;
+    var demand    = _getDemand(x);
+    var colabNeed = _calcColab(x);
+    var unitAbbr  = (s.header && s.header.pcsCicloUnit) || 'pç';
+    var workH     = parseFloat((s.header && s.header.workHours) || 8) || 8;
+
+    return '<tr style="border-bottom:1px solid var(--border)">'
+      + '<td style="padding:8px 10px;font-weight:700;color:var(--accent);white-space:normal;overflow-wrap:anywhere;word-break:break-word;min-width:140px">'
+      +   esc(s.label)
+      +   (s.header && s.header.processo ? '<div style="font-size:10px;font-weight:400;color:var(--text3);margin-top:2px">'+esc(s.header.processo)+'</div>' : '')
+      + '</td>'
+      + '<td style="padding:8px 10px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--text)">'
+      +   (demand > 0
+            ? demand.toLocaleString('pt-BR') + ' <span style="font-size:10px;color:var(--text3)">' + esc(unitAbbr) + '</span>'
+            : '<span style="color:var(--text3)">—</span>')
+      + '</td>'
+      + '<td style="padding:8px 10px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--green)">'
+      +   (x.stdSec > 0 ? x.stdSec.toFixed(2).replace('.',',') + ' s' : '<span style="color:var(--text3)">—</span>')
+      + '</td>'
+      + '<td style="padding:8px 10px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:800">'
+      +   (colabNeed !== null
+            ? '<span style="font-size:20px;color:var(--orange)">' + colabNeed + '</span>'
+              + ' <span style="font-size:10px;color:var(--text3)">pessoa' + (colabNeed !== 1 ? 's' : '') + '</span>'
+              + '<div style="font-size:9px;color:var(--text3);margin-top:1px">⌈TS × Qtd ÷ ' + workH + 'h⌉</div>'
+            : '<span style="color:var(--text3);font-size:10px">'
+              + (demand <= 0 ? '⚠ informe a demanda' : '⚠ sem tempo padrão')
+              + '</span>')
+      + '</td>'
+      + '</tr>';
+  });
+
+  var totalColab = humanOps.reduce(function(sum, x){ var c = _calcColab(x); return sum + (c !== null ? c : 0); }, 0);
+  var someNoDemand = humanOps.some(function(x){ return _getDemand(x) <= 0; });
+  var someNoTime   = humanOps.some(function(x){ return x.stdSec <= 0; });
+
+  var machineHtml = machineOps.length
+    ? '<div style="margin-top:10px;padding:8px 12px;background:rgba(59,130,246,.08);border:1px solid var(--blue);border-radius:7px;font-size:10px;color:var(--blue);display:flex;align-items:flex-start;gap:8px">'
+      + '<span style="font-size:14px;flex-shrink:0">⚙</span>'
+      + '<div><span style="font-weight:700">Processo' + (machineOps.length > 1 ? 's' : '') + ' de Máquina — excluído' + (machineOps.length > 1 ? 's' : '') + ' do dimensionamento:</span>'
+      + ' ' + machineOps.map(function(x){ return '<strong>'+esc(x.sheet.label)+'</strong>'; }).join(', ')
+      + '</div></div>'
+    : '';
+
+  var warningHtml = (someNoDemand || someNoTime)
+    ? '<div style="margin-top:8px;padding:7px 10px;background:rgba(255,149,0,.08);border:1px solid var(--orange);border-radius:6px;font-size:10px;color:var(--orange)">'
+      + '⚠ ' + (someNoDemand ? 'Há operações sem demanda preenchida. ' : '')
+      + (someNoTime ? 'Há operações sem tempo padrão calculado. ' : '')
+      + 'Preencha a demanda na <strong>Análise TTP</strong> de cada folha para o dimensionamento completo.'
+      + '</div>'
+    : '';
+
+  var tableHtmlConc = humanOps.length
+    ? '<div style="overflow:auto">'
+      + '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:380px">'
+      + '<thead><tr style="background:var(--header-bg);border-bottom:2px solid var(--accent)">'
+      +   '<th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.8px;text-transform:uppercase">Operação / Folha</th>'
+      +   '<th style="padding:8px 10px;text-align:right;font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.8px;text-transform:uppercase">Qtd. de Peças</th>'
+      +   '<th style="padding:8px 10px;text-align:right;font-size:9px;font-weight:700;color:var(--green);letter-spacing:.8px;text-transform:uppercase">Tempo Padrão (TS)</th>'
+      +   '<th style="padding:8px 10px;text-align:right;font-size:9px;font-weight:700;color:var(--orange);letter-spacing:.8px;text-transform:uppercase">Pessoas Necessárias</th>'
+      + '</tr></thead>'
+      + '<tbody>' + rows.join('') + '</tbody>'
+      + '<tfoot><tr style="background:var(--total-bg);border-top:2px solid var(--accent)">'
+      +   '<td colspan="3" style="padding:10px;font-weight:800;color:var(--accent);font-size:10px;letter-spacing:.8px;text-transform:uppercase">📌 TOTAL DE PESSOAS (operações manuais)</td>'
+      +   '<td style="padding:10px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:800;color:var(--orange)">'
+      +     (totalColab > 0
+              ? '<span style="font-size:24px">' + totalColab + '</span>'
+                + ' <span style="font-size:10px;color:var(--text3)">pessoa' + (totalColab !== 1 ? 's' : '') + '</span>'
+              : '<span style="color:var(--text3)">—</span>')
+      +   '</td>'
+      + '</tr></tfoot>'
+      + '</table>'
+      + '</div>'
+    : '';
+
+  return frpSection('sec-conclusao', '✅ Conclusão — Dimensionamento de Pessoas por Operação',
+    tableHtmlConc + warningHtml + machineHtml);
+}
+
 function showFinalReport(){
   var _fr = (typeof scopedSheets==='function')?scopedSheets():sheets;
   if(!_fr || _fr.length === 0){
@@ -12694,6 +12805,7 @@ function showFinalReport(){
     +     buildTTPSection()
     +     balReportSection
     +     tableHtml
+    +     buildFinalConclusaoHtml(allMetrics)
     +     '<div style="padding:12px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;font-size:10px;color:var(--text3);line-height:1.7">'
     +       '<strong style="color:var(--text2)">Notas:</strong><br>'
     +       '• O Tempo Padrão exibido já inclui o <strong>Allowance Total</strong> da Análise Final de Fadiga (TV + TER) de cada folha.<br>'
