@@ -4342,8 +4342,11 @@ function renderContent(id){
         <input class="f-input" type="number" min="0" placeholder="480" data-key="demand" value="${esc(h.demand||'')}">
       </div>
       <div class="f-group" style="background:var(--purpleBg);border-left:2px solid var(--purple);padding-left:8px">
-        <span class="f-label" style="color:var(--purple)">Peças por ciclo</span>
-        <input class="f-input" type="number" step="1" min="1" placeholder="1" title="Quantas peças saem em cada ciclo (ex.: 2 peças por vez na máquina). Multiplica peças/hora e capacidade." data-key="pcsCiclo" value="${esc(h.pcsCiclo||'')}">
+        <span class="f-label" style="color:var(--purple)">${h.pcsCicloUnit||'pç'} por ciclo</span>
+        <input class="f-input" type="number" step="1" min="1" placeholder="1" title="Quantidade por ciclo (ex.: 2 caixas por vez na máquina). Multiplica produção/hora e capacidade." data-key="pcsCiclo" value="${esc(h.pcsCiclo||'')}">
+        <select class="f-input" data-key="pcsCicloUnit" style="font-size:10px;background:transparent;border:none;border-top:1px solid var(--border2);padding:2px 0;width:100%;color:var(--text2);margin-top:2px;cursor:pointer">
+          ${[['pç','Peças'],['cx','Caixas'],['un','Unidades'],['kg','Quilogramas'],['L','Litros'],['m','Metros lineares'],['m²','Metros quadrados'],['m³','Metros cúbicos'],['pal','Paletes'],['bob','Bobinas'],['pct','Pacotes'],['fd','Fardos'],['tl','Toneladas']].map(([v,l])=>`<option value="${v}" ${(h.pcsCicloUnit||'pç')===v?'selected':''}>${v} — ${l}</option>`).join('')}
+        </select>
       </div>
       <div class="f-group" style="background:var(--greenBg);border-left:2px solid var(--green);padding-left:8px">
         <span class="f-label" style="color:var(--green)">Fator Pessoal (%)</span>
@@ -4586,12 +4589,14 @@ function renderContent(id){
     </div>`;
   document.getElementById('sheets-container').appendChild(div);
   div.querySelectorAll('.f-input[data-key]').forEach(inp=>{
-    inp.addEventListener('input',()=>{
+    const saveHandler = ()=>{
       s.header[inp.dataset.key]=inp.value;
       updateTotals(id);
       saveSheets();
       if(inp.dataset.key==='demand' && typeof syncDemandDisplay==='function') syncDemandDisplay(id, inp.value);
-    });
+    };
+    inp.addEventListener('input', saveHandler);
+    if(inp.tagName === 'SELECT') inp.addEventListener('change', saveHandler);
   });
   // Restaurar rows se já existem (carregadas do localStorage)
   if(s.rows && s.rows.length){
@@ -10363,13 +10368,18 @@ function buildSheetDetailSection(){
       + '<div id="frp-scope-'+s.id+'"></div>'
       + '<div style="display:flex;flex-wrap:wrap;gap:8px">'
       + inputBox('Horas de Trabalho', 'frp-h-'+s.id, (s.header && s.header.workHours) || 8, '8')
-      + '<div style="flex:1;min-width:110px;background:'+(x.pcsCiclo&&x.pcsCiclo>1?'var(--purpleBg)':'var(--surface2)')+';border:1px solid '+(x.pcsCiclo&&x.pcsCiclo>1?'var(--purple)':'var(--border2)')+';border-radius:8px;padding:8px 12px">'
-      +   '<div style="font-size:9px;font-weight:700;color:'+(x.pcsCiclo&&x.pcsCiclo>1?'var(--purple)':'var(--text3)')+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Peças por Ciclo</div>'
-      +   '<div style="font-size:22px;font-weight:800;color:'+(x.pcsCiclo&&x.pcsCiclo>1?'var(--purple)':'var(--text3)')+';font-family:\'JetBrains Mono\',monospace">'+(x.pcsCiclo||1)+'</div>'
-      +   '<div style="font-size:9px;color:var(--text3);margin-top:2px">pçs produzidas/ciclo</div>'
-      + '</div>'
+      + (function(){
+          var _u = getPcsCicloUnit(s.header);
+          var _pu = _u.abbr; var _pl = _u.label;
+          var _hi = x.pcsCiclo&&x.pcsCiclo>1;
+          return '<div style="flex:1;min-width:110px;background:'+(_hi?'var(--purpleBg)':'var(--surface2)')+';border:1px solid '+(_hi?'var(--purple)':'var(--border2)')+';border-radius:8px;padding:8px 12px">'
+            + '<div style="font-size:9px;font-weight:700;color:'+(_hi?'var(--purple)':'var(--text3)')+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">'+_pl+' por Ciclo</div>'
+            + '<div style="font-size:22px;font-weight:800;color:'+(_hi?'var(--purple)':'var(--text3)')+';font-family:\'JetBrains Mono\',monospace">'+(x.pcsCiclo||1)+'</div>'
+            + '<div style="font-size:9px;color:var(--text3);margin-top:2px">'+_pu+' produzidos/ciclo</div>'
+            + '</div>';
+        })()
       + '<div style="flex:1;min-width:130px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:8px 12px">'
-      +   '<div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Quantidade de Peças</div>'
+      +   '<div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Quantidade de '+(getPcsCicloUnit(s.header).label)+'</div>'
       +   '<input id="frp-dem-'+s.id+'" type="number" step="1" min="0" value="'+demInit+'" placeholder="ex: 600" '
       +     'oninput="frpAnalise(\''+s.id+'\')" '
       +     'style="width:100%;background:transparent;border:none;outline:none;font-size:16px;font-weight:800;color:var(--text);font-family:\'JetBrains Mono\',monospace">'
@@ -10377,27 +10387,28 @@ function buildSheetDetailSection(){
       + '</div>'
       + (function(){
           var _pph = x.stdSec > 0 ? Math.floor((3600 / x.stdSec) * (x.pcsCiclo || 1)) : 0;
+          var _u = getPcsCicloUnit(s.header);
           return '<div style="flex:1;min-width:120px;background:var(--purpleBg);border:1px solid var(--purple);border-radius:8px;padding:8px 12px">'
-            + '<div style="font-size:9px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Peças por Hora</div>'
+            + '<div style="font-size:9px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">'+_u.label+' por Hora</div>'
             + '<div id="frp-pph-'+s.id+'" style="font-size:16px;font-weight:800;color:var(--purple);font-family:\'JetBrains Mono\',monospace">'+(_pph||'—')+'</div>'
-            + '<div style="font-size:9px;color:var(--text3);margin-top:2px">3600 ÷ TS'+(x.pcsCiclo&&x.pcsCiclo>1?' × '+x.pcsCiclo+' pç/ciclo':'')+'</div>'
+            + '<div style="font-size:9px;color:var(--text3);margin-top:2px">3600 ÷ TS'+(x.pcsCiclo&&x.pcsCiclo>1?' × '+x.pcsCiclo+' '+_u.abbr+'/ciclo':'')+'</div>'
             + '</div>';
         })()
       + box('TTP (%)', 'frp-ttp-'+s.id, '100 − Allowance', 'var(--accent)')
       + '<div style="flex:1;min-width:140px;background:var(--surface2);border:1px solid var(--green);border-radius:8px;padding:8px 12px">'
       +   '<div style="font-size:9px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Tempo de Ciclo Final (TS)</div>'
-      +   '<div style="font-size:16px;font-weight:800;color:var(--green);font-family:\'JetBrains Mono\',monospace">'+(x.stdSec ? x.stdSec.toFixed(2).replace('.',',') : '—')+' s</div>'
-      +   '<div style="font-size:9px;color:var(--text3);margin-top:2px">TN × (1 + Allowance/100)'+((x.pcsCiclo&&x.pcsCiclo>1)?' · '+x.pcsCiclo+' pç/ciclo':'')+'</div>'
+      +   '<div id="frp-ts-'+s.id+'" style="font-size:16px;font-weight:800;color:var(--green);font-family:\'JetBrains Mono\',monospace">'+(x.stdSec ? x.stdSec.toFixed(2).replace('.',',') : '—')+' s</div>'
+      +   '<div style="font-size:9px;color:var(--text3);margin-top:2px">TN × (1 + Allowance/100)'+(function(){ var _u=getPcsCicloUnit(s.header); return x.pcsCiclo&&x.pcsCiclo>1?' · '+x.pcsCiclo+' '+_u.abbr+'/ciclo':''; })()+'</div>'
       + '</div>'
       + '<span id="frp-allow-'+s.id+'" style="display:none"></span>'
       + '</div>'
       + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">'
       + box('Tempo Produtivo', 'frp-tprod-'+s.id, 'Tdisp × TTP', 'var(--green)')
       + box('Takt Time', 'frp-takt-'+s.id,
-          (x.pcsCiclo&&x.pcsCiclo>1 ? 'Tprod ÷ (Qtd ÷ '+x.pcsCiclo+' pç/ciclo)' : 'Tprod ÷ Quantidade'),
+          (function(){ var _u=getPcsCicloUnit(s.header); return x.pcsCiclo&&x.pcsCiclo>1?'Tprod ÷ (Qtd ÷ '+x.pcsCiclo+' '+_u.abbr+'/ciclo)':'Tprod ÷ Quantidade'; })(),
           'var(--accent)')
       + box('Capacidade (1 colab.)', 'frp-cap-'+s.id,
-          (x.pcsCiclo&&x.pcsCiclo>1 ? '⌊Tprod÷TS⌋ × '+x.pcsCiclo+' pç/ciclo' : '⌊Tprod ÷ TS⌋'),
+          (function(){ var _u=getPcsCicloUnit(s.header); return x.pcsCiclo&&x.pcsCiclo>1?'⌊Tprod÷TS⌋ × '+x.pcsCiclo+' '+_u.abbr+'/ciclo':'⌊Tprod ÷ TS⌋'; })(),
           'var(--purple)')
       + box('Colab. Necessários', 'frp-colab-'+s.id, '⌈TS ÷ Takt⌉', 'var(--orange)')
       + '</div>'
@@ -10631,13 +10642,20 @@ function frpAnalise(sid){
     var ttp   = 100 - allow;
     var tdis  = h * 3600;
     var tprod = tdis * ttp / 100;
-    var ts    = agg.ts;
-    // Peças por ciclo — aplica somente quando análise é de uma única folha
+
+    // pcsCiclo: SEMPRE lê da folha BASE (sid), mesmo em análise combinada
     var pcsCic = 1;
-    if(!agg.combined){
-      var _sfr = (typeof get==='function') ? get(sid) : null;
-      if(_sfr){ var _pvcf = parseFloat((_sfr.header||{}).pcsCiclo); if(isFinite(_pvcf)&&_pvcf>0) pcsCic=_pvcf; }
-    }
+    var _sbase = (typeof get==='function') ? get(sid) : null;
+    if(_sbase){ var _pvcf=parseFloat((_sbase.header||{}).pcsCiclo); if(isFinite(_pvcf)&&_pvcf>0) pcsCic=_pvcf; }
+    var _unitFrp = (typeof getPcsCicloUnit==='function') ? getPcsCicloUnit(_sbase?_sbase.header:{}) : {abbr:'pç',label:'Peças'};
+
+    // ── Simultâneas: folhas marcadas como paralelas NÃO somam no TS efetivo ──
+    var simulMap = (typeof frpSimulGet==='function') ? frpSimulGet(sid) : {};
+    var seqTs=0, simulTs=0;
+    agg.parts.forEach(function(p){ if(simulMap[p.id]) simulTs+=p.stdSec; else seqTs+=p.stdSec; });
+    // TS efetivo: soma só das folhas sequenciais
+    var ts = agg.combined ? seqTs : agg.ts;
+
     // dem = "Quantidade de Peças" (total de peças desejadas)
     // dem_ciclos = dem ÷ pcsCiclo (ciclos necessários para produzir as peças)
     var dem_ciclos = (pcsCic > 1 && dem > 0) ? dem / pcsCic : dem;
@@ -10645,16 +10663,18 @@ function frpAnalise(sid){
     var takt  = dem_ciclos > 0 ? tprod / dem_ciclos : 0;
     // Cap. 1 colab. = ⌊Tprod ÷ TS⌋ × pçs/ciclo
     var capUm = (ts > 0 && tprod > 0) ? Math.floor(tprod / ts) * pcsCic : 0;
-    // Colab. = ⌈TS ÷ Takt⌉  (takt já é por ciclo, simplifica a fórmula)
+    // Colab. = ⌈TS ÷ Takt⌉  (takt já é por ciclo)
     var colab = (ts > 0 && takt > 0) ? Math.ceil(ts / takt) : 0;
     var set = function(id, txt){ var el = document.getElementById(id); if(el) el.textContent = txt; };
+    // Atualiza o box TS (dinâmico — muda quando simultâneas são excluídas)
+    set('frp-ts-'+sid, ts > 0 ? ts.toFixed(2).replace('.',',') + ' s' : '—');
     set('frp-allow-'+sid, allow.toFixed(2) + ' %');
     set('frp-ttp-'+sid,   ttp.toFixed(2) + ' %');
     set('frp-tprod-'+sid, Math.round(tprod).toLocaleString('pt-BR') + ' s');
     set('frp-takt-'+sid,  takt > 0 ? takt.toFixed(2) + ' s' : '—');
-    set('frp-cap-'+sid,   capUm > 0 ? capUm.toLocaleString('pt-BR') + ' itens' : '—');
+    set('frp-cap-'+sid,   capUm > 0 ? capUm.toLocaleString('pt-BR') + ' ' + _unitFrp.abbr : '—');
     set('frp-colab-'+sid, colab > 0 ? colab : '—');
-    // Peças por hora = ⌊3600 ÷ TS⌋ × pçs/ciclo (não depende da demanda, só do TS e pcsCiclo)
+    // Peças por hora = ⌊3600 ÷ TS efetivo⌋ × pçs/ciclo
     var pphVal = ts > 0 ? Math.floor((3600 / ts) * pcsCic) : 0;
     set('frp-pph-'+sid, pphVal > 0 ? pphVal.toLocaleString('pt-BR') : '—');
     // Nota abaixo do campo "Quantidade de Peças" mostrando a divisão por pcsCiclo
@@ -10662,33 +10682,63 @@ function frpAnalise(sid){
     if(fmEl){
       if(pcsCic > 1 && dem > 0){
         var ciclosInt = Math.round(dem_ciclos);
-        fmEl.innerHTML = dem.toLocaleString('pt-BR') + ' pç ÷ ' + pcsCic + ' pç/ciclo = <b>' + ciclosInt.toLocaleString('pt-BR') + ' ciclos</b> — o Takt e Colab. são calculados com base nos ciclos';
+        fmEl.innerHTML = dem.toLocaleString('pt-BR') + ' ' + _unitFrp.abbr + ' ÷ ' + pcsCic + ' ' + _unitFrp.abbr + '/ciclo = <b>' + ciclosInt.toLocaleString('pt-BR') + ' ciclos</b> — o Takt e Colab. são calculados com base nos ciclos';
         fmEl.style.display = 'block';
       } else {
         fmEl.style.display = 'none';
       }
     }
 
-    // Memória da soma quando há combinação de folhas
+    // Memória da soma quando há combinação de folhas — com toggles SEQ/SIMUL.
     var sumEl = document.getElementById('frp-sum-'+sid);
     if(sumEl){
       if(agg.combined){
+        var _simulMap = simulMap; // já calculado acima
         var lines = agg.parts.map(function(p){
-          return '<div style="display:flex;justify-content:space-between;gap:10px;padding:2px 0">'
-            + '<span style="color:var(--text2)">'+esc(p.label)+'</span>'
-            + '<span style="font-family:\'JetBrains Mono\',monospace;color:var(--green)">'+p.stdSec.toFixed(2)+' s</span>'
+          var isSimul = !!_simulMap[p.id];
+          var btnBg  = isSimul ? 'rgba(234,179,8,.18)' : 'rgba(0,229,160,.12)';
+          var btnBd  = isSimul ? 'rgba(234,179,8,.5)'  : 'rgba(0,229,160,.4)';
+          var btnCol = isSimul ? 'var(--yellow)'        : 'var(--green)';
+          var btnLbl = isSimul ? '⇄ SIMUL.' : '→ SEQ.';
+          return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">'
+            + '<div style="display:flex;align-items:center;gap:7px;min-width:0;flex:1">'
+            +   '<button onclick="frpSimulToggle(\''+sid+'\',\''+esc(p.id)+'\')" '
+            +     'style="flex-shrink:0;font-size:8px;font-weight:800;padding:3px 8px;border-radius:4px;cursor:pointer;background:'+btnBg+';border:1px solid '+btnBd+';color:'+btnCol+';">'
+            +     btnLbl
+            +   '</button>'
+            +   '<span style="color:'+(isSimul?'var(--text3)':'var(--text2)')+';font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p.label)+'</span>'
+            + '</div>'
+            + '<span style="font-family:\'JetBrains Mono\',monospace;font-size:11px;white-space:nowrap;'
+            +   'color:'+(isSimul?'var(--text3)':'var(--green)')+';text-decoration:'+(isSimul?'line-through':'none')+';">'
+            +   p.stdSec.toFixed(2)+' s'
+            + '</span>'
             + '</div>';
         }).join('');
-        sumEl.style.cssText = 'display:block;margin-top:10px;padding:10px 12px;background:var(--surface2);border:1px dashed var(--accent);border-radius:8px;font-size:11px;line-height:1.6';
+
+        sumEl.style.cssText = 'display:block;margin-top:10px;padding:10px 12px;background:var(--surface2);border:1px dashed var(--accent);border-radius:8px;font-size:11px';
         sumEl.innerHTML =
-            '<div style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">Σ Tempo Padrão combinado — '+agg.parts.length+' folhas</div>'
+            '<div style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">'
+          +   'Σ Tempo Padrão Combinado — '+agg.parts.length+' folhas'
+          +   ' <span style="font-weight:400;color:var(--text3);font-size:8.5px">· clique em SEQ./SIMUL. para ajustar</span>'
+          + '</div>'
           + lines
-          + '<div style="display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--border2);margin-top:6px;padding-top:6px;font-weight:800">'
-          +   '<span style="color:var(--text)">TS total (Σ)</span>'
+          + '<div style="margin-top:8px;padding-top:6px">'
+          + (simulTs > 0
+              ? '<div style="display:flex;justify-content:space-between;gap:10px;font-size:10px;color:var(--text3);margin-bottom:4px">'
+              +   '<span>⇄ Simultâneas (ocorrem em paralelo — não somadas)</span>'
+              +   '<span style="font-family:\'JetBrains Mono\',monospace;text-decoration:line-through">'+simulTs.toFixed(2)+' s</span>'
+              + '</div>'
+              : '')
+          + '<div style="display:flex;justify-content:space-between;gap:10px;font-weight:800;font-size:12px">'
+          +   '<span style="color:var(--text)">TS Efetivo '+(simulTs>0?'(sequenciais)':'(Σ)')+'</span>'
           +   '<span style="font-family:\'JetBrains Mono\',monospace;color:var(--accent)">'+ts.toFixed(2)+' s</span>'
           + '</div>'
+          + (pcsCic>1 ? '<div style="font-size:9px;color:var(--purple);margin-top:3px">'+_unitFrp.abbr+'/ciclo da folha base: '+pcsCic+'  ·  PPH = ⌊3600÷'+ts.toFixed(2)+'⌋×'+pcsCic+' = '+pphVal+' '+_unitFrp.abbr+'/h</div>' : '')
+          + '</div>'
           + (colab > 0
-              ? '<div style="margin-top:6px;color:var(--text3)">⌈TS '+ts.toFixed(2)+'s ÷ '+(pcsCic>1?'(Takt '+(takt>0?takt.toFixed(2):'—')+'s × '+pcsCic+' pç/ciclo)':'Takt '+(takt>0?takt.toFixed(2):'—')+'s')+'⌉ = <b style="color:var(--orange)">'+colab+' colaborador(es)</b> para atender '+dem+' itens em '+h+'h.</div>'
+              ? '<div style="margin-top:8px;padding:6px 8px;background:var(--surface);border-radius:6px;font-size:10px;color:var(--text3)">'
+              +   'Colab. = ⌈'+ts.toFixed(2)+'s ÷ Takt '+takt.toFixed(2)+'s⌉ = <b style="color:var(--orange)">'+colab+'</b> para atender '+dem+' pç em '+h+'h.'
+              + '</div>'
               : '');
       } else {
         sumEl.style.display = 'none';
@@ -10696,6 +10746,27 @@ function frpAnalise(sid){
       }
     }
   }catch(e){}
+}
+
+// ── Unidade por ciclo — retorna {abbr, label} a partir do header da folha ──
+var _PCS_UNIT_MAP = {
+  'pç':'Peças','cx':'Caixas','un':'Unidades','kg':'Quilogramas','L':'Litros',
+  'm':'Metros','m²':'Metros²','m³':'Metros³','pal':'Paletes',
+  'bob':'Bobinas','pct':'Pacotes','fd':'Fardos','tl':'Toneladas'
+};
+function getPcsCicloUnit(h){
+  var abbr = (h && h.pcsCicloUnit) || 'pç';
+  return { abbr: abbr, label: (_PCS_UNIT_MAP[abbr] || 'Peças') };
+}
+
+// ── SIMULTÂNEAS: folhas que ocorrem em paralelo (não somam no TS efetivo) ──
+var FRP_SIMUL_KEY = 'mtm_frp_simul_v1';
+function frpSimulLoad(){ try{ return JSON.parse(localStorage.getItem(FRP_SIMUL_KEY)||'{}'); }catch(e){ return {}; } }
+function frpSimulSave(d){ try{ localStorage.setItem(FRP_SIMUL_KEY, JSON.stringify(d)); }catch(e){} }
+function frpSimulGet(baseId){ return frpSimulLoad()[baseId]||{}; }
+function frpSimulToggle(baseId, partId){
+  var d=frpSimulLoad(); if(!d[baseId]) d[baseId]={}; d[baseId][partId]=!d[baseId][partId];
+  frpSimulSave(d); if(typeof frpAnalise==='function') frpAnalise(baseId);
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -10806,7 +10877,7 @@ function frpAggregateAll(premissa, manualPct){
       tsReal += x.stdSec;          // Tempo Padrão real da folha (TN + allowance da folha)
       raw    += x.tnSec;           // Tempo Normal (sem allowance)
       tmu    += (x.m && x.m.totalTmu) ? x.m.totalTmu : 0;
-      parts.push({ label:(x.sheet.label||'Folha'), stdSec:x.stdSec, tnSec:x.tnSec,
+      parts.push({ id:x.sheet.id, label:(x.sheet.label||'Folha'), stdSec:x.stdSec, tnSec:x.tnSec,
                    allow:x.allowUsed, tmu:(x.m&&x.m.totalTmu)||0 });
     });
   }catch(e){}
@@ -10931,10 +11002,14 @@ function frpAnaliseAll(){
     var ttp   = 100 - allow;
     var tdis  = h * 3600;
     var tprod = tdis * ttp / 100;
-    var ts    = agg.ts;                 // Σ Tempo Padrão (COM allowance) de todas as atividades
+
+    // ── Simultâneas: mesma lógica da análise por folha ──
+    var simulMapAll = (typeof frpSimulGet==='function') ? frpSimulGet('__ALL__') : {};
+    var seqTs=0, simulTs=0;
+    agg.parts.forEach(function(p){ if(simulMapAll[p.id]) simulTs+=p.stdSec; else seqTs+=p.stdSec; });
+    var ts = seqTs;   // TS efetivo (sequenciais apenas)
+
     var takt  = dem > 0 ? tprod / dem : 0;
-    // Para análise combinada de múltiplas folhas, pcsCiclo = 1
-    // (cada folha tem seu próprio pcsCiclo; veja a Análise Final por folha para valores individuais)
     var capUm = (ts > 0 && tprod > 0) ? Math.floor(tprod / ts) : 0;
     var colab = (ts > 0 && takt > 0) ? Math.ceil(ts / takt) : 0;
 
@@ -10944,18 +11019,16 @@ function frpAnaliseAll(){
     set('frp-cap-__ALL__',   capUm > 0 ? capUm.toLocaleString('pt-BR') + ' itens' : '—');
     set('frp-colab-__ALL__', colab > 0 ? colab : '—');
 
-    // ── Simulação com Nº de pessoas (modelo de linha balanceada / postos em paralelo) ──
-    // Premissa do modelo: as 'people' pessoas dividem o Σ TS de forma idealmente
-    // balanceada → tempo de ciclo por peça ≈ Σ TS ÷ pessoas.
+    // ── Simulação com Nº de pessoas (usa TS efetivo) ──
     var simEl = document.getElementById('frp-sim-__ALL__');
     if(simEl){
-      var ciclo   = people > 0 ? ts / people : ts;            // s/peça com N pessoas
-      var capN    = (ciclo > 0) ? Math.floor(tprod / ciclo) : 0; // itens no turno
-      var pphN     = (h > 0) ? capN / h : 0;                   // peças/hora
-      var satN     = (takt > 0) ? (ciclo / takt * 100) : null; // saturação por pessoa (%)
-      var atende   = (dem > 0) ? (capN >= dem) : null;
-      var corSat   = (satN === null) ? 'var(--text3)' : (satN <= 100 ? 'var(--green)' : 'var(--red)');
-      var corCapN  = (atende === null) ? 'var(--accent)' : (atende ? 'var(--green)' : 'var(--red)');
+      var ciclo   = people > 0 ? ts / people : ts;
+      var capN    = (ciclo > 0) ? Math.floor(tprod / ciclo) : 0;
+      var pphN    = (h > 0) ? capN / h : 0;
+      var satN    = (takt > 0) ? (ciclo / takt * 100) : null;
+      var atende  = (dem > 0) ? (capN >= dem) : null;
+      var corSat  = (satN === null) ? 'var(--text3)' : (satN <= 100 ? 'var(--green)' : 'var(--red)');
+      var corCapN = (atende === null) ? 'var(--accent)' : (atende ? 'var(--green)' : 'var(--red)');
 
       var simBox = function(lbl, val, color){
         return '<div style="flex:1;min-width:110px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:8px 12px">'
@@ -10975,29 +11048,59 @@ function frpAnaliseAll(){
         + (dem > 0
             ? '<div style="margin-top:8px;font-size:11px;color:var(--text3)">Com <b style="color:var(--purple)">'+people+'</b> pessoa(s), capacidade de <b>'+capN.toLocaleString('pt-BR')+'</b> itens '+(atende?'<b style="color:var(--green)">atende</b>':'<b style="color:var(--red)">NÃO atende</b>')+' a demanda de '+dem+' itens em '+h+'h.</div>'
             : '<div style="margin-top:8px;font-size:11px;color:var(--text3)">Informe a <b>Demanda</b> para avaliar se '+people+' pessoa(s) atende(m) o volume.</div>')
-        + '<div style="margin-top:6px;font-size:9px;color:var(--text3);font-style:italic">Modelo: postos balanceados em paralelo (ciclo ≈ Σ TS ÷ nº de pessoas). Confirme se reflete o arranjo real da sua linha.</div>';
+        + (simulTs > 0 ? '<div style="margin-top:6px;font-size:9px;color:var(--text3);font-style:italic">TS efetivo = '+ts.toFixed(2)+'s ('+simulTs.toFixed(2)+'s em simultâneas excluídas)</div>' : '')
+        + '<div style="margin-top:4px;font-size:9px;color:var(--text3);font-style:italic">Modelo: postos balanceados em paralelo (ciclo ≈ Σ TS ÷ nº de pessoas). Confirme se reflete o arranjo real da sua linha.</div>';
     }
 
+    // ── Σ Tempo Padrão com toggles SEQ/SIMUL. ──
     var sumEl = document.getElementById('frp-sum-__ALL__');
     if(sumEl){
       var premLbl = premise==='sese' ? 'Padrão SESÉ 10%' : (premise==='global' ? 'Padrão Global 85% (allow 15%)' : (premise==='manual' ? 'Manual '+allow.toFixed(1)+'%' : 'Real por folha'));
-      var lines = agg.parts.map(function(p){
-        return '<div style="display:flex;justify-content:space-between;gap:10px;padding:2px 0">'
-          + '<span style="color:var(--text2)">'+esc(p.label)+'</span>'
-          + '<span style="font-family:\'JetBrains Mono\',monospace;color:var(--green)">'+p.stdSec.toFixed(2)+' s</span>'
+      var linesAll = agg.parts.map(function(p){
+        var isSimul = !!simulMapAll[p.id];
+        var btnBg  = isSimul ? 'rgba(234,179,8,.18)' : 'rgba(0,229,160,.12)';
+        var btnBd  = isSimul ? 'rgba(234,179,8,.5)'  : 'rgba(0,229,160,.4)';
+        var btnCol = isSimul ? 'var(--yellow)'        : 'var(--green)';
+        var btnLbl = isSimul ? '⇄ SIMUL.' : '→ SEQ.';
+        return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">'
+          + '<div style="display:flex;align-items:center;gap:7px;min-width:0;flex:1">'
+          +   '<button onclick="frpSimulToggle(\'__ALL__\',\''+esc(p.id)+'\')" '
+          +     'style="flex-shrink:0;font-size:8px;font-weight:800;padding:3px 8px;border-radius:4px;cursor:pointer;background:'+btnBg+';border:1px solid '+btnBd+';color:'+btnCol+';">'
+          +     btnLbl
+          +   '</button>'
+          +   '<span style="color:'+(isSimul?'var(--text3)':'var(--text2)')+';font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p.label)+'</span>'
+          + '</div>'
+          + '<span style="font-family:\'JetBrains Mono\',monospace;font-size:11px;white-space:nowrap;'
+          +   'color:'+(isSimul?'var(--text3)':'var(--green)')+';text-decoration:'+(isSimul?'line-through':'none')+';">'
+          +   p.stdSec.toFixed(2)+' s'
+          + '</span>'
           + '</div>';
       }).join('');
-      sumEl.style.cssText = 'padding:10px 12px;background:var(--surface2);border:1px dashed var(--purple);border-radius:8px;font-size:11px;line-height:1.6';
+
+      sumEl.style.cssText = 'padding:10px 12px;background:var(--surface2);border:1px dashed var(--purple);border-radius:8px;font-size:11px';
       sumEl.innerHTML =
-          '<div style="font-size:9px;font-weight:800;color:var(--purple);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">Σ Tempo Padrão (com allowance · '+premLbl+') — '+agg.parts.length+' folhas</div>'
-        + lines
-        + '<div style="display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--border2);margin-top:6px;padding-top:6px;font-weight:800">'
-        +   '<span style="color:var(--text)">Σ TS total (com allowance)</span>'
-        +   '<span style="font-family:\'JetBrains Mono\',monospace;color:var(--accent)">'+ts.toFixed(2)+' s  ·  '+agg.tmu.toFixed(0)+' TMU</span>'
+          '<div style="font-size:9px;font-weight:800;color:var(--purple);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">'
+        +   'Σ Tempo Padrão ('+premLbl+') — '+agg.parts.length+' folhas'
+        +   ' <span style="font-weight:400;color:var(--text3);font-size:8.5px">· clique em SEQ./SIMUL. para ajustar</span>'
+        + '</div>'
+        + linesAll
+        + '<div style="margin-top:8px;padding-top:6px">'
+        + (simulTs > 0
+            ? '<div style="display:flex;justify-content:space-between;gap:10px;font-size:10px;color:var(--text3);margin-bottom:4px">'
+            +   '<span>⇄ Simultâneas (ocorrem em paralelo — não somadas)</span>'
+            +   '<span style="font-family:\'JetBrains Mono\',monospace;text-decoration:line-through">'+simulTs.toFixed(2)+' s</span>'
+            + '</div>'
+            : '')
+        + '<div style="display:flex;justify-content:space-between;gap:10px;font-weight:800;font-size:12px">'
+        +   '<span style="color:var(--text)">TS Efetivo '+(simulTs>0?'(sequenciais)':'(Σ)')+'</span>'
+        +   '<span style="font-family:\'JetBrains Mono\',monospace;color:var(--purple)">'+ts.toFixed(2)+' s  ·  '+agg.tmu.toFixed(0)+' TMU</span>'
+        + '</div>'
         + '</div>'
         + (colab > 0
-            ? '<div style="margin-top:6px;color:var(--text3)">⌈Σ TS '+ts.toFixed(2)+'s ÷ Takt '+(takt>0?takt.toFixed(2):'—')+'s⌉ = <b style="color:var(--orange)">'+colab+' colaborador(es)</b> para atender '+dem+' itens em '+h+'h.</div>'
-            : '<div style="margin-top:6px;color:var(--text3)">Informe a <b>Demanda</b> para calcular Takt e Colaboradores.</div>');
+            ? '<div style="margin-top:8px;padding:6px 8px;background:var(--surface);border-radius:6px;font-size:10px;color:var(--text3)">'
+            +   '⌈'+ts.toFixed(2)+'s ÷ Takt '+(takt>0?takt.toFixed(2):'—')+'s⌉ = <b style="color:var(--orange)">'+colab+' colaborador(es)</b> para atender '+dem+' itens em '+h+'h.'
+            + '</div>'
+            : '<div style="margin-top:6px;color:var(--text3);font-size:10px">Informe a <b>Demanda</b> para calcular Takt e Colaboradores.</div>');
     }
   }catch(e){}
 }
@@ -11022,10 +11125,11 @@ function buildTTPSection(){
     var tprod   = tdis * (ttp / 100);
     var ts      = x.stdSec;
     var pcsCic  = (m.pcsCiclo && m.pcsCiclo > 0) ? m.pcsCiclo : 1;
+    var _uttp   = (typeof getPcsCicloUnit==='function') ? getPcsCicloUnit(s.header) : {abbr:'pç', label:'Peças'};
     // dem = "Quantidade de Peças"; dem_ciclos = ciclos necessários (dem ÷ pcsCiclo)
     var dem_ciclos = (pcsCic > 1 && dem > 0) ? dem / pcsCic : dem;
     var takt    = dem_ciclos > 0 ? tprod / dem_ciclos : 0;   // takt por CICLO
-    // Cap. 1 colab. = ⌊Tprod ÷ TS⌋ × pçs/ciclo
+    // Cap. 1 colab. = ⌊Tprod ÷ TS⌋ × unidade/ciclo
     var capUm   = (ts > 0 && tprod > 0) ? Math.floor(tprod / ts) * pcsCic : 0;
     // Colab. = ⌈TS ÷ Takt⌉  (takt já é por ciclo, não multiplica pcsCiclo)
     var colabNeed = (ts > 0 && takt > 0) ? Math.ceil(ts / takt) : 0;
@@ -11056,15 +11160,15 @@ function buildTTPSection(){
       + kpiBoxTTP(allowLabel, allow.toFixed(2) + ' %', allow >= 18 ? 'var(--red)' : allow >= 13 ? 'var(--orange)' : allow > 0 ? 'var(--green)' : 'var(--text3)')
       + kpiBoxTTP(ttpLabel, manualTTPVal > 0 ? ttp.toFixed(2) + ' %' : '100% (bruto)', corTtp)
       + kpiBoxTTP('Tempo Produtivo', Math.round(tprod).toLocaleString('pt-BR') + ' s', 'var(--green)')
-      + kpiBoxTTP('Demanda', dem > 0 ? dem.toLocaleString('pt-BR') + ' itens' : '—', 'var(--text2)')
+      + kpiBoxTTP('Demanda', dem > 0 ? dem.toLocaleString('pt-BR') + ' ' + _uttp.abbr : '—', 'var(--text2)')
       + kpiBoxTTP('Takt Time', takt > 0 ? takt.toFixed(2) + ' s' : '—', corTakt)
-      + kpiBoxTTP('Cap. Máx. (1 colab.)', capUm > 0 ? capUm.toLocaleString('pt-BR') + ' itens' : '—', 'var(--text)')
+      + kpiBoxTTP('Cap. Máx. (1 colab.)', capUm > 0 ? capUm.toLocaleString('pt-BR') + ' ' + _uttp.abbr : '—', 'var(--text)')
       + kpiBoxTTP('TS (Tempo Padrão)', ts > 0 ? ts.toFixed(3) + ' s' : '—', 'var(--green)')
       + kpiBoxTTP('Colab. Necessários', colabNeed > 0 ? colabNeed : '—', corColab)
-      + kpiBoxTTP('Cap. c/ ' + (colabNeed||'?') + ' Colab.', capColab > 0 ? capColab.toLocaleString('pt-BR') + ' itens' : '—', 'var(--purple)')
+      + kpiBoxTTP('Cap. c/ ' + (colabNeed||'?') + ' Colab.', capColab > 0 ? capColab.toLocaleString('pt-BR') + ' ' + _uttp.abbr : '—', 'var(--purple)')
       + kpiBoxTTP('Ociosidade vs Takt', ocioRel !== null ? ocio.toFixed(2) + 's (' + ocioRel.toFixed(1) + '%)' : '—', corOcio)
       + kpiBoxTTP('% Saturação', m.takt > 0 ? (ts / m.takt * 100).toFixed(1) + '%' : '—', m.takt > 0 && (ts / m.takt) > 1 ? 'var(--red)' : 'var(--green)')
-      + kpiBoxTTP('Peças/hora', x.pphInt > 0 ? x.pphInt : '—', 'var(--purple)')
+      + kpiBoxTTP(_uttp.label + '/hora', x.pphInt > 0 ? x.pphInt : '—', 'var(--purple)')
 
       + '</div>';
 
@@ -11078,16 +11182,16 @@ function buildTTPSection(){
             : 'T. Produtivo = ' + tdis.toLocaleString('pt-BR') + ' s (bruto — TTP não definido)')
         + '<br>'
         + (pcsCic > 1
-            ? 'Ciclos = ' + dem.toLocaleString('pt-BR') + ' pç ÷ ' + pcsCic + ' pç/ciclo = ' + Math.round(dem_ciclos).toLocaleString('pt-BR') + ' ciclos  |  '
+            ? 'Ciclos = ' + dem.toLocaleString('pt-BR') + ' ' + _uttp.abbr + ' ÷ ' + pcsCic + ' ' + _uttp.abbr + '/ciclo = ' + Math.round(dem_ciclos).toLocaleString('pt-BR') + ' ciclos  |  '
               + 'Takt = ' + Math.round(tprod).toLocaleString('pt-BR') + ' ÷ ' + Math.round(dem_ciclos).toLocaleString('pt-BR') + ' = ' + takt.toFixed(2) + ' s/ciclo'
             : 'Takt = ' + Math.round(tprod).toLocaleString('pt-BR') + ' ÷ ' + dem.toLocaleString('pt-BR') + ' = ' + takt.toFixed(2) + ' s')
         + ' | '
         + 'Cap. = ⌊' + Math.round(tprod).toLocaleString('pt-BR') + ' ÷ ' + ts.toFixed(2) + '⌋'
-        + (pcsCic > 1 ? ' × ' + pcsCic + ' pç/ciclo' : '')
-        + ' = ' + capUm.toLocaleString('pt-BR') + ' itens'
+        + (pcsCic > 1 ? ' × ' + pcsCic + ' ' + _uttp.abbr + '/ciclo' : '')
+        + ' = ' + capUm.toLocaleString('pt-BR') + ' ' + _uttp.abbr
         + ' | '
         + 'Colab. = ⌈' + ts.toFixed(2) + ' ÷ ' + takt.toFixed(2) + '⌉ = ' + colabNeed
-        + (capColab > 0 ? ' → Capacidade: ' + capColab.toLocaleString('pt-BR') + ' itens/jornada' : '')
+        + (capColab > 0 ? ' → Capacidade: ' + capColab.toLocaleString('pt-BR') + ' ' + _uttp.abbr + '/jornada' : '')
         + '</div>';
     }
 
@@ -12324,7 +12428,7 @@ function showFinalReport(){
       + '</div>'
       + '<div style="font-size:9px;color:var(--text3);margin-top:8px;text-align:right">'
       +   (m.takt > 0 ? 'Takt '+m.takt+'s' : '')
-      +   ((x.pcsCiclo && x.pcsCiclo > 1) ? (m.takt > 0 ? ' · ' : '')+'<span style="color:var(--purple);font-weight:700">'+x.pcsCiclo+' pç/ciclo</span>' : '')
+      +   ((x.pcsCiclo && x.pcsCiclo > 1) ? (m.takt > 0 ? ' · ' : '')+'<span style="color:var(--purple);font-weight:700">'+x.pcsCiclo+' '+(typeof getPcsCicloUnit==='function'?getPcsCicloUnit(x.sheet.header).abbr:'pç')+'/ciclo</span>' : '')
       + '</div>'
       + '</div>';
   }).join('');
