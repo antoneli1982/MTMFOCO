@@ -10387,7 +10387,9 @@ function buildSheetDetailSection(){
           var _hi = x.pcsCiclo&&x.pcsCiclo>1;
           return '<div style="flex:1;min-width:110px;background:'+(_hi?'var(--purpleBg)':'var(--surface2)')+';border:1px solid '+(_hi?'var(--purple)':'var(--border2)')+';border-radius:8px;padding:8px 12px">'
             + '<div style="font-size:9px;font-weight:700;color:'+(_hi?'var(--purple)':'var(--text3)')+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">'+_pl+' por Ciclo</div>'
-            + '<div style="font-size:22px;font-weight:800;color:'+(_hi?'var(--purple)':'var(--text3)')+';font-family:\'JetBrains Mono\',monospace">'+(x.pcsCiclo||1)+'</div>'
+            + '<input id="frp-pcs-'+s.id+'" type="number" step="1" min="1" value="'+(x.pcsCiclo||1)+'" '
+            +   'oninput="frpSetPcsCiclo(\''+s.id+'\', this)" '
+            +   'style="width:100%;background:transparent;border:none;outline:none;font-size:22px;font-weight:800;color:'+(_hi?'var(--purple)':'var(--text3)')+';font-family:\'JetBrains Mono\',monospace">'
             + '<div style="font-size:9px;color:var(--text3);margin-top:2px">'+_pu+' produzidos/ciclo</div>'
             + '</div>';
         })()
@@ -10900,6 +10902,19 @@ function frpCalcTotal(sid, inputEl, stdSec, pcsCiclo, unitAbbr){
   }
 }
 
+// Permite editar Peças por Ciclo diretamente no Relatório Final (Painel por folha).
+// Salva no dado da folha (s.header.pcsCiclo) e recalcula a Análise Final da folha.
+function frpSetPcsCiclo(sid, inputEl){
+  var s = (typeof get === 'function') ? get(sid) : null;
+  if(!s) return;
+  var v = parseInt(inputEl.value, 10);
+  if(!isFinite(v) || v < 1) v = 1;
+  if(!s.header) s.header = {};
+  s.header.pcsCiclo = v;
+  if(typeof saveSheets === 'function') saveSheets();
+  if(typeof frpAnalise === 'function') frpAnalise(sid);
+}
+
 // Soma das métricas de TODAS as folhas preenchidas (TS, tempo bruto, TMU).
 // premissa: define qual allowance/fadiga aplicar sobre o tempo normal (TN):
 //   'real'  → usa o allowance real de cada folha (Σ dos Tempos Padrão de cada folha)
@@ -10952,6 +10967,10 @@ function buildCombinedAnalysisSection(){
   var demDef = (saved.dem != null && saved.dem !== '') ? saved.dem
              : ((filled[0].sheet.header && filled[0].sheet.header.demand) || '');
   var peopleDef = (saved.people != null && saved.people !== '') ? saved.people : 1;
+  // Peças por Ciclo: salvo ou lido da primeira folha preenchida
+  var pcsDef = (saved.pcsCiclo != null && saved.pcsCiclo !== '')
+    ? saved.pcsCiclo
+    : ((filled[0] && filled[0].pcsCiclo && filled[0].pcsCiclo > 1) ? filled[0].pcsCiclo : 1);
 
   var lamp = frpLampBtn('__ALL__');
   var off  = frpPdfIsOff('__ALL__');
@@ -10994,6 +11013,7 @@ function buildCombinedAnalysisSection(){
     + '<div style="display:flex;flex-wrap:wrap;gap:8px">'
     + inputBox('Horas de Trabalho', 'frp-h-__ALL__', hDef, '8')
     + inputBox('Demanda (itens)', 'frp-dem-__ALL__', demDef, 'ex: 600')
+    + intInput('Peças por Ciclo', 'frp-pcs-__ALL__', pcsDef, '1', 'var(--accent)')
     + intInput('Nº de Pessoas (simulação)', 'frp-people-__ALL__', peopleDef, '1')
     + '</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">'
@@ -11015,6 +11035,7 @@ function frpAnaliseAll(){
     var hEl = document.getElementById('frp-h-__ALL__');
     var dEl = document.getElementById('frp-dem-__ALL__');
     var pEl = document.getElementById('frp-people-__ALL__');
+    var cEl = document.getElementById('frp-pcs-__ALL__');
 
     // Premissa fixa em "real por folha": usa o allowance já lançado em cada folha.
     var premise = 'real';
@@ -11023,15 +11044,17 @@ function frpAnaliseAll(){
     var agg = frpAggregateAll(premise, manualPct);
     if(!agg.parts.length) return;
 
-    var h   = parseFloat(hEl && hEl.value); if(isNaN(h) || h<=0) h = 8;
-    var dem = parseFloat(dEl && dEl.value); if(isNaN(dem)) dem = 0;
-    var people = parseInt(pEl && pEl.value, 10); if(isNaN(people) || people<1) people = 1;
+    var h       = parseFloat(hEl && hEl.value); if(isNaN(h) || h<=0) h = 8;
+    var dem     = parseFloat(dEl && dEl.value); if(isNaN(dem)) dem = 0;
+    var people  = parseInt(pEl && pEl.value, 10); if(isNaN(people) || people<1) people = 1;
+    var pcsCic  = parseInt(cEl && cEl.value, 10); if(isNaN(pcsCic) || pcsCic<1) pcsCic = 1;
 
     // Auto-save de todos os campos
     frpAllSave({
       h:(hEl?hEl.value:''), dem:(dEl?dEl.value:''),
       premiseMode: premise, premiseManual: manualPct,
-      people:(pEl?pEl.value:'')
+      people:(pEl?pEl.value:''),
+      pcsCiclo:(cEl?cEl.value:'1')
     });
 
     var allow = agg.allow;
@@ -11045,21 +11068,23 @@ function frpAnaliseAll(){
     agg.parts.forEach(function(p){ if(simulMapAll[p.id]) simulTs+=p.stdSec; else seqTs+=p.stdSec; });
     var ts = seqTs;   // TS efetivo (sequenciais apenas)
 
-    var takt  = dem > 0 ? tprod / dem : 0;
-    var capUm = (ts > 0 && tprod > 0) ? Math.floor(tprod / ts) : 0;
+    // dem_ciclos: ciclos necessários para produzir a demanda
+    var dem_ciclos = (pcsCic > 1 && dem > 0) ? dem / pcsCic : dem;
+    var takt  = dem_ciclos > 0 ? tprod / dem_ciclos : 0;
+    var capUm = (ts > 0 && tprod > 0) ? Math.floor(tprod / ts) * pcsCic : 0;
     var colab = (ts > 0 && takt > 0) ? Math.ceil(ts / takt) : 0;
 
     var set = function(id, txt){ var el = document.getElementById(id); if(el) el.textContent = txt; };
     set('frp-tprod-__ALL__', Math.round(tprod).toLocaleString('pt-BR') + ' s');
     set('frp-takt-__ALL__',  takt > 0 ? takt.toFixed(2) + ' s' : '—');
-    set('frp-cap-__ALL__',   capUm > 0 ? capUm.toLocaleString('pt-BR') + ' itens' : '—');
+    set('frp-cap-__ALL__',   capUm > 0 ? capUm.toLocaleString('pt-BR') + (pcsCic>1?' '+((filled&&filled[0]&&typeof getPcsCicloUnit==='function'?getPcsCicloUnit(filled[0].sheet.header).abbr:'itens')):'') + ' itens' : '—');
     set('frp-colab-__ALL__', colab > 0 ? colab : '—');
 
     // ── Simulação com Nº de pessoas (usa TS efetivo) ──
     var simEl = document.getElementById('frp-sim-__ALL__');
     if(simEl){
       var ciclo   = people > 0 ? ts / people : ts;
-      var capN    = (ciclo > 0) ? Math.floor(tprod / ciclo) : 0;
+      var capN    = (ciclo > 0) ? Math.floor(tprod / ciclo) * pcsCic : 0;
       var pphN    = (h > 0) ? capN / h : 0;
       var satN    = (takt > 0) ? (ciclo / takt * 100) : null;
       var atende  = (dem > 0) ? (capN >= dem) : null;
@@ -11074,7 +11099,7 @@ function frpAnaliseAll(){
       };
       simEl.style.cssText = 'padding:10px 12px;background:var(--surface2);border:1px solid var(--purple);border-radius:8px';
       simEl.innerHTML =
-          '<div style="font-size:9px;font-weight:800;color:var(--purple);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">👥 Simulação com '+people+' pessoa'+(people!==1?'s':'')+'</div>'
+          '<div style="font-size:9px;font-weight:800;color:var(--purple);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">👥 Simulação com '+people+' pessoa'+(people!==1?'s':'')+(pcsCic>1?' · '+pcsCic+' pç/ciclo':'')+'</div>'
         + '<div style="display:flex;flex-wrap:wrap;gap:8px">'
         +   simBox('Tempo de Ciclo (Σ TS ÷ '+people+')', ciclo.toFixed(2)+' s', 'var(--purple)')
         +   simBox('Capacidade ('+people+' pess.)', capN > 0 ? capN.toLocaleString('pt-BR')+' itens' : '—', corCapN)
@@ -11084,6 +11109,7 @@ function frpAnaliseAll(){
         + (dem > 0
             ? '<div style="margin-top:8px;font-size:11px;color:var(--text3)">Com <b style="color:var(--purple)">'+people+'</b> pessoa(s), capacidade de <b>'+capN.toLocaleString('pt-BR')+'</b> itens '+(atende?'<b style="color:var(--green)">atende</b>':'<b style="color:var(--red)">NÃO atende</b>')+' a demanda de '+dem+' itens em '+h+'h.</div>'
             : '<div style="margin-top:8px;font-size:11px;color:var(--text3)">Informe a <b>Demanda</b> para avaliar se '+people+' pessoa(s) atende(m) o volume.</div>')
+        + (pcsCic > 1 ? '<div style="margin-top:4px;font-size:9px;color:var(--accent);font-style:italic">'+pcsCic+' pç/ciclo aplicado — capacidade multiplicada: ⌊Tprod÷ciclo⌋ × '+pcsCic+'</div>' : '')
         + (simulTs > 0 ? '<div style="margin-top:6px;font-size:9px;color:var(--text3);font-style:italic">TS efetivo = '+ts.toFixed(2)+'s ('+simulTs.toFixed(2)+'s em simultâneas excluídas)</div>' : '')
         + '<div style="margin-top:4px;font-size:9px;color:var(--text3);font-style:italic">Modelo: postos balanceados em paralelo (ciclo ≈ Σ TS ÷ nº de pessoas). Confirme se reflete o arranjo real da sua linha.</div>';
     }
@@ -12503,21 +12529,21 @@ function showFinalReport(){
 
   // ── Tabela consolidada por jornada ──
   var theadCells = allMetrics.map(function(x){
-    return '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--purple);letter-spacing:.6px;border-right:1px solid var(--border2);white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.25">'+x.sheet.label+'</th>';
+    var _abbr = (typeof getPcsCicloUnit==='function') ? getPcsCicloUnit(x.sheet.header).abbr : 'pç';
+    return '<th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--purple);letter-spacing:.6px;border-right:1px solid var(--border2);white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.25">'
+      + x.sheet.label
+      + '<span style="display:block;font-size:8px;font-weight:500;color:var(--text3);margin-top:2px">'+_abbr+'/turno</span>'
+      + '</th>';
   }).join('');
   var tableRows = jornadas.map(function(j){
     var jorSec = j.h * 3600;
-    var somaPcs = 0;
     var cells = allMetrics.map(function(x){
       var pcsCic = (x.pcsCiclo && x.pcsCiclo > 0) ? x.pcsCiclo : 1;
       var pcsN = x.stdSec > 0 ? Math.floor(jorSec/x.stdSec) * pcsCic : 0;
-      if(x.stdSec > 0) somaPcs += pcsN;
       var pcs = x.stdSec > 0 ? pcsN : '—';
       return '<td style="padding:6px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--purple);font-weight:700;border-right:1px solid var(--border)">'+pcs+'</td>';
     }).join('');
-    var totalPcs = somaPcs > 0 ? somaPcs : '—';
-    return '<tr><td style="padding:6px 10px;font-weight:700;color:var(--text);border-right:1px solid var(--border2)">'+j.lbl+'</td>'+cells
-      + '<td style="padding:6px 10px;text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--accent);font-weight:800;background:var(--accentBg)">'+totalPcs+'</td></tr>';
+    return '<tr><td style="padding:6px 10px;font-weight:700;color:var(--text);border-right:1px solid var(--border2)">'+j.lbl+'</td>'+cells+'</tr>';
   }).join('');
   var tableHtml = allMetrics.length > 1 ? frpSection('sec-jornada', '⚙️ Capacidade por Jornada — Todas as Folhas', ''
     + '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;overflow:auto;margin-bottom:20px">'
@@ -12525,10 +12551,9 @@ function showFinalReport(){
     +     '<thead><tr style="background:var(--header-bg);border-bottom:2px solid var(--accent)">'
     +       '<th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.8px;text-transform:uppercase;border-right:1px solid var(--border2)">Jornada</th>'
     +       theadCells
-    +       '<th style="padding:8px 10px;text-align:right;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.8px;background:var(--accentBg)">SOMA (pc/turno)</th>'
     +     '</tr></thead><tbody>'+tableRows+'</tbody>'
     +   '</table>'
-    +   '<div style="padding:8px 12px;background:var(--surface2);border-top:1px solid var(--border);font-size:10px;color:var(--text3)">SOMA = todos os operadores produzindo simultaneamente · Tempos Padrão já com Allowance Total · capacidade já multiplicada pelas Peças por ciclo de cada folha</div>'
+    +   '<div style="padding:8px 12px;background:var(--surface2);border-top:1px solid var(--border);font-size:10px;color:var(--text3)">Capacidade individual de cada posto · Tempos Padrão já com Allowance Total · valores já multiplicados pelas Peças por ciclo de cada folha</div>'
     + '</div>', 'margin-top:24px') : '';
 
   // ── Comparativo de folhas ──
