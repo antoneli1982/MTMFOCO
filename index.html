@@ -4290,6 +4290,7 @@ function renderContent(id){
         <div class="folha-title-row">
           <span class="folha-title">${esc(s.label)}</span>
           <span class="badge">MTM</span>
+          <button id="sheet-maquina-btn-${id}" onclick="frpToggleMaquina('${id}')" title="Marcar esta folha como Processo de Máquina — não conta mão de obra (colaborador) nos relatórios" style="font-size:11px;font-weight:700;padding:5px 11px;border-radius:6px;cursor:pointer;white-space:nowrap;background:${h.maquina?'rgba(59,130,246,.18)':'transparent'};border:1px solid ${h.maquina?'var(--blue)':'var(--border2)'};color:${h.maquina?'var(--blue)':'var(--text3)'}">${h.maquina?'🔵 Processo de Máquina ✓':'⚙ Marcar como Máquina'}</button>
           <button class="btn btn-ghost folha-import-btn" onclick="importExcelParaFolha('${id}')" title="Importar um Excel (.xlsx/.xls/.csv) PARA esta folha. Adiciona as linhas aqui e NÃO mexe nas outras folhas." style="margin-left:auto;background:rgba(0,229,160,.10);color:var(--green);border-color:rgba(0,229,160,.45);font-size:11px;font-weight:700;padding:5px 11px;white-space:nowrap">📥<span class="btn-lbl"> Importar Excel nesta folha</span></button>
         </div>
       </div>
@@ -10962,6 +10963,14 @@ function frpToggleMaquina(sid){
     btn.style.color        = on ? 'var(--blue)' : 'var(--text3)';
     btn.textContent        = on ? '🔵 Processo de Máquina ✓' : '⚙ Marcar como Máquina';
   }
+  // Botão de máquina no cabeçalho da própria folha (renderContent)
+  var sbtn = document.getElementById('sheet-maquina-btn-'+sid);
+  if(sbtn){
+    sbtn.style.background  = on ? 'rgba(59,130,246,.18)' : 'transparent';
+    sbtn.style.borderColor = on ? 'var(--blue)' : 'var(--border2)';
+    sbtn.style.color       = on ? 'var(--blue)' : 'var(--text3)';
+    sbtn.textContent       = on ? '🔵 Processo de Máquina ✓' : '⚙ Marcar como Máquina';
+  }
   if(typeof frpAnalise === 'function') frpAnalise(sid);
   if(typeof frpAnaliseAll === 'function') frpAnaliseAll();
 }
@@ -11261,6 +11270,7 @@ function buildTTPSection(){
     var corColab = colabNeed > 0 ? 'var(--purple)' : 'var(--text3)';
     var corOcio  = ocioRel !== null ? (ocioRel >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--text3)';
 
+    var isMaquina = !!(s.header && s.header.maquina);
     var manualTTPVal = parseFloat((s.header && s.header.manualTTP) || 0) || 0;
     var ttpLabel = manualTTPVal > 0 ? 'TTP Manual (%)' : 'TTP (bruto)';
     var allowLabel = manualTTPVal > 0 ? 'Allow. Implícito' : 'Allowance';
@@ -11282,8 +11292,8 @@ function buildTTPSection(){
       + kpiBoxTTP('Takt Time', takt > 0 ? takt.toFixed(2) + ' s' : '—', corTakt)
       + kpiBoxTTP('Cap. Máx. (1 colab.)', capUm > 0 ? capUm.toLocaleString('pt-BR') + ' ' + _uttp.abbr : '—', 'var(--text)')
       + kpiBoxTTP('TS (Tempo Padrão)', ts > 0 ? ts.toFixed(3) + ' s' : '—', 'var(--green)')
-      + kpiBoxTTP('Colab. Necessários', colabNeed > 0 ? colabNeed : '—', corColab)
-      + kpiBoxTTP('Cap. c/ ' + (colabNeed||'?') + ' Colab.', capColab > 0 ? capColab.toLocaleString('pt-BR') + ' ' + _uttp.abbr : '—', 'var(--purple)')
+      + kpiBoxTTP('Colab. Necessários', isMaquina ? '⚙ Máquina' : (colabNeed > 0 ? colabNeed : '—'), isMaquina ? 'var(--blue)' : corColab)
+      + kpiBoxTTP(isMaquina ? 'Cap. da Máquina' : 'Cap. c/ ' + (colabNeed||'?') + ' Colab.', capColab > 0 ? capColab.toLocaleString('pt-BR') + ' ' + _uttp.abbr : '—', 'var(--purple)')
       + kpiBoxTTP('Ociosidade vs Takt', ocioRel !== null ? ocio.toFixed(2) + 's (' + ocioRel.toFixed(1) + '%)' : '—', corOcio)
       + kpiBoxTTP('% Saturação', m.takt > 0 ? (ts / m.takt * 100).toFixed(1) + '%' : '—', m.takt > 0 && (ts / m.takt) > 1 ? 'var(--red)' : 'var(--green)')
       + kpiBoxTTP(_uttp.label + '/hora', x.pphInt > 0 ? x.pphInt : '—', 'var(--purple)')
@@ -11308,8 +11318,10 @@ function buildTTPSection(){
         + (pcsCic > 1 ? ' × ' + pcsCic + ' ' + _uttp.abbr + '/ciclo' : '')
         + ' = ' + capUm.toLocaleString('pt-BR') + ' ' + _uttp.abbr
         + ' | '
-        + 'Colab. = ⌈' + ts.toFixed(2) + ' ÷ ' + takt.toFixed(2) + '⌉ = ' + colabNeed
-        + (capColab > 0 ? ' → Capacidade: ' + capColab.toLocaleString('pt-BR') + ' ' + _uttp.abbr + '/jornada' : '')
+        + (isMaquina
+            ? 'Processo de Máquina — sem mão de obra (Colab. não se aplica)'
+            : 'Colab. = ⌈' + ts.toFixed(2) + ' ÷ ' + takt.toFixed(2) + '⌉ = ' + colabNeed
+              + (capColab > 0 ? ' → Capacidade: ' + capColab.toLocaleString('pt-BR') + ' ' + _uttp.abbr + '/jornada' : ''))
         + '</div>';
     }
 
@@ -11541,6 +11553,7 @@ function buildTTPSectionPDF(allMetrics, fmt){
     var ocio   = m.takt > 0 ? Math.max(0, m.takt - ts) : 0;
     var ocioRel= m.takt > 0 ? ((m.takt - ts) / m.takt * 100) : null;
     var sat    = m.takt > 0 ? (ts / m.takt * 100) : null;
+    var isMaquina = !!(s.header && s.header.maquina);
     var horasNec = (dem > 0 && colabNeed > 0 && ttp > 0) ? ((dem * ts) / colabNeed) / (ttp / 100) / 3600 : null;
 
     html += '<div class="pa-h3">' + (s.label||'Folha') + (s.header && s.header.processo ? ' — ' + s.header.processo : '') + '</div>';
@@ -11592,15 +11605,15 @@ function buildTTPSectionPDF(allMetrics, fmt){
     html += '<tr><td class="item">Takt Time</td><td class="num">' + (takt>0 ? takt.toFixed(2) + ' s' : '—') + '</td>'
           + '<td class="item">Cap. Máx. (1 colab.)</td><td class="num">' + (capUm>0 ? capUm.toLocaleString('pt-BR') + ' itens' : '—') + '</td></tr>';
     html += '<tr><td class="item">TS — Tempo Padrão</td><td class="num">' + fmt(ts,3) + ' s</td>'
-          + '<td class="item">Colaboradores Necessários</td><td class="num"><b>' + (colabNeed||'—') + '</b></td></tr>';
-    html += '<tr><td class="item">Cap. c/ ' + (colabNeed||'?') + ' Colab.</td><td class="num">' + (capColab>0 ? capColab.toLocaleString('pt-BR') + ' itens' : '—') + '</td>'
+          + '<td class="item">Colaboradores Necessários</td><td class="num"><b>' + (isMaquina ? '⚙ Máquina' : (colabNeed||'—')) + '</b></td></tr>';
+    html += '<tr><td class="item">' + (isMaquina ? 'Cap. da Máquina' : 'Cap. c/ ' + (colabNeed||'?') + ' Colab.') + '</td><td class="num">' + (capColab>0 ? capColab.toLocaleString('pt-BR') + ' itens' : '—') + '</td>'
           + '<td class="item">Horas p/ atingir demanda</td><td class="num">' + (horasNec ? horasNec.toFixed(2) + ' h' : '—') + '</td></tr>';
     html += '<tr><td class="item">Saturação vs Takt</td><td class="num ' + (sat > 100 ? 'bad' : 'ok') + '">' + (sat!==null ? sat.toFixed(1) + '%' : '—') + '</td>'
           + '<td class="item">Ociosidade vs Takt</td><td class="num ' + (ocioRel !== null && ocioRel >= 0 ? 'ok' : 'bad') + '">' + (ocioRel!==null ? ocio.toFixed(2) + 's (' + ocioRel.toFixed(1) + '%)' : '—') + '</td></tr>';
     html += '</tbody></table>';
 
     if(dem > 0 && takt > 0){
-      html += '<div class="pa-note">Memória: T.Disp=' + tdis.toLocaleString('pt-BR') + 's | T.Prod=' + Math.round(tprod).toLocaleString('pt-BR') + 's | Takt=' + takt.toFixed(2) + 's | Colab=⌈' + ts.toFixed(2) + '÷' + takt.toFixed(2) + '⌉=' + colabNeed + (capColab>0?' → Cap. ' + capColab.toLocaleString('pt-BR') + ' itens/jornada':'') + '</div>';
+      html += '<div class="pa-note">Memória: T.Disp=' + tdis.toLocaleString('pt-BR') + 's | T.Prod=' + Math.round(tprod).toLocaleString('pt-BR') + 's | Takt=' + takt.toFixed(2) + 's | ' + (isMaquina ? 'Processo de Máquina (sem MO)' : 'Colab=⌈' + ts.toFixed(2) + '÷' + takt.toFixed(2) + '⌉=' + colabNeed + (capColab>0?' → Cap. ' + capColab.toLocaleString('pt-BR') + ' itens/jornada':'')) + '</div>';
     }
   });
 
