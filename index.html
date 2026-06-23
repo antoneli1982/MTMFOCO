@@ -9663,9 +9663,11 @@ function balCalcProjeto(proj, params){
     if(!sh) return;
     var m = computeSheetMetrics(sh);
     var fad = (sh.fadiga && typeof sh.fadiga === 'object') ? mtmCalcFadiga(sh.fadiga) : null;
-    var allowUsed = fad ? fad.allowTotal : m.allowPct;
-    // Tempo padrão com allowance da fadiga, se houver
-    var stdSec = +(m.totalSec * (1 + allowUsed/100)).toFixed(4);
+    // Quando TTP manual está definido, usa allowance implícito; quando = 0, bruto (allow = 0)
+    var manualTTP = parseFloat((sh.header && sh.header.manualTTP) || 0) || 0;
+    var allowUsed = manualTTP > 0 ? +(100 - manualTTP).toFixed(4) : 0;
+    // m.stdSec já reflete o TTP manual corretamente
+    var stdSec = m.stdSec;
     if(stdSec <= 0) return;
     posts.push({
       sid: sid,
@@ -10979,6 +10981,10 @@ function buildTTPSection(){
     var corColab = colabNeed > 0 ? 'var(--purple)' : 'var(--text3)';
     var corOcio  = ocioRel !== null ? (ocioRel >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--text3)';
 
+    var manualTTPVal = parseFloat((s.header && s.header.manualTTP) || 0) || 0;
+    var ttpLabel = manualTTPVal > 0 ? 'TTP Manual (%)' : 'TTP (bruto)';
+    var allowLabel = manualTTPVal > 0 ? 'Allow. Implícito' : 'Allowance';
+
     html += '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;margin-bottom:14px;position:relative;overflow:hidden">'
       + '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--accentGrad)"></div>'
       + '<div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:12px">'
@@ -10989,8 +10995,8 @@ function buildTTPSection(){
 
       + kpiBoxTTP('Jornada', h + ' h', 'var(--text2)')
       + kpiBoxTTP('Tempo Disponível', tdis.toLocaleString('pt-BR') + ' s', 'var(--text)')
-      + kpiBoxTTP('Allowance Total', allow.toFixed(2) + ' %', allow >= 18 ? 'var(--red)' : allow >= 13 ? 'var(--orange)' : 'var(--green)')
-      + kpiBoxTTP('TTP (%)', ttp.toFixed(2) + ' %', corTtp)
+      + kpiBoxTTP(allowLabel, allow.toFixed(2) + ' %', allow >= 18 ? 'var(--red)' : allow >= 13 ? 'var(--orange)' : allow > 0 ? 'var(--green)' : 'var(--text3)')
+      + kpiBoxTTP(ttpLabel, manualTTPVal > 0 ? ttp.toFixed(2) + ' %' : '100% (bruto)', corTtp)
       + kpiBoxTTP('Tempo Produtivo', Math.round(tprod).toLocaleString('pt-BR') + ' s', 'var(--green)')
       + kpiBoxTTP('Demanda', dem > 0 ? dem.toLocaleString('pt-BR') + ' itens' : '—', 'var(--text2)')
       + kpiBoxTTP('Takt Time', takt > 0 ? takt.toFixed(2) + ' s' : '—', corTakt)
@@ -11009,7 +11015,10 @@ function buildTTPSection(){
       html += '<div style="background:var(--surface2);border-radius:6px;padding:8px 12px;font-size:10px;color:var(--text3);line-height:2;margin-bottom:8px">'
         + '<strong style="color:var(--text2)">Memória de cálculo:</strong><br>'
         + 'T. Disponível = ' + h + 'h × 3600 = ' + tdis.toLocaleString('pt-BR') + ' s | '
-        + 'T. Produtivo = ' + tdis.toLocaleString('pt-BR') + ' × ' + ttp.toFixed(1) + '% = ' + Math.round(tprod).toLocaleString('pt-BR') + ' s<br>'
+        + (manualTTPVal > 0
+            ? 'T. Produtivo = ' + tdis.toLocaleString('pt-BR') + ' × ' + ttp.toFixed(1) + '% (TTP Manual) = ' + Math.round(tprod).toLocaleString('pt-BR') + ' s'
+            : 'T. Produtivo = ' + tdis.toLocaleString('pt-BR') + ' s (bruto — TTP não definido)')
+        + '<br>'
         + 'Takt = ' + Math.round(tprod).toLocaleString('pt-BR') + ' ÷ ' + dem.toLocaleString('pt-BR') + ' = ' + takt.toFixed(2) + ' s | '
         + 'Colab. = ⌈' + ts.toFixed(2) + ' ÷ ' + takt.toFixed(2) + '⌉ = ' + colabNeed
         + (capColab > 0 ? ' → Capacidade: ' + capColab.toLocaleString('pt-BR') + ' itens/jornada' : '')
@@ -12030,10 +12039,14 @@ function mtmCollectFinalReport(){
   var allMetrics = (typeof scopedSheets==='function'?scopedSheets():(sheets||[])).map(function(s){
     var m   = computeSheetMetrics(s);
     var fad = (s.fadiga && typeof s.fadiga === 'object') ? mtmCalcFadiga(s.fadiga) : null;
-    var allowUsed = fad ? fad.allowTotal : m.allowPct;
-    var tnSec     = m.totalSec;
-    var stdSec    = +(tnSec * (1 + allowUsed/100)).toFixed(4);
-    var pcsCiclo  = (m.pcsCiclo && m.pcsCiclo > 0) ? m.pcsCiclo : 1;
+    // Quando TTP manual está definido, usa-o como fonte única de allowance implícito.
+    // Quando = 0, stdSec já é o bruto (allowance = 0).
+    var manualTTP  = parseFloat((s.header && s.header.manualTTP) || 0) || 0;
+    var allowUsed  = manualTTP > 0 ? +(100 - manualTTP).toFixed(4) : 0;
+    // m.stdSec já foi calculado corretamente em computeSheetMetrics com o TTP manual
+    var stdSec     = m.stdSec;
+    var tnSec      = m.totalSec;
+    var pcsCiclo   = (m.pcsCiclo && m.pcsCiclo > 0) ? m.pcsCiclo : 1;
     return {
       sheet: s, m: m, fad: fad,
       allowUsed: allowUsed,
