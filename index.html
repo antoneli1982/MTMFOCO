@@ -10369,23 +10369,6 @@ function buildSheetDetailSection(){
       + '<div style="display:flex;flex-wrap:wrap;gap:8px">'
       + inputBox('Horas de Trabalho', 'frp-h-'+s.id, (s.header && s.header.workHours) || 8, '8')
       + (function(){
-          var _u = getPcsCicloUnit(s.header);
-          var _pu = _u.abbr; var _pl = _u.label;
-          var _hi = x.pcsCiclo&&x.pcsCiclo>1;
-          return '<div style="flex:1;min-width:110px;background:'+(_hi?'var(--purpleBg)':'var(--surface2)')+';border:1px solid '+(_hi?'var(--purple)':'var(--border2)')+';border-radius:8px;padding:8px 12px">'
-            + '<div style="font-size:9px;font-weight:700;color:'+(_hi?'var(--purple)':'var(--text3)')+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">'+_pl+' por Ciclo</div>'
-            + '<div style="font-size:22px;font-weight:800;color:'+(_hi?'var(--purple)':'var(--text3)')+';font-family:\'JetBrains Mono\',monospace">'+(x.pcsCiclo||1)+'</div>'
-            + '<div style="font-size:9px;color:var(--text3);margin-top:2px">'+_pu+' produzidos/ciclo</div>'
-            + '</div>';
-        })()
-      + '<div style="flex:1;min-width:130px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:8px 12px">'
-      +   '<div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Quantidade de '+(getPcsCicloUnit(s.header).label)+'</div>'
-      +   '<input id="frp-dem-'+s.id+'" type="number" step="1" min="0" value="'+demInit+'" placeholder="ex: 600" '
-      +     'oninput="frpAnalise(\''+s.id+'\')" '
-      +     'style="width:100%;background:transparent;border:none;outline:none;font-size:16px;font-weight:800;color:var(--text);font-family:\'JetBrains Mono\',monospace">'
-      +   '<div id="frp-dem-formula-'+s.id+'" style="display:none;font-size:9px;color:var(--purple);margin-top:4px;line-height:1.4"></div>'
-      + '</div>'
-      + (function(){
           var _pph = x.stdSec > 0 ? Math.floor((3600 / x.stdSec) * (x.pcsCiclo || 1)) : 0;
           var _u = getPcsCicloUnit(s.header);
           return '<div style="flex:1;min-width:120px;background:var(--purpleBg);border:1px solid var(--purple);border-radius:8px;padding:8px 12px">'
@@ -10400,6 +10383,23 @@ function buildSheetDetailSection(){
       +   '<div id="frp-ts-'+s.id+'" style="font-size:16px;font-weight:800;color:var(--green);font-family:\'JetBrains Mono\',monospace">'+(x.stdSec ? x.stdSec.toFixed(2).replace('.',',') : '—')+' s</div>'
       +   '<div style="font-size:9px;color:var(--text3);margin-top:2px">TN × (1 + Allowance/100)'+(function(){ var _u=getPcsCicloUnit(s.header); return x.pcsCiclo&&x.pcsCiclo>1?' · '+x.pcsCiclo+' '+_u.abbr+'/ciclo':''; })()+'</div>'
       + '</div>'
+      + '<div style="flex:1;min-width:130px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:8px 12px">'
+      +   '<div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Quantidade de '+(getPcsCicloUnit(s.header).label)+'</div>'
+      +   '<input id="frp-dem-'+s.id+'" type="number" step="1" min="0" value="'+demInit+'" placeholder="ex: 600" '
+      +     'oninput="frpAnalise(\''+s.id+'\')" '
+      +     'style="width:100%;background:transparent;border:none;outline:none;font-size:16px;font-weight:800;color:var(--text);font-family:\'JetBrains Mono\',monospace">'
+      +   '<div id="frp-dem-formula-'+s.id+'" style="display:none;font-size:9px;color:var(--purple);margin-top:4px;line-height:1.4"></div>'
+      + '</div>'
+      + (function(){
+          var _u = getPcsCicloUnit(s.header);
+          var _pu = _u.abbr; var _pl = _u.label;
+          var _hi = x.pcsCiclo&&x.pcsCiclo>1;
+          return '<div style="flex:1;min-width:110px;background:'+(_hi?'var(--purpleBg)':'var(--surface2)')+';border:1px solid '+(_hi?'var(--purple)':'var(--border2)')+';border-radius:8px;padding:8px 12px">'
+            + '<div style="font-size:9px;font-weight:700;color:'+(_hi?'var(--purple)':'var(--text3)')+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">'+_pl+' por Ciclo</div>'
+            + '<div style="font-size:22px;font-weight:800;color:'+(_hi?'var(--purple)':'var(--text3)')+';font-family:\'JetBrains Mono\',monospace">'+(x.pcsCiclo||1)+'</div>'
+            + '<div style="font-size:9px;color:var(--text3);margin-top:2px">'+_pu+' produzidos/ciclo</div>'
+            + '</div>';
+        })()
       + '<span id="frp-allow-'+s.id+'" style="display:none"></span>'
       + '</div>'
       + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">'
@@ -10766,7 +10766,14 @@ function frpSimulSave(d){ try{ localStorage.setItem(FRP_SIMUL_KEY, JSON.stringif
 function frpSimulGet(baseId){ return frpSimulLoad()[baseId]||{}; }
 function frpSimulToggle(baseId, partId){
   var d=frpSimulLoad(); if(!d[baseId]) d[baseId]={}; d[baseId][partId]=!d[baseId][partId];
-  frpSimulSave(d); if(typeof frpAnalise==='function') frpAnalise(baseId);
+  frpSimulSave(d);
+  // CORREÇÃO: quando o toggle é da seção combinada (__ALL__), chamar frpAnaliseAll()
+  // (frpAnalise(baseId) ignoraria silenciosamente pois não existe folha com id '__ALL__')
+  if(baseId === '__ALL__'){
+    if(typeof frpAnaliseAll === 'function') frpAnaliseAll();
+  } else {
+    if(typeof frpAnalise === 'function') frpAnalise(baseId);
+  }
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -12230,16 +12237,18 @@ function mtmCollectFinalReport(){
   });
   var totalStdSec = allMetrics.reduce(function(a,x){ return a + x.stdSec; }, 0);
   var totalTmuSum = allMetrics.reduce(function(a,x){ return a + x.m.totalTmu; }, 0);
-  // Peças/hora combinada = soma das peças/hora reais de cada folha (todos os
-  // postos produzindo simultaneamente), já considerando as peças por ciclo.
-  var combinedPph = +allMetrics.reduce(function(a,x){ return a + x.pph; }, 0).toFixed(2);
+  // Gargalo = folha com MAIOR Tempo Padrão — limita o throughput da linha inteira.
+  // Peças/hora da linha = 3600 ÷ tempo do gargalo (não a soma dos pph individuais).
+  var gargaloMetric = allMetrics.filter(function(x){ return x.stdSec > 0; })
+    .reduce(function(a,x){ return (!a || x.stdSec > a.stdSec) ? x : a; }, null);
+  var combinedPph = gargaloMetric ? Math.floor(3600 / gargaloMetric.stdSec) : 0;
   var withFad     = allMetrics.filter(function(x){ return !!x.fad; });
   var allowMedio  = allMetrics.length
     ? allMetrics.reduce(function(a,x){ return a + x.allowUsed; }, 0) / allMetrics.length
     : 0;
   return {
     allMetrics: allMetrics, totalStdSec: totalStdSec, totalTmuSum: totalTmuSum,
-    combinedPph: combinedPph, withFad: withFad, allowMedio: allowMedio
+    combinedPph: combinedPph, gargaloMetric: gargaloMetric, withFad: withFad, allowMedio: allowMedio
   };
 }
 
@@ -12378,11 +12387,12 @@ function showFinalReport(){
 
   // ── Coleta métricas consolidadas (base + fadiga) — função compartilhada ──
   var R = mtmCollectFinalReport();
-  var allMetrics  = R.allMetrics;
-  var totalStdSec = R.totalStdSec;
-  var totalTmuSum = R.totalTmuSum;
-  var combinedPph = R.combinedPph;
-  var allowMedio  = R.allowMedio;
+  var allMetrics   = R.allMetrics;
+  var totalStdSec  = R.totalStdSec;
+  var totalTmuSum  = R.totalTmuSum;
+  var combinedPph  = R.combinedPph;        // 3600 ÷ tempo do gargalo
+  var gargaloMetric = R.gargaloMetric;     // folha com maior Tempo Padrão
+  var allowMedio   = R.allowMedio;
 
   var jornadas = [
     {h:7,'lbl':'7 h'},{h:7.5,lbl:'7,5 h'},{h:8,lbl:'8 h'},
@@ -12491,10 +12501,10 @@ function showFinalReport(){
     +     '</tr></thead>'
     +     '<tbody>'+compRows+'</tbody>'
     +     '<tfoot><tr style="background:var(--total-bg);border-top:2px solid var(--accent)">'
-    +       '<td colspan="2" style="padding:8px 10px;font-weight:800;color:var(--accent);font-size:11px;letter-spacing:.8px;text-transform:uppercase">TOTAL / SOMA</td>'
+    +       '<td colspan="2" style="padding:8px 10px;font-weight:800;color:var(--accent);font-size:11px;letter-spacing:.8px;text-transform:uppercase">TOTAL — Gargalo'+(gargaloMetric?': <span style="font-size:9px;font-weight:600;color:var(--orange)">'+esc(gargaloMetric.sheet.label)+'</span>':'')+'</td>'
     +       '<td style="padding:8px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:800;color:var(--text)">'+totalTmuSum.toFixed(1)+'</td>'
-    +       '<td style="padding:8px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:800;color:var(--green)">'+totalStdSec.toFixed(3)+'s</td>'
-    +       '<td style="padding:8px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:800;color:var(--purple)">'+(combinedPph||'—')+'<span style="font-size:9px;color:var(--text3);font-weight:400"> pc/h</span></td>'
+    +       '<td style="padding:8px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:800;color:var(--green)">'+totalStdSec.toFixed(3)+'s<span style="font-size:8px;color:var(--text3);font-weight:400;display:block">conteúdo total</span></td>'
+    +       '<td style="padding:8px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:800;color:var(--orange)">'+(combinedPph||'—')+'<span style="font-size:9px;color:var(--text3);font-weight:400"> pç/h</span><span style="font-size:8px;color:var(--orange);font-weight:600;display:block">limite da linha</span></td>'
     +       '<td colspan="2" style="padding:8px 8px;text-align:right;font-size:10px;color:var(--text3)">—</td>'
     +     '</tr></tfoot>'
     +   '</table>'
@@ -12509,7 +12519,7 @@ function showFinalReport(){
     +   '<div class="res-kpi"><div class="res-kpi-val" style="color:var(--accent)">'+scopedSheets().length+'</div><div class="res-kpi-lbl">Folhas</div></div>'
     +   '<div class="res-kpi"><div class="res-kpi-val" style="color:var(--text)">'+totalTmuSum.toFixed(0)+'</div><div class="res-kpi-lbl">TMU Total</div></div>'
     +   '<div class="res-kpi" style="background:var(--greenBg);border-color:var(--green)"><div class="res-kpi-val" style="color:var(--green)">'+totalStdSec.toFixed(2)+'<span style="font-size:12px">s</span></div><div class="res-kpi-lbl" style="color:var(--green)">Σ Tempo Padrão</div></div>'
-    +   '<div class="res-kpi" style="background:var(--purpleBg);border-color:var(--purple)"><div class="res-kpi-val" style="color:var(--purple)">'+(combinedPph||'—')+'</div><div class="res-kpi-lbl" style="color:var(--purple)">Σ Peças/hora</div></div>'
+    +   '<div class="res-kpi" style="background:var(--orangeBg);border-color:var(--orange)"><div class="res-kpi-val" style="color:var(--orange)">'+(combinedPph||'—')+'</div><div class="res-kpi-lbl" style="color:var(--orange)">🔴 Gargalo (pç/h)</div></div>'
     +   '<div class="res-kpi" style="border-color:'+allowColor(allowMedio)+'"><div class="res-kpi-val" style="color:'+allowColor(allowMedio)+'">'+fmt(allowMedio,1)+'<span style="font-size:12px">%</span></div><div class="res-kpi-lbl" style="color:'+allowColor(allowMedio)+'">Allowance Total médio</div></div>'
     + '</div>';
 
@@ -12548,8 +12558,8 @@ function showFinalReport(){
     +     '<div style="padding:12px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;font-size:10px;color:var(--text3);line-height:1.7">'
     +       '<strong style="color:var(--text2)">Notas:</strong><br>'
     +       '• O Tempo Padrão exibido já inclui o <strong>Allowance Total</strong> da Análise Final de Fadiga (TV + TER) de cada folha.<br>'
-    +       '• "Σ Peças/hora" = 3600 ÷ Σ Tempos Padrão de todas as folhas (produção encadeada).<br>'
-    +       '• A coluna "SOMA" representa a produção conjunta de todos os postos operando em paralelo.<br>'
+    +       '• <strong>"Gargalo (pç/h)"</strong> = 3600 ÷ maior Tempo Padrão individual — o throughput da linha é sempre limitado pelo posto mais lento (gargalo).<br>'
+    +       '• <strong>"Conteúdo total" (Σ Tempo Padrão)</strong> = soma de todos os tempos padrão — representa o trabalho total por peça, não o tempo de ciclo da linha.<br>'
     +       '• % Ocupação e Ociosidade requerem o Takt Time preenchido no cabeçalho da folha.'
     +     '</div>'
     +   '</div>'
