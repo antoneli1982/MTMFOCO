@@ -10380,15 +10380,20 @@ function buildSheetDetailSection(){
       + '<div class="frp-head">'
       + '<div style="font-size:12px;font-weight:800;color:var(--accent)">⚙️ ANÁLISE FINAL — TTP · TAKT · CAPACIDADE</div>'
       + _frpLamp
-      + '<button id="frp-maquina-btn-'+s.id+'" onclick="frpToggleMaquina(\''+s.id+'\')" title="Marcar como processo de máquina — não conta mão de obra" '
-      +   'style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:6px;cursor:pointer;'
-      +   'background:'+(_isMaquina?'rgba(59,130,246,.18)':'transparent')
-      +   ';border:1px solid '+(_isMaquina?'var(--blue)':'var(--border2)')
-      +   ';color:'+(_isMaquina?'var(--blue)':'var(--text3)')+';">'
-      +   (_isMaquina ? '🔵 Processo de Máquina ✓' : '⚙ Marcar como Máquina')
-      + '</button>'
       + '</div>'
       + '<div class="frp-body">'
+      // ── Toggle Processo de Máquina ──
+      + '<div style="margin-bottom:10px">'
+      +   '<button id="frp-maquina-btn-'+s.id+'" onclick="frpToggleMaquina(\''+s.id+'\')" '
+      +     'style="width:100%;text-align:left;font-size:10px;font-weight:700;padding:7px 12px;border-radius:7px;cursor:pointer;'
+      +     'background:'+(_isMaquina?'rgba(59,130,246,.15)':'var(--surface2)')
+      +     ';border:1px solid '+(_isMaquina?'var(--blue)':'var(--border2)')
+      +     ';color:'+(_isMaquina?'var(--blue)':'var(--text3)')+';">'
+      +     (_isMaquina
+      +       ? '🔵 Processo de Máquina ✓ — Mão de obra não contabilizada (TS excluído da análise combinada)'
+      +       : '⚙ Marcar como Processo de Máquina — sem mão de obra')
+      +   '</button>'
+      + '</div>'
       + '<div id="frp-scope-'+s.id+'"></div>'
       + '<div style="display:flex;flex-wrap:wrap;gap:8px">'
       + inputBox('Horas de Trabalho', 'frp-h-'+s.id, (s.header && s.header.workHours) || 8, '8')
