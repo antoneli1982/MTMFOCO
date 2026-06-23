@@ -4382,7 +4382,7 @@ function renderContent(id){
               <td></td>
             </tr>
             <tr class="total-row" style="background:var(--greenBg)">
-              <td colspan="7" class="total-label" style="color:var(--green)">⏱ TEMPO PADRÃO (c/ allowance)</td>
+              <td colspan="7" class="total-label" style="color:var(--green)" id="tstd-lbl-${id}">⏱ TEMPO PADRÃO = TOTAL BRUTO <span style="font-size:9px;color:var(--text3)">(TTP não definido)</span></td>
               <td class="total-tmu" style="color:var(--green)" id="tstd-tmu-${id}">0</td>
               <td class="total-s" style="color:var(--green)" id="tstd-${id}">0</td>
               <td></td>
@@ -4452,10 +4452,15 @@ function renderContent(id){
             <div style="font-size:10px;color:var(--text2);margin-top:2px;">calculado da análise</div>
           </div>
 
-          <div style="flex:1;min-width:130px;background:var(--accentBg);border:1px solid rgba(0,212,255,.12);border-radius:var(--radius-sm);padding:8px 10px;">
-            <div style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">TTP (%)</div>
-            <div id="ttp-pct-${id}" style="font-size:18px;font-weight:800;color:var(--accent);">—</div>
-            <div style="font-size:10px;color:var(--text2);margin-top:2px;">100 − Allowance</div>
+          <div style="flex:1;min-width:130px;">
+            <div style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">TTP Manual (%)</div>
+            <input id="ttp-manual-${id}" type="number" min="0" max="100" step="0.01"
+              value="${esc(s.header.manualTTP||'')}"
+              placeholder="0 = bruto"
+              onchange="saveTTPManual('${id}')" oninput="saveTTPManual('${id}')"
+              style="width:100%;padding:8px 10px;background:var(--surface3);border:1px solid rgba(0,212,255,.2);
+                border-radius:var(--radius-sm);color:var(--accent);font-size:15px;font-weight:700;font-family:inherit;">
+            <div style="font-size:9px;color:var(--text2);margin-top:3px;">0 ou vazio → usa tempo bruto</div>
           </div>
 
         </div>
@@ -4795,8 +4800,14 @@ function computeSheetMetrics(s){
   const aF = parseFloat(h.allowFatigue)||0;
   const aC = parseFloat(h.allowContingency)||0;
   const allowPct = aP + aF + aC;
-  const stdSec = +(totalSec * (1 + allowPct/100)).toFixed(4);
-  const stdTmu = +(totalTmu * (1 + allowPct/100)).toFixed(2);
+  // TTP Manual: quando > 0 → Tempo Padrão = Bruto × (100/TTP); quando = 0 → usar Bruto diretamente
+  const manualTTP = parseFloat(h.manualTTP)||0;
+  const stdSec = manualTTP > 0
+    ? +(totalSec * (100 / manualTTP)).toFixed(4)
+    : +(totalSec).toFixed(4);
+  const stdTmu = manualTTP > 0
+    ? +(totalTmu * (100 / manualTTP)).toFixed(2)
+    : +(totalTmu).toFixed(2);
   const takt = parseFloat(h.takt)||0;
   const saturation = takt > 0 ? +(stdSec / takt * 100).toFixed(1) : 0;
   // VA / NVA / NNVA
@@ -4810,7 +4821,7 @@ function computeSheetMetrics(s){
     else unc += t;
   });
   return {
-    totalTmu, totalSec, allowPct, stdSec, stdTmu, takt, saturation,
+    totalTmu, totalSec, allowPct, manualTTP, stdSec, stdTmu, takt, saturation,
     va, nva, nnva, unc,
     pcsCiclo: (function(){ var v = parseFloat(h.pcsCiclo); return (isFinite(v) && v > 0) ? v : 1; })(),
     demand: parseFloat(h.demand)||0,
@@ -4830,23 +4841,32 @@ function updateTotals(sid){
   const tstdTmu=document.getElementById('tstd-tmu-'+sid);
   if(tstd)tstd.textContent=m.stdSec?m.stdSec.toFixed(4):'0';
   if(tstdTmu)tstdTmu.textContent=m.stdTmu?m.stdTmu.toFixed(2):'0';
-  // TTP = 100 − Allowance Total (TV + TER aplicado à folha)
+  // Atualizar label do Tempo Padrão dinamicamente
+  const tstdLbl = document.getElementById('tstd-lbl-'+sid);
+  if(tstdLbl){
+    if(m.manualTTP > 0){
+      tstdLbl.innerHTML = `⏱ TEMPO PADRÃO (TTP ${m.manualTTP.toFixed(1)}%)`;
+    } else {
+      tstdLbl.innerHTML = `⏱ TEMPO PADRÃO = TOTAL BRUTO <span style="font-size:9px;color:var(--text3)">(TTP não definido)</span>`;
+    }
+  }
+  // TTP Manual — exibição na linha de rodapé
   const satRow = document.getElementById('sat-row-'+sid);
   const satVal = document.getElementById('sat-val-'+sid);
   const satLbl = document.getElementById('sat-lbl-'+sid);
   if(satRow && satVal && satLbl){
-    const allow = +(m.allowPct||0).toFixed(2);
-    const pct   = +(100 - allow).toFixed(2);
-    if(allow > 0){
+    const manualTTP = +(m.manualTTP||0).toFixed(2);
+    const impliedAllow = +(100 - manualTTP).toFixed(2);
+    if(manualTTP > 0){
       satRow.style.display='';
-      let color = 'var(--green)', icon='🟢', hint='(allowance normal industrial)';
-      if(allow >= 22){       color='var(--red)';    icon='🔴'; hint='(crítico — allowance '+allow+'% · revisar ergonomia)'; }
-      else if(allow >= 18){  color='var(--orange)'; icon='🟠'; hint='(elevado — allowance '+allow+'% · posto pesado)'; }
-      else if(allow >= 13){  color='var(--yellow)'; icon='🟡'; hint='(normal industrial — allowance '+allow+'%)'; }
-      else if(allow >=  8){  color='var(--green)';  icon='🟢'; hint='(ótimo — trabalho leve · allowance '+allow+'%)'; }
-      else                 { color='var(--blue)';   icon='🔵'; hint='(allowance muito baixo '+allow+'% — verificar tolerâncias)'; }
-      satLbl.innerHTML = `⏱ TTP = 100 − Allowance Total ${hint}`;
-      satVal.innerHTML = `<span style="color:${color}">${icon} ${pct}%</span>`;
+      let color = 'var(--green)', icon='🟢', hint='(trabalho leve)';
+      if(impliedAllow >= 22){       color='var(--red)';    icon='🔴'; hint='(crítico — revisar ergonomia)'; }
+      else if(impliedAllow >= 18){  color='var(--orange)'; icon='🟠'; hint='(posto pesado)'; }
+      else if(impliedAllow >= 13){  color='var(--yellow)'; icon='🟡'; hint='(normal industrial)'; }
+      else if(impliedAllow >=  8){  color='var(--green)';  icon='🟢'; hint='(ótimo — trabalho leve)'; }
+      else                        { color='var(--blue)';   icon='🔵'; hint='(allowance implícito muito baixo)'; }
+      satLbl.innerHTML = `⏱ TTP Manual ${hint}`;
+      satVal.innerHTML = `<span style="color:${color}">${icon} ${manualTTP}%</span>`;
     } else {
       satRow.style.display='none';
     }
@@ -4879,14 +4899,15 @@ function ttpCalc(sid){
   if(typeof persistAnaliseInputs === 'function'){
     persistAnaliseInputs(sid, (hEl_ ? hEl_.value : undefined), (dEl_ ? dEl_.value : undefined));
   }
-  var ttp   = 100 - allow;
+  // TTP Manual: lê do campo de input; 0/vazio = usar tempo disponível inteiro (bruto)
+  var ttpInp   = document.getElementById('ttp-manual-'+sid);
+  var ttpManual = parseFloat(ttpInp && ttpInp.value) || 0;
   var tdis  = h * 3600;
-  var tprod = tdis * (ttp / 100);
+  // Tempo produtivo: quando TTP > 0 aplica fator; quando = 0 usa tempo disponível total
+  var tprod = ttpManual > 0 ? tdis * (ttpManual / 100) : tdis;
 
   var elAllow = document.getElementById('ttp-allow-'+sid);
-  var elPct   = document.getElementById('ttp-pct-'+sid);
   if(elAllow) elAllow.textContent = allow.toFixed(2) + ' %';
-  if(elPct)   elPct.textContent   = ttp.toFixed(2)   + ' %';
 
   var res = document.getElementById('ttp-res-'+sid);
   if(!dem || dem <= 0){ if(res) res.style.display='none'; return; }
@@ -4944,7 +4965,8 @@ function ttpCalc(sid){
       // Fórmula: H_necessario = (dem × ts) / (nColab × (ttp/100) × 3600)
       // Derivado de: capSim = tprod_x × nColab / ts  →  tprod_x = dem×ts/nColab  →  H = tprod_x / (ttp/100) / 3600
       var tprodNecessario = (dem * ts) / nColab;           // s de trabalho produtivo necessário por colaborador
-      var horasNec = tprodNecessario / (ttp / 100) / 3600; // horas brutas (com TTP)
+      var ttpFactor = ttpManual > 0 ? ttpManual / 100 : 1;
+      var horasNec = tprodNecessario / ttpFactor / 3600;   // horas brutas (com TTP)
       var horasNecInt = Math.ceil(horasNec * 100) / 100;   // arredondado p/ cima em centésimos
       var horasH   = Math.floor(horasNec);
       var horasM   = Math.round((horasNec - horasH) * 60);
@@ -4957,7 +4979,7 @@ function ttpCalc(sid){
       if(horasHintEl){
         var dentroJornada = horasNec <= h;
         horasHintEl.innerHTML =
-          'Com <b>'+nColab+' colab.</b>: TS='+ts.toFixed(2)+'s ÷ TTP='+ttp.toFixed(1)+'%<br>'
+          'Com <b>'+nColab+' colab.</b>: TS='+ts.toFixed(2)+'s ÷ TTP='+(ttpManual > 0 ? ttpManual.toFixed(1)+'%' : 'bruto')+'<br>'
           + 'T. produtivo necessário: <b>'+(tprodNecessario/3600).toFixed(2)+'h</b> por colaborador<br>'
           + (dentroJornada
               ? '✅ Dentro da jornada de <b>'+h+'h</b> definida (sobra '+(h-horasNec).toFixed(2)+'h)'
@@ -4990,9 +5012,9 @@ function ttpCalc(sid){
     for(var i=1;i<=totalH;i++){
       var frac   = Math.min(i, h);
       var fracH  = Math.min(1, h-(i-1));
-      var tpAcum = Math.round(frac  * 3600 * (ttp/100));
-      var itH    = Math.round(fracH * 3600 * (ttp/100) / takt);
-      var itAcum = Math.floor(frac  * 3600 * (ttp/100) / takt);
+      var tpAcum = Math.round(frac  * 3600 * (ttpManual > 0 ? ttpManual/100 : 1));
+      var itH    = Math.round(fracH * 3600 * (ttpManual > 0 ? ttpManual/100 : 1) / takt);
+      var itAcum = Math.floor(frac  * 3600 * (ttpManual > 0 ? ttpManual/100 : 1) / takt);
       var bg = i%2===0 ? 'var(--row-even)' : 'var(--row-odd)';
       rows += '<tr style="background:'+bg+';">'
         +'<td style="padding:6px 12px;color:var(--text);">Hora '+i+'</td>'
@@ -5011,7 +5033,7 @@ function ttpCalc(sid){
       ? ' &nbsp;|&nbsp; <b style="color:var(--text)">Colaboradores</b> = ceil('+ts.toFixed(2)+'÷'+takt.toFixed(2)+') = <b style="color:var(--purple)">'+colabNeed+'</b>'
       : '';
     mem.innerHTML =
-      '<b style="color:var(--text)">TTP</b> = 100−'+allow.toFixed(2)+' = <b style="color:var(--accent)">'+ttp.toFixed(2)+'%</b> &nbsp;|&nbsp; '
+      '<b style="color:var(--text)">TTP Manual</b> = <b style="color:var(--accent)">'+(ttpManual > 0 ? ttpManual.toFixed(2)+'%' : 'não definido (bruto)')+'</b> &nbsp;|&nbsp; '
       +'<b>Disponível</b> = '+h+'h×3.600 = <b>'+tdis.toLocaleString('pt-BR')+'s</b> &nbsp;|&nbsp; '
       +'<b>Produtivo</b> = <b style="color:var(--green)">'+Math.round(tprod).toLocaleString('pt-BR')+'s</b><br>'
       +'<b>Takt</b> = '+Math.round(tprod).toLocaleString('pt-BR')+'÷'+dem+' = <b style="color:var(--accent)">'+takt.toFixed(2)+'s/item</b>'
@@ -5454,20 +5476,22 @@ function showResults(sid){
   const totalSec = m.totalSec;
   const totalMin = +(totalSec / 60).toFixed(4);
 
-  /* ─── PEÇAS / HORA e TTP = 100 − Allowance Total ─── */
+  /* ─── PEÇAS / HORA e TTP Manual ─── */
   const pcsCic   = (m.pcsCiclo && m.pcsCiclo > 0) ? m.pcsCiclo : 1;
   const pph      = m.stdSec > 0 ? +((3600 / m.stdSec) * pcsCic).toFixed(2) : 0;
   const pphInt   = m.stdSec > 0 ? Math.floor((3600 / m.stdSec) * pcsCic) : 0;
-  // TTP agora = 100 − Allowance Total (TV + TER = aP + aF + aC)
+  // TTP Manual (0 = usando bruto, sem fator)
   const allowTotal = +(m.allowPct||0).toFixed(2);
-  const ttp        = +(100 - allowTotal).toFixed(2);
-  // Util. Takt mantida como auxiliar separada (não confundir com TTP)
+  const manualTTP  = +(m.manualTTP||0).toFixed(2);
+  const ttp        = manualTTP;
+  const impliedAllow = manualTTP > 0 ? +(100 - manualTTP).toFixed(2) : 0;
+  // Util. Takt mantida como auxiliar separada
   const utilTakt   = m.takt > 0 ? +(m.stdSec / m.takt * 100).toFixed(1) : 0;
   const ociosidade = m.takt > 0 ? +(100 - utilTakt).toFixed(1) : 0;
-  // Cores: TTP alto = bom (pouco allowance). Faixas inversas às do allowance.
-  const ttpColor = allowTotal >= 22 ? '#ff4d6d' : allowTotal >= 18 ? '#ff9500' : allowTotal >= 13 ? '#ffd60a' : allowTotal >= 8 ? '#00e5a0' : allowTotal > 0 ? '#4f8ef7' : '#3d4d68';
-  const ttpBg    = allowTotal >= 22 ? 'var(--redBg)' : allowTotal >= 18 ? 'var(--orangeBg)' : allowTotal >= 13 ? 'rgba(255,214,10,0.10)' : allowTotal >= 8 ? 'var(--greenBg)' : allowTotal > 0 ? 'var(--blueBg)' : 'var(--surface3)';
-  const ttpIcon  = allowTotal >= 22 ? '🔴' : allowTotal >= 18 ? '🟠' : allowTotal >= 13 ? '🟡' : allowTotal >= 8 ? '🟢' : allowTotal > 0 ? '🔵' : '⚪';
+  // Cores baseadas no allowance implícito (100 − TTP)
+  const ttpColor = impliedAllow >= 22 ? '#ff4d6d' : impliedAllow >= 18 ? '#ff9500' : impliedAllow >= 13 ? '#ffd60a' : impliedAllow >= 8 ? '#00e5a0' : manualTTP > 0 ? '#4f8ef7' : '#3d4d68';
+  const ttpBg    = impliedAllow >= 22 ? 'var(--redBg)' : impliedAllow >= 18 ? 'var(--orangeBg)' : impliedAllow >= 13 ? 'rgba(255,214,10,0.10)' : impliedAllow >= 8 ? 'var(--greenBg)' : manualTTP > 0 ? 'var(--blueBg)' : 'var(--surface3)';
+  const ttpIcon  = impliedAllow >= 22 ? '🔴' : impliedAllow >= 18 ? '🟠' : impliedAllow >= 13 ? '🟡' : impliedAllow >= 8 ? '🟢' : manualTTP > 0 ? '🔵' : '⚪';
 
   // KPI cards
   let kpiHtml = `
@@ -5490,12 +5514,12 @@ function showResults(sid){
       ${m.stdSec > 0 ? `<div style="font-size:9px;color:var(--text3);margin-top:2px">${pphInt} pc/h (inteiro)</div>` : ''}
     </div>`;
 
-  if(allowTotal > 0){
+  if(manualTTP > 0){
     kpiHtml += `
       <div class="res-kpi" style="border-color:${ttpColor};background:${ttpBg}">
         <div class="res-kpi-val" style="color:${ttpColor}">${ttpIcon} ${ttp}%</div>
-        <div class="res-kpi-lbl" style="color:${ttpColor}">⏱ TTP (Tempo Total de Produtividade)</div>
-        <div style="font-size:9px;color:var(--text3);margin-top:2px">100 − Allowance (${allowTotal.toFixed(1)}%)${m.takt > 0 ? ' · Util. Takt: '+utilTakt+'%' : ''}</div>
+        <div class="res-kpi-lbl" style="color:${ttpColor}">⏱ TTP Manual</div>
+        <div style="font-size:9px;color:var(--text3);margin-top:2px">Allow. implícito ${impliedAllow.toFixed(1)}%${m.takt > 0 ? ' · Util. Takt: '+utilTakt+'%' : ''}</div>
       </div>`;
   }
 
@@ -5522,8 +5546,8 @@ function showResults(sid){
       jornadasHtml = jornadas.map(j => {
         const jorSec = j.h * 3600;
         const pcs = Math.floor(jorSec / m.stdSec) * pcsCic;
-        // Coluna TTP agora exibe 100 − Allowance Total (constante na jornada)
-        const ttpCell = allowTotal > 0
+        // Coluna TTP exibe valor manual definido pelo usuário
+        const ttpCell = manualTTP > 0
           ? `<td style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:${ttpColor};font-weight:700">${ttp}%</td>`
           : '<td style="padding:6px 8px;text-align:center;color:var(--text3)">—</td>';
         return `<tr>
@@ -5535,18 +5559,18 @@ function showResults(sid){
       }).join('');
     }
 
-    // Gauge de TTP — escala 0–100% (TTP = 100 − Allowance Total)
-    const ocupDisplay = allowTotal > 0;
+    // Gauge de TTP Manual
+    const ocupDisplay = manualTTP > 0;
     const ttpBarW = Math.max(0, Math.min(ttp, 100));
     const ocupGaugeHtml = ocupDisplay ? `
       <div style="margin-bottom:20px;background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:16px;position:relative;overflow:hidden">
         <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--accentGrad)"></div>
         <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">
-          <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;text-transform:uppercase">⏱ TTP — Tempo Total de Produtividade</div>
+          <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;text-transform:uppercase">⏱ TTP Manual — Tempo Total de Produtividade</div>
           <div style="font-size:28px;font-weight:900;color:${ttpColor};font-family:'JetBrains Mono',monospace">${ttpIcon} ${ttp}%</div>
         </div>
         <div style="font-size:10px;color:var(--text3);margin-bottom:8px">
-          <code>TTP = 100 − Allowance Total = 100 − (TV + TER) · Allowance atual: <strong style="color:${ttpColor}">${allowTotal.toFixed(2)}%</strong></code>
+          <code>TTP Manual: <strong style="color:${ttpColor}">${ttp}%</strong> · Allow. implícito: <strong style="color:${ttpColor}">${impliedAllow.toFixed(2)}%</strong></code>
         </div>
         <!-- trilho -->
         <div style="height:22px;background:var(--surface3);border-radius:6px;overflow:hidden;border:1px solid var(--border2);position:relative;margin-bottom:10px">
@@ -5556,7 +5580,7 @@ function showResults(sid){
           <div style="height:100%;width:${ttpBarW}%;background:${ttpColor};border-radius:6px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;transition:width .5s ease">
             ${ttpBarW > 12 ? `<span style="color:#fff;font-size:10px;font-weight:800">${ttp}%</span>` : ''}
           </div>
-          ${allowTotal >= 22 ? `<div style="position:absolute;top:0;right:0;background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:3px 8px;border-radius:0 6px 6px 0">ALLOWANCE CRÍTICO</div>` : ''}
+          ${impliedAllow >= 22 ? `<div style="position:absolute;top:0;right:0;background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:3px 8px;border-radius:0 6px 6px 0">ALLOWANCE IMPLÍCITO CRÍTICO</div>` : ''}
         </div>
         <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:12px">
           <span>0%</span>
@@ -5572,8 +5596,8 @@ function showResults(sid){
             <div style="font-size:16px;font-weight:800;color:var(--green);font-family:'JetBrains Mono',monospace">${m.stdSec.toFixed(2)}s</div>
           </div>
           <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px;text-align:center">
-            <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:700">Allowance Total</div>
-            <div style="font-size:16px;font-weight:800;color:${ttpColor};font-family:'JetBrains Mono',monospace">${allowTotal.toFixed(2)}%</div>
+            <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:700">Allow. Implícito</div>
+            <div style="font-size:16px;font-weight:800;color:${ttpColor};font-family:'JetBrains Mono',monospace">${impliedAllow.toFixed(2)}%</div>
           </div>
           <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px;text-align:center">
             <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:700">Peças / hora</div>
@@ -5585,18 +5609,18 @@ function showResults(sid){
           </div>
         </div>
         <div style="margin-top:12px;font-size:10px;color:var(--text3);line-height:1.6">
-          <strong style="color:${ttpColor}">Diagnóstico:</strong>
-          ${allowTotal >= 22 ? '🔴 TTP <strong>baixo</strong> (≤ 78%) — Allowance crítico ('+allowTotal.toFixed(1)+'%). Posto exige revisão ergonômica e redistribuição de cargas.' :
-            allowTotal >= 18 ? '🟠 TTP <strong>reduzido</strong> (78–82%) — Allowance elevado ('+allowTotal.toFixed(1)+'%). Posto pesado, monitorar fadiga acumulada.' :
-            allowTotal >= 13 ? '🟡 TTP na <strong>faixa normal industrial</strong> (82–87%) — Allowance ('+allowTotal.toFixed(1)+'%) compatível com chão de fábrica padrão.' :
-            allowTotal >=  8 ? '🟢 TTP <strong>ótimo</strong> (87–92%) — Allowance baixo ('+allowTotal.toFixed(1)+'%) típico de trabalho leve / posto sentado.' :
-            allowTotal >   0 ? '🔵 TTP <strong>muito alto</strong> (> 92%) — Allowance ('+allowTotal.toFixed(1)+'%) suspeito de subdimensionamento. Verifique se todas as tolerâncias TV + TER foram preenchidas.' :
-                               '⚪ Sem allowance preenchido — abra a Análise de Fadiga e aplique TV + TER à folha.'}
+          <strong style="color:${ttpColor}">Diagnóstico (allow. implícito):</strong>
+          ${impliedAllow >= 22 ? '🔴 TTP <strong>baixo</strong> (≤ 78%) — Allow. implícito crítico ('+impliedAllow.toFixed(1)+'%). Revisar ergonomia.' :
+            impliedAllow >= 18 ? '🟠 TTP <strong>reduzido</strong> (78–82%) — Allow. implícito elevado ('+impliedAllow.toFixed(1)+'%). Posto pesado.' :
+            impliedAllow >= 13 ? '🟡 TTP na <strong>faixa normal industrial</strong> (82–87%) — Allow. implícito ('+impliedAllow.toFixed(1)+'%).' :
+            impliedAllow >=  8 ? '🟢 TTP <strong>ótimo</strong> (87–92%) — Allow. implícito baixo ('+impliedAllow.toFixed(1)+'%), trabalho leve.' :
+            impliedAllow >   0 ? '🔵 TTP <strong>muito alto</strong> (> 92%) — Allow. implícito suspeito ('+impliedAllow.toFixed(1)+'%). Verificar tolerâncias.' :
+                                 '⚪ TTP = 100% (nenhum allowance implícito). Confirmar se é correto.'}
           ${m.takt > 0 ? '<br><span style="color:var(--text2)">Métricas auxiliares (vs Takt): Util. Takt <strong>'+utilTakt+'%</strong> · Ociosidade <strong>'+ociosidade+'%</strong></span>' : ''}
         </div>
       </div>` : `
       <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:14px;margin-bottom:20px;text-align:center;font-size:12px;color:var(--text3)">
-        ℹ️ Aplique <strong style="color:var(--accent)">TV + TER</strong> da Análise de Fadiga ao cabeçalho da folha para calcular o TTP.
+        ℹ️ Defina o <strong style="color:var(--accent)">TTP Manual (%)</strong> na seção "Análise Final" desta folha para ativar este painel.
       </div>`;
 
     /* ─── TABELA DE CAPACIDADE POR JORNADA ─── */
@@ -5609,7 +5633,7 @@ function showResults(sid){
               <th style="padding:8px 8px;text-align:left;font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.8px;text-transform:uppercase">Jornada</th>
               <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--purple);letter-spacing:.8px;text-transform:uppercase">Peças / turno</th>
               <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.8px;text-transform:uppercase">Peças / hora</th>
-              <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:${allowTotal>0?'var(--green)':'var(--text3)'};letter-spacing:.8px;text-transform:uppercase">TTP %${allowTotal<=0?' (sem allow.)':''}</th>
+              <th style="padding:8px 8px;text-align:right;font-size:9px;font-weight:700;color:${manualTTP>0?'var(--green)':'var(--text3)'};letter-spacing:.8px;text-transform:uppercase">TTP %${manualTTP<=0?' (não def.)':''}</th>
             </tr>
           </thead>
           <tbody style="font-size:12px">
@@ -5618,7 +5642,7 @@ function showResults(sid){
         </table>
         <div style="padding:8px 12px;background:var(--surface2);border-top:1px solid var(--border);font-size:10px;color:var(--text3)">
           Base: Tempo Padrão = <strong style="color:var(--green)">${m.stdSec.toFixed(3)}s</strong>
-          ${allowTotal > 0 ? ` · TTP = 100 − Allowance Total = <strong style="color:${ttpColor}">${ttp}%</strong> (Allowance ${allowTotal.toFixed(2)}%)` : ' · Aplique TV + TER ao cabeçalho para exibir o TTP'}
+          ${manualTTP > 0 ? ` · TTP Manual = <strong style="color:${ttpColor}">${ttp}%</strong> (allow. implícito ${impliedAllow.toFixed(2)}%)` : ' · TTP não definido — usando tempo bruto'}
         </div>
       </div>` : '';
 
@@ -10535,6 +10559,18 @@ function persistAnaliseInputs(sid, hoursVal, demVal){
     syncDemandDisplay(sid, demVal);
   }
   if(typeof saveSheets === 'function') saveSheets();
+}
+
+// Salva o TTP digitado manualmente no cabeçalho da folha e atualiza os cálculos
+function saveTTPManual(sid){
+  var s = (typeof get === 'function') ? get(sid) : null; if(!s) return;
+  if(!s.header) s.header = {};
+  var inp = document.getElementById('ttp-manual-'+sid);
+  var val = parseFloat(inp && inp.value);
+  s.header.manualTTP = (isFinite(val) && val > 0) ? val : 0;
+  if(typeof saveSheets === 'function') saveSheets();
+  if(typeof updateTotals === 'function') updateTotals(sid);
+  if(typeof ttpCalc === 'function') ttpCalc(sid);
 }
 
 // Recalcula a Análise Final de uma folha no Relatório (Horas/Demanda editáveis).
