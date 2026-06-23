@@ -10609,9 +10609,17 @@ function frpAnalise(sid){
     var tdis  = h * 3600;
     var tprod = tdis * ttp / 100;
     var ts    = agg.ts;
+    // Peças por ciclo — aplica somente quando análise é de uma única folha
+    var pcsCic = 1;
+    if(!agg.combined){
+      var _sfr = (typeof get==='function') ? get(sid) : null;
+      if(_sfr){ var _pvcf = parseFloat((_sfr.header||{}).pcsCiclo); if(isFinite(_pvcf)&&_pvcf>0) pcsCic=_pvcf; }
+    }
     var takt  = dem > 0 ? tprod / dem : 0;
-    var capUm = takt > 0 ? Math.floor(tprod / takt) : 0;
-    var colab = (ts > 0 && takt > 0) ? Math.ceil(ts / takt) : 0;
+    // Cap. 1 colab. = ⌊Tprod ÷ TS⌋ × pçs/ciclo
+    var capUm = (ts > 0 && tprod > 0) ? Math.floor(tprod / ts) * pcsCic : 0;
+    // Colab. = ⌈TS ÷ (Takt × pçs/ciclo)⌉
+    var colab = (ts > 0 && takt > 0) ? Math.ceil(ts / (takt * pcsCic)) : 0;
     var set = function(id, txt){ var el = document.getElementById(id); if(el) el.textContent = txt; };
     set('frp-allow-'+sid, allow.toFixed(2) + ' %');
     set('frp-ttp-'+sid,   ttp.toFixed(2) + ' %');
@@ -10639,7 +10647,7 @@ function frpAnalise(sid){
           +   '<span style="font-family:\'JetBrains Mono\',monospace;color:var(--accent)">'+ts.toFixed(2)+' s</span>'
           + '</div>'
           + (colab > 0
-              ? '<div style="margin-top:6px;color:var(--text3)">⌈TS '+ts.toFixed(2)+'s ÷ Takt '+(takt>0?takt.toFixed(2):'—')+'s⌉ = <b style="color:var(--orange)">'+colab+' colaborador(es)</b> para atender '+dem+' itens em '+h+'h.</div>'
+              ? '<div style="margin-top:6px;color:var(--text3)">⌈TS '+ts.toFixed(2)+'s ÷ '+(pcsCic>1?'(Takt '+(takt>0?takt.toFixed(2):'—')+'s × '+pcsCic+' pç/ciclo)':'Takt '+(takt>0?takt.toFixed(2):'—')+'s')+'⌉ = <b style="color:var(--orange)">'+colab+' colaborador(es)</b> para atender '+dem+' itens em '+h+'h.</div>'
               : '');
       } else {
         sumEl.style.display = 'none';
@@ -10884,7 +10892,9 @@ function frpAnaliseAll(){
     var tprod = tdis * ttp / 100;
     var ts    = agg.ts;                 // Σ Tempo Padrão (COM allowance) de todas as atividades
     var takt  = dem > 0 ? tprod / dem : 0;
-    var capUm = takt > 0 ? Math.floor(tprod / takt) : 0;
+    // Para análise combinada de múltiplas folhas, pcsCiclo = 1
+    // (cada folha tem seu próprio pcsCiclo; veja a Análise Final por folha para valores individuais)
+    var capUm = (ts > 0 && tprod > 0) ? Math.floor(tprod / ts) : 0;
     var colab = (ts > 0 && takt > 0) ? Math.ceil(ts / takt) : 0;
 
     var set = function(id, txt){ var el = document.getElementById(id); if(el) el.textContent = txt; };
@@ -10972,8 +10982,10 @@ function buildTTPSection(){
     var ts      = x.stdSec;
     var pcsCic  = (m.pcsCiclo && m.pcsCiclo > 0) ? m.pcsCiclo : 1;
     var takt    = dem > 0 ? tprod / dem : 0;
-    var capUm   = takt > 0 ? Math.floor(tprod / takt) * pcsCic : 0;
-    var colabNeed = (ts > 0 && takt > 0) ? Math.ceil(ts / takt) : 0;
+    // Cap. 1 colab. = ⌊Tprod ÷ TS⌋ × pçs/ciclo  (não ⌊Tprod ÷ Takt⌋ × pçs/ciclo)
+    var capUm   = (ts > 0 && tprod > 0) ? Math.floor(tprod / ts) * pcsCic : 0;
+    // Colab. = ⌈TS ÷ (Takt × pçs/ciclo)⌉
+    var colabNeed = (ts > 0 && takt > 0) ? Math.ceil(ts / (takt * pcsCic)) : 0;
     var capColab  = (colabNeed > 0 && ts > 0) ? Math.floor(tprod * colabNeed / ts) * pcsCic : 0;
     var ocio    = m.takt > 0 ? Math.max(0, m.takt - ts) : 0;
     var ocioRel = m.takt > 0 ? ((m.takt - ts) / m.takt * 100) : null;
@@ -11022,8 +11034,16 @@ function buildTTPSection(){
             ? 'T. Produtivo = ' + tdis.toLocaleString('pt-BR') + ' × ' + ttp.toFixed(1) + '% (TTP Manual) = ' + Math.round(tprod).toLocaleString('pt-BR') + ' s'
             : 'T. Produtivo = ' + tdis.toLocaleString('pt-BR') + ' s (bruto — TTP não definido)')
         + '<br>'
-        + 'Takt = ' + Math.round(tprod).toLocaleString('pt-BR') + ' ÷ ' + dem.toLocaleString('pt-BR') + ' = ' + takt.toFixed(2) + ' s | '
-        + 'Colab. = ⌈' + ts.toFixed(2) + ' ÷ ' + takt.toFixed(2) + '⌉ = ' + colabNeed
+        + 'Takt = ' + Math.round(tprod).toLocaleString('pt-BR') + ' ÷ ' + dem.toLocaleString('pt-BR') + ' = ' + takt.toFixed(2) + ' s/item'
+        + (pcsCic > 1 ? ' · Takt/ciclo = ' + takt.toFixed(2) + ' × ' + pcsCic + ' = ' + (takt * pcsCic).toFixed(2) + ' s' : '')
+        + ' | '
+        + 'Cap. = ⌊' + Math.round(tprod).toLocaleString('pt-BR') + ' ÷ ' + ts.toFixed(2) + '⌋'
+        + (pcsCic > 1 ? ' × ' + pcsCic + ' pç/ciclo' : '')
+        + ' = ' + capUm.toLocaleString('pt-BR') + ' itens'
+        + ' | '
+        + (pcsCic > 1
+            ? 'Colab. = ⌈' + ts.toFixed(2) + ' ÷ (' + takt.toFixed(2) + ' × ' + pcsCic + ')⌉ = ' + colabNeed
+            : 'Colab. = ⌈' + ts.toFixed(2) + ' ÷ ' + takt.toFixed(2) + '⌉ = ' + colabNeed)
         + (capColab > 0 ? ' → Capacidade: ' + capColab.toLocaleString('pt-BR') + ' itens/jornada' : '')
         + '</div>';
     }
