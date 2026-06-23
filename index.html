@@ -4434,10 +4434,10 @@ function renderContent(id){
         <div style="margin-bottom:14px;">
           <button id="ttp-maquina-btn-${id}" onclick="frpToggleMaquina('${id}')"
             style="width:100%;text-align:left;font-size:10px;font-weight:700;padding:8px 14px;border-radius:7px;cursor:pointer;
-              background:${s.header.maquina ? 'rgba(59,130,246,.15)' : 'var(--surface3)'};
-              border:1px solid ${s.header.maquina ? 'var(--blue,#3b82f6)' : 'var(--border2)'};
-              color:${s.header.maquina ? 'var(--blue,#3b82f6)' : 'var(--text3)'};">
-            ${s.header.maquina
+              background:${(s.header||{}).maquina ? 'rgba(59,130,246,.15)' : 'var(--surface3)'};
+              border:1px solid ${(s.header||{}).maquina ? '#3b82f6' : 'var(--border2)'};
+              color:${(s.header||{}).maquina ? '#3b82f6' : 'var(--text3)'};">
+            ${(s.header||{}).maquina
               ? '🔵 Processo de Máquina ✓ — Mão de obra não contabilizada'
               : '⚙ Marcar como Processo de Máquina — sem mão de obra'}
           </button>
@@ -11333,7 +11333,9 @@ function buildConclusaoFinalHtml(){
 
 function updateConclusaoFinal(){
   var el = document.getElementById('conclusao-final-container');
-  if(el) el.innerHTML = buildConclusaoFinalHtml();
+  if(!el) return;
+  try{ el.innerHTML = buildConclusaoFinalHtml(); }
+  catch(e){ el.innerHTML = '<div style="color:var(--red);font-size:11px;padding:10px">Erro ao gerar conclusão: '+e.message+'</div>'; }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -12808,7 +12810,7 @@ function showFinalReport(){
     +     balReportSection
     +     tableHtml
     +     frpSection('sec-conclusao', '👥 Conclusão Final — Dimensionamento de Mão de Obra',
-                     '<div id="conclusao-final-container">'+buildConclusaoFinalHtml()+'</div>',
+                     '<div id="conclusao-final-container" style="min-height:40px"></div>',
                      'margin-top:24px')
     +     '<div style="padding:12px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;font-size:10px;color:var(--text3);line-height:1.7">'
     +       '<strong style="color:var(--text2)">Notas:</strong><br>'
@@ -12833,7 +12835,8 @@ function showFinalReport(){
       if(typeof frpAnalise==='function') frpAnalise(s.id);
     });
     if(typeof frpAnaliseAll==='function') frpAnaliseAll();
-  }catch(e){}
+    if(typeof updateConclusaoFinal==='function') updateConclusaoFinal();
+  }catch(e){ console.error('showFinalReport init:', e); }
 }
 
 function closeFinalReport(){
