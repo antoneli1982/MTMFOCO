@@ -10368,15 +10368,6 @@ function buildSheetDetailSection(){
       + '<div id="frp-scope-'+s.id+'"></div>'
       + '<div style="display:flex;flex-wrap:wrap;gap:8px">'
       + inputBox('Horas de Trabalho', 'frp-h-'+s.id, (s.header && s.header.workHours) || 8, '8')
-      + (function(){
-          var _pph = x.stdSec > 0 ? Math.floor((3600 / x.stdSec) * (x.pcsCiclo || 1)) : 0;
-          var _u = getPcsCicloUnit(s.header);
-          return '<div style="flex:1;min-width:120px;background:var(--purpleBg);border:1px solid var(--purple);border-radius:8px;padding:8px 12px">'
-            + '<div style="font-size:9px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">'+_u.label+' por Hora</div>'
-            + '<div id="frp-pph-'+s.id+'" style="font-size:16px;font-weight:800;color:var(--purple);font-family:\'JetBrains Mono\',monospace">'+(_pph||'—')+'</div>'
-            + '<div style="font-size:9px;color:var(--text3);margin-top:2px">3600 ÷ TS'+(x.pcsCiclo&&x.pcsCiclo>1?' × '+x.pcsCiclo+' '+_u.abbr+'/ciclo':'')+'</div>'
-            + '</div>';
-        })()
       + box('TTP (%)', 'frp-ttp-'+s.id, '100 − Allowance', 'var(--accent)')
       + '<div style="flex:1;min-width:140px;background:var(--surface2);border:1px solid var(--green);border-radius:8px;padding:8px 12px">'
       +   '<div style="font-size:9px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Tempo de Ciclo Final (TS)</div>'
@@ -10398,6 +10389,15 @@ function buildSheetDetailSection(){
             + '<div style="font-size:9px;font-weight:700;color:'+(_hi?'var(--purple)':'var(--text3)')+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">'+_pl+' por Ciclo</div>'
             + '<div style="font-size:22px;font-weight:800;color:'+(_hi?'var(--purple)':'var(--text3)')+';font-family:\'JetBrains Mono\',monospace">'+(x.pcsCiclo||1)+'</div>'
             + '<div style="font-size:9px;color:var(--text3);margin-top:2px">'+_pu+' produzidos/ciclo</div>'
+            + '</div>';
+        })()
+      + (function(){
+          var _pph = x.stdSec > 0 ? Math.floor((3600 / x.stdSec) * (x.pcsCiclo || 1)) : 0;
+          var _u = getPcsCicloUnit(s.header);
+          return '<div style="flex:1;min-width:120px;background:var(--purpleBg);border:1px solid var(--purple);border-radius:8px;padding:8px 12px">'
+            + '<div style="font-size:9px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">'+_u.label+' por Hora</div>'
+            + '<div id="frp-pph-'+s.id+'" style="font-size:16px;font-weight:800;color:var(--purple);font-family:\'JetBrains Mono\',monospace">'+(_pph||'—')+'</div>'
+            + '<div style="font-size:9px;color:var(--text3);margin-top:2px">3600 ÷ TS'+(x.pcsCiclo&&x.pcsCiclo>1?' × '+x.pcsCiclo+' '+_u.abbr+'/ciclo':'')+'</div>'
             + '</div>';
         })()
       + '<span id="frp-allow-'+s.id+'" style="display:none"></span>'
@@ -12413,6 +12413,31 @@ function showFinalReport(){
     var s = x.sheet; var m = x.m;
     var ocupColor = x.ocup !== null ? (x.ocup>100?'var(--red)':x.ocup>95?'var(--orange)':x.ocup>80?'var(--yellow)':'var(--green)') : 'var(--text3)';
     var tppVal = (_tppStore[x.sheet.id] != null ? String(_tppStore[x.sheet.id]) : '').replace(/"/g,'&quot;');
+    // ── Tempo Total de Produção: (Qtd ÷ Pç/ciclo) × TS ──
+    var _tppNum   = parseFloat(tppVal);
+    var _pcsCic   = x.pcsCiclo || 1;
+    var _ciclos   = (!isNaN(_tppNum) && _tppNum > 0) ? _tppNum / _pcsCic : null;
+    var _tTotal   = (_ciclos && x.stdSec > 0) ? _ciclos * x.stdSec : null;  // segundos
+    var _tTotalMin = _tTotal ? _tTotal / 60 : null;
+    var _tTotalH   = _tTotal ? _tTotal / 3600 : null;
+    var _unitAbbr  = (typeof getPcsCicloUnit==='function') ? getPcsCicloUnit(s.header).abbr : 'pç';
+    var _tTotalHtml = _tTotal
+      ? (function(){
+          var sSec = _tTotal >= 60
+            ? (_tTotalH >= 1
+                ? _tTotalH.toFixed(2).replace('.',',') + ' h'
+                : _tTotalMin.toFixed(1).replace('.',',') + ' min')
+            : _tTotal.toFixed(1).replace('.',',') + ' s';
+          var formula = '('+_tppNum.toLocaleString('pt-BR')+' '+_unitAbbr
+            + (_pcsCic > 1 ? ' ÷ '+_pcsCic+' '+_unitAbbr+'/ciclo' : '')
+            +') × '+x.stdSec.toFixed(2).replace('.',',')+' s = '+sSec;
+          return '<div style="margin-top:8px;background:var(--surface);border:1px solid var(--accent);border-radius:7px;padding:8px 12px">'
+            + '<div style="font-size:8px;color:var(--accent);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px">⏱ Tempo Total de Produção</div>'
+            + '<div style="font-size:18px;font-weight:800;color:var(--accent);font-family:\'JetBrains Mono\',monospace">'+sSec+'</div>'
+            + '<div style="font-size:8px;color:var(--text3);margin-top:3px;line-height:1.4">'+formula+'</div>'
+            + '</div>';
+        })()
+      : '';
     return '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden">'
       + '<div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--accentGrad)"></div>'
       + '<div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:10px;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.25">'+x.sheet.label+'</div>'
@@ -12436,6 +12461,7 @@ function showFinalReport(){
       +   '<input type="number" step="any" min="0" value="'+tppVal+'" placeholder="Quantidade" oninput="frpTppSet(\''+s.id+'\', this)" '
       +     'style="width:100%;background:transparent;border:none;outline:none;font-size:16px;font-weight:800;color:var(--text);font-family:\'JetBrains Mono\',monospace">'
       + '</div>'
+      + _tTotalHtml
       + '<div style="font-size:9px;color:var(--text3);margin-top:8px;text-align:right">'
       +   (m.takt > 0 ? 'Takt '+m.takt+'s' : '')
       +   ((x.pcsCiclo && x.pcsCiclo > 1) ? (m.takt > 0 ? ' · ' : '')+'<span style="color:var(--purple);font-weight:700">'+x.pcsCiclo+' '+(typeof getPcsCicloUnit==='function'?getPcsCicloUnit(x.sheet.header).abbr:'pç')+'/ciclo</span>' : '')
