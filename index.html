@@ -10871,6 +10871,35 @@ function frpTppSave(id, val){
 }
 function frpTppSet(id, el){ if(el) frpTppSave(id, el.value); }
 
+// Atualiza o display "Tempo Total de Produção" de forma reativa quando o usuário
+// altera a Quantidade de Peças no card do Relatório Final.
+// Fórmula: (Qtd ÷ pcsCiclo) × TS_com_allowance
+function frpCalcTotal(sid, inputEl, stdSec, pcsCiclo, unitAbbr){
+  frpTppSave(sid, inputEl.value);
+  var wrapEl    = document.getElementById('tt-wrap-'+sid);
+  var totalEl   = document.getElementById('tt-total-'+sid);
+  var formulaEl = document.getElementById('tt-formula-'+sid);
+  if(!wrapEl) return;
+  var qty = parseFloat(inputEl.value);
+  if(qty > 0 && stdSec > 0){
+    var ciclos = qty / (pcsCiclo || 1);
+    var tTotal = ciclos * stdSec;
+    var display = tTotal >= 3600
+      ? (tTotal/3600).toFixed(2).replace('.',',') + ' h'
+      : tTotal >= 60
+        ? (tTotal/60).toFixed(1).replace('.',',') + ' min'
+        : tTotal.toFixed(1).replace('.',',') + ' s';
+    var formula = '('+qty.toLocaleString('pt-BR')+' '+unitAbbr
+      +(pcsCiclo > 1 ? ' ÷ '+pcsCiclo+' '+unitAbbr+'/ciclo' : '')
+      +') × '+stdSec.toFixed(2).replace('.',',')+' s = '+display;
+    if(totalEl)   totalEl.textContent   = display;
+    if(formulaEl) formulaEl.textContent = formula;
+    wrapEl.style.display = '';
+  } else {
+    wrapEl.style.display = 'none';
+  }
+}
+
 // Soma das métricas de TODAS as folhas preenchidas (TS, tempo bruto, TMU).
 // premissa: define qual allowance/fadiga aplicar sobre o tempo normal (TN):
 //   'real'  → usa o allowance real de cada folha (Σ dos Tempos Padrão de cada folha)
@@ -12412,32 +12441,27 @@ function showFinalReport(){
   var cardsHtml = allMetrics.map(function(x){
     var s = x.sheet; var m = x.m;
     var ocupColor = x.ocup !== null ? (x.ocup>100?'var(--red)':x.ocup>95?'var(--orange)':x.ocup>80?'var(--yellow)':'var(--green)') : 'var(--text3)';
-    var tppVal = (_tppStore[x.sheet.id] != null ? String(_tppStore[x.sheet.id]) : '').replace(/"/g,'&quot;');
-    // ── Tempo Total de Produção: (Qtd ÷ Pç/ciclo) × TS ──
-    var _tppNum   = parseFloat(tppVal);
-    var _pcsCic   = x.pcsCiclo || 1;
-    var _ciclos   = (!isNaN(_tppNum) && _tppNum > 0) ? _tppNum / _pcsCic : null;
-    var _tTotal   = (_ciclos && x.stdSec > 0) ? _ciclos * x.stdSec : null;  // segundos
-    var _tTotalMin = _tTotal ? _tTotal / 60 : null;
-    var _tTotalH   = _tTotal ? _tTotal / 3600 : null;
-    var _unitAbbr  = (typeof getPcsCicloUnit==='function') ? getPcsCicloUnit(s.header).abbr : 'pç';
-    var _tTotalHtml = _tTotal
-      ? (function(){
-          var sSec = _tTotal >= 60
-            ? (_tTotalH >= 1
-                ? _tTotalH.toFixed(2).replace('.',',') + ' h'
-                : _tTotalMin.toFixed(1).replace('.',',') + ' min')
-            : _tTotal.toFixed(1).replace('.',',') + ' s';
-          var formula = '('+_tppNum.toLocaleString('pt-BR')+' '+_unitAbbr
-            + (_pcsCic > 1 ? ' ÷ '+_pcsCic+' '+_unitAbbr+'/ciclo' : '')
-            +') × '+x.stdSec.toFixed(2).replace('.',',')+' s = '+sSec;
-          return '<div style="margin-top:8px;background:var(--surface);border:1px solid var(--accent);border-radius:7px;padding:8px 12px">'
-            + '<div style="font-size:8px;color:var(--accent);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px">⏱ Tempo Total de Produção</div>'
-            + '<div style="font-size:18px;font-weight:800;color:var(--accent);font-family:\'JetBrains Mono\',monospace">'+sSec+'</div>'
-            + '<div style="font-size:8px;color:var(--text3);margin-top:3px;line-height:1.4">'+formula+'</div>'
-            + '</div>';
-        })()
-      : '';
+    // Quantidade de Peças: usa o valor salvo no TPP store; fallback para demand do cabeçalho
+    var tppVal   = (_tppStore[x.sheet.id] != null ? String(_tppStore[x.sheet.id]) : '').replace(/"/g,'&quot;');
+    var demInit  = parseFloat((s.header && s.header.demand) || '') || '';
+    var qtdVal   = tppVal !== '' ? tppVal : (demInit !== '' ? String(demInit) : '');
+    var _pcsCic  = x.pcsCiclo || 1;
+    var _unitAbbr = (typeof getPcsCicloUnit==='function') ? getPcsCicloUnit(s.header).abbr : 'pç';
+    // Calcula o Tempo Total inicial (para renderizar imediatamente se houver qtd)
+    var _qtdNum  = parseFloat(qtdVal);
+    var _tTotal  = (!isNaN(_qtdNum) && _qtdNum > 0 && x.stdSec > 0)
+                   ? (_qtdNum / _pcsCic) * x.stdSec : null;
+    var _tDisplay = '', _tFormula = '';
+    if(_tTotal){
+      _tDisplay = _tTotal >= 3600
+        ? (_tTotal/3600).toFixed(2).replace('.',',') + ' h'
+        : _tTotal >= 60
+          ? (_tTotal/60).toFixed(1).replace('.',',') + ' min'
+          : _tTotal.toFixed(1).replace('.',',') + ' s';
+      _tFormula = '('+_qtdNum.toLocaleString('pt-BR')+' '+_unitAbbr
+        +(_pcsCic > 1 ? ' ÷ '+_pcsCic+' '+_unitAbbr+'/ciclo' : '')
+        +') × '+x.stdSec.toFixed(2).replace('.',',')+' s = '+_tDisplay;
+    }
     return '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden">'
       + '<div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--accentGrad)"></div>'
       + '<div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:10px;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.25">'+x.sheet.label+'</div>'
@@ -12456,15 +12480,23 @@ function showFinalReport(){
       +     '<div style="font-size:8px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-top:2px">Allowance Total</div>'
       +   '</div>'
       + '</div>'
+      // ── Quantidade de Peças (antigo TPP) ──
       + '<div style="margin-top:8px;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 12px">'
-      +   '<div style="font-size:8px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px">TPP</div>'
-      +   '<input type="number" step="any" min="0" value="'+tppVal+'" placeholder="Quantidade" oninput="frpTppSet(\''+s.id+'\', this)" '
+      +   '<div style="font-size:8px;color:var(--text2);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px">Quantidade de '+_unitAbbr+'</div>'
+      +   '<input type="number" step="1" min="0" value="'+qtdVal+'" placeholder="ex: 400" '
+      +     'oninput="frpCalcTotal(\''+s.id+'\',this,'+x.stdSec+','+_pcsCic+',\''+_unitAbbr+'\')" '
       +     'style="width:100%;background:transparent;border:none;outline:none;font-size:16px;font-weight:800;color:var(--text);font-family:\'JetBrains Mono\',monospace">'
       + '</div>'
-      + _tTotalHtml
+      // ── Tempo Total de Produção (dinâmico) ──
+      + '<div id="tt-wrap-'+s.id+'" style="margin-top:8px;background:var(--surface);border:1px solid var(--accent);border-radius:7px;padding:8px 12px;'
+      +   (_tTotal ? '' : 'display:none') + '">'
+      +   '<div style="font-size:8px;color:var(--accent);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px">⏱ Tempo Total de Produção</div>'
+      +   '<div id="tt-total-'+s.id+'" style="font-size:18px;font-weight:800;color:var(--accent);font-family:\'JetBrains Mono\',monospace">'+_tDisplay+'</div>'
+      +   '<div id="tt-formula-'+s.id+'" style="font-size:8px;color:var(--text3);margin-top:3px;line-height:1.4">'+_tFormula+'</div>'
+      + '</div>'
       + '<div style="font-size:9px;color:var(--text3);margin-top:8px;text-align:right">'
       +   (m.takt > 0 ? 'Takt '+m.takt+'s' : '')
-      +   ((x.pcsCiclo && x.pcsCiclo > 1) ? (m.takt > 0 ? ' · ' : '')+'<span style="color:var(--purple);font-weight:700">'+x.pcsCiclo+' '+(typeof getPcsCicloUnit==='function'?getPcsCicloUnit(x.sheet.header).abbr:'pç')+'/ciclo</span>' : '')
+      +   ((x.pcsCiclo && x.pcsCiclo > 1) ? (m.takt > 0 ? ' · ' : '')+'<span style="color:var(--purple);font-weight:700">'+x.pcsCiclo+' '+_unitAbbr+'/ciclo</span>' : '')
       + '</div>'
       + '</div>';
   }).join('');
