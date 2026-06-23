@@ -10374,11 +10374,19 @@ function buildSheetDetailSection(){
 
     var _frpOff = (typeof frpPdfIsOff==='function') ? frpPdfIsOff(s.id) : false;
     var _frpLamp = (typeof frpLampBtn==='function') ? frpLampBtn(s.id) : '';
+    var _isMaquina = !!(s.header && s.header.maquina);
     var analise = ''
-      + '<div id="frpblk-'+s.id+'" data-frpblk="'+s.id+'" class="frp-block'+(_frpOff?' frp-pdf-off':'')+'" style="background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:12px 14px;margin-bottom:6px">'
+      + '<div id="frpblk-'+s.id+'" data-frpblk="'+s.id+'" class="frp-block'+(_frpOff?' frp-pdf-off':'')+'" style="background:var(--surface);border:1px solid '+(_isMaquina?'var(--blue)':'var(--accent)')+';border-radius:10px;padding:12px 14px;margin-bottom:6px">'
       + '<div class="frp-head">'
       + '<div style="font-size:12px;font-weight:800;color:var(--accent)">⚙️ ANÁLISE FINAL — TTP · TAKT · CAPACIDADE</div>'
       + _frpLamp
+      + '<button id="frp-maquina-btn-'+s.id+'" onclick="frpToggleMaquina(\''+s.id+'\')" title="Marcar como processo de máquina — não conta mão de obra" '
+      +   'style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:6px;cursor:pointer;'
+      +   'background:'+(_isMaquina?'rgba(59,130,246,.18)':'transparent')
+      +   ';border:1px solid '+(_isMaquina?'var(--blue)':'var(--border2)')
+      +   ';color:'+(_isMaquina?'var(--blue)':'var(--text3)')+';">'
+      +   (_isMaquina ? '🔵 Processo de Máquina ✓' : '⚙ Marcar como Máquina')
+      + '</button>'
       + '</div>'
       + '<div class="frp-body">'
       + '<div id="frp-scope-'+s.id+'"></div>'
@@ -10683,6 +10691,8 @@ function frpAnalise(sid){
     var capUm = (ts > 0 && tprod > 0) ? Math.floor(tprod / ts) * pcsCic : 0;
     // Colab. = ⌈TS ÷ Takt⌉  (takt já é por ciclo)
     var colab = (ts > 0 && takt > 0) ? Math.ceil(ts / takt) : 0;
+    // ── Verificar se é folha de Processo de Máquina ──
+    var isMaquina = !!(s && s.header && s.header.maquina);
     var set = function(id, txt){ var el = document.getElementById(id); if(el) el.textContent = txt; };
     // Atualiza o box TS (dinâmico — muda quando simultâneas são excluídas)
     set('frp-ts-'+sid, ts > 0 ? ts.toFixed(2).replace('.',',') + ' s' : '—');
@@ -10691,7 +10701,8 @@ function frpAnalise(sid){
     set('frp-tprod-'+sid, Math.round(tprod).toLocaleString('pt-BR') + ' s');
     set('frp-takt-'+sid,  takt > 0 ? takt.toFixed(2) + ' s' : '—');
     set('frp-cap-'+sid,   capUm > 0 ? capUm.toLocaleString('pt-BR') + ' ' + _unitFrp.abbr : '—');
-    set('frp-colab-'+sid, colab > 0 ? colab : '—');
+    // Colab: se máquina, não conta mão de obra
+    set('frp-colab-'+sid, isMaquina ? '⚙ Máquina' : (colab > 0 ? colab : '—'));
     // Peças por hora = ⌊3600 ÷ TS efetivo⌋ × pçs/ciclo
     var pphVal = ts > 0 ? Math.floor((3600 / ts) * pcsCic) : 0;
     set('frp-pph-'+sid, pphVal > 0 ? pphVal.toLocaleString('pt-BR') : '—');
@@ -10931,6 +10942,30 @@ function frpSetPcsCiclo(sid, inputEl){
   if(typeof frpAnalise === 'function') frpAnalise(sid);
 }
 
+// Alterna o flag "Processo de Máquina" de uma folha.
+// Quando ativo: o Colab. Necessários é suprimido (sem MO) e a folha é excluída
+// do somatório de TS humano na Análise Combinada.
+function frpToggleMaquina(sid){
+  var s = (typeof get === 'function') ? get(sid) : null;
+  if(!s) return;
+  if(!s.header) s.header = {};
+  s.header.maquina = !s.header.maquina;
+  if(typeof saveSheets === 'function') saveSheets();
+  // Atualiza borda e botão do bloco
+  var blk = document.getElementById('frpblk-'+sid);
+  var btn = document.getElementById('frp-maquina-btn-'+sid);
+  var on  = !!s.header.maquina;
+  if(blk) blk.style.borderColor = on ? 'var(--blue)' : 'var(--accent)';
+  if(btn){
+    btn.style.background   = on ? 'rgba(59,130,246,.18)' : 'transparent';
+    btn.style.borderColor  = on ? 'var(--blue)' : 'var(--border2)';
+    btn.style.color        = on ? 'var(--blue)' : 'var(--text3)';
+    btn.textContent        = on ? '🔵 Processo de Máquina ✓' : '⚙ Marcar como Máquina';
+  }
+  if(typeof frpAnalise === 'function') frpAnalise(sid);
+  if(typeof frpAnaliseAll === 'function') frpAnaliseAll();
+}
+
 // Soma das métricas de TODAS as folhas preenchidas (TS, tempo bruto, TMU).
 // premissa: define qual allowance/fadiga aplicar sobre o tempo normal (TN):
 //   'real'  → usa o allowance real de cada folha (Σ dos Tempos Padrão de cada folha)
@@ -10941,11 +10976,15 @@ function frpAggregateAll(premissa, manualPct){
   var tsReal = 0, raw = 0, tmu = 0, parts = [];
   try{
     frpFilledSheets().forEach(function(x){
-      tsReal += x.stdSec;          // Tempo Padrão real da folha (TN + allowance da folha)
-      raw    += x.tnSec;           // Tempo Normal (sem allowance)
+      var isMaquina = !!(x.sheet && x.sheet.header && x.sheet.header.maquina);
+      // Folhas de máquina: NÃO somam no TS humano (sem MO), mas ficam em parts para exibição
+      if(!isMaquina){
+        tsReal += x.stdSec;
+        raw    += x.tnSec;
+      }
       tmu    += (x.m && x.m.totalTmu) ? x.m.totalTmu : 0;
       parts.push({ id:x.sheet.id, label:(x.sheet.label||'Folha'), stdSec:x.stdSec, tnSec:x.tnSec,
-                   allow:x.allowUsed, tmu:(x.m&&x.m.totalTmu)||0 });
+                   allow:x.allowUsed, tmu:(x.m&&x.m.totalTmu)||0, maquina:isMaquina });
     });
   }catch(e){}
 
@@ -11147,6 +11186,7 @@ function frpAnaliseAll(){
           +     btnLbl
           +   '</button>'
           +   '<span style="color:'+(isSimul?'var(--text3)':'var(--text2)')+';font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p.label)+'</span>'
+          +   (p.maquina ? '<span title="Processo de Máquina — excluído da MO" style="flex-shrink:0;font-size:8px;font-weight:700;color:var(--blue);background:rgba(59,130,246,.12);border:1px solid var(--blue);border-radius:4px;padding:1px 5px">⚙ Máq.</span>' : '')
           + '</div>'
           + '<span style="font-family:\'JetBrains Mono\',monospace;font-size:11px;white-space:nowrap;'
           +   'color:'+(isSimul?'var(--text3)':'var(--green)')+';text-decoration:'+(isSimul?'line-through':'none')+';">'
