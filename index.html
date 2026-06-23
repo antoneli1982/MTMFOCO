@@ -4594,6 +4594,22 @@ function renderContent(id){
       updateTotals(id);
       saveSheets();
       if(inp.dataset.key==='demand' && typeof syncDemandDisplay==='function') syncDemandDisplay(id, inp.value);
+      // Engº Especialista e Data: propagar para todas as outras folhas do escopo.
+      // Cada folha pode ser editada individualmente depois.
+      if(inp.dataset.key === 'eng' || inp.dataset.key === 'data'){
+        const _key = inp.dataset.key;
+        const _val = inp.value;
+        const _all = (typeof scopedSheets==='function') ? scopedSheets() : (sheets||[]);
+        _all.forEach(function(other){
+          if(!other || other.id === id) return; // pula a folha atual
+          if(!other.header) other.header = {};
+          other.header[_key] = _val;
+          // Atualiza o DOM da folha se ela estiver renderizada
+          const _domInp = document.querySelector('#c-'+other.id+' .f-input[data-key="'+_key+'"]');
+          if(_domInp) _domInp.value = _val;
+        });
+        saveSheets();
+      }
     };
     inp.addEventListener('input', saveHandler);
     if(inp.tagName === 'SELECT') inp.addEventListener('change', saveHandler);
