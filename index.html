@@ -4467,7 +4467,7 @@ function renderContent(id){
         <span class="f-label" style="color:var(--accent)">Demanda / Período</span>
         <input class="f-input" type="number" min="0" placeholder="ex: 600" data-key="demand" value="${esc(h.demand||'')}">
         <select class="f-input" data-key="demandUnit" style="font-size:10px;background:transparent;border:none;border-top:1px solid var(--border2);padding:3px 0;width:100%;color:var(--text2);margin-top:3px;cursor:pointer">
-          ${[['turno','por turno (shift)'],['hora','por hora'],['dia','por dia (8 h úteis)'],['hoje','hoje (dia corrente)'],['semana','por semana (5 dias)'],['mes','por mês (22 dias)'],['minuto','por minuto'],['segundo','por segundo'],['ciclo','por ciclo'],['carga','por carga / descarga']].map(([v,l])=>\`<option value="\${v}" \${(h.demandUnit||'turno')===v?'selected':''}>\${l}</option>\`).join('')}
+          ${[['turno','por turno (shift)'],['hora','por hora'],['dia','por dia (8 h úteis)'],['hoje','hoje (dia corrente)'],['semana','por semana (5 dias)'],['mes','por mês (22 dias)'],['minuto','por minuto'],['segundo','por segundo'],['ciclo','por ciclo'],['carga','por carga / descarga']].map(([v,l])=>`<option value="${v}" ${(h.demandUnit||'turno')===v?'selected':''}>${l}</option>`).join('')}
         </select>
       </div>
       <div class="f-group" style="background:var(--purpleBg);border-left:2px solid var(--purple);padding-left:8px">
@@ -4571,7 +4571,7 @@ function renderContent(id){
           </div>
 
           <div style="flex:1;min-width:130px;">
-            <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Demanda (${({turno:'turno',hora:'hora',dia:'dia',hoje:'hoje',semana:'semana',mes:'mês',minuto:'min',segundo:'seg',ciclo:'ciclo',carga:'carga'})[s.header.demandUnit||'turno']||'itens'})</div>
+            <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Demanda (${({turno:"turno",hora:"hora",dia:"dia",hoje:"hoje",semana:"semana",mes:"mês",minuto:"min",segundo:"seg",ciclo:"ciclo",carga:"carga"})[h.demandUnit||"turno"]||"itens"})</div>
             <input id="ttp-dem-${id}" type="number" min="1" step="1" value="${esc(s.header.demand||'')}" placeholder="ex: 600"
               onchange="ttpCalc('${id}')" oninput="ttpCalc('${id}')"
               style="width:100%;padding:8px 10px;background:var(--surface3);border:1px solid var(--border2);
@@ -4811,11 +4811,11 @@ function renderRow(sid,rid,focus=false){
     <td><input class="ci ci-res" readonly data-f="ttmu" value="${row.ttmu||''}"></td>
     <td><input class="ci ci-sec" readonly data-f="tsec" value="${row.tsec||''}"></td>
     <td style="white-space:nowrap"><button class="row-drag" title="Arrastar para reordenar">⠿</button><button class="row-ins" onclick="insertRowAbove('${sid}','${rid}')" title="Inserir uma linha acima desta">＋</button><button class="row-del" onclick="delRow('${sid}','${rid}')" title="Excluir esta linha">✕</button></td>`;
-  tr.draggable = false;          // só ativa ao pressionar o handle ⠿
+  tr.draggable = false;          // ativa só ao pressionar o handle ⠿
   tbody.appendChild(tr);
 
   // ── Drag-and-drop para reordenar linhas ──
-  // O handle ⠿ ativa draggable ao ser pressionado; dragend o desativa novamente.
+  // O handle ⠿ ativa draggable no mousedown; dragend desativa novamente.
   var _dragHandle = tr.querySelector('.row-drag');
   if(_dragHandle){
     _dragHandle.addEventListener('mousedown', function(ev){
@@ -5091,22 +5091,22 @@ function ttpToggle(sid){
   if(arrow) arrow.style.transform = hidden ? 'rotate(0deg)' : 'rotate(-90deg)';
 }
 
-// ── Converte demanda de qualquer unidade para "por período de h horas" ──
+// Converte demanda de qualquer unidade para "por período de h horas"
 function demandToPerPeriod(raw, unit, h){
   var d = parseFloat(raw) || 0;
   if(d <= 0) return 0;
   switch(unit){
-    case 'hora':    return d * h;                         // por hora × horas do período
-    case 'minuto':  return d * h * 60;                   // por min  × min do período
-    case 'segundo': return d * h * 3600;                  // por seg  × seg do período
+    case 'hora':    return d * h;
+    case 'minuto':  return d * h * 60;
+    case 'segundo': return d * h * 3600;
     case 'dia':
-    case 'hoje':    return d * (h / 8);                  // por dia (ref. 8 h) → fração
-    case 'semana':  return d / (5 * (24 / h));           // por semana ÷ períodos/semana
-    case 'mes':     return d / (22 * (24 / h));          // por mês   ÷ períodos/mês
-    case 'ciclo':   return d;                             // já é por ciclo/período
-    case 'carga':   return d;                             // por carga — tratado como por período
+    case 'hoje':    return d * (h / 8);
+    case 'semana':  return d / (5 * (24 / h));
+    case 'mes':     return d / (22 * (24 / h));
+    case 'ciclo':
+    case 'carga':
     case 'turno':
-    default:        return d;                             // por turno — sem conversão
+    default:        return d;
   }
 }
 
@@ -5121,8 +5121,7 @@ function ttpCalc(sid){
   var h     = parseFloat(hEl_ && hEl_.value)   || 8;
   var demRaw = parseFloat(dEl_ && dEl_.value) || 0;
   var demUnit = (s.header && s.header.demandUnit) || 'turno';
-  var dem   = demandToPerPeriod(demRaw, demUnit, h);
-  if(!dem && demRaw){ dem = demRaw; } // fallback: usa valor bruto
+  var dem   = demandToPerPeriod(demRaw, demUnit, h) || demRaw;
   // Auto-save: grava Horas/Demanda digitadas no cabeçalho da folha
   if(typeof persistAnaliseInputs === 'function'){
     persistAnaliseInputs(sid, (hEl_ ? hEl_.value : undefined), (dEl_ ? dEl_.value : undefined));
@@ -5148,19 +5147,13 @@ function ttpCalc(sid){
   var kTprod = document.getElementById('ttp-kpi-tprod-'+sid);
   var kTakt  = document.getElementById('ttp-kpi-takt-'+sid);
   var kCap   = document.getElementById('ttp-kpi-cap-'+sid);
-  var _unitLabel = {turno:'turno',hora:'h',dia:'dia',hoje:'hoje',semana:'sem.',mes:'mês',minuto:'min',segundo:'s',ciclo:'ciclo',carga:'carga'}[demUnit] || 'turno';
+  var _uLbl = {turno:'turno',hora:'h',dia:'dia',hoje:'hoje',semana:'sem.',mes:'mês',minuto:'min',segundo:'s',ciclo:'ciclo',carga:'carga'}[demUnit] || 'turno';
   if(kTdis)  kTdis.textContent  = tdis.toLocaleString('pt-BR') + ' s';
   if(kTprod) kTprod.textContent = Math.round(tprod).toLocaleString('pt-BR') + ' s';
   if(kTakt)  kTakt.textContent  = takt.toFixed(2) + ' s';
-  if(kCap)   kCap.textContent   = capUm + ' itens/' + _unitLabel;
-  // Exibe nota de conversão quando unidade ≠ turno
-  var _kCapNote = document.getElementById('ttp-kpi-cap-note-'+sid);
-  if(_kCapNote){
-    if(demUnit && demUnit !== 'turno')
-      _kCapNote.textContent = '(' + demRaw + ' ' + _unitLabel + ' → ' + dem.toFixed(0) + ' itens/período)';
-    else
-      _kCapNote.textContent = '';
-  }
+  if(kCap)   kCap.textContent   = capUm + ' itens/' + _uLbl;
+  var _capNote = document.getElementById('ttp-kpi-cap-note-'+sid);
+  if(_capNote) _capNote.textContent = (demUnit && demUnit !== 'turno') ? '(base: ' + demRaw + ' itens/' + _uLbl + ')' : '';
 
   // ── Colaboradores necessários ──
   var needEl   = document.getElementById('ttp-colab-need-'+sid);
