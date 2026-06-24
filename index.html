@@ -5740,8 +5740,8 @@ function showResults(sid){
     </div>
     <div class="res-kpi" style="border-color:var(--purple);background:var(--purpleBg)">
       <div class="res-kpi-val" style="color:var(--purple)">${pph || '—'}</div>
-      <div class="res-kpi-lbl" style="color:var(--purple)">Peças / hora</div>
-      ${m.stdSec > 0 ? `<div style="font-size:9px;color:var(--text3);margin-top:2px">${pphInt} pc/h (inteiro)</div>` : ''}
+      <div class="res-kpi-lbl" style="color:var(--purple)">${getPcsCicloUnit(s.header).label} / hora</div>
+      ${m.stdSec > 0 ? `<div style="font-size:9px;color:var(--text3);margin-top:2px">${pphInt} ${getPcsCicloUnit(s.header).abbr}/h (inteiro)</div>` : ''}
     </div>`;
 
   if(manualTTP > 0){
@@ -10624,7 +10624,7 @@ function buildSheetDetailSection(){
             + '</div>';
         })()
       + (function(){
-          var _pph = x.stdSec > 0 ? Math.floor((3600 / x.stdSec) * (x.pcsCiclo || 1)) : 0;
+          var _pph = x.stdSec > 0 ? +((3600 / x.stdSec) * (x.pcsCiclo || 1)).toFixed(2) : 0;
           var _u = getPcsCicloUnit(s.header);
           return '<div style="flex:1;min-width:120px;background:var(--purpleBg);border:1px solid var(--purple);border-radius:8px;padding:8px 12px">'
             + '<div style="font-size:9px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">'+_u.label+' por Hora</div>'
@@ -10987,7 +10987,8 @@ function frpAnalise(sid){
 var _PCS_UNIT_MAP = {
   'pç':'Peças','cx':'Caixas','un':'Unidades','kg':'Quilogramas','L':'Litros',
   'm':'Metros','m²':'Metros²','m³':'Metros³','pal':'Paletes',
-  'bob':'Bobinas','pct':'Pacotes','fd':'Fardos','tl':'Toneladas'
+  'bob':'Bobinas','pct':'Pacotes','fd':'Fardos','tl':'Toneladas',
+  'rack':'Rack','brc':'Berço'
 };
 function getPcsCicloUnit(h){
   var abbr = (h && h.pcsCicloUnit) || 'pç';
@@ -11501,7 +11502,7 @@ function buildTTPSection(){
       + kpiBoxTTP(isMaquina ? 'Cap. da Máquina' : 'Cap. c/ ' + (colabNeed||'?') + ' Colab.', capColab > 0 ? capColab.toLocaleString('pt-BR') + ' ' + _uttp.abbr : '—', 'var(--purple)')
       + kpiBoxTTP('Ociosidade vs Takt', ocioRel !== null ? ocio.toFixed(2) + 's (' + ocioRel.toFixed(1) + '%)' : '—', corOcio)
       + kpiBoxTTP('% Saturação', m.takt > 0 ? (ts / m.takt * 100).toFixed(1) + '%' : '—', m.takt > 0 && (ts / m.takt) > 1 ? 'var(--red)' : 'var(--green)')
-      + kpiBoxTTP(_uttp.label + '/hora', x.pphInt > 0 ? x.pphInt : '—', 'var(--purple)')
+      + kpiBoxTTP(_uttp.label + '/hora', x.pph > 0 ? x.pph : '—', 'var(--purple)')
 
       + '</div>';
 
@@ -12570,7 +12571,7 @@ function mtmCollectFinalReport(){
   // Peças/hora da linha = 3600 ÷ tempo do gargalo (não a soma dos pph individuais).
   var gargaloMetric = allMetrics.filter(function(x){ return x.stdSec > 0; })
     .reduce(function(a,x){ return (!a || x.stdSec > a.stdSec) ? x : a; }, null);
-  var combinedPph = gargaloMetric ? Math.floor(3600 / gargaloMetric.stdSec) : 0;
+  var combinedPph = gargaloMetric ? +((3600 / gargaloMetric.stdSec).toFixed(2)) : 0;
   var withFad     = allMetrics.filter(function(x){ return !!x.fad; });
   var allowMedio  = allMetrics.length
     ? allMetrics.reduce(function(a,x){ return a + x.allowUsed; }, 0) / allMetrics.length
@@ -12840,7 +12841,7 @@ function showFinalReport(){
   var _gPcsAbbr = (typeof getPcsCicloUnit==='function') ? getPcsCicloUnit(_gHdr).abbr : 'pç';
   var _gPeriodSec = {turno:28800,hora:3600,dia:28800,hoje:28800,semana:144000,mes:633600,minuto:60,segundo:1,ciclo:3600,carga:3600}[_gDemUnit]||3600;
   var _gUnitLbl   = {turno:'turno',hora:'h',dia:'dia',hoje:'dia',semana:'sem.',mes:'mês',minuto:'min',segundo:'s',ciclo:'ciclo',carga:'carga'}[_gDemUnit]||'h';
-  var combinedPphConv = gargaloMetric ? Math.floor(_gPeriodSec / gargaloMetric.stdSec) : 0;
+  var combinedPphConv = gargaloMetric ? +(_gPeriodSec / gargaloMetric.stdSec).toFixed(2) : 0;
 
   var jornadas = [
     {h:7,'lbl':'7 h'},{h:7.5,lbl:'7,5 h'},{h:8,lbl:'8 h'},
@@ -12980,7 +12981,7 @@ function showFinalReport(){
     +       '<td colspan="2" style="padding:8px 10px;font-weight:800;color:var(--accent);font-size:11px;letter-spacing:.8px;text-transform:uppercase">TOTAL — Gargalo'+(gargaloMetric?': <span style="font-size:9px;font-weight:600;color:var(--orange)">'+esc(gargaloMetric.sheet.label)+'</span>':'')+'</td>'
     +       '<td style="padding:8px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:800;color:var(--text)">'+totalTmuSum.toFixed(1)+'</td>'
     +       '<td style="padding:8px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:800;color:var(--green)">'+totalStdSec.toFixed(3)+'s<span style="font-size:8px;color:var(--text3);font-weight:400;display:block">conteúdo total</span></td>'
-    +       '<td style="padding:8px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:800;color:var(--orange)">'+(combinedPphConv||'—')+'<span style="font-size:9px;color:var(--text3);font-weight:400"> '+_gPcsAbbr+'/'+_gUnitLbl+'</span><span style="font-size:8px;color:var(--orange);font-weight:600;display:block">limite da linha</span></td>'
+    +       '<td style="padding:8px 8px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:800;color:var(--orange)">'+((combinedPphConv||'—'))+'<span style="font-size:9px;color:var(--text3);font-weight:400"> '+_gPcsAbbr+'/'+_gUnitLbl+'</span><span style="font-size:8px;color:var(--orange);font-weight:600;display:block">limite da linha</span></td>'
     +       '<td colspan="2" style="padding:8px 8px;text-align:right;font-size:10px;color:var(--text3)">—</td>'
     +     '</tr></tfoot>'
     +   '</table>'
