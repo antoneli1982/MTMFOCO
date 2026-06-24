@@ -555,7 +555,7 @@ body{
 .tab{
   font-size:11px;font-weight:600;padding:6px 14px;
   border:1px solid transparent;border-radius:var(--radius-sm);
-  cursor:pointer;background:transparent;color:var(--text3);
+  cursor:grab;background:transparent;color:var(--text3);
   display:flex;align-items:center;gap:6px;white-space:nowrap;transition:all .2s;
   letter-spacing:.2px;
 }
@@ -565,6 +565,9 @@ body{
   color:var(--accent);
   border-color:rgba(0,212,255,.2);
 }
+.tab.tab-dragging{opacity:.35;outline:2px dashed var(--accent);outline-offset:1px}
+.tab.drag-over-before{border-left:3px solid var(--accent) !important;margin-left:-2px}
+.tab.drag-over-after{border-right:3px solid var(--accent) !important}
 .tab-close{
   width:16px;height:16px;border-radius:4px;border:none;background:transparent;
   color:var(--text3);cursor:pointer;font-size:13px;
@@ -4231,9 +4234,44 @@ function renderTabs(){
   scopedSheets().forEach(s=>{
     const t=document.createElement('div');
     t.className='tab'+(s.id===activeId?' active':'');
-    t.innerHTML=`<span onclick="setActive('${s.id}')" style="pointer-events:auto">${esc(s.label)}</span>
+    t.draggable=true;
+    t.dataset.sid=s.id;
+    t.innerHTML=`<span onclick="setActive('${s.id}')" style="pointer-events:auto;cursor:pointer">${esc(s.label)}</span>
       <span class="tab-rename" onclick="event.stopPropagation();renameById('${s.id}')" title="Renomear esta folha">✏️</span>
       <span class="tab-close" onclick="event.stopPropagation();delById('${s.id}')" title="Excluir esta folha">×</span>`;
+    // ── Drag-and-drop para reordenar ──
+    t.addEventListener('dragstart',function(e){
+      e.dataTransfer.setData('text/plain',s.id);
+      e.dataTransfer.effectAllowed='move';
+      setTimeout(()=>t.classList.add('tab-dragging'),0);
+    });
+    t.addEventListener('dragend',function(){
+      t.classList.remove('tab-dragging');
+      bar.querySelectorAll('.tab').forEach(el=>el.classList.remove('drag-over-before','drag-over-after'));
+    });
+    t.addEventListener('dragover',function(e){
+      e.preventDefault();
+      e.dataTransfer.dropEffect='move';
+      bar.querySelectorAll('.tab').forEach(el=>el.classList.remove('drag-over-before','drag-over-after'));
+      const rect=t.getBoundingClientRect();
+      const mid=rect.left+rect.width/2;
+      t.classList.add(e.clientX<mid?'drag-over-before':'drag-over-after');
+    });
+    t.addEventListener('dragleave',function(e){
+      if(!t.contains(e.relatedTarget)){
+        t.classList.remove('drag-over-before','drag-over-after');
+      }
+    });
+    t.addEventListener('drop',function(e){
+      e.preventDefault();
+      const fromId=e.dataTransfer.getData('text/plain');
+      if(fromId&&fromId!==s.id){
+        const rect=t.getBoundingClientRect();
+        const before=e.clientX<(rect.left+rect.width/2);
+        moveSheet(fromId,s.id,before);
+      }
+      bar.querySelectorAll('.tab').forEach(el=>el.classList.remove('drag-over-before','drag-over-after'));
+    });
     bar.insertBefore(t,add);
   });
   // Atualiza estado dos botões de navegação
@@ -4243,6 +4281,32 @@ function renderTabs(){
   const next=document.getElementById('tab-nav-next');
   if(prev) prev.disabled=(idx<=0);
   if(next) next.disabled=(idx<0||idx>=scoped.length-1);
+}
+
+function moveSheet(fromId, toId, insertBefore){
+  const p=getActiveProject();
+  if(p&&p.sheets){
+    // Modo projeto: reordena o array de IDs do projeto
+    const arr=p.sheets;
+    const fi=arr.indexOf(fromId);
+    const ti=arr.indexOf(toId);
+    if(fi===-1||ti===-1||fi===ti) return;
+    arr.splice(fi,1);
+    const newTi=arr.indexOf(toId);
+    arr.splice(insertBefore?newTi:newTi+1,0,fromId);
+    if(typeof pmSave==='function') pmSave();
+  } else {
+    // Modo global: reordena o array global de sheets
+    const fi=sheets.findIndex(s=>s.id===fromId);
+    const ti=sheets.findIndex(s=>s.id===toId);
+    if(fi===-1||ti===-1||fi===ti) return;
+    const item=sheets.splice(fi,1)[0];
+    const newTi=sheets.findIndex(s=>s.id===toId);
+    sheets.splice(insertBefore?newTi:newTi+1,0,item);
+  }
+  renderTabs();
+  if(typeof saveSheets==='function') saveSheets();
+  if(typeof showToast==='function') showToast('↕️ Folha reordenada');
 }
 
 function navigateSheet(dir){
