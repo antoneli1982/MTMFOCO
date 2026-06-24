@@ -743,6 +743,12 @@ table.mtm tfoot tr.total-row td{
   display:inline-flex;align-items:center;justify-content:center;color:var(--text3);margin-right:2px;
 }
 .row-ins:hover{background:var(--greenBg);color:var(--green);border-color:var(--green)}
+.row-drag{width:24px;height:24px;border-radius:5px;border:1px solid transparent;background:transparent;cursor:grab;font-size:12px;transition:all .15s;display:inline-flex;align-items:center;justify-content:center;color:var(--text3);margin-right:2px;line-height:1;}
+.row-drag:hover{background:var(--surface3);color:var(--accent);border-color:var(--border2)}
+.row-drag:active{cursor:grabbing}
+tr.row-dragging td{opacity:.35;background:var(--accentBg)!important}
+tr.row-drop-above td{border-top:2px solid var(--accent)!important}
+tr.row-drop-below td{border-bottom:2px solid var(--accent)!important}
 
 /* AUTOCOMPLETE */
 .code-wrap{position:relative}
@@ -4317,6 +4323,33 @@ function navigateSheet(dir){
   if(nIdx>=0&&nIdx<scoped.length) setActive(scoped[nIdx].id);
 }
 
+function moveRow(sid, fromRid, toRid, insertBefore){
+  var s = get(sid);
+  if(!s || !s.rows) return;
+  var fi = s.rows.findIndex(function(r){ return r.id === fromRid; });
+  var ti = s.rows.findIndex(function(r){ return r.id === toRid; });
+  if(fi === -1 || ti === -1 || fi === ti) return;
+  // 1. Reordena o array de dados
+  var item = s.rows.splice(fi, 1)[0];
+  var newTi = s.rows.findIndex(function(r){ return r.id === toRid; });
+  s.rows.splice(insertBefore ? newTi : newTi + 1, 0, item);
+  // 2. Move o <tr> no DOM (sem re-render, preserva todos os event listeners)
+  var tbody = document.getElementById('tb-' + sid);
+  var fromTr = document.getElementById(fromRid);
+  var toTr   = document.getElementById(toRid);
+  if(tbody && fromTr && toTr){
+    if(insertBefore){
+      tbody.insertBefore(fromTr, toTr);
+    } else {
+      tbody.insertBefore(fromTr, toTr.nextSibling);
+    }
+  }
+  // 3. Atualiza numeração e totais
+  if(typeof updateNums === 'function') updateNums(sid);
+  if(typeof saveSheets === 'function') saveSheets();
+  if(typeof persistNow === 'function') persistNow();
+}
+
 function renameById(id){
   const s = get(id);
   if(!s){ return; }
@@ -4773,8 +4806,48 @@ function renderRow(sid,rid,focus=false){
     <td><input class="ci ci-num" placeholder="1" data-f="f" value="${esc(row.f||'')}"></td>
     <td><input class="ci ci-res" readonly data-f="ttmu" value="${row.ttmu||''}"></td>
     <td><input class="ci ci-sec" readonly data-f="tsec" value="${row.tsec||''}"></td>
-    <td style="white-space:nowrap"><button class="row-ins" onclick="insertRowAbove('${sid}','${rid}')" title="Inserir uma linha acima desta">＋</button><button class="row-del" onclick="delRow('${sid}','${rid}')" title="Excluir esta linha">✕</button></td>`;
+    <td style="white-space:nowrap"><button class="row-drag" title="Arrastar para reordenar">⠿</button><button class="row-ins" onclick="insertRowAbove('${sid}','${rid}')" title="Inserir uma linha acima desta">＋</button><button class="row-del" onclick="delRow('${sid}','${rid}')" title="Excluir esta linha">✕</button></td>`;
+  tr.draggable = true;
   tbody.appendChild(tr);
+
+  // ── Drag-and-drop para reordenar linhas ──
+  tr.addEventListener('dragstart', function(e){
+    if(!e.target.closest('.row-drag')){ e.preventDefault(); return; }
+    e.dataTransfer.setData('text/plain', JSON.stringify({sid:sid, rid:rid}));
+    e.dataTransfer.effectAllowed = 'move';
+    setTimeout(function(){ tr.classList.add('row-dragging'); }, 0);
+  });
+  tr.addEventListener('dragend', function(){
+    tr.classList.remove('row-dragging');
+    document.querySelectorAll('.row-drop-above,.row-drop-below').forEach(function(el){
+      el.classList.remove('row-drop-above','row-drop-below');
+    });
+  });
+  tr.addEventListener('dragover', function(e){
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    document.querySelectorAll('.row-drop-above,.row-drop-below').forEach(function(el){
+      el.classList.remove('row-drop-above','row-drop-below');
+    });
+    var rect = tr.getBoundingClientRect();
+    tr.classList.add(e.clientY < rect.top + rect.height / 2 ? 'row-drop-above' : 'row-drop-below');
+  });
+  tr.addEventListener('dragleave', function(e){
+    if(!tr.contains(e.relatedTarget)){
+      tr.classList.remove('row-drop-above','row-drop-below');
+    }
+  });
+  tr.addEventListener('drop', function(e){
+    e.preventDefault();
+    var data;
+    try{ data = JSON.parse(e.dataTransfer.getData('text/plain')); } catch(ex){ return; }
+    if(!data || data.rid === rid) return;
+    if(data.sid !== sid) return; // só reordena dentro da mesma folha
+    var rect = tr.getBoundingClientRect();
+    var before = e.clientY < rect.top + rect.height / 2;
+    moveRow(sid, data.rid, rid, before);
+    tr.classList.remove('row-drop-above','row-drop-below');
+  });
 
   tr.querySelectorAll('[data-f]').forEach(el=>{
     const f=el.dataset.f;
