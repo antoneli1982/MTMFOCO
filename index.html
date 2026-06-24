@@ -584,6 +584,16 @@ body{
   display:flex;align-items:center;
 }
 .tab-add:hover{color:var(--accent);border-color:var(--accent)}
+.tab-nav{
+  flex-shrink:0;padding:4px 9px;border:1px solid var(--border2);
+  border-radius:var(--radius-sm);background:var(--surface2);
+  color:var(--text2);cursor:pointer;font-size:13px;font-weight:700;
+  line-height:1;transition:all .2s;display:flex;align-items:center;
+  font-family:inherit;
+}
+.tab-nav:hover:not(:disabled){background:var(--surface3);color:var(--accent);border-color:var(--accent)}
+.tab-nav:disabled{opacity:.3;cursor:not-allowed}
+.tab-nav-sep{width:1px;height:18px;background:var(--border2);flex-shrink:0;margin:0 4px}
 
 /* FOLHA */
 .folha-content{display:none;padding:20px}
@@ -3208,6 +3218,9 @@ window.FIREBASE_CONFIG = {
 </div>
 
 <div class="tabs-wrapper" id="tabs-bar">
+  <button class="tab-nav" id="tab-nav-prev" onclick="navigateSheet(-1)" title="Folha anterior (←)">◀</button>
+  <button class="tab-nav" id="tab-nav-next" onclick="navigateSheet(1)" title="Próxima folha (→)">▶</button>
+  <div class="tab-nav-sep"></div>
   <div class="tab-add" onclick="addSheetHere()">＋</div>
 </div>
 
@@ -4223,6 +4236,20 @@ function renderTabs(){
       <span class="tab-close" onclick="event.stopPropagation();delById('${s.id}')" title="Excluir esta folha">×</span>`;
     bar.insertBefore(t,add);
   });
+  // Atualiza estado dos botões de navegação
+  const scoped=scopedSheets();
+  const idx=scoped.findIndex(s=>s.id===activeId);
+  const prev=document.getElementById('tab-nav-prev');
+  const next=document.getElementById('tab-nav-next');
+  if(prev) prev.disabled=(idx<=0);
+  if(next) next.disabled=(idx<0||idx>=scoped.length-1);
+}
+
+function navigateSheet(dir){
+  const scoped=scopedSheets();
+  const idx=scoped.findIndex(s=>s.id===activeId);
+  const nIdx=idx+dir;
+  if(nIdx>=0&&nIdx<scoped.length) setActive(scoped[nIdx].id);
 }
 
 function renameById(id){
@@ -4346,7 +4373,7 @@ function renderContent(id){
         <span class="f-label" style="color:var(--purple)">${h.pcsCicloUnit||'pç'} por ciclo</span>
         <input class="f-input" type="number" step="1" min="1" placeholder="1" title="Quantidade por ciclo (ex.: 2 caixas por vez na máquina). Multiplica produção/hora e capacidade." data-key="pcsCiclo" value="${esc(h.pcsCiclo||'')}">
         <select class="f-input" data-key="pcsCicloUnit" style="font-size:10px;background:transparent;border:none;border-top:1px solid var(--border2);padding:2px 0;width:100%;color:var(--text2);margin-top:2px;cursor:pointer">
-          ${[['pç','Peças'],['cx','Caixas'],['un','Unidades'],['kg','Quilogramas'],['L','Litros'],['m','Metros lineares'],['m²','Metros quadrados'],['m³','Metros cúbicos'],['pal','Paletes'],['bob','Bobinas'],['pct','Pacotes'],['fd','Fardos'],['tl','Toneladas']].map(([v,l])=>`<option value="${v}" ${(h.pcsCicloUnit||'pç')===v?'selected':''}>${v} — ${l}</option>`).join('')}
+          ${[['pç','Peças'],['cx','Caixas'],['un','Unidades'],['kg','Quilogramas'],['L','Litros'],['m','Metros lineares'],['m²','Metros quadrados'],['m³','Metros cúbicos'],['pal','Paletes'],['bob','Bobinas'],['pct','Pacotes'],['fd','Fardos'],['tl','Toneladas'],['rack','Rack'],['brc','Berço']].map(([v,l])=>`<option value="${v}" ${(h.pcsCicloUnit||'pç')===v?'selected':''}>${v} — ${l}</option>`).join('')}
         </select>
       </div>
       <div class="f-group" style="background:var(--greenBg);border-left:2px solid var(--green);padding-left:8px">
