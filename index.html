@@ -4034,10 +4034,11 @@ function projectScopeIds(){
 }
 
 // Folhas visíveis segundo o escopo atual (somente as do projeto ativo)
+// Usa ids.map() para preservar a ORDEM de p.sheets (não a ordem do array global)
 function scopedSheets(){
   var ids = projectScopeIds();
   if(ids === null) return sheets.slice();
-  return sheets.filter(function(s){ return ids.indexOf(s.id) !== -1; });
+  return ids.map(function(id){ return sheets.find(function(s){ return s.id===id; }); }).filter(Boolean);
 }
 
 function sheetInScope(sid){
