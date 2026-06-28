@@ -13425,6 +13425,313 @@ function showToast(msg, isErr){
   }, 2600);
 }
 
+
+/* ════════════════════════════════════════════════════════════
+   IMPORTAÇÃO INTELIGENTE DE EXCEL — Motor único
+   Reconhece colunas por sinônimos, acentos, abreviações e pelo
+   conteúdo das células. Não depende do título exato da coluna.
+   ════════════════════════════════════════════════════════════ */
+window.MTM_XLSX_SMART = window.MTM_XLSX_SMART || (function(){
+  var _lib = null;
+
+  function _raw(v){ return v == null ? '' : String(v); }
+  function norm(v){
+    return _raw(v)
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .toLowerCase()
+      .replace(/[º°ª]/g,'')
+      .replace(/[\(\)\[\]\{\}\/\\|:;,_\.\-–—•]+/g,' ')
+      .replace(/%/g,' pct ')
+      .replace(/\s+/g,' ')
+      .trim();
+  }
+  function parseNum(v){
+    if(v === '' || v == null) return NaN;
+    if(typeof v === 'number') return isFinite(v) ? v : NaN;
+    var s = String(v).trim();
+    if(!s) return NaN;
+    s = s.replace(/\u00a0/g,'').replace(/\s/g,'').replace(/%$/,'');
+    // 1.234,56 -> 1234.56 | 1234,56 -> 1234.56
+    if(s.indexOf(',') >= 0 && s.indexOf('.') >= 0) s = s.replace(/\./g,'').replace(',', '.');
+    else s = s.replace(',', '.');
+    var n = parseFloat(s);
+    return isFinite(n) ? n : NaN;
+  }
+  function cleanCode(v){
+    return _raw(v).trim().toUpperCase().replace(/[“”"']/g,'').replace(/\s+/g,'');
+  }
+  function buildLib(){
+    if(_lib) return _lib;
+    _lib = { byCode:{}, codes:[] };
+    function add(code, tmu, desc){
+      var c = cleanCode(code);
+      if(!c) return;
+      if(!_lib.byCode[c]) _lib.codes.push(c);
+      _lib.byCode[c] = { code:c, tmu:parseNum(tmu), desc:_raw(desc) };
+    }
+    try{
+      if(typeof MATRIZ !== 'undefined' && MATRIZ){
+        Object.keys(MATRIZ).forEach(function(k){ add(k, MATRIZ[k] && MATRIZ[k].tmu, MATRIZ[k] && MATRIZ[k].desc); });
+      }
+    }catch(e){}
+    try{
+      if(typeof LIB_CODES !== 'undefined' && Array.isArray(LIB_CODES)){
+        LIB_CODES.forEach(function(x){ add(x.code, x.tmu, x.desc); });
+      }
+    }catch(e){}
+    return _lib;
+  }
+  function lookup(code){
+    var c = cleanCode(code);
+    return c ? (buildLib().byCode[c] || null) : null;
+  }
+  function isLikelyCode(v){
+    var s = cleanCode(v);
+    if(!s || s.length < 2 || s.length > 16) return false;
+    if(/^\d+([\.,]\d+)?$/.test(s)) return false;
+    if(/^(TOTAL|SUBTOTAL|SOMA|RESULTADO|CODIGO|CÓDIGO|DESCRICAO|DESCRIÇÃO|TITULO|TÍTULO|ITEM|NUMERO|N|QTD|QTDE|QUANTIDADE|TMU|SEG|SEGUNDOS|TEMPO|AGREGA|NAO|NÃO|SIM|OK|X)$/.test(s)) return false;
+    if(lookup(s)) return true;
+    // Códigos MTM/LOG podem ser só letras (KB, HUGA, SABAFM, SZALF) ou letras+números (AA1, PA2)
+    return /^[A-Z]{1,8}\d{0,4}(?:-[A-Z0-9]{1,8})*$/.test(s);
+  }
+  function extractCodeFromText(v){
+    var s = _raw(v).toUpperCase();
+    if(!s) return '';
+    var m = s.match(/[A-Z]{1,8}\d{0,4}(?:-[A-Z0-9]{1,8})*/g) || [];
+    var best = '';
+    for(var i=0;i<m.length;i++){
+      var c = cleanCode(m[i]);
+      if(lookup(c)) return c;
+      if(!best && isLikelyCode(c)) best = c;
+    }
+    return best;
+  }
+  function fieldFromHeader(v){
+    var n = norm(v);
+    if(!n) return '';
+    var compact = n.replace(/\s+/g,'');
+
+    // Totais antes do TMU unitário
+    if((/\b(total|soma|subtotal|resultado)\b/.test(n) && (/\btmu\b/.test(n) || compact.indexOf('tmu')>=0)) || /\bttmu\b/.test(n)) return 'ttmu';
+    if((/\b(total|soma|subtotal|resultado|tempo)\b/.test(n) && /\b(s|seg|segundo|segundos|sec|seconds)\b/.test(n)) || n === 'total s' || n === 'tempo s') return 'tsec';
+
+    if(/\b(codigo|cod|code)\b/.test(n) || n === 'mtm' || /\bcod mtm\b/.test(n) || /\bcodigo mtm\b/.test(n) || /\bmtm code\b/.test(n)) return 'code';
+    if(/\btmu\b/.test(n) || compact === 'tmu' || compact.indexOf('tmu')>=0 || /\btempo mtm\b/.test(n) || /\bvalor mtm\b/.test(n) || /\btempo base\b/.test(n)) return 'tmu';
+    if(/descri|descricao|elemento|metodo|método|atividade|operacao|operação|movimento|tarefa|etapa|passo|elemento metodo/.test(n)) return 'desc';
+    if(/agrega|valor agregado|va nva|classificacao|classificação|av nav|nva|agregado/.test(n)) return 'agrega';
+    if(n === 'q' || /\b(qtd|qtde|quantidade|quant|peca|pecas|peça|peças|unid|unidade|unidades|volume)\b/.test(n)) return 'q';
+    if(n === 'f' || /\b(freq|frequencia|frequência|fator|repet|repeticao|repetição|repeticoes|repetições|vezes|ocorrencia|ocorrência|ciclo|ciclos)\b/.test(n)) return 'f';
+    return '';
+  }
+  function headerKey(v){
+    var n = norm(v).replace(/\bpct\b/g,'').trim();
+    if(!n) return '';
+    if(/^(processo|operacao|operação|atividade|nome do processo)$/.test(n)) return 'processo';
+    if(/^(codigo|código|cod processo|codigo processo|id processo)$/.test(n)) return 'codigo';
+    if(/^data/.test(n)) return 'data';
+    if(/^(inicio|início|hora inicio|hora inicial)$/.test(n)) return 'inicio';
+    if(/^(fim|hora fim|hora final|termino|término)$/.test(n)) return 'fim';
+    if(/^(planta|secao|seção|setor|area|área|linha|posto)$/.test(n)) return 'planta';
+    if(/^(engenheiro|eng|analista|responsavel|responsável|elaborado por)$/.test(n)) return 'eng';
+    if(/^(operador|operador posto|posto operador)$/.test(n)) return 'operator';
+    if(/^(empresa|empresa cliente|cliente|unidade)$/.test(n)) return 'empresa';
+    if(/^(projeto|nome do projeto)$/.test(n)) return 'projeto';
+    if(/^takt/.test(n)) return 'takt';
+    if(/^demanda/.test(n)) return 'demand';
+    if(/pecas por ciclo|peças por ciclo|pecas ciclo|peças ciclo|pecas\/ciclo|peças\/ciclo/.test(n)) return 'pcsCiclo';
+    if(/pessoal|allow pessoal|allowance pessoal/.test(n)) return 'allowPersonal';
+    if(/fadiga|allow fadiga|allowance fadiga/.test(n)) return 'allowFatigue';
+    if(/contingencia|contingência|allow contingencia|allowance contingencia/.test(n)) return 'allowContingency';
+    return '';
+  }
+  function colStats(aoa, h, c){
+    var st = { total:0, nonEmpty:0, code:0, known:0, num:0, text:0, agrega:0, avg:0, small:0 };
+    var sum = 0;
+    var maxR = Math.min(aoa.length, h + 35);
+    var emptyRun = 0;
+    for(var r=h+1; r<maxR; r++){
+      var row = aoa[r] || [];
+      var allEmpty = true;
+      for(var x=0; x<row.length; x++){ if(_raw(row[x]).trim() !== ''){ allEmpty=false; break; } }
+      if(allEmpty){ emptyRun++; if(emptyRun >= 6) break; continue; }
+      emptyRun = 0;
+      st.total++;
+      var raw = row[c];
+      var s = _raw(raw).trim();
+      if(!s) continue;
+      st.nonEmpty++;
+      var embeddedCode = extractCodeFromText(s);
+      if(isLikelyCode(s) || embeddedCode){ st.code++; if(lookup(s) || lookup(embeddedCode)) st.known++; }
+      var n = parseNum(raw);
+      if(!isNaN(n)){ st.num++; sum += n; if(Math.abs(n) <= 10) st.small++; }
+      if(isNaN(n) && !isLikelyCode(s) && s.length >= 4) st.text++;
+      var ns = norm(s);
+      if(/^(va|nva|sim|nao|não|agrega|nao agrega|não agrega|agregado|nao agregado|não agregado)$/.test(ns)) st.agrega++;
+    }
+    st.avg = st.num ? (sum / st.num) : NaN;
+    return st;
+  }
+  function setIfEmpty(map, k, v){ if(v >= 0 && (map[k] == null || map[k] < 0)) map[k] = v; }
+  function detectTable(aoa){
+    var best = null;
+    var maxRows = Math.min(aoa.length, 90);
+    for(var r=0; r<maxRows; r++){
+      var row = aoa[r] || [];
+      var map = {desc:-1, agrega:-1, code:-1, tmu:-1, q:-1, f:-1, ttmu:-1, tsec:-1};
+      var headerHits = 0;
+      for(var c=0; c<row.length; c++){
+        var ft = fieldFromHeader(row[c]);
+        if(!ft) continue;
+        if(map[ft] < 0){ map[ft] = c; headerHits++; }
+      }
+      // Evita confundir linhas de metadados, como "Operação | Processo X", com cabeçalho da tabela.
+      if(headerHits < 2) continue;
+
+      var maxCols = 0;
+      for(var rr=r; rr<Math.min(aoa.length, r+25); rr++) maxCols = Math.max(maxCols, (aoa[rr]||[]).length);
+      var stats = [];
+      for(var cc=0; cc<maxCols; cc++) stats[cc] = colStats(aoa, r, cc);
+
+      if(map.code < 0){
+        var bc=-1, bs=0;
+        for(var c1=0; c1<stats.length; c1++){
+          var sc = stats[c1].code * 3 + stats[c1].known * 4 - stats[c1].agrega * 2;
+          if(sc > bs){ bs = sc; bc = c1; }
+        }
+        if(bs >= 3) map.code = bc;
+      }
+      if(map.tmu < 0){
+        var bt=-1, ts=-999;
+        for(var c2=0; c2<stats.length; c2++){
+          if(c2 === map.code || c2 === map.desc || c2 === map.agrega) continue;
+          if(stats[c2].num <= 0) continue;
+          var headerType = fieldFromHeader(row[c2]);
+          if(headerType === 'q' || headerType === 'f' || headerType === 'ttmu' || headerType === 'tsec') continue;
+          var avg = isNaN(stats[c2].avg) ? 0 : stats[c2].avg;
+          var score = stats[c2].num * 2 + (avg > 3 ? 3 : 0) + (map.code >= 0 ? Math.max(0, 6 - Math.abs(c2 - map.code)) : 0);
+          if(score > ts){ ts = score; bt = c2; }
+        }
+        if(bt >= 0) map.tmu = bt;
+      }
+      if(map.desc < 0){
+        var bd=-1, ds=0;
+        for(var c3=0; c3<stats.length; c3++){
+          if(c3 === map.code || c3 === map.tmu || c3 === map.q || c3 === map.f || c3 === map.ttmu || c3 === map.tsec) continue;
+          var scoreD = stats[c3].text * 3 + (map.code >= 0 && c3 < map.code ? 2 : 0);
+          if(scoreD > ds){ ds = scoreD; bd = c3; }
+        }
+        if(ds >= 2) map.desc = bd;
+      }
+      if(map.agrega < 0){
+        var ba=-1, as=0;
+        for(var c4=0; c4<stats.length; c4++){
+          if(c4 === map.code || c4 === map.tmu || c4 === map.desc) continue;
+          if(stats[c4].agrega > as){ as = stats[c4].agrega; ba = c4; }
+        }
+        if(as >= 1) map.agrega = ba;
+      }
+      // Se Q/F não existirem no arquivo, usa 1. Quando existem, tenta detectar por título ou pela posição depois do TMU.
+      if(map.q < 0 || map.f < 0){
+        var nums = [];
+        for(var c5=0; c5<stats.length; c5++){
+          if(c5 === map.code || c5 === map.tmu || c5 === map.desc || c5 === map.agrega || c5 === map.ttmu || c5 === map.tsec) continue;
+          if(stats[c5].num > 0) nums.push(c5);
+        }
+        nums.sort(function(a,b){
+          var da = map.tmu >= 0 ? Math.abs(a-map.tmu) : a;
+          var db = map.tmu >= 0 ? Math.abs(b-map.tmu) : b;
+          return da-db;
+        });
+        if(map.q < 0 && nums.length) map.q = nums.shift();
+        if(map.f < 0 && nums.length) map.f = nums.shift();
+      }
+
+      var hasCodeData = map.code >= 0 && stats[map.code] && stats[map.code].code > 0;
+      var hasTmuData  = map.tmu  >= 0 && stats[map.tmu]  && stats[map.tmu].num  > 0;
+      var headerScore = 0;
+      ['code','tmu','desc','q','f','ttmu','tsec','agrega'].forEach(function(k){ if(map[k] >= 0) headerScore += (k==='code'||k==='tmu') ? 5 : 1; });
+      var score = headerScore + (hasCodeData ? stats[map.code].code * 5 + stats[map.code].known * 4 : 0) + (hasTmuData ? stats[map.tmu].num * 2 : 0);
+      // Aceita: código + TMU, ou código conhecido com TMU buscável na biblioteca.
+      if(map.code >= 0 && (map.tmu >= 0 || hasCodeData)){
+        if(!best || score > best.score) best = { hIdx:r, map:map, score:score, stats:stats };
+      }
+    }
+    return best;
+  }
+  function extractMeta(aoa, hIdx){
+    var header = {};
+    var lim = Math.min(aoa.length, Math.max(0, hIdx) + 8);
+    for(var r=0; r<lim; r++){
+      var row = aoa[r] || [];
+      for(var c=0; c<row.length; c++){
+        var k = headerKey(row[c]);
+        if(!k) continue;
+        var v = '';
+        // valor ao lado; se estiver vazio, tenta abaixo
+        if(c+1 < row.length && _raw(row[c+1]).trim() !== '') v = row[c+1];
+        else if(r+1 < aoa.length && _raw((aoa[r+1]||[])[c]).trim() !== '') v = (aoa[r+1]||[])[c];
+        if(v !== '' && v != null && (header[k] === undefined || header[k] === '')) header[k] = _raw(v).trim();
+      }
+    }
+    return header;
+  }
+  function parseAoa(aoa, opts){
+    opts = opts || {};
+    if(!aoa || !aoa.length) return null;
+    var det = detectTable(aoa);
+    if(!det) return null;
+    var m = det.map;
+    var rows = [];
+    var emptyRun = 0;
+    for(var r=det.hIdx+1; r<aoa.length; r++){
+      var dr = aoa[r] || [];
+      var allEmpty = true;
+      for(var cc=0; cc<dr.length; cc++){ if(_raw(dr[cc]).trim() !== ''){ allEmpty=false; break; } }
+      if(allEmpty){ emptyRun++; if(emptyRun >= 8 && rows.length) break; continue; }
+      emptyRun = 0;
+
+      var desc = m.desc >= 0 ? _raw(dr[m.desc]).trim() : '';
+      var firstText = desc || _raw(dr[0]).trim();
+      if(/^([=]|╔)/.test(firstText)) break;
+      if(/^total\b|^subtotal\b|^soma\b|^resultado\b/i.test(norm(firstText))) break;
+
+      var code = m.code >= 0 ? cleanCode(dr[m.code]) : '';
+      if(!isLikelyCode(code)) code = extractCodeFromText(desc) || extractCodeFromText(_raw(dr[m.code]));
+      var lib = lookup(code);
+      var tmuNum = m.tmu >= 0 ? parseNum(dr[m.tmu]) : NaN;
+      if(isNaN(tmuNum) && lib && !isNaN(lib.tmu)) tmuNum = lib.tmu;
+      if(!desc && lib && lib.desc) desc = lib.desc;
+      if(!desc && m.code >= 0 && _raw(dr[m.code]).trim() && !isLikelyCode(dr[m.code])) desc = _raw(dr[m.code]).trim();
+
+      if(!code && !(desc && !isNaN(tmuNum))) continue;
+      var q = m.q >= 0 ? parseNum(dr[m.q]) : NaN; if(isNaN(q) || q <= 0) q = 1;
+      var f = m.f >= 0 ? parseNum(dr[m.f]) : NaN; if(isNaN(f) || f <= 0) f = 1;
+      var tt = m.ttmu >= 0 ? parseNum(dr[m.ttmu]) : NaN; if(isNaN(tt)) tt = (isNaN(tmuNum) ? 0 : tmuNum) * q * f;
+      var ts = m.tsec >= 0 ? parseNum(dr[m.tsec]) : NaN; if(isNaN(ts)) ts = tt * 0.036;
+      rows.push({
+        desc: desc,
+        agrega: m.agrega >= 0 ? _raw(dr[m.agrega]).trim() : '',
+        code: code,
+        tmu: isNaN(tmuNum) ? '' : String(tmuNum),
+        q: String(q),
+        f: String(f),
+        ttmu: tt || 0,
+        tsec: ts || 0
+      });
+    }
+    if(!rows.length) return null;
+    return {
+      rows: rows,
+      header: extractMeta(aoa, det.hIdx),
+      headerRow: det.hIdx,
+      columns: det.map,
+      confidence: det.score,
+      label: opts.label || opts.sheetName || ''
+    };
+  }
+  return { parseAoa:parseAoa, norm:norm, parseNum:parseNum, isLikelyCode:isLikelyCode, lookup:lookup, extractCodeFromText:extractCodeFromText, fieldFromHeader:fieldFromHeader };
+})();
+
 function _xlCalcSheetMetrics(s){
   var h = s.header || {};
   var rows = s.rows || [];
@@ -13974,32 +14281,27 @@ function importExcelHandle(input){
               }
             }
           }
-          // Encontrar linha de header da tabela: "Descrição"
-          var thIdx = -1;
-          for(var z=0; z<aoa.length; z++){
-            var fc = String((aoa[z]||[])[0]||'').trim().toLowerCase();
-            if(fc === 'descrição' || fc === 'descricao'){ thIdx = z; break; }
+          // Importação inteligente: detecta Descrição/Código/TMU/Q/F por título OU pelo conteúdo.
+          var smartMtm = (window.MTM_XLSX_SMART && window.MTM_XLSX_SMART.parseAoa)
+            ? window.MTM_XLSX_SMART.parseAoa(aoa, {sheetName:sheetName, label:(labelBase || sheetName)})
+            : null;
+          if(!smartMtm || !smartMtm.rows || !smartMtm.rows.length) return;
+          for(var sh in (smartMtm.header||{})){
+            if(smartMtm.header[sh]!=='' && smartMtm.header[sh]!=null && (folha.header[sh]===undefined || folha.header[sh]==='')) folha.header[sh] = smartMtm.header[sh];
           }
-          if(thIdx < 0) return;
-          for(var k2=thIdx+1; k2<aoa.length; k2++){
-            var rr = aoa[k2];
-            if(!rr) continue;
-            var first = String(rr[0]||'').trim();
-            // Parar em linhas de total ou cabeçalhos de seção
-            if(/^total/i.test(first) || /^=/.test(first) || /^╔/.test(first)) break;
-            if(!first && !rr[2] && (rr[3]==='' || rr[3]==null)) continue;
+          smartMtm.rows.forEach(function(sr,idxRow){
             folha.rows.push({
-              id: 'r_imp_'+Date.now()+'_'+Math.floor(Math.random()*99999)+'_'+k2,
-              desc: String(rr[0]||''),
-              agrega: String(rr[1]||''),
-              code: String(rr[2]||''),
-              tmu: (rr[3]===''||rr[3]==null)?'':String(rr[3]),
-              q:   (rr[4]===''||rr[4]==null)?'':String(rr[4]),
-              f:   (rr[5]===''||rr[5]==null)?'':String(rr[5]),
-              ttmu: parseFloat(rr[6])||0,
-              tsec: parseFloat(rr[7])||0
+              id: 'r_imp_'+Date.now()+'_'+Math.floor(Math.random()*99999)+'_'+idxRow,
+              desc: String(sr.desc||''),
+              agrega: String(sr.agrega||''),
+              code: String(sr.code||''),
+              tmu: (sr.tmu===''||sr.tmu==null)?'':String(sr.tmu),
+              q:   (sr.q===''||sr.q==null)?'1':String(sr.q),
+              f:   (sr.f===''||sr.f==null)?'1':String(sr.f),
+              ttmu: parseFloat(sr.ttmu)||0,
+              tsec: parseFloat(sr.tsec)||0
             });
-          }
+          });
           return;
         }
 
@@ -14105,86 +14407,34 @@ function importExcelHandle(input){
         }
 
         /* === NOVO FORMATO: Folha de Processo MTM "externa"/genérica ===
-           Detecta uma tabela cujo cabeçalho contenha as colunas Código + TMU + Q + F
-           (ex.: "N° | Descrição do elemento | Agrega | Código | TMU | Q | F | Total TMU | Total (s)")
-           — independente da posição das colunas — e importa SOMENTE as linhas que
-           possuem um código MTM válido (ignora bandas de seção, subtotais e resultados). */
-        var xH=-1, xCode=-1, xTmu=-1, xQ=-1, xF=-1, xDesc=-1, xAgr=-1, xTtmu=-1, xTsec=-1;
-        for(var xr=0; xr<aoa.length && xH<0; xr++){
-          var xrow = aoa[xr]||[];
-          var c_code=-1,c_tmu=-1,c_q=-1,c_f=-1,c_desc=-1,c_agr=-1,c_ttmu=-1,c_tsec=-1;
-          for(var xc=0; xc<xrow.length; xc++){
-            var xt = String(xrow[xc]==null?'':xrow[xc]).trim().toLowerCase();
-            if(!xt) continue;
-            if(c_code<0 && (xt==='código'||xt==='codigo')) c_code=xc;
-            if(c_tmu<0 && xt==='tmu') c_tmu=xc;
-            if(c_q<0 && xt==='q') c_q=xc;
-            if(c_f<0 && xt==='f') c_f=xc;
-            if(c_desc<0 && (xt.indexOf('descri')>=0 || xt.indexOf('elemento')>=0)) c_desc=xc;
-            if(c_agr<0 && xt.indexOf('agrega')>=0) c_agr=xc;
-            if(c_ttmu<0 && xt.indexOf('total tmu')>=0) c_ttmu=xc;
-            if(c_tsec<0 && (xt.indexOf('total (s)')>=0 || xt==='total s' || xt.indexOf('total (seg')>=0)) c_tsec=xc;
-          }
-          // exige Código + TMU + Q + F juntos (exclui a aba "Referência MTM", que não tem Q/F)
-          if(c_code>=0 && c_tmu>=0 && c_q>=0 && c_f>=0){
-            xH=xr; xCode=c_code; xTmu=c_tmu; xQ=c_q; xF=c_f;
-            xDesc=c_desc; xAgr=c_agr; xTtmu=c_ttmu; xTsec=c_tsec;
-          }
-        }
-        if(xH >= 0){
-          // metadados acima do cabeçalho (Operação→processo, Seção→planta)
-          var xMetaProc='', xMetaPlanta='';
-          for(var xm=0; xm<xH; xm++){
-            var xmr = aoa[xm]||[];
-            for(var xmc=0; xmc<xmr.length-1; xmc++){
-              var xk = String(xmr[xmc]==null?'':xmr[xmc]).trim().toLowerCase().replace(/[:：]\s*$/,'');
-              var xv = xmr[xmc+1];
-              if(!xk || xv===''||xv==null) continue;
-              if((xk==='operação'||xk==='operacao') && !xMetaProc) xMetaProc=String(xv).trim();
-              else if((xk==='seção'||xk==='secao') && !xMetaPlanta) xMetaPlanta=String(xv).trim();
-            }
-          }
-          // rótulo: usa a Operação quando a aba tem nome genérico
+           Motor inteligente: entende cabeçalhos variados (Código MTM, Cod., Método,
+           Atividade, Tempo TMU, Qtd., Freq. etc.) e também infere pelas células. */
+        var smartGeneric = (window.MTM_XLSX_SMART && window.MTM_XLSX_SMART.parseAoa)
+          ? window.MTM_XLSX_SMART.parseAoa(aoa, {sheetName:sheetName, label:(labelBase || sheetName)})
+          : null;
+        if(smartGeneric && smartGeneric.rows && smartGeneric.rows.length){
           var xLabel = labelBase || sheetName;
-          if((/^folha de processo/i.test(xLabel) || !xLabel) && xMetaProc){
-            xLabel = xMetaProc.length>40 ? (xMetaProc.slice(0,40)+'…') : xMetaProc;
+          if((/^folha de processo/i.test(xLabel) || !xLabel) && smartGeneric.header && smartGeneric.header.processo){
+            var _procLbl = String(smartGeneric.header.processo||'').trim();
+            xLabel = _procLbl.length>40 ? (_procLbl.slice(0,40)+'…') : _procLbl;
           }
           var xFolha = getOrCreate(xLabel);
-          if(xMetaProc   && !xFolha.header.processo) xFolha.header.processo = xMetaProc;
-          if(xMetaPlanta && !xFolha.header.planta)   xFolha.header.planta   = xMetaPlanta;
-
-          // código MTM: 1-4 letras + dígitos opcionais + sufixo opcional com hífen (ex.: KB, HUGA, AA1, M-SHS)
-          var xCodeRe = /^[A-Za-z]{1,4}\d{0,3}(-[A-Za-z0-9]{1,4})*$/;
-          var xIsCode = function(v){
-            var s = String(v==null?'':v).trim();
-            if(!s || s.length>12 || /\s/.test(s)) return false;   // bandas/subtotais têm espaços
-            if(/^\d+([.,]\d+)?$/.test(s)) return false;            // descarta números puros
-            return xCodeRe.test(s);
-          };
-
-          for(var xrr=xH+1; xrr<aoa.length; xrr++){
-            var xdr = aoa[xrr]||[];
-            var xcv = xdr[xCode];
-            if(!xIsCode(xcv)) continue;                            // <- apenas onde existe código
-            var xtmu = parseFloat(String(xdr[xTmu]).replace(',','.'));
-            var xq   = parseFloat(String(xdr[xQ]).replace(',','.')); if(isNaN(xq)) xq=1;
-            var xf   = parseFloat(String(xdr[xF]).replace(',','.')); if(isNaN(xf)) xf=1;
-            var xtt  = (xTtmu>=0 ? parseFloat(String(xdr[xTtmu]).replace(',','.')) : NaN);
-            if(isNaN(xtt)) xtt = (isNaN(xtmu)?0:xtmu)*xq*xf;
-            var xts  = (xTsec>=0 ? parseFloat(String(xdr[xTsec]).replace(',','.')) : NaN);
-            if(isNaN(xts)) xts = xtt*0.036;                        // 1 TMU = 0,036 s
+          for(var xh in (smartGeneric.header||{})){
+            if(smartGeneric.header[xh]!=='' && smartGeneric.header[xh]!=null && (xFolha.header[xh]===undefined || xFolha.header[xh]==='')) xFolha.header[xh] = smartGeneric.header[xh];
+          }
+          smartGeneric.rows.forEach(function(xrSmart, xrr){
             xFolha.rows.push({
               id: 'r_imp_'+Date.now()+'_'+Math.floor(Math.random()*99999)+'_'+xrr,
-              desc:   String(xDesc>=0 ? (xdr[xDesc]==null?'':xdr[xDesc]) : ''),
-              agrega: String(xAgr >=0 ? (xdr[xAgr] ==null?'':xdr[xAgr])  : ''),
-              code:   String(xcv).trim(),
-              tmu:    isNaN(xtmu)?'':String(xtmu),
-              q:      String(xq),
-              f:      String(xf),
-              ttmu:   xtt||0,
-              tsec:   xts||0
+              desc:   String(xrSmart.desc||''),
+              agrega: String(xrSmart.agrega||''),
+              code:   String(xrSmart.code||''),
+              tmu:    (xrSmart.tmu===''||xrSmart.tmu==null)?'':String(xrSmart.tmu),
+              q:      (xrSmart.q===''||xrSmart.q==null)?'1':String(xrSmart.q),
+              f:      (xrSmart.f===''||xrSmart.f==null)?'1':String(xrSmart.f),
+              ttmu:   parseFloat(xrSmart.ttmu)||0,
+              tsec:   parseFloat(xrSmart.tsec)||0
             });
-          }
+          });
           return;
         }
 
@@ -16358,50 +16608,16 @@ function balEsc(s){
       'pessoal (%)':'allowPersonal','fadiga (%)':'allowFatigue',
       'contingência (%)':'allowContingency','contingencia (%)':'allowContingency'
     };
-    var codeRe = /^[A-Za-z]{1,4}\d{0,3}(-[A-Za-z0-9]{1,4})*$/;
     var out = { header:{}, book:'', rows:[], label:'' };
+    var _lastSmartParse = null;
 
-    // Localiza a linha de cabeçalho com Código+TMU+Q+F e extrai as linhas
-    function extrairLinhas(aoa){
-      var hIdx=-1,cCode=-1,cTmu=-1,cQ=-1,cF=-1,cDesc=-1,cAgr=-1,cTt=-1,cTs=-1;
-      for(var r=0;r<aoa.length && hIdx<0;r++){
-        var row=aoa[r]||[]; var _c=-1,_t=-1,_q=-1,_f=-1,_d=-1,_a=-1,_tt=-1,_ts=-1;
-        for(var c=0;c<row.length;c++){
-          var t=String(row[c]==null?'':row[c]).trim().toLowerCase(); if(!t) continue;
-          if(_c<0 && (t==='código'||t==='codigo')) _c=c;
-          if(_t<0 && t==='tmu') _t=c;
-          if(_q<0 && t==='q') _q=c;
-          if(_f<0 && t==='f') _f=c;
-          if(_d<0 && (t.indexOf('descri')>=0 || t.indexOf('elemento')>=0)) _d=c;
-          if(_a<0 && t.indexOf('agrega')>=0) _a=c;
-          if(_tt<0 && (t.indexOf('total tmu')>=0 || t.indexOf('tmu total')>=0)) _tt=c;
-          if(_ts<0 && (t.indexOf('total (s)')>=0 || t.indexOf('tempo (s)')>=0 || t==='total s')) _ts=c;
-        }
-        if(_c>=0 && _t>=0 && _q>=0 && _f>=0){ hIdx=r;cCode=_c;cTmu=_t;cQ=_q;cF=_f;cDesc=_d;cAgr=_a;cTt=_tt;cTs=_ts; }
-      }
-      if(hIdx<0) return null;
-      var rows=[];
-      for(var k=hIdx+1;k<aoa.length;k++){
-        var dr=aoa[k]||[];
-        var first=String(dr[cDesc>=0?cDesc:0]==null?'':dr[cDesc>=0?cDesc:0]).trim();
-        if(/^total/i.test(first) || /^=/.test(first) || /^╔/.test(first)) break;
-        var cv=String(dr[cCode]==null?'':dr[cCode]).trim();
-        var isCode = !!cv && cv.length<=12 && !/\s/.test(cv) && !/^\d+([.,]\d+)?$/.test(cv) && codeRe.test(cv);
-        var tmuNum=parseFloat(String(dr[cTmu]).replace(',','.'));
-        if(!isCode && !(first && !isNaN(tmuNum))) continue; // linha vazia/banda: pula
-        var q=parseFloat(String(dr[cQ]).replace(',','.')); if(isNaN(q)) q=1;
-        var f=parseFloat(String(dr[cF]).replace(',','.')); if(isNaN(f)) f=1;
-        var tt=cTt>=0?parseFloat(String(dr[cTt]).replace(',','.')):NaN; if(isNaN(tt)) tt=(isNaN(tmuNum)?0:tmuNum)*q*f;
-        var ts=cTs>=0?parseFloat(String(dr[cTs]).replace(',','.')):NaN; if(isNaN(ts)) ts=tt*0.036;
-        rows.push({
-          desc:String(cDesc>=0?(dr[cDesc]==null?'':dr[cDesc]):''),
-          agrega:String(cAgr>=0?(dr[cAgr]==null?'':dr[cAgr]):''),
-          code:isCode?cv:'',
-          tmu:isNaN(tmuNum)?'':String(tmuNum),
-          q:String(q), f:String(f), ttmu:tt||0, tsec:ts||0
-        });
-      }
-      return rows.length?rows:null;
+    // Localiza e extrai a tabela MTM com inteligência: aceita sinônimos de cabeçalho
+    // e também infere Código/TMU/Descrição pelo conteúdo das células.
+    function extrairLinhas(aoa, sheetName){
+      _lastSmartParse = (window.MTM_XLSX_SMART && window.MTM_XLSX_SMART.parseAoa)
+        ? window.MTM_XLSX_SMART.parseAoa(aoa, {sheetName:sheetName})
+        : null;
+      return (_lastSmartParse && _lastSmartParse.rows && _lastSmartParse.rows.length) ? _lastSmartParse.rows : null;
     }
 
     // 1) Prioriza abas "· MTM"; depois qualquer aba com a tabela
@@ -16414,10 +16630,14 @@ function balEsc(s){
       if(!aoa || !aoa.length) continue;
       var marker=String((aoa[0]||[])[0]||'').trim().toUpperCase();
       if(marker==='MTM_RESUMO_V1' || marker==='MTM_LIVROS_V1') continue;
-      var rows=extrairLinhas(aoa);
+      var rows=extrairLinhas(aoa, names[i]);
       if(rows){
         out.rows=rows;
         out.label=String(names[i]).replace(/\s*[·•\-—]\s*(MTM|Geral)\s*$/i,'').trim();
+        // header detectado pelo motor inteligente
+        for(var hs in ((_lastSmartParse && _lastSmartParse.header) || {})){
+          if(_lastSmartParse.header[hs]!=='' && _lastSmartParse.header[hs]!=null && (out.header[hs]===undefined||out.header[hs]==='')) out.header[hs]=String(_lastSmartParse.header[hs]).trim();
+        }
         // header básico em pares chave/valor nas primeiras linhas desta aba
         for(var hr=0;hr<Math.min(8,aoa.length);hr++){
           var rrow=aoa[hr]||[];
@@ -16482,7 +16702,7 @@ function balEsc(s){
         var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
         var src=_parseFolhaFromWorkbook(wb);
         if(!src || !src.rows.length){
-          if(typeof showToast==='function') showToast('Não encontrei no Excel uma tabela com colunas Código / TMU / Q / F.', true);
+          if(typeof showToast==='function') showToast('Não encontrei no Excel uma tabela MTM válida. Agora aceito colunas como Descrição/Atividade, Código/Cod. MTM, TMU/Tempo MTM, Qtd. e Frequência, mesmo com nomes diferentes.', true);
           input.value=''; return;
         }
         if(!confirm('Importar os dados do Excel PARA a folha atual "' + (dest.label||'') + '"?\n\nO conteúdo atual desta folha (linhas) será SUBSTITUÍDO e o cabeçalho atualizado com os dados do arquivo.')){
@@ -16594,7 +16814,7 @@ function balEsc(s){
         var abas = _abasComDados(wb);
 
         if(!abas.length){
-          if(typeof showToast==='function') showToast('Não encontrei no Excel uma tabela com colunas Código / TMU / Q / F.', true);
+          if(typeof showToast==='function') showToast('Não encontrei no Excel uma tabela MTM válida. Agora aceito colunas como Descrição/Atividade, Código/Cod. MTM, TMU/Tempo MTM, Qtd. e Frequência, mesmo com nomes diferentes.', true);
           _limpar(); return;
         }
 
@@ -16602,7 +16822,7 @@ function balEsc(s){
         function continuarCom(nomeAba){
           var src = _parseFolhaFromWorkbook(_subWb(wb, nomeAba));
           if(!src || !src.rows.length){
-            if(typeof showToast==='function') showToast('Essa aba não tem uma tabela válida (Código / TMU / Q / F).', true);
+            if(typeof showToast==='function') showToast('Essa aba não tem uma tabela MTM válida com descrição/código/TMU reconhecíveis.', true);
             _limpar(); return;
           }
           var origem    = String(nomeAba).replace(/\s*[·•\-—]\s*(MTM|Geral)\s*$/i,'').trim() || nomeAba;
