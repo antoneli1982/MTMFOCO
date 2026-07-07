@@ -2321,7 +2321,40 @@ table.mtm tfoot tr.total-row td{
 .ci-sec,.total-s{color:#79d7ff !important;}
 
 #dashboard{
-  background:transparent !important;
+  /* Tela inicial limpa: fundo opaco para não aparecer folha/tabela por trás dos quadrantes */
+  background:
+    radial-gradient(900px 520px at 86% 12%,rgba(42,168,255,.15),transparent 64%),
+    radial-gradient(780px 560px at 10% 28%,rgba(8,86,173,.12),transparent 66%),
+    linear-gradient(180deg,#010916 0%,#031126 48%,#010916 100%) !important;
+  z-index:260 !important;
+}
+#dashboard::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  background-image:
+    linear-gradient(rgba(42,168,255,.055) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(42,168,255,.045) 1px,transparent 1px);
+  background-size:52px 52px;
+  opacity:.38;
+}
+#dashboard .db-hdr,
+#dashboard .db-body{
+  position:relative;
+  z-index:1;
+}
+body.home-clean .tabs-wrapper,
+body.home-clean #sheets-container,
+body.home-clean .float-nav,
+body.home-clean #bal-overlay{
+  display:none !important;
+}
+body.home-clean .toolbar{
+  z-index:300 !important;
+}
+html[data-theme="light"] #dashboard{
+  background:linear-gradient(180deg,#eef6ff 0%,#f8fbff 54%,#eef6ff 100%) !important;
 }
 .db-body{
   max-width:1040px !important;
@@ -7818,8 +7851,18 @@ function pmSave(){ localStorage.setItem(PM_KEY, JSON.stringify(pmData)); }
 
 /* ── Open / Close ── */
 function openProjectManager(){
+  // Botão PROJETOS: volta para a tela inicial limpa e mostra as pastas/quadrantes
+  // com as fotos/logos anexadas em cada pasta. Não abre mais o painel lateral
+  // sobre a folha, para evitar conteúdo no fundo da tela inicial.
+  if(typeof closeProjectManager === 'function') closeProjectManager();
+  if(typeof showDashboard === 'function'){
+    showDashboard();
+    return;
+  }
+  // Fallback antigo, caso a tela inicial não esteja disponível.
   pmLoad();
-  document.getElementById('pm-overlay').classList.add('open');
+  var overlay = document.getElementById('pm-overlay');
+  if(overlay) overlay.classList.add('open');
   pmView('folders');
 }
 function closeProjectManager(){
@@ -9005,6 +9048,7 @@ function startDirectMtmApp(){
 }
 
 function showDashboard(){
+  document.body.classList.add('home-clean');
   // TELA INICIAL (home): mostra empresas e projetos. NÃO entra direto no editor.
   // Garante que pmData está carregado
   if(typeof pmLoad === 'function') pmLoad();
@@ -9041,6 +9085,7 @@ function showDashboard(){
 function goHome(){ showDashboard(); }
 
 function hideDashboard(){
+  document.body.classList.remove('home-clean');
   var _db = document.getElementById('dashboard');
   if(_db){ _db.classList.remove('active'); _db.style.display='none'; }
   __homeFirstPending = false;
