@@ -17800,5 +17800,95 @@ function balEsc(s){
 })();
 </script>
 
+
+
+<!-- Correção solicitada: linha da tabela fica branca somente quando o mouse está sobre ela -->
+<style id="linha-hover-branca-fix">
+/*
+  Hover da linha principal MTM:
+  - somente a linha sob o mouse fica branca;
+  - textos e campos ficam escuros para manter leitura no tema claro/escuro;
+  - não altera linhas de total, cabeçalho, impressão, drag/drop ou outras tabelas.
+*/
+table.mtm tbody tr:not(.row-dragging):hover > td {
+  background: #ffffff !important;
+  color: #06182b !important;
+}
+
+table.mtm tbody tr:not(.row-dragging):hover > td,
+table.mtm tbody tr:not(.row-dragging):hover > td * {
+  text-shadow: none !important;
+}
+
+table.mtm tbody tr:not(.row-dragging):hover .ci,
+table.mtm tbody tr:not(.row-dragging):hover .cell-select,
+table.mtm tbody tr:not(.row-dragging):hover input,
+table.mtm tbody tr:not(.row-dragging):hover select,
+table.mtm tbody tr:not(.row-dragging):hover textarea {
+  background: transparent !important;
+  color: #06182b !important;
+  -webkit-text-fill-color: #06182b !important;
+  border-color: rgba(6,24,43,.16) !important;
+  box-shadow: none !important;
+}
+
+table.mtm tbody tr:not(.row-dragging):hover .ci-desc {
+  color: #075fbd !important;
+  -webkit-text-fill-color: #075fbd !important;
+}
+
+table.mtm tbody tr:not(.row-dragging):hover .ci-code {
+  color: #064c9d !important;
+  -webkit-text-fill-color: #064c9d !important;
+}
+
+table.mtm tbody tr:not(.row-dragging):hover .ci-tmu {
+  color: #047857 !important;
+  -webkit-text-fill-color: #047857 !important;
+}
+
+table.mtm tbody tr:not(.row-dragging):hover .ci-num,
+table.mtm tbody tr:not(.row-dragging):hover .cell-select {
+  color: #34546f !important;
+  -webkit-text-fill-color: #34546f !important;
+}
+
+table.mtm tbody tr:not(.row-dragging):hover .ci-res {
+  color: #b45309 !important;
+  -webkit-text-fill-color: #b45309 !important;
+}
+
+table.mtm tbody tr:not(.row-dragging):hover .ci-sec {
+  color: #be123c !important;
+  -webkit-text-fill-color: #be123c !important;
+}
+
+table.mtm tbody tr:not(.row-dragging):hover td.col-n,
+table.mtm tbody tr:not(.row-dragging):hover [data-n] {
+  color: #06182b !important;
+}
+
+table.mtm tbody tr:not(.row-dragging):hover .row-drag,
+table.mtm tbody tr:not(.row-dragging):hover .row-ins,
+table.mtm tbody tr:not(.row-dragging):hover .row-del {
+  background: transparent !important;
+  color: #34546f !important;
+  border-color: transparent !important;
+}
+
+table.mtm tbody tr:not(.row-dragging):hover .row-drag:hover,
+table.mtm tbody tr:not(.row-dragging):hover .row-ins:hover {
+  background: rgba(4,120,87,.10) !important;
+  color: #047857 !important;
+  border-color: rgba(4,120,87,.28) !important;
+}
+
+table.mtm tbody tr:not(.row-dragging):hover .row-del:hover {
+  background: rgba(190,18,60,.10) !important;
+  color: #be123c !important;
+  border-color: rgba(190,18,60,.28) !important;
+}
+</style>
+
 </body>
 </html>
