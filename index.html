@@ -3891,6 +3891,7 @@ body.home-clean .db-company-card::after{
     <div class="logo">MTM <span>/ Folha de Processo</span></div>
     <div style="width:1px;height:28px;background:var(--border2);display:none" class="tb-sep-v"></div>
   </div>
+  <button class="sidebar-toggle-btn" id="sidebarToggleBtn" onclick="toggleSidebarCollapse()" title="Recolher menu" aria-label="Recolher/expandir menu">‹</button>
   <!-- Crédito removido a pedido -->
   <div class="dev-credit" style="display:none"></div>
   <div class="sep"></div>
@@ -4895,6 +4896,22 @@ function toggleTheme(){
   const h=document.documentElement;
   h.dataset.theme=h.dataset.theme==='dark'?'light':'dark';
 }
+
+function toggleSidebarCollapse(){
+  const collapsed = document.body.classList.toggle('sidebar-collapsed');
+  try{ localStorage.setItem('mtmSidebarCollapsed', collapsed ? '1' : '0'); }catch(e){}
+  const btn = document.getElementById('sidebarToggleBtn');
+  if(btn) btn.title = collapsed ? 'Expandir menu' : 'Recolher menu';
+}
+(function(){
+  try{
+    if(localStorage.getItem('mtmSidebarCollapsed')==='1'){
+      document.body.classList.add('sidebar-collapsed');
+      var _btn = document.getElementById('sidebarToggleBtn');
+      if(_btn) _btn.title = 'Expandir menu';
+    }
+  }catch(e){}
+})();
 
 function addSheet(silent){
   const name = (typeof silent === 'string') ? silent : null;
@@ -8786,6 +8803,8 @@ html[data-theme="light"] select.f-input.f-select-line,
    Somente CSS: não altera HTML, dados nem lógica. Empilha TODOS os
    botões da toolbar numa coluna, com o conteúdo recuado à direita.
    ════════════════════════════════════════════════════════════════ */
+/* Fora do layout de sidebar (mobile), a seta não aparece */
+.sidebar-toggle-btn{ display:none; }
 @media (min-width:781px){
   /* Abre espaço para a sidebar empurrando o conteúdo à direita */
   body{ padding-left:214px; }
@@ -8829,6 +8848,35 @@ html[data-theme="light"] select.f-input.f-select-line,
   /* Usuário e alternador de tema ao final da coluna */
   .toolbar-actions .fb-user-slot{ width:100%; }
   .toolbar-actions .theme-toggle{ justify-content:flex-start; padding:8px 6px; margin-top:4px; }
+
+  /* Transições suaves ao recolher/expandir */
+  .toolbar{ transition:width .22s ease; }
+  body{ transition:padding-left .22s ease; }
+
+  /* Botão de seta — recolhe/expande o menu inteiro */
+  .sidebar-toggle-btn{
+    display:flex; align-items:center; justify-content:center;
+    position:absolute; top:14px; right:-13px;
+    width:26px; height:26px; border-radius:50%;
+    background:var(--surface2); border:1px solid var(--border2);
+    color:var(--text2); cursor:pointer; z-index:130;
+    font-size:15px; line-height:1; box-shadow:var(--shadow-sm);
+    transition:transform .22s ease, background .2s, color .2s;
+  }
+  .sidebar-toggle-btn:hover{ background:var(--surface3); color:var(--text); }
+
+  /* ── Estado recolhido — só ícones ── */
+  body.sidebar-collapsed{ padding-left:60px; }
+  body.sidebar-collapsed .toolbar{ width:60px; padding:16px 8px; }
+  body.sidebar-collapsed .toolbar .logo span{ display:none; }
+  body.sidebar-collapsed .toolbar > div:first-child{ justify-content:center; }
+  body.sidebar-collapsed .toolbar-actions .btn{
+    justify-content:center; padding:10px 0 !important;
+  }
+  body.sidebar-collapsed .toolbar-actions .btn-lbl{ display:none; }
+  body.sidebar-collapsed .toolbar-actions .fb-user-slot{ display:flex; justify-content:center; }
+  body.sidebar-collapsed .toolbar-actions .theme-toggle{ justify-content:center; padding:8px 0; }
+  body.sidebar-collapsed .sidebar-toggle-btn{ transform:rotate(180deg); }
 }
 </style>
 
