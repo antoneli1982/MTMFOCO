@@ -5174,14 +5174,14 @@ function renderContent(id){
       <div class="f-group" style="background:var(--accentBg);border-left:2px solid var(--accent);padding-left:8px">
         <span class="f-label" style="color:var(--accent)">Demanda / Período</span>
         <input class="f-input" type="number" min="0" placeholder="ex: 600" data-key="demand" value="${esc(h.demand||'')}">
-        <select class="f-input" data-key="demandUnit" style="font-size:10px;background:transparent;border:none;border-top:1px solid var(--border2);padding:3px 0;width:100%;color:var(--text2);margin-top:3px;cursor:pointer">
+        <select class="f-input f-select-line" data-key="demandUnit" style="font-size:10px;background-color:transparent;border:none;border-top:1px solid var(--border2);padding:3px 18px 3px 0;width:100%;color:var(--text2);margin-top:3px;cursor:pointer">
           ${[['turno','por turno (shift)'],['hora','por hora'],['dia','por dia (8 h úteis)'],['hoje','hoje (dia corrente)'],['semana','por semana (5 dias)'],['mes','por mês (22 dias)'],['minuto','por minuto'],['segundo','por segundo'],['ciclo','por ciclo'],['carga','por carga / descarga']].map(([v,l])=>`<option value="${v}" ${(h.demandUnit||'turno')===v?'selected':''}>${l}</option>`).join('')}
         </select>
       </div>
       <div class="f-group" style="background:var(--purpleBg);border-left:2px solid var(--purple);padding-left:8px">
         <span class="f-label" style="color:var(--purple)">${h.pcsCicloUnit||'unidade'} por ciclo</span>
         <input class="f-input" type="number" step="1" min="1" placeholder="1" title="Quantidade por ciclo (ex.: 2 caixas por vez na máquina). Multiplica produção/hora e capacidade." data-key="pcsCiclo" value="${esc(h.pcsCiclo||'')}">
-        <select class="f-input" data-key="pcsCicloUnit" style="font-size:10px;background:transparent;border:none;border-top:1px solid var(--border2);padding:2px 0;width:100%;color:var(--text2);margin-top:2px;cursor:pointer">
+        <select class="f-input f-select-line" data-key="pcsCicloUnit" style="font-size:10px;background-color:transparent;border:none;border-top:1px solid var(--border2);padding:2px 18px 2px 0;width:100%;color:var(--text2);margin-top:2px;cursor:pointer">
           ${[['caixa','Caixa'],['carreta','Carreta'],['bitrem','Bitrem'],['truck','Truck'],['cx','Caixas'],['un','Unidades'],['kg','Quilogramas'],['L','Litros'],['m','Metros lineares'],['m²','Metros quadrados'],['m³','Metros cúbicos'],['pal','Paletes'],['bob','Bobinas'],['pct','Pacotes'],['fd','Fardos'],['tl','Toneladas'],['rack','Rack'],['brc','Berço']].map(([v,l])=>`<option value="${v}" ${(h.pcsCicloUnit||'unidade')===v?'selected':''}>${v} — ${l}</option>`).join('')}
         </select>
       </div>
@@ -8756,6 +8756,26 @@ table.mtm tfoot tr.total-row td{ border-top:1.5px solid var(--accent); }
     animation-duration:.001ms!important; animation-iteration-count:1!important;
     transition-duration:.001ms!important; scroll-behavior:auto!important;
   }
+}
+</style>
+
+<style id="f-select-arrow-fix">
+/* Seta customizada para os selects minimalistas (Unidade por ciclo / Demanda por Período),
+   compensando os overrides de background dos blocos de design system anteriores. */
+select.f-input.f-select-line{
+  -webkit-appearance:none!important;-moz-appearance:none!important;appearance:none!important;
+  background-repeat:no-repeat!important;
+  background-position:right 2px center!important;
+  background-size:10px 6px!important;
+  padding-right:18px!important;
+}
+html[data-theme="dark"] select.f-input.f-select-line,
+[data-theme="dark"] select.f-input.f-select-line{
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%237a8aaa' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>")!important;
+}
+html[data-theme="light"] select.f-input.f-select-line,
+[data-theme="light"] select.f-input.f-select-line{
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23546280' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>")!important;
 }
 </style>
 
