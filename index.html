@@ -13437,14 +13437,37 @@ function prepararPrintRelatorio(){
 }
 
 // Gera o PDF do RELATÓRIO FINAL CONSOLIDADO (não as folhas individuais).
+function mtmSanitizeFilename(s){
+  return String(s||'').trim()
+    .replace(/[\\/:*?"<>|]+/g,'-')
+    .replace(/\s+/g,' ')
+    .slice(0,120) || 'Relatorio MTM';
+}
+function mtmGetProjectNameForReport(){
+  try{
+    var p = (typeof getActiveProject==='function') ? getActiveProject() : null;
+    if(p && p.name) return p.name;
+  }catch(e){}
+  try{
+    var list = (typeof scopedSheets==='function') ? scopedSheets() : sheets;
+    if(list && list[0] && list[0].header && list[0].header.projeto) return list[0].header.projeto;
+  }catch(e){}
+  return document.title || 'Relatorio MTM';
+}
 function exportRelatorioPDF(){
+  var _prevTitle = document.title;
+  function _restoreTitle(){ document.title = _prevTitle; }
   try{
     _mtmPrintMode = 'relatorio';
     prepararPrintRelatorio();
+    document.title = mtmSanitizeFilename(mtmGetProjectNameForReport());
+    window.addEventListener('afterprint', _restoreTitle, {once:true});
+    setTimeout(_restoreTitle, 8000); // salvaguarda caso 'afterprint' não dispare
     setTimeout(function(){ window.print(); }, 150);
   }catch(e){
     console.error('Erro ao preparar PDF do relatório:', e);
     _mtmPrintMode = 'folhas';
+    _restoreTitle();
     window.print();
   }
 }
