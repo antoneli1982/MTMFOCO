@@ -5182,7 +5182,7 @@ function renderContent(id){
         <span class="f-label" style="color:var(--purple)">${h.pcsCicloUnit||'unidade'} por ciclo</span>
         <input class="f-input" type="number" step="1" min="1" placeholder="1" title="Quantidade por ciclo (ex.: 2 caixas por vez na máquina). Multiplica produção/hora e capacidade." data-key="pcsCiclo" value="${esc(h.pcsCiclo||'')}">
         <select class="f-input" data-key="pcsCicloUnit" style="font-size:10px;background:transparent;border:none;border-top:1px solid var(--border2);padding:2px 0;width:100%;color:var(--text2);margin-top:2px;cursor:pointer">
-          ${[['unidade','Unidade'],['carreta','Carreta'],['bitrem','Bitrem'],['truck','Truck'],['cx','Caixas'],['un','Unidades'],['kg','Quilogramas'],['L','Litros'],['m','Metros lineares'],['m²','Metros quadrados'],['m³','Metros cúbicos'],['pal','Paletes'],['bob','Bobinas'],['pct','Pacotes'],['fd','Fardos'],['tl','Toneladas'],['rack','Rack'],['brc','Berço']].map(([v,l])=>`<option value="${v}" ${(h.pcsCicloUnit||'unidade')===v?'selected':''}>${v} — ${l}</option>`).join('')}
+          ${[['caixa','Caixa'],['carreta','Carreta'],['bitrem','Bitrem'],['truck','Truck'],['cx','Caixas'],['un','Unidades'],['kg','Quilogramas'],['L','Litros'],['m','Metros lineares'],['m²','Metros quadrados'],['m³','Metros cúbicos'],['pal','Paletes'],['bob','Bobinas'],['pct','Pacotes'],['fd','Fardos'],['tl','Toneladas'],['rack','Rack'],['brc','Berço']].map(([v,l])=>`<option value="${v}" ${(h.pcsCicloUnit||'unidade')===v?'selected':''}>${v} — ${l}</option>`).join('')}
         </select>
       </div>
       <div class="f-group" style="background:var(--greenBg);border-left:2px solid var(--green);padding-left:8px">
@@ -11708,7 +11708,7 @@ function frpAnalise(sid){
 
 // ── Unidade por ciclo — retorna {abbr, label} a partir do header da folha ──
 var _PCS_UNIT_MAP = {
-  'unidade':'Unidade','carreta':'Carreta','bitrem':'Bitrem','truck':'Truck','cx':'Caixas','un':'Unidades','kg':'Quilogramas','L':'Litros',
+  'unidade':'Unidade','caixa':'Caixa','carreta':'Carreta','bitrem':'Bitrem','truck':'Truck','cx':'Caixas','un':'Unidades','kg':'Quilogramas','L':'Litros',
   'm':'Metros','m²':'Metros²','m³':'Metros³','pal':'Paletes',
   'bob':'Bobinas','pct':'Pacotes','fd':'Fardos','tl':'Toneladas',
   'rack':'Rack','brc':'Berço'
