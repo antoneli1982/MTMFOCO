@@ -5199,7 +5199,7 @@ function renderContent(id){
         <span class="f-label" style="color:var(--purple)">${h.pcsCicloUnit||'unidade'} por ciclo</span>
         <input class="f-input" type="number" step="1" min="1" placeholder="1" title="Quantidade por ciclo (ex.: 2 caixas por vez na máquina). Multiplica produção/hora e capacidade." data-key="pcsCiclo" value="${esc(h.pcsCiclo||'')}">
         <select class="f-input f-select-line" data-key="pcsCicloUnit" style="font-size:10px;background-color:transparent;border:none;border-top:1px solid var(--border2);padding:2px 18px 2px 0;width:100%;color:var(--text2);margin-top:2px;cursor:pointer">
-          ${[['caixa','Caixa'],['carreta','Carreta'],['bitrem','Bitrem'],['truck','Truck'],['cx','Caixas'],['un','Unidades'],['kg','Quilogramas'],['L','Litros'],['m','Metros lineares'],['m²','Metros quadrados'],['m³','Metros cúbicos'],['pal','Paletes'],['bob','Bobinas'],['pct','Pacotes'],['fd','Fardos'],['tl','Toneladas'],['rack','Rack'],['brc','Berço']].map(([v,l])=>`<option value="${v}" ${(h.pcsCicloUnit||'unidade')===v?'selected':''}>${v} — ${l}</option>`).join('')}
+          ${[['unidade','Unidade'],['caixa','Caixa'],['carreta','Carreta'],['bitrem','Bitrem'],['truck','Truck'],['cx','Caixas'],['un','Unidades'],['kg','Quilogramas'],['L','Litros'],['m','Metros lineares'],['m²','Metros quadrados'],['m³','Metros cúbicos'],['pal','Paletes'],['bob','Bobinas'],['pct','Pacotes'],['fd','Fardos'],['tl','Toneladas'],['rack','Rack'],['brc','Berço']].map(([v,l])=>`<option value="${v}" ${(h.pcsCicloUnit||'unidade')===v?'selected':''}>${v} — ${l}</option>`).join('')}
         </select>
       </div>
       <div class="f-group" style="background:var(--greenBg);border-left:2px solid var(--green);padding-left:8px">
@@ -11786,6 +11786,22 @@ function getPcsCicloUnit(h){
   return { abbr: abbr, label: (_PCS_UNIT_MAP[abbr] || 'Unidade') };
 }
 
+// Unidade usada na ANÁLISE FINAL COMBINADA (todas as folhas somadas).
+// Cada folha define sua descrição em "unidade por ciclo" (caixa/carreta/truck…).
+// Se TODAS as folhas preenchidas usam a mesma unidade, o relatório combinado
+// passa a mostrar essa descrição em vez do genérico "itens". Se houver mistura
+// de unidades diferentes, mantém "itens" para não induzir a erro.
+function frpCombinedUnit(){
+  try{
+    var fs = (typeof frpFilledSheets==='function') ? frpFilledSheets() : [];
+    if(!fs.length) return { abbr:'itens', label:'Itens', shared:false };
+    var first = getPcsCicloUnit(fs[0].sheet.header).abbr;
+    var same  = fs.every(function(f){ return getPcsCicloUnit(f.sheet.header).abbr === first; });
+    if(same) return { abbr: first, label: (_PCS_UNIT_MAP[first] || 'Unidade'), shared:true };
+    return { abbr:'itens', label:'Itens', shared:false };
+  }catch(e){ return { abbr:'itens', label:'Itens', shared:false }; }
+}
+
 // ── SIMULTÂNEAS: folhas que ocorrem em paralelo (não somam no TS efetivo) ──
 var FRP_SIMUL_KEY = 'mtm_frp_simul_v1';
 function frpSimulLoad(){ try{ return JSON.parse(localStorage.getItem(FRP_SIMUL_KEY)||'{}'); }catch(e){ return {}; } }
@@ -12021,6 +12037,7 @@ function frpAggregateAll(premissa, manualPct){
 function buildCombinedAnalysisSection(){
   var filled = (typeof frpFilledSheets==='function') ? frpFilledSheets() : [];
   if(filled.length < 1) return '';
+  var uAll = frpCombinedUnit(); // unidade compartilhada (caixa/carreta/truck) ou "itens" se misturado
   var saved = frpAllLoad();
   // Valores iniciais: salvos > 1ª folha preenchida > padrão
   var hDef = (saved.h != null && saved.h !== '') ? saved.h
@@ -12073,8 +12090,8 @@ function buildCombinedAnalysisSection(){
     + '<div style="font-size:10px;color:var(--text3);margin-bottom:10px">Soma o Tempo Padrão de <b style="color:var(--text2)">'+filled.length+' folha'+(filled.length!==1?'s':'')+'</b> e dimensiona a linha inteira.</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:8px">'
     + inputBox('Horas de Trabalho', 'frp-h-__ALL__', hDef, '8')
-    + inputBox('Demanda (itens)', 'frp-dem-__ALL__', demDef, 'ex: 600')
-    + intInput('Peças por Ciclo', 'frp-pcs-__ALL__', pcsDef, '1', 'var(--accent)')
+    + inputBox('Demanda (' + uAll.label + ')', 'frp-dem-__ALL__', demDef, 'ex: 600')
+    + intInput(uAll.label + ' por Ciclo', 'frp-pcs-__ALL__', pcsDef, '1', 'var(--accent)')
     + intInput('Nº de Pessoas (simulação)', 'frp-people-__ALL__', peopleDef, '1')
     + '</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">'
@@ -12135,10 +12152,11 @@ function frpAnaliseAll(){
     var capUm = (ts > 0 && tprod > 0) ? Math.floor(tprod / ts) * pcsCic : 0;
     var colab = (ts > 0 && takt > 0) ? Math.ceil(ts / takt) : 0;
 
+    var _uAll = frpCombinedUnit(); // caixa/carreta/truck (se todas as folhas iguais) ou "itens"
     var set = function(id, txt){ var el = document.getElementById(id); if(el) el.textContent = txt; };
     set('frp-tprod-__ALL__', Math.round(tprod).toLocaleString('pt-BR') + ' s');
     set('frp-takt-__ALL__',  takt > 0 ? takt.toFixed(2) + ' s' : '—');
-    set('frp-cap-__ALL__',   capUm > 0 ? capUm.toLocaleString('pt-BR') + (pcsCic>1?' '+((filled&&filled[0]&&typeof getPcsCicloUnit==='function'?getPcsCicloUnit(filled[0].sheet.header).abbr:'itens')):'') + ' itens' : '—');
+    set('frp-cap-__ALL__',   capUm > 0 ? capUm.toLocaleString('pt-BR') + ' ' + _uAll.abbr : '—');
     set('frp-colab-__ALL__', colab > 0 ? colab : '—');
 
     // ── Simulação com Nº de pessoas (usa TS efetivo) ──
@@ -12160,17 +12178,17 @@ function frpAnaliseAll(){
       };
       simEl.style.cssText = 'padding:10px 12px;background:var(--surface2);border:1px solid var(--purple);border-radius:8px';
       simEl.innerHTML =
-          '<div style="font-size:9px;font-weight:800;color:var(--purple);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">👥 Simulação com '+people+' pessoa'+(people!==1?'s':'')+(pcsCic>1?' · '+pcsCic+' pç/ciclo':'')+'</div>'
+          '<div style="font-size:9px;font-weight:800;color:var(--purple);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">👥 Simulação com '+people+' pessoa'+(people!==1?'s':'')+(pcsCic>1?' · '+pcsCic+' '+_uAll.abbr+'/ciclo':'')+'</div>'
         + '<div style="display:flex;flex-wrap:wrap;gap:8px">'
         +   simBox('Tempo de Ciclo (Σ TS ÷ '+people+')', ciclo.toFixed(2)+' s', 'var(--purple)')
-        +   simBox('Capacidade ('+people+' pess.)', capN > 0 ? capN.toLocaleString('pt-BR')+' itens' : '—', corCapN)
+        +   simBox('Capacidade ('+people+' pess.)', capN > 0 ? capN.toLocaleString('pt-BR')+' '+_uAll.abbr : '—', corCapN)
         +   simBox('Peças/Hora', pphN > 0 ? pphN.toFixed(1) : '—', 'var(--accent)')
         +   simBox('Saturação/pessoa', satN !== null ? satN.toFixed(1)+' %' : '—', corSat)
         + '</div>'
         + (dem > 0
-            ? '<div style="margin-top:8px;font-size:11px;color:var(--text3)">Com <b style="color:var(--purple)">'+people+'</b> pessoa(s), capacidade de <b>'+capN.toLocaleString('pt-BR')+'</b> itens '+(atende?'<b style="color:var(--green)">atende</b>':'<b style="color:var(--red)">NÃO atende</b>')+' a demanda de '+dem+' itens em '+h+'h.</div>'
+            ? '<div style="margin-top:8px;font-size:11px;color:var(--text3)">Com <b style="color:var(--purple)">'+people+'</b> pessoa(s), capacidade de <b>'+capN.toLocaleString('pt-BR')+'</b> '+_uAll.abbr+' '+(atende?'<b style="color:var(--green)">atende</b>':'<b style="color:var(--red)">NÃO atende</b>')+' a demanda de '+dem+' '+_uAll.abbr+' em '+h+'h.</div>'
             : '<div style="margin-top:8px;font-size:11px;color:var(--text3)">Informe a <b>Demanda</b> para avaliar se '+people+' pessoa(s) atende(m) o volume.</div>')
-        + (pcsCic > 1 ? '<div style="margin-top:4px;font-size:9px;color:var(--accent);font-style:italic">'+pcsCic+' pç/ciclo aplicado — capacidade multiplicada: ⌊Tprod÷ciclo⌋ × '+pcsCic+'</div>' : '')
+        + (pcsCic > 1 ? '<div style="margin-top:4px;font-size:9px;color:var(--accent);font-style:italic">'+pcsCic+' '+_uAll.abbr+'/ciclo aplicado — capacidade multiplicada: ⌊Tprod÷ciclo⌋ × '+pcsCic+'</div>' : '')
         + (simulTs > 0 ? '<div style="margin-top:6px;font-size:9px;color:var(--text3);font-style:italic">TS efetivo = '+ts.toFixed(2)+'s ('+simulTs.toFixed(2)+'s em simultâneas excluídas)</div>' : '')
         + '<div style="margin-top:4px;font-size:9px;color:var(--text3);font-style:italic">Modelo: postos balanceados em paralelo (ciclo ≈ Σ TS ÷ nº de pessoas). Confirme se reflete o arranjo real da sua linha.</div>';
     }
@@ -12222,7 +12240,7 @@ function frpAnaliseAll(){
         + '</div>'
         + (colab > 0
             ? '<div style="margin-top:8px;padding:6px 8px;background:var(--surface);border-radius:6px;font-size:10px;color:var(--text3)">'
-            +   '⌈'+ts.toFixed(2)+'s ÷ Takt '+(takt>0?takt.toFixed(2):'—')+'s⌉ = <b style="color:var(--orange)">'+colab+' colaborador(es)</b> para atender '+dem+' itens em '+h+'h.'
+            +   '⌈'+ts.toFixed(2)+'s ÷ Takt '+(takt>0?takt.toFixed(2):'—')+'s⌉ = <b style="color:var(--orange)">'+colab+' colaborador(es)</b> para atender '+dem+' '+_uAll.abbr+' em '+h+'h.'
             + '</div>'
             : '<div style="margin-top:6px;color:var(--text3);font-size:10px">Informe a <b>Demanda</b> para calcular Takt e Colaboradores.</div>');
     }
