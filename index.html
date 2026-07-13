@@ -1765,6 +1765,12 @@ window.FIREBASE_CONFIG = {
   appId:             "1:323473561940:web:ee9f4e4f1f9ea53c5210c1"
 };
 </script>
+<!-- Firebase SDK (compat) — necessário para o firebase-mtm.js (Firestore + Auth).
+     Se alguma versão der erro 404 no console, troque o número da versão nas 3 linhas
+     (ex.: 10.12.2 -> 10.13.0). Estes scripts rodam no navegador, não no servidor. -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script type="module" src="firebase-mtm.js"></script>
 
 
@@ -2513,23 +2519,60 @@ html[data-theme="light"] #dashboard{
     }
   }catch(e){}
 
+  // Splash de boas-vindas (usado para o dono/Felipe).
+  function showWelcome(msg, cb){
+    try{
+      var o = document.createElement('div');
+      o.id = 'mtm-welcome-splash';
+      o.style.cssText = 'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 38%, #0d1422, #05070d);color:#f4f7ff;font-family:Inter,system-ui,-apple-system,sans-serif;text-align:center;padding:24px;opacity:0;transition:opacity .3s';
+      o.innerHTML = '<div><div style="font-size:12px;letter-spacing:.4em;color:#16c7ff;font-weight:700;margin-bottom:18px">MTM · ACESSO LIBERADO</div>'+
+                    '<div style="font-size:clamp(22px,5vw,40px);font-weight:800;line-height:1.28;background:linear-gradient(135deg,#16c7ff,#8b5cf6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">'+ msg +'</div></div>';
+      document.body.appendChild(o);
+      requestAnimationFrame(function(){ o.style.opacity = '1'; });
+      setTimeout(function(){ o.style.opacity = '0'; setTimeout(function(){ try{ o.remove(); }catch(e){} if(cb) cb(); }, 320); }, 2200);
+    }catch(e){ if(cb) cb(); }
+  }
+
   function entrar(){
     var inp = document.getElementById('mtm-chapa-input');
     var err = document.getElementById('mtm-chapa-err');
-    var v = (inp && inp.value) ? inp.value : '';
-    if(v.length !== 7){
-      err.textContent = 'A chapa deve ter exatamente 7 caracteres.';
+    var v = (inp && inp.value ? inp.value : '').trim();
+    if(v.length < 4){
+      err.textContent = 'Digite o seu código de acesso.';
       err.classList.add('show');
       if(inp) inp.focus();
       return;
     }
+
+    // Resolve o papel via firebase-mtm.js. Se não estiver disponível
+    // (ex.: Firebase não subiu), faz fallback: entra assim mesmo.
+    var res = null;
+    try{ if(typeof window.MTM_LOGIN === 'function') res = window.MTM_LOGIN(v); }
+    catch(e){ console.error('MTM_LOGIN falhou:', e); }
+
+    if(res && res.ok === false){
+      err.textContent = res.error || 'Código inválido.';
+      err.classList.add('show');
+      if(inp) inp.focus();
+      return;
+    }
+
     err.classList.remove('show');
     try{ sessionStorage.setItem(KEY, v); }catch(e){}
     var scr = document.getElementById('mtm-chapa-screen');
-    if(scr) scr.classList.add('hidden');
+    function finish(){ if(scr) scr.classList.add('hidden'); }
+
+    if(res && res.welcome){ showWelcome(res.welcome, finish); }
+    else { finish(); }
   }
 
   document.addEventListener('DOMContentLoaded', function(){
+    // Se a sessão já estava aberta, reidrata os dados da pessoa logada.
+    try{
+      var saved = sessionStorage.getItem(KEY);
+      if(saved && typeof window.MTM_RESUME === 'function'){ window.MTM_RESUME(saved); }
+    }catch(e){}
+
     var scr = document.getElementById('mtm-chapa-screen');
     if(scr && scr.classList.contains('hidden')) return; // já estava logado
     var btn = document.getElementById('mtm-chapa-btn');
