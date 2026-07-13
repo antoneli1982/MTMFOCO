@@ -2469,7 +2469,7 @@ html[data-theme="light"] #dashboard{
         b.title='Edição e exclusão de TUDO liberadas — clique para bloquear';
         b.style.background='rgba(0,229,160,.10)'; b.style.color='var(--green)'; b.style.borderColor='rgba(0,229,160,.40)';
       } else {
-        b.innerHTML='🔒<span class="btn-lbl"> Editar existentes (senha)</span>';
+        b.innerHTML='🔒<span class="btn-lbl"> Editar (senha)</span>';
         b.title='Editar/excluir o que JÁ EXISTE exige senha. Projeto novo é livre. Clique para liberar tudo.';
         b.style.background='rgba(255,77,109,.10)'; b.style.color='var(--red)'; b.style.borderColor='rgba(255,77,109,.40)';
       }
@@ -9122,8 +9122,10 @@ html[data-theme="light"] select.f-input.f-select-line,
   .toolbar-actions .btn{
     width:100%; justify-content:flex-start; text-align:left;
     padding:10px 12px !important; font-size:12.5px !important;
-    min-height:0; white-space:nowrap;
+    min-height:0; white-space:normal; word-break:break-word; line-height:1.35;
+    box-sizing:border-box;
   }
+  .toolbar-actions .btn .btn-lbl{ white-space:normal; word-break:break-word; }
   /* Separador de grupo vira divisória horizontal */
   .toolbar-actions .tb-divider{
     width:100% !important; height:1px !important; margin:6px 2px !important;
