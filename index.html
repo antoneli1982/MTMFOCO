@@ -2434,217 +2434,83 @@ html[data-theme="light"] #dashboard{
 </head>
 <body>
 <!-- ══════════════════════════════════════════════════════════════
-     👤 TROCA DE USUÁRIO + PERMISSÕES (editar / excluir por usuário)
-     - Botão 👤 na barra superior abre o painel de usuários.
-     - Cada usuário tem NOME + SENHA própria e permissões configuráveis.
-     - Ao abrir/recarregar a página: ninguém conectado = SOMENTE LEITURA.
-     - Admin padrão: nome "Admin", senha "2017" (edita, exclui e gerencia).
-     - A lista de usuários fica salva NESTE navegador (localStorage).
-     OBS: é controle de interface, não é segurança forte (senhas ficam no navegador).
+     🔒 SENHA PARA EDITAR / EXCLUIR  (entrar e visualizar é LIVRE)
+     - Ver e navegar: LIVRE, sem senha nenhuma.
+     - Editar ou excluir: pede a senha 2017 (libera pela sessão).
+     - Ao recarregar a página: volta a bloquear edição/exclusão.
+     Para trocar a senha, altere __EDIT_PW abaixo.
      ══════════════════════════════════════════════════════════════ -->
 <script>
 (function(){
-  var LS_KEY='mtm_users_v1';
-  function seed(){ return [{id:'admin',name:'Admin',pass:'2017',canEdit:true,canDelete:true,admin:true}]; }
-  function loadUsers(){
-    try{ var raw=localStorage.getItem(LS_KEY); if(raw){ var a=JSON.parse(raw); if(a && a.length) return a; } }catch(e){}
-    return seed();
-  }
-  function saveUsers(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(window.__users)); }catch(e){} }
+  window.__EDIT_PW    = '2017';   // <<< senha para editar/excluir
+  window.__edUnlocked = false;    // começa bloqueado a cada carregamento
+  var __last = 0;
 
-  window.__users   = loadUsers();
-  window.__curUser = null;   // em memória: volta para SOMENTE LEITURA ao recarregar
-
-  window.__canEditNow   = function(){ return !!(window.__curUser && window.__curUser.canEdit); };
-  window.__canDeleteNow = function(){ return !!(window.__curUser && window.__curUser.canDelete); };
-  function isAdmin(){ return !!(window.__curUser && window.__curUser.admin); }
-
-  function __esc(x){ return String(x==null?'':x).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];}); }
-
-  window.__reqEdit = function(){ if(window.__canEditNow()) return true; __deny('editar'); return false; };
-  window.__reqDel  = function(){ if(window.__canDeleteNow()) return true; __deny('excluir'); return false; };
-  function __deny(acao){
-    var quem = window.__curUser ? ('O usuario "'+window.__curUser.name+'"') : 'Nenhum usuario conectado';
-    alert('🔒 '+quem+' nao tem permissao para '+acao+'.\n\nClique no botao 👤 (barra superior) para entrar com outro usuario.');
-  }
-  var __lastHint=0;
-  function __hint(msg){
-    var now=Date.now(); if(now-__lastHint<2500) return; __lastHint=now;
-    try{
-      var d=document.createElement('div'); d.textContent=msg;
-      d.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:2147483000;background:rgba(255,77,109,.96);color:#fff;padding:9px 16px;border-radius:10px;font:600 13px Inter,system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.45)';
-      document.body.appendChild(d);
-      setTimeout(function(){ d.style.transition='opacity .4s'; d.style.opacity='0'; setTimeout(function(){ if(d.parentNode)d.parentNode.removeChild(d); },420); }, 1700);
-    }catch(e){}
-  }
-
-  window.__updateUserBtn = function(){
+  function setBtn(){
     var b=document.getElementById('edUserBtn');
     if(b){
-      if(window.__curUser){
-        var can = window.__curUser.canEdit || window.__curUser.canDelete;
-        b.innerHTML='👤<span class="btn-lbl"> '+__esc(window.__curUser.name)+'</span>';
-        var pr=[]; if(window.__curUser.canEdit)pr.push('editar'); if(window.__curUser.canDelete)pr.push('excluir');
-        b.title='Conectado como '+window.__curUser.name+(pr.length?(' — pode '+pr.join(' e ')):' — somente leitura')+'. Clique para trocar de usuario.';
-        b.style.background = can?'rgba(0,229,160,.10)':'rgba(255,149,0,.10)';
-        b.style.color      = can?'var(--green)':'var(--orange)';
-        b.style.borderColor= can?'rgba(0,229,160,.40)':'rgba(255,149,0,.40)';
+      if(window.__edUnlocked){
+        b.innerHTML='🔓<span class="btn-lbl"> Edição liberada</span>';
+        b.title='Edição e exclusão LIBERADAS — clique para bloquear';
+        b.style.background='rgba(0,229,160,.10)'; b.style.color='var(--green)'; b.style.borderColor='rgba(0,229,160,.40)';
       } else {
-        b.innerHTML='👤<span class="btn-lbl"> Entrar</span>';
-        b.title='Nenhum usuario conectado (somente leitura). Clique para entrar.';
+        b.innerHTML='🔒<span class="btn-lbl"> Editar (senha)</span>';
+        b.title='Editar/excluir exige senha — clique e digite a senha';
         b.style.background='rgba(255,77,109,.10)'; b.style.color='var(--red)'; b.style.borderColor='rgba(255,77,109,.40)';
       }
     }
-    var be=document.getElementById('book-editor'); if(be) be.setAttribute('contenteditable', window.__canEditNow()?'true':'false');
-    if(document.body) document.body.classList.toggle('ed-locked', !window.__canEditNow());
-  };
+    var be=document.getElementById('book-editor'); if(be) be.setAttribute('contenteditable', window.__edUnlocked?'true':'false');
+    if(document.body) document.body.classList.toggle('ed-locked', !window.__edUnlocked);
+  }
+  window.__updateUserBtn = setBtn;   // usado tambem pelo firebase-mtm.js
 
-  function isEditableTarget(t){
-    if(!t || t.nodeType!==1) return false;
-    if(t.isContentEditable) return true;
-    if(t.hasAttribute && (t.hasAttribute('data-f') || t.hasAttribute('data-key'))) return true;
+  function unlock(){
+    if(window.__edUnlocked) return true;
+    var p = prompt('🔒 Digite a senha para editar ou excluir:');
+    if(p===null) return false;
+    if(p===window.__EDIT_PW){ window.__edUnlocked=true; setBtn(); return true; }
+    alert('❌ Senha incorreta.');
     return false;
   }
-  var HINT='🔒 Sem permissao para editar — clique em 👤 para entrar.';
-  document.addEventListener('beforeinput', function(e){
-    if(window.__canEditNow()) return;
-    if(isEditableTarget(e.target)){ e.preventDefault(); __hint(HINT); }
-  }, true);
-  document.addEventListener('focusin', function(e){
-    var t=e.target; if(t && t.matches && t.matches('select[data-f],select[data-key]')) t.__edPrev=t.value;
-  }, true);
-  document.addEventListener('change', function(e){
-    if(window.__canEditNow()) return;
-    var t=e.target;
-    if(t && t.matches && t.matches('select[data-f],select[data-key]')){
-      if(t.__edPrev!=null) t.value=t.__edPrev;
-      e.stopPropagation(); e.preventDefault(); __hint(HINT);
-    }
-  }, true);
-  document.addEventListener('mousedown', function(e){
-    if(window.__canEditNow()) return;
-    var t=e.target; if(t && t.closest && t.closest('select[data-f],select[data-key]')){ e.preventDefault(); __hint(HINT); }
-  }, true);
-  document.addEventListener('dragstart', function(e){
-    if(window.__canEditNow()) return;
-    var t=e.target; if(t && t.closest && (t.closest('tr[id^="r_"]') || t.closest('.tab'))){ e.preventDefault(); __hint(HINT); }
-  }, true);
+  // As 14 travas de editar/excluir chamam estas funções:
+  window.__mtmAuth = unlock;
+  window.__reqEdit = unlock;
+  window.__reqDel  = unlock;
+  window.__canEditNow   = function(){ return !!window.__edUnlocked; };
+  window.__canDeleteNow = function(){ return !!window.__edUnlocked; };
 
-  function ensureModal(){
-    if(document.getElementById('__uModal')) return;
-    var wrap=document.createElement('div'); wrap.id='__uModal';
-    wrap.style.cssText='display:none;position:fixed;inset:0;z-index:2147483001;background:rgba(2,4,10,.66);align-items:center;justify-content:center;padding:16px';
-    wrap.addEventListener('mousedown',function(e){ if(e.target===wrap) window.__closeUserModal(); });
-    wrap.innerHTML='<div style="width:100%;max-width:520px;max-height:88vh;overflow:auto;background:var(--surface);border:1px solid var(--border2);border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.6);padding:18px 18px 20px">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
-      +'<h3 style="margin:0;font:800 18px Inter,system-ui,sans-serif;color:var(--text)">👤 Usuarios</h3>'
-      +'<button onclick="__closeUserModal()" title="Fechar" style="background:transparent;border:none;color:var(--text2);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:8px">✕</button>'
-      +'</div><div id="__uModalBody"></div></div>';
-    document.body.appendChild(wrap);
+  window.__edToggleLock = function(){
+    if(window.__edUnlocked){ window.__edUnlocked=false; setBtn(); try{ if(document.activeElement&&document.activeElement.blur) document.activeElement.blur(); }catch(e){} }
+    else unlock();
+  };
+  // O botao da barra chama __openUserModal(); agora ele e simplesmente o cadeado.
+  window.__openUserModal = window.__edToggleLock;
+
+  function hint(){
+    var now=Date.now(); if(now-__last<2200) return; __last=now;
+    try{
+      var d=document.createElement('div');
+      d.textContent='🔒 Para editar, clique em "Editar (senha)" na barra e digite a senha.';
+      d.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:2147483000;background:rgba(255,77,109,.96);color:#fff;padding:9px 16px;border-radius:10px;font:600 13px Inter,system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.45)';
+      document.body.appendChild(d);
+      setTimeout(function(){ d.style.transition='opacity .4s'; d.style.opacity='0'; setTimeout(function(){ if(d.parentNode)d.parentNode.removeChild(d); },420); },1700);
+    }catch(e){}
   }
 
-  var S_INP='width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border2);border-radius:9px;color:var(--text);padding:9px 11px;font:500 13px Inter,system-ui,sans-serif;outline:none';
-  var S_PRIMARY='width:100%;margin-top:10px;background:linear-gradient(135deg,#00d4ff,#7c3aed);border:none;color:#001018;font:800 14px Inter,system-ui,sans-serif;padding:10px;border-radius:10px;cursor:pointer';
-  var S_GHOST='margin-top:8px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);font:700 12px Inter,system-ui,sans-serif;padding:7px 12px;border-radius:9px;cursor:pointer';
-  var S_MINI='background:transparent;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:6px';
-
-  function badge(txt,color){ return '<span style="display:inline-block;font:700 10px Inter;padding:2px 7px;border-radius:20px;margin-left:5px;background:'+color+'22;color:'+color+';border:1px solid '+color+'55">'+txt+'</span>'; }
-  function permBadges(u){
-    var h=''; if(u.canEdit)h+=badge('editar','#00e5a0'); if(u.canDelete)h+=badge('excluir','#ff4d6d'); if(u.admin)h+=badge('admin','#4f8ef7');
-    if(!u.canEdit&&!u.canDelete&&!u.admin)h+=badge('so leitura','#7a8aaa'); return h;
+  function editable(t){
+    if(!t||t.nodeType!==1) return false;
+    if(t.isContentEditable) return true;
+    if(t.hasAttribute&&(t.hasAttribute('data-f')||t.hasAttribute('data-key'))) return true;
+    return false;
   }
-  function chk(id,on,label){ return '<label style="display:inline-flex;align-items:center;gap:5px;font:600 11px Inter;color:var(--text2);margin-right:12px;cursor:pointer"><input type="checkbox" id="'+id+'"'+(on?' checked':'')+' style="accent-color:var(--accent)"> '+label+'</label>'; }
+  document.addEventListener('beforeinput', function(e){ if(window.__edUnlocked) return; if(editable(e.target)){ e.preventDefault(); hint(); } }, true);
+  document.addEventListener('focusin', function(e){ var t=e.target; if(t&&t.matches&&t.matches('select[data-f],select[data-key]')) t.__edPrev=t.value; }, true);
+  document.addEventListener('change', function(e){ if(window.__edUnlocked) return; var t=e.target; if(t&&t.matches&&t.matches('select[data-f],select[data-key]')){ if(t.__edPrev!=null) t.value=t.__edPrev; e.stopPropagation(); e.preventDefault(); hint(); } }, true);
+  document.addEventListener('mousedown', function(e){ if(window.__edUnlocked) return; var t=e.target; if(t&&t.closest&&t.closest('select[data-f],select[data-key]')){ e.preventDefault(); hint(); } }, true);
+  document.addEventListener('dragstart', function(e){ if(window.__edUnlocked) return; var t=e.target; if(t&&t.closest&&(t.closest('tr[id^="r_"]')||t.closest('.tab'))){ e.preventDefault(); hint(); } }, true);
 
-  function manageHtml(){
-    var rows=window.__users.map(function(u){
-      return '<tr style="border-top:1px solid var(--border)">'
-        +'<td style="padding:7px 6px;font:700 13px Inter;color:var(--text)">'+__esc(u.name)+'</td>'
-        +'<td style="padding:7px 6px;text-align:center"><input type="checkbox"'+(u.canEdit?' checked':'')+' onchange="__uToggle(\''+u.id+'\',\'canEdit\')" style="accent-color:#00e5a0"></td>'
-        +'<td style="padding:7px 6px;text-align:center"><input type="checkbox"'+(u.canDelete?' checked':'')+' onchange="__uToggle(\''+u.id+'\',\'canDelete\')" style="accent-color:#ff4d6d"></td>'
-        +'<td style="padding:7px 6px;text-align:center"><input type="checkbox"'+(u.admin?' checked':'')+' onchange="__uToggle(\''+u.id+'\',\'admin\')" style="accent-color:#4f8ef7"></td>'
-        +'<td style="padding:7px 6px;text-align:right"><button title="Remover" onclick="__uRemove(\''+u.id+'\')" style="'+S_MINI+'">🗑</button></td>'
-        +'</tr>';
-    }).join('');
-    return '<div style="margin-top:18px;border-top:1px solid var(--border2);padding-top:14px">'
-      +'<div style="font:800 13px Inter;color:var(--text);margin-bottom:8px">Gerenciar usuarios</div>'
-      +'<div style="overflow:auto"><table style="width:100%;border-collapse:collapse">'
-      +'<thead><tr style="color:var(--text3);font:700 10px Inter;text-transform:uppercase;letter-spacing:.5px">'
-      +'<th style="text-align:left;padding:4px 6px">Nome</th><th style="padding:4px 6px">Editar</th><th style="padding:4px 6px">Excluir</th><th style="padding:4px 6px">Admin</th><th></th></tr></thead>'
-      +'<tbody>'+rows+'</tbody></table></div>'
-      +'<div style="margin-top:14px;background:var(--surface2);border:1px solid var(--border2);border-radius:11px;padding:12px">'
-      +'<div style="font:700 12px Inter;color:var(--text);margin-bottom:8px">Adicionar usuario</div>'
-      +'<input id="__uNewName" placeholder="Nome" style="'+S_INP+'">'
-      +'<input id="__uNewPass" type="password" placeholder="Senha" style="'+S_INP+';margin-top:8px">'
-      +'<div style="margin-top:10px">'+chk('__uNewEdit',true,'Editar')+chk('__uNewDel',false,'Excluir')+chk('__uNewAdmin',false,'Admin')+'</div>'
-      +'<button onclick="__uAdd()" style="'+S_PRIMARY+'">Adicionar</button>'
-      +'</div></div>';
-  }
-
-  window.__renderUserModal = function(){
-    var b=document.getElementById('__uModalBody'); if(!b) return;
-    var html='';
-    if(window.__curUser){
-      html+='<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:11px;padding:12px;margin-bottom:14px">'
-        +'<div style="font:600 12px Inter;color:var(--text2)">Conectado como</div>'
-        +'<div style="font:800 16px Inter;color:var(--text);margin:2px 0 9px">'+__esc(window.__curUser.name)+' '+permBadges(window.__curUser)+'</div>'
-        +'<button onclick="__uLogout()" style="'+S_GHOST+'">Sair (voltar a somente leitura)</button>'
-        +'</div>';
-    }
-    html+='<div>'
-      +'<div style="font:700 13px Inter;color:var(--text);margin-bottom:6px">'+(window.__curUser?'Trocar de usuario':'Entrar')+'</div>'
-      +'<select id="__uLoginSel" style="'+S_INP+'">'+window.__users.map(function(u){return '<option value="'+__esc(u.name)+'">'+__esc(u.name)+'</option>';}).join('')+'</select>'
-      +'<input id="__uLoginPw" type="password" placeholder="Senha do usuario" style="'+S_INP+';margin-top:8px" onkeydown="if(event.key===\'Enter\')__uLogin()">'
-      +'<div id="__uErr" style="color:var(--red);font:600 12px Inter;min-height:16px;margin-top:6px"></div>'
-      +'<button onclick="__uLogin()" style="'+S_PRIMARY+'">Entrar</button>'
-      +'</div>';
-    if(isAdmin()) html+=manageHtml();
-    else if(window.__curUser) html+='<div style="margin-top:14px;font:600 11px Inter;color:var(--text3)">Somente administradores podem gerenciar usuarios.</div>';
-    b.innerHTML=html;
-  };
-
-  window.__openUserModal = function(){ ensureModal(); window.__renderUserModal(); document.getElementById('__uModal').style.display='flex'; setTimeout(function(){ var p=document.getElementById('__uLoginPw'); if(p)p.focus(); },40); };
-  window.__closeUserModal= function(){ var m=document.getElementById('__uModal'); if(m)m.style.display='none'; };
-
-  window.__uLogin = function(){
-    var sel=document.getElementById('__uLoginSel'), pw=document.getElementById('__uLoginPw'), err=document.getElementById('__uErr');
-    if(!sel) return;
-    var u=window.__users.filter(function(x){return x.name===sel.value;})[0];
-    if(!u){ if(err)err.textContent='Usuario nao encontrado.'; return; }
-    if((pw.value||'')!==(u.pass||'')){ if(err)err.textContent='Senha incorreta.'; return; }
-    window.__curUser=u; window.__updateUserBtn(); window.__closeUserModal();
-  };
-  window.__uLogout = function(){ window.__curUser=null; window.__updateUserBtn(); window.__renderUserModal(); };
-
-  window.__uToggle = function(id,field){
-    var u=window.__users.filter(function(x){return x.id===id;})[0]; if(!u) return;
-    if(field==='admin' && u.admin && window.__users.filter(function(x){return x.admin;}).length<=1){ alert('E preciso manter pelo menos um administrador.'); window.__renderUserModal(); return; }
-    u[field]=!u[field]; saveUsers();
-    if(window.__curUser && window.__curUser.id===id){ window.__curUser=u; window.__updateUserBtn(); }
-    window.__renderUserModal();
-  };
-  window.__uRemove = function(id){
-    var u=window.__users.filter(function(x){return x.id===id;})[0]; if(!u) return;
-    if(u.admin && window.__users.filter(function(x){return x.admin;}).length<=1){ alert('Nao e possivel remover o unico administrador.'); return; }
-    if(!confirm('Remover o usuario "'+u.name+'"?')) return;
-    window.__users=window.__users.filter(function(x){return x.id!==id;});
-    if(window.__curUser && window.__curUser.id===id){ window.__curUser=null; window.__updateUserBtn(); }
-    saveUsers(); window.__renderUserModal();
-  };
-  window.__uAdd = function(){
-    var n=(document.getElementById('__uNewName').value||'').trim();
-    var pw=(document.getElementById('__uNewPass').value||'');
-    if(!n){ alert('Informe o nome do usuario.'); return; }
-    if(window.__users.some(function(x){return x.name.toLowerCase()===n.toLowerCase();})){ alert('Ja existe um usuario com esse nome.'); return; }
-    if(!pw){ alert('Defina uma senha para o usuario.'); return; }
-    window.__users.push({ id:'u_'+Date.now()+'_'+Math.floor(Math.random()*9999), name:n, pass:pw,
-      canEdit:document.getElementById('__uNewEdit').checked,
-      canDelete:document.getElementById('__uNewDel').checked,
-      admin:document.getElementById('__uNewAdmin').checked });
-    saveUsers(); window.__renderUserModal();
-  };
-
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', function(){ window.__updateUserBtn(); });
-  else window.__updateUserBtn();
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', setBtn);
+  else setBtn();
 })();
 </script>
 
