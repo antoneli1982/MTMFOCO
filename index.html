@@ -2434,61 +2434,120 @@ html[data-theme="light"] #dashboard{
 </head>
 <body>
 <!-- ══════════════════════════════════════════════════════════════
-     🔒 SENHA SÓ PARA EXCLUIR E MEXER EM PROJETOS  (digitar nas folhas é LIVRE)
-     - Digitar/editar o conteúdo das folhas (linhas, cabeçalho, Livro, seletores): LIVRE, sem senha.
-     - EXCLUIR qualquer coisa: exige a senha 2017.
-     - Renomear projeto/pasta/folha, trocar/editar imagem, editar nota: exige a senha 2017.
-     - Ao recarregar (F5): essas ações protegidas voltam a exigir a senha.
+     🔒 SENHA PARA EDITAR/EXCLUIR — mas PROJETO/FOLHA NOVO é LIVRE até o F5
+     - Ao carregar / dar F5: o que JÁ EXISTIA fica travado (editar/excluir pede senha 2017).
+     - O que você CRIAR nesta sessão (pasta/projeto/folha novos) é LIVRE para preencher,
+       editar e excluir — sem senha — ATÉ você dar F5.
+     - Ao dar F5: o que foi criado já ficou salvo e passa a ser "existente" (travado).
+     - Digite a senha 2017 para liberar também a edição/exclusão do que já existe.
      Para trocar a senha, altere __EDIT_PW abaixo.
      ══════════════════════════════════════════════════════════════ -->
 <script>
 (function(){
-  window.__EDIT_PW    = '2017';   // <<< senha para EXCLUIR e alterar projetos/nomes/imagens
-  window.__edUnlocked = false;    // controla só as acoes protegidas (NAO a digitacao)
+  window.__EDIT_PW='2017';
+  window.__edUnlocked=false;                                   // trava a cada F5
+  window.__newIds = (window.__newIds && window.__newIds.add) ? window.__newIds : {}; // ids criados NESTA sessão
+  var __last=0;
+
+  function isNew(id){ return id!=null && !!window.__newIds[id]; }
+  window.__isNewId = isNew;
 
   function setBtn(){
     var b=document.getElementById('edUserBtn');
     if(b){
       if(window.__edUnlocked){
-        b.innerHTML='🔓<span class="btn-lbl"> Alterações liberadas</span>';
-        b.title='Excluir e alterar projetos/nomes/imagens LIBERADO — clique para bloquear';
+        b.innerHTML='🔓<span class="btn-lbl"> Edição liberada</span>';
+        b.title='Edição e exclusão de TUDO liberadas — clique para bloquear';
         b.style.background='rgba(0,229,160,.10)'; b.style.color='var(--green)'; b.style.borderColor='rgba(0,229,160,.40)';
       } else {
-        b.innerHTML='🔒<span class="btn-lbl"> Excluir/Projetos (senha)</span>';
-        b.title='Excluir e mexer em projetos/nomes/imagens exige senha — clique e digite';
+        b.innerHTML='🔒<span class="btn-lbl"> Editar existentes (senha)</span>';
+        b.title='Editar/excluir o que JÁ EXISTE exige senha. Projeto novo é livre. Clique para liberar tudo.';
         b.style.background='rgba(255,77,109,.10)'; b.style.color='var(--red)'; b.style.borderColor='rgba(255,77,109,.40)';
       }
     }
-    // Digitar é LIVRE: o Livro fica sempre editável e nada de cursor bloqueado.
-    var be=document.getElementById('book-editor'); if(be) be.setAttribute('contenteditable','true');
-    if(document.body) document.body.classList.remove('ed-locked');
   }
-  window.__updateUserBtn = setBtn;   // usado tambem pelo firebase-mtm.js
+  window.__updateUserBtn=setBtn;
 
   function unlock(){
     if(window.__edUnlocked) return true;
-    var p = prompt('🔒 Digite a senha para excluir ou alterar projetos:');
+    var p = prompt('🔒 Digite a senha para editar/excluir itens já existentes:');
     if(p===null) return false;
     if(p===window.__EDIT_PW){ window.__edUnlocked=true; setBtn(); return true; }
     alert('❌ Senha incorreta.');
     return false;
   }
-  // As travas de EXCLUIR e de editar projeto/nome/imagem/nota chamam estas funções:
-  window.__mtmAuth = unlock;
-  window.__reqEdit = unlock;
-  window.__reqDel  = unlock;
-  // Compatibilidade: a digitação NÃO é mais bloqueada.
-  window.__canEditNow   = function(){ return true; };
-  window.__canDeleteNow = function(){ return !!window.__edUnlocked; };
+  // Guardas chamam __reqEdit(id)/__reqDel(id): item NOVO passa livre; existente pede senha.
+  function gate(id){
+    if(window.__edUnlocked) return true;
+    if(isNew(id)) return true;
+    return unlock();
+  }
+  window.__mtmAuth=unlock;
+  window.__reqEdit=gate;
+  window.__reqDel=gate;
+  window.__canEditNow=function(){ return !!window.__edUnlocked; };
+  window.__canDeleteNow=function(){ return !!window.__edUnlocked; };
 
-  window.__edToggleLock = function(){
-    if(window.__edUnlocked){ window.__edUnlocked=false; setBtn(); }
+  // Resolvem o id do projeto (para funções que recebem índice).
+  window.__projId=function(fid,pi){ try{ var pm=window.pmData||{}; var f=pm[fid]; var pr=f&&f.projects; var p=pr&&pr[pi]; return p?p.id:null; }catch(e){ return null; } };
+  window.__curProjId=function(){ try{ var p=(typeof pmGetProject==='function')?pmGetProject():null; return p?p.id:null; }catch(e){ return null; } };
+  window.__curFolderProjId=function(i){ try{ var f=(typeof pmGetFolder==='function')?pmGetFolder():null; var p=f&&f.projects&&f.projects[i]; return p?p.id:null; }catch(e){ return null; } };
+
+  window.__edToggleLock=function(){
+    if(window.__edUnlocked){ window.__edUnlocked=false; setBtn(); try{ if(document.activeElement&&document.activeElement.blur) document.activeElement.blur(); }catch(e){} }
     else unlock();
   };
-  window.__openUserModal = window.__edToggleLock;
+  window.__openUserModal=window.__edToggleLock;
 
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', setBtn);
-  else setBtn();
+  function hint(){
+    var now=Date.now(); if(now-__last<2200) return; __last=now;
+    try{
+      var d=document.createElement('div');
+      d.textContent='🔒 Isto já existe — clique em "Editar existentes" e digite a senha. (Projeto novo é livre.)';
+      d.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:2147483000;background:rgba(255,77,109,.96);color:#fff;padding:9px 16px;border-radius:10px;font:600 13px Inter,system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.45);max-width:92vw;text-align:center';
+      document.body.appendChild(d);
+      setTimeout(function(){ d.style.transition='opacity .4s'; d.style.opacity='0'; setTimeout(function(){ if(d.parentNode)d.parentNode.removeChild(d); },420); },1800);
+    }catch(e){}
+  }
+
+  function editable(t){
+    if(!t||t.nodeType!==1) return false;
+    if(t.isContentEditable) return true;
+    if(t.hasAttribute&&(t.hasAttribute('data-f')||t.hasAttribute('data-key'))) return true;
+    return false;
+  }
+  function sheetOf(t){
+    if(!t||!t.closest) return null;
+    if(t.closest('#book-editor')) return window.activeId||null;   // Livro segue a folha ativa
+    var c=t.closest('[id^="c-"]'); return c?c.id.slice(2):null;
+  }
+  function sheetFree(t){                        // folha nova = digitar livre
+    if(window.__edUnlocked) return true;
+    var sid=sheetOf(t); return isNew(sid);
+  }
+  document.addEventListener('beforeinput', function(e){ if(sheetFree(e.target)) return; if(editable(e.target)){ e.preventDefault(); hint(); } }, true);
+  document.addEventListener('focusin', function(e){ var t=e.target; if(t&&t.matches&&t.matches('select[data-f],select[data-key]')) t.__edPrev=t.value; }, true);
+  document.addEventListener('change', function(e){ if(sheetFree(e.target)) return; var t=e.target; if(t&&t.matches&&t.matches('select[data-f],select[data-key]')){ if(t.__edPrev!=null) t.value=t.__edPrev; e.stopPropagation(); e.preventDefault(); hint(); } }, true);
+  document.addEventListener('mousedown', function(e){ if(window.__edUnlocked) return; var t=e.target; if(t&&t.closest&&t.closest('select[data-f],select[data-key]')){ if(sheetFree(t)) return; e.preventDefault(); hint(); } }, true);
+  document.addEventListener('dragstart', function(e){ if(window.__edUnlocked) return; var t=e.target; if(t&&t.closest){ if(t.closest('tr[id^="r_"]')){ if(sheetFree(t)) return; e.preventDefault(); hint(); return; } if(t.closest('.tab')){ e.preventDefault(); hint(); } } }, true);
+
+  // ---- Marca como NOVO tudo criado nesta sessão (folha/pasta/projeto) ----
+  function collectIds(){
+    var s={};
+    try{ (window.sheets||[]).forEach(function(sh){ if(sh&&sh.id) s[sh.id]=1; }); }catch(e){}
+    try{ var pm=window.pmData||{}; Object.keys(pm).forEach(function(fid){ s[fid]=1; var pr=pm[fid]&&pm[fid].projects; if(pr) pr.forEach(function(p){ if(p&&p.id) s[p.id]=1; }); }); }catch(e){}
+    return s;
+  }
+  function wrapCreate(name){
+    var orig=window[name];
+    if(typeof orig!=='function' || orig.__wrappedNew) return;
+    var wrapped=function(){ var before=collectIds(); var r=orig.apply(this,arguments); try{ var after=collectIds(); Object.keys(after).forEach(function(id){ if(!before[id]) window.__newIds[id]=1; }); }catch(e){} return r; };
+    wrapped.__wrappedNew=true; window[name]=wrapped;
+  }
+  function installHooks(){ ['addSheet','addSheetHere','pmConfirmModal'].forEach(wrapCreate); }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', function(){ setBtn(); installHooks(); });
+  else { setBtn(); installHooks(); }
 })();
 </script>
 
@@ -4985,7 +5044,7 @@ function addSheet(silent){
   return id;
 }
 
-function deleteCurrentSheet(){if(typeof __reqDel==='function' && !__reqDel())return;
+function deleteCurrentSheet(){if(typeof __reqDel==='function' && !__reqDel(window.activeId))return;
   const scoped=scopedSheets();
   if(scoped.length<=1){alert('Mínimo uma folha neste projeto.');return}
   if(!confirm(`Excluir "${get(activeId).label}"?`))return;
@@ -5000,7 +5059,7 @@ function deleteCurrentSheet(){if(typeof __reqDel==='function' && !__reqDel())ret
   saveSheets();
 }
 
-function renameCurrentSheet(){if(typeof __reqEdit==='function' && !__reqEdit())return;
+function renameCurrentSheet(){if(typeof __reqEdit==='function' && !__reqEdit(window.activeId))return;
   document.getElementById('rename-input').value=get(activeId).label;
   document.getElementById('rename-modal').classList.remove('hidden');
   document.getElementById('rename-input').focus();
@@ -5134,7 +5193,7 @@ function moveRow(sid, fromRid, toRid, insertBefore){
   if(typeof persistNow === 'function') persistNow();
 }
 
-function renameById(id){if(typeof __reqEdit==='function' && !__reqEdit())return;
+function renameById(id){if(typeof __reqEdit==='function' && !__reqEdit(id))return;
   const s = get(id);
   if(!s){ return; }
   const nomeAtual = s.label || '';
@@ -5155,7 +5214,7 @@ function renameById(id){if(typeof __reqEdit==='function' && !__reqEdit())return;
   if(typeof showToast === 'function') showToast('✏️ Folha renomeada para "' + trim + '"');
 }
 
-function delById(id){if(typeof __reqDel==='function' && !__reqDel())return;
+function delById(id){if(typeof __reqDel==='function' && !__reqDel(id))return;
   const scoped=scopedSheets();
   if(scoped.length<=1){alert('Mínimo uma folha neste projeto.');return}
   if(!confirm(`Excluir "${get(id).label}"?`))return;
@@ -5763,7 +5822,7 @@ function recalcSheet(sid){
   try{ updateTotals(sid); }catch(e){}
 }
 
-function delRow(sid,rid){if(typeof __reqDel==='function' && !__reqDel())return;
+function delRow(sid,rid){if(typeof __reqDel==='function' && !__reqDel(sid))return;
   const s=get(sid);
   s.rows=s.rows.filter(r=>r.id!==rid);
   document.getElementById(rid)?.remove();
@@ -8066,7 +8125,7 @@ function pmRenderFolders(){
 }
 
 // Trocar / adicionar imagem de uma pasta existente
-function pmPickFolderLogo(fid){if(typeof __reqEdit==='function' && !__reqEdit())return;
+function pmPickFolderLogo(fid){if(typeof __reqEdit==='function' && !__reqEdit(fid))return;
   const inp = document.createElement('input');
   inp.type = 'file';
   inp.accept = 'image/*';
@@ -8103,7 +8162,7 @@ function pmOpenFolder(fid){
   pmView('projects');
 }
 
-function pmDeleteFolder(fid){if(typeof __reqDel==='function' && !__reqDel())return;
+function pmDeleteFolder(fid){if(typeof __reqDel==='function' && !__reqDel(fid))return;
   if(!confirm(`Excluir a pasta "${pmData[fid].name}" e tudo dentro dela?`)) return;
   // Se o projeto aberto está nesta pasta, limpa o escopo
   if(activeProjectCtx && activeProjectCtx.folderId === fid) clearActiveProjectCtx();
@@ -8164,7 +8223,7 @@ function pmOpenProject(i){
   pmView('project');
 }
 
-function pmDeleteProject(i){if(typeof __reqDel==='function' && !__reqDel())return;
+function pmDeleteProject(i){if(typeof __reqDel==='function' && !__reqDel(window.__curFolderProjId(i)))return;
   const f = pmGetFolder();
   const p = f.projects[i];
   if(!confirm(`Excluir o projeto "${p.name}" e todas as suas folhas e anotações?`)) return;
@@ -8176,7 +8235,7 @@ function pmDeleteProject(i){if(typeof __reqDel==='function' && !__reqDel())retur
 }
 
 // ── Renomear pasta ──
-function pmRenameFolder(fid){if(typeof __reqEdit==='function' && !__reqEdit())return;
+function pmRenameFolder(fid){if(typeof __reqEdit==='function' && !__reqEdit(fid))return;
   const f = pmData[fid];
   if(!f) return;
   const nomeAtual = f.name || '';
@@ -8193,7 +8252,7 @@ function pmRenameFolder(fid){if(typeof __reqEdit==='function' && !__reqEdit())re
 }
 
 // ── Renomear projeto ──
-function pmRenameProject(i){if(typeof __reqEdit==='function' && !__reqEdit())return;
+function pmRenameProject(i){if(typeof __reqEdit==='function' && !__reqEdit(window.__curFolderProjId(i)))return;
   const f = pmGetFolder();
   if(!f || !f.projects || !f.projects[i]) return;
   const p = f.projects[i];
@@ -8409,7 +8468,7 @@ function pmOpenSheet(sid){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-function pmDeleteSheet(sid){if(typeof __reqDel==='function' && !__reqDel())return;
+function pmDeleteSheet(sid){if(typeof __reqDel==='function' && !__reqDel(sid))return;
   const p = pmGetProject();
   if(!confirm('Excluir esta folha de processo?')) return;
   p.sheets = (p.sheets||[]).filter(s=>s!==sid);
@@ -8447,7 +8506,7 @@ function pmAddNote(){
   p.notes.unshift({title: t||'Sem título', body: b, date: new Date().toLocaleString('pt-BR')});
   pmSave(); pmRenderProject(); pmSwitchProjTab('notes');
 }
-function pmStartNoteEdit(i){if(typeof __reqEdit==='function' && !__reqEdit())return;
+function pmStartNoteEdit(i){if(typeof __reqEdit==='function' && !__reqEdit(window.__curProjId()))return;
   document.getElementById('pmnb-'+i).style.display='none';
   document.getElementById('pmne-'+i).style.display='block';
   document.getElementById('pmna-'+i).style.display='none';
@@ -8457,14 +8516,14 @@ function pmCancelNoteEdit(i){
   document.getElementById('pmne-'+i).style.display='none';
   document.getElementById('pmna-'+i).style.display='';
 }
-function pmSaveNoteEdit(i){if(typeof __reqEdit==='function' && !__reqEdit())return;
+function pmSaveNoteEdit(i){if(typeof __reqEdit==='function' && !__reqEdit(window.__curProjId()))return;
   const p = pmGetProject();
   p.notes[i].title = document.getElementById('pmet-'+i)?.value.trim()||'Sem título';
   p.notes[i].body  = document.getElementById('pmeb-'+i)?.value.trim()||'';
   p.notes[i].date  = new Date().toLocaleString('pt-BR')+' (editado)';
   pmSave(); pmRenderProject(); pmSwitchProjTab('notes');
 }
-function pmDeleteNote(i){if(typeof __reqDel==='function' && !__reqDel())return;
+function pmDeleteNote(i){if(typeof __reqDel==='function' && !__reqDel(window.__curProjId()))return;
   if(!confirm('Excluir esta anotação?')) return;
   pmGetProject().notes.splice(i,1);
   pmSave(); pmRenderProject(); pmSwitchProjTab('notes');
@@ -9644,7 +9703,7 @@ function dbNewProjectInFolder(fid){
 }
 
 // ─── Excluir pasta inteira (via card do dashboard) ──────────────
-function dbDelFolder(fid){if(typeof __reqDel==='function' && !__reqDel())return;
+function dbDelFolder(fid){if(typeof __reqDel==='function' && !__reqDel(fid))return;
   pmLoad();
   var f = pmData[fid];
   if(!f) return;
@@ -9726,7 +9785,7 @@ function dbProjectImgBox(p){
     + '</div>';
 }
 
-function dbPickProjectImgById(pid){if(typeof __reqEdit==='function' && !__reqEdit())return;
+function dbPickProjectImgById(pid){if(typeof __reqEdit==='function' && !__reqEdit(pid))return;
   var inp = document.createElement('input');
   inp.type = 'file'; inp.accept = 'image/*'; inp.style.display = 'none';
   inp.onchange = function(){
@@ -9770,7 +9829,7 @@ function dbApplyProjectImg(pid, dataUrl){
   if(typeof showToast === 'function') showToast('🖼️ Imagem da peça atualizada.');
 }
 
-function dbRemoveProjectImgById(pid){if(typeof __reqDel==='function' && !__reqDel())return;
+function dbRemoveProjectImgById(pid){if(typeof __reqDel==='function' && !__reqDel(pid))return;
   var found = (typeof dbFindByPid === 'function') ? dbFindByPid(pid) : null;
   if(!found || !found.p) return;
   if(!confirm('Remover a imagem da peça deste projeto?')) return;
@@ -10171,7 +10230,7 @@ function closeFolderPage(){
   dbRenderList();
 }
 
-function dbRenameFolder(fid){if(typeof __reqEdit==='function' && !__reqEdit())return;
+function dbRenameFolder(fid){if(typeof __reqEdit==='function' && !__reqEdit(fid))return;
   pmLoad();
   if(!pmData[fid]) return;
   var oldName = pmData[fid].name;
@@ -10282,7 +10341,7 @@ function dbOpenProjectInFolder(fid, pi){
   }, 80);
 }
 
-function dbDelProjectInFolder(fid, pi){if(typeof __reqDel==='function' && !__reqDel())return;
+function dbDelProjectInFolder(fid, pi){if(typeof __reqDel==='function' && !__reqDel(window.__projId(fid,pi)))return;
   pmLoad();
   var p = pmData[fid] && pmData[fid].projects && pmData[fid].projects[pi];
   if(!p) return;
@@ -10440,7 +10499,7 @@ function dbHandleProjectFileForFolder(input, fid){
 }
 
 // ── Renomear projeto dentro de pasta (dashboard) ──
-function dbRenameProjectInFolder(fid, pi){if(typeof __reqEdit==='function' && !__reqEdit())return;
+function dbRenameProjectInFolder(fid, pi){if(typeof __reqEdit==='function' && !__reqEdit(window.__projId(fid,pi)))return;
   pmLoad();
   var p = pmData[fid] && pmData[fid].projects && pmData[fid].projects[pi];
   if(!p) return;
@@ -12949,7 +13008,7 @@ function dbOpenById(pid){
   }, 80);
 }
 
-function dbDelById(pid){if(typeof __reqDel==='function' && !__reqDel())return;
+function dbDelById(pid){if(typeof __reqDel==='function' && !__reqDel(pid))return;
   pmLoad();
   var found = dbFindByPid(pid);
   if(!found) return;
