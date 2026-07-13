@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
-<title>Ferramenta MTM — Folha Padrão de Processo</title>
+<title>Ferramenta MTM — Todos os Projetos · Usuários · Senha 2017</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 
@@ -1768,7 +1768,1377 @@ window.FIREBASE_CONFIG = {
   appId:             "1:323473561940:web:ee9f4e4f1f9ea53c5210c1"
 };
 </script>
-<script src="firebase-mtm.js"></script>
+<script>
+/* ============================================================================
+   firebase-mtm.js — MTM EM FOCO
+   ACESSO SIMPLIFICADO — TODOS VISUALIZAM / SENHA ÚNICA PARA EDITAR
+
+   O que este arquivo faz:
+   - A chapa serve apenas para identificar a sessão e carregar os dados.
+   - Todos os projetos encontrados em mtm_users podem ser visualizados.
+   - Alterar, criar, renomear, importar, excluir ou salvar exige a senha 2017.
+   - Sem liberar a edição, o sistema permanece em modo somente leitura.
+
+   IMPORTANTE (segurança — leia): o login é por código digitado e o Firebase
+   usa auth ANÔNIMO. Portanto a separação é garantida PELO APP, não pelo
+   servidor. Alguém técnico consegue ler o banco direto. Para blindar de
+   verdade é preciso Firebase Authentication (conta real) + Regras do
+   Firestore por usuário. Veja o README que acompanha a entrega.
+   ============================================================================ */
+(function () {
+  'use strict';
+
+  /* ==========================================================================
+     1) CONFIGURAÇÃO DE PAPÉIS  —  EDITE AQUI (é só esta parte)
+     ========================================================================== */
+
+  // Código do dono absoluto (Felipe). Ninguém, nem o sênior, mexe nas folhas dele.
+  var OWNER_CODE = '0000001';
+
+  // Código do sênior. Edita/exclui tudo, EXCETO as folhas do Felipe.
+  var SENIOR_CODE = '321215';
+
+  // Códigos dos "apresentados": controle total das PRÓPRIAS folhas + veem
+  // (somente leitura) as folhas do sênior. NÃO veem as do Felipe.
+  // Obs.: no pedido original apareceu "00000002" (8 dígitos). Deixei as duas
+  // formas para ninguém ficar travado. Ajuste à vontade.
+  var APRESENTADOS = ['0000002', '00000002', '0000003'];
+
+  // Nomes só para exibição (opcional).
+  var NAMES = {
+    '0000001': 'FELIPE',
+    '321215':  'SÊNIOR',
+    '0000002': 'APRESENTADO 2',
+    '00000002':'APRESENTADO 2',
+    '0000003': 'APRESENTADO 3'
+  };
+
+  // Mensagem de boas-vindas do dono.
+  var OWNER_WELCOME = 'SEJA BEM VINDO MEU IRMÃO ENGº FELIPE';
+
+  /* ==========================================================================
+     2) CONFIGURAÇÃO FIREBASE
+     Usa a config do index.html (window.FIREBASE_CONFIG). Se não existir,
+     cai para o objeto abaixo (preencha se for usar sem o index).
+     ========================================================================== */
+  var LOCAL_CONFIG = {
+    apiKey: 'COLE_AQUI',
+    authDomain: 'mtm-em-foco.firebaseapp.com',
+    projectId: 'mtm-em-foco',
+    storageBucket: 'mtm-em-foco.appspot.com',
+    messagingSenderId: 'COLE_AQUI',
+    appId: 'COLE_AQUI'
+  };
+
+  function getFirebaseConfig() {
+    try {
+      if (window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey &&
+          window.FIREBASE_CONFIG.apiKey !== 'COLE_AQUI') {
+        return window.FIREBASE_CONFIG;
+      }
+    } catch (e) {}
+    return LOCAL_CONFIG;
+  }
+
+  // Coleção onde ficam os documentos por usuário.
+  var USERS_COLLECTION = 'mtm_users';
+
+  // Chaves de localStorage já usadas pelo app.
+  var SHEETS_KEY = 'mtm_sheets_v1';
+  var PM_KEY = 'pmgr_v3';
+  var LOGOS_KEY = 'mtm_client_logos_v1';
+  var KNOWN_USERS_KEY = 'mtm_known_user_codes_v2';
+
+  /* ==========================================================================
+     3) ESTADO INTERNO
+     ========================================================================== */
+  var db = null;
+  var rtdb = null;
+  var cloudReady = false;
+  var authOk = false;
+  var cloudSource = null;      // 'firestore' ou 'realtime'
+  var lastError = null;
+  var lastStatus = 'iniciando';
+  var lastCounts = { docs: 0, sheets: 0, folders: 0 };
+  var loadPromise = Promise.resolve();      // Firestore inicializado
+  var applyingCloud = false;   // estamos aplicando dados vindos da nuvem (evita eco)
+  var saveTimer = null;
+  var liveUnsub = null;        // função para cancelar o listener em tempo real
+  var readyResolve = null;
+  var readyPromise = new Promise(function (res) { readyResolve = res; });
+
+  var CURRENT = null;          // { code, role, name }
+  var ownerMeta = {};          // { code: { name, role } } — capturado no load
+  var loadedOwnerCodes = [];   // documentos efetivamente carregados nesta sessão
+  var loadedSources = [];      // origens encontradas: Firestore, Realtime e legados
+
+  // Regra simplificada solicitada: todos visualizam tudo; qualquer alteração
+  // exige a senha única abaixo. A liberação dura até recarregar ou bloquear.
+  var EDIT_PASSWORD = '2017';
+  var EDIT_UNLOCKED = false;
+  var editObserver = null;
+  var editRefreshTimer = null;
+  var editApplying = false;
+
+  function log()  { try { console.log.apply(console,  ['[MTM]'].concat([].slice.call(arguments))); } catch (e) {} }
+  function warn() { try { console.warn.apply(console, ['[MTM]'].concat([].slice.call(arguments))); } catch (e) {} }
+
+  function errText(e) {
+    if (!e) return '';
+    return String(e.code || e.message || e);
+  }
+
+  function setStatus(status, message, error) {
+    lastStatus = status;
+    lastError = error || null;
+    var detail = message || status;
+    try {
+      window.dispatchEvent(new CustomEvent('mtm-cloud-status', { detail: { status: status, message: detail, error: errText(error), source: cloudSource } }));
+    } catch (e) {}
+    if (status === 'erro') warn(detail, error || ''); else log(detail);
+  }
+
+  function normalizeCloudData(raw) {
+    var d = (raw && typeof raw === 'object') ? raw : {};
+    // Compatibilidade com entregas anteriores que embrulhavam o estado.
+    ['data','state','payload','appData'].some(function (k) {
+      if (d[k] && typeof d[k] === 'object' &&
+          (Array.isArray(d[k].sheets) || d[k].pmData || d[k].clientLogos)) { d = d[k]; return true; }
+      return false;
+    });
+    return d;
+  }
+
+  function hasUsefulCloudData(data) {
+    var d = normalizeCloudData(data);
+    return (Array.isArray(d.sheets) && d.sheets.length > 0) ||
+           (d.pmData && typeof d.pmData === 'object' && Object.keys(d.pmData).length > 0);
+  }
+
+  function countBuilt(built) {
+    var projects = 0;
+    Object.keys((built && built.pmData) || {}).forEach(function (fid) {
+      projects += (((built.pmData[fid] || {}).projects) || []).length;
+    });
+    return { docs: 0, sheets: (built.sheets || []).length, folders: Object.keys(built.pmData || {}).length, projects: projects };
+  }
+
+  function cloneJson(value) {
+    try { return JSON.parse(JSON.stringify(value)); }
+    catch (e) { return value; }
+  }
+
+  function getKnownUserCodes() {
+    var base = [OWNER_CODE, SENIOR_CODE].concat(APRESENTADOS || []);
+    try {
+      var extra = JSON.parse(localStorage.getItem(KNOWN_USERS_KEY) || '[]');
+      if (Array.isArray(extra)) base = base.concat(extra);
+    } catch (e) {}
+    if (CURRENT && CURRENT.code) base.push(CURRENT.code);
+    Object.keys(ownerMeta || {}).forEach(function (code) { base.push(code); });
+    return base.map(function (v) { return String(v || '').trim(); })
+      .filter(function (v, i, a) { return v && a.indexOf(v) === i; });
+  }
+
+  function rememberUserCode(code) {
+    var c = String(code || '').trim();
+    if (!c || c.indexOf('legacy__') === 0) return;
+    var arr = getKnownUserCodes();
+    if (arr.indexOf(c) === -1) arr.push(c);
+    try { localStorage.setItem(KNOWN_USERS_KEY, JSON.stringify(arr)); } catch (e) {}
+  }
+
+  function safeDocCode(value) {
+    return String(value || 'dados').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 120) || 'dados';
+  }
+
+  /* ==========================================================================
+     4) HELPERS DE localStorage / ESTADO LOCAL
+     ========================================================================== */
+  function safeJsonGet(key, fallback) {
+    try { return JSON.parse(localStorage.getItem(key) || '') || fallback; }
+    catch (e) { return fallback; }
+  }
+  function safeJsonSet(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); }
+    catch (e) { warn('Falha localStorage:', key, e); }
+  }
+
+  function getSheetsLocal() {
+    try { if (typeof sheets !== 'undefined' && Array.isArray(sheets)) return sheets; } catch (e) {}
+    return safeJsonGet(SHEETS_KEY, []);
+  }
+  function setSheetsInMemory(arr) {
+    var clean = Array.isArray(arr) ? arr : [];
+    try {
+      if (typeof sheets !== 'undefined' && Array.isArray(sheets)) {
+        sheets.length = 0;
+        Array.prototype.push.apply(sheets, clean);   // preserva a referência do array global
+      } else {
+        window.sheets = clean;
+      }
+    } catch (e) { try { window.sheets = clean; } catch (e2) {} }
+    safeJsonSet(SHEETS_KEY, clean);
+  }
+
+  function getPmLocal() {
+    try { if (typeof pmData !== 'undefined' && pmData && typeof pmData === 'object') return pmData; } catch (e) {}
+    return safeJsonGet(PM_KEY, {});
+  }
+  function setPmInMemory(obj) {
+    var clean = (obj && typeof obj === 'object') ? obj : {};
+    try {
+      if (typeof pmData !== 'undefined' && pmData && typeof pmData === 'object') {
+        Object.keys(pmData).forEach(function (k) { delete pmData[k]; });
+        Object.assign(pmData, clean);
+      } else {
+        window.pmData = clean;
+      }
+    } catch (e) { try { window.pmData = clean; } catch (e2) {} }
+    safeJsonSet(PM_KEY, clean);
+  }
+
+  function getLogosLocal() { return safeJsonGet(LOGOS_KEY, {}); }
+  function setLogosLocal(obj) { safeJsonSet(LOGOS_KEY, (obj && typeof obj === 'object') ? obj : {}); }
+
+  function localHasUsefulData() {
+    var s = getSheetsLocal(), p = getPmLocal();
+    return (Array.isArray(s) && s.length > 0) ||
+           (p && typeof p === 'object' && Object.keys(p).length > 0);
+  }
+
+  /* ==========================================================================
+     5) PAPÉIS: resolução + permissões
+     ========================================================================== */
+  function roleFor(code) {
+    if (code === OWNER_CODE) return 'owner';
+    if (code === SENIOR_CODE) return 'senior';
+    if (APRESENTADOS.indexOf(code) !== -1) return 'apresentado';
+    return 'comum';
+  }
+
+  // Qualquer usuário autenticado pode editar qualquer projeto SOMENTE após
+  // liberar o modo de edição com a senha única 2017.
+  function canEdit(u, ownerCode) {
+    return !!(u && EDIT_UNLOCKED);
+  }
+
+  // Todos os usuários visualizam todos os documentos/projetos disponíveis.
+  function visibleOwners(u) {
+    return u ? '*' : [];
+  }
+
+  /* ==========================================================================
+     6) TAGS de dono/somente-leitura (só em memória; não vão limpas p/ nuvem)
+     ========================================================================== */
+  function tagSheet(s, code, ro) { s._owner = code; s._ro = ro; return s; }
+  function stripSheet(s) {
+    return {
+      id: s.id, label: s.label, header: s.header || {},
+      book: s.book || '', fadiga: s.fadiga || null,
+      rows: (s.rows || []).map(function (r) {
+        return {
+          id: r.id, desc: r.desc || '', agrega: r.agrega || '', code: r.code || '',
+          tmu: r.tmu || '', q: r.q || '', f: r.f || '',
+          ttmu: r.ttmu || 0, tsec: r.tsec || 0
+        };
+      })
+    };
+  }
+  function stripPm(pm) {
+    var out = {};
+    Object.keys(pm || {}).forEach(function (fid) {
+      var f = pm[fid]; if (!f) return;
+      var nf = { name: f.name, logo: f.logo || null, projects: [] };
+      (f.projects || []).forEach(function (p) {
+        var np = {}; Object.keys(p).forEach(function (k) {
+          if (k === '_owner' || k === '_ro') return; np[k] = p[k];
+        });
+        nf.projects.push(np);
+      });
+      // preserva quaisquer outros campos do folder (menos as tags)
+      Object.keys(f).forEach(function (k) {
+        if (k === '_owner' || k === '_ro' || k === 'projects') return;
+        if (!(k in nf)) nf[k] = f[k];
+      });
+      out[fid] = nf;
+    });
+    return out;
+  }
+
+  /* ==========================================================================
+     7) APLICAR ESTADO NA TELA
+     ========================================================================== */
+  function renderAfterLoad() {
+    try { document.querySelectorAll('.folha-content').forEach(function (el) { el.remove(); }); } catch (e) {}
+    try { if (typeof activeId !== 'undefined') activeId = null; } catch (e) {}
+    try { if (typeof renderTabs === 'function') renderTabs(); } catch (e) { warn('renderTabs falhou:', e); }
+    try {
+      var s = getSheetsLocal();
+      if (s && s.length && typeof setActive === 'function') setActive(s[0].id);
+    } catch (e) { warn('setActive falhou:', e); }
+    try {
+      if (typeof dbRenderList === 'function') dbRenderList();
+      else if (typeof showDashboard === 'function') showDashboard();
+    } catch (e) {}
+  }
+
+  // Constrói (sheets, pmData, logos) a partir de todos os documentos encontrados.
+  // Corrige a colisão histórica do identificador "__flat__": antes, cada usuário
+  // substituía o anterior e vários projetos desapareciam da tela.
+  function buildFromDocs(u, docs) {
+    var mergedSheets = [], mergedPm = {}, mergedLogos = {};
+    var usedSheetIds = {}, usedRowIds = {}, usedProjectIds = {};
+    ownerMeta = {};
+
+    function uniqueId(base, used, prefix) {
+      var raw = String(base || prefix + '_' + Date.now());
+      if (!used[raw]) { used[raw] = true; return raw; }
+      var candidate = prefix + '__' + raw, n = 2;
+      while (used[candidate]) candidate = prefix + '__' + raw + '__' + (n++);
+      used[candidate] = true;
+      return candidate;
+    }
+
+    function projectLooksSame(a, b) {
+      if (!a || !b) return false;
+      return String(a.name || '') === String(b.name || '') &&
+             JSON.stringify(a.sheets || []) === JSON.stringify(b.sheets || []);
+    }
+
+    docs.forEach(function (d, docIndex) {
+      var sourceCode = String(d.code || ('dados_' + docIndex));
+      var saveOwner = String(d.saveOwner || sourceCode);
+      var data = normalizeCloudData(d.data || {});
+      var prefix = safeDocCode(saveOwner || sourceCode);
+      var ro = !canEdit(u, saveOwner);
+      var sheetMap = {};
+
+      ownerMeta[saveOwner] = {
+        name: data.name || NAMES[saveOwner] || saveOwner,
+        role: data.role || roleFor(saveOwner),
+        source: d.source || 'firebase'
+      };
+      rememberUserCode(saveOwner);
+
+      (Array.isArray(data.sheets) ? data.sheets : []).forEach(function (rawSheet, sheetIndex) {
+        var sh = cloneJson(rawSheet || {});
+        var oldId = String(sh.id || ('sheet_' + sheetIndex));
+
+        // Se a mesma folha já veio de uma origem anterior, reaproveita-a em vez
+        // de criar uma cópia. Se o ID colidir com conteúdo diferente, renomeia.
+        if (usedSheetIds[oldId]) {
+          var existing = mergedSheets.filter(function (x) { return x.id === oldId; })[0];
+          var a = cloneJson(existing || {}), b = cloneJson(sh || {});
+          if (a) { delete a._owner; delete a._ro; delete a._source; }
+          if (JSON.stringify(a) === JSON.stringify(b)) {
+            sheetMap[oldId] = oldId;
+            return;
+          }
+        }
+
+        var newId = uniqueId(oldId, usedSheetIds, prefix);
+        sheetMap[oldId] = newId;
+        sh.id = newId;
+        sh.rows = (Array.isArray(sh.rows) ? sh.rows : []).map(function (rawRow, rowIndex) {
+          var row = cloneJson(rawRow || {});
+          row.id = uniqueId(row.id || ('r_' + newId + '_' + rowIndex), usedRowIds, prefix + '_r');
+          return row;
+        });
+        sh._owner = saveOwner;
+        sh._ro = ro;
+        sh._source = d.source || 'firebase';
+        mergedSheets.push(sh);
+      });
+
+      var pm = (data.pmData && typeof data.pmData === 'object') ? data.pmData : {};
+      Object.keys(pm).forEach(function (fid) {
+        var f = cloneJson(pm[fid] || {});
+        var originalFid = String(fid);
+        var projects = Array.isArray(f.projects) ? f.projects : [];
+        f.projects = [];
+        f._owner = saveOwner;
+        f._ro = ro;
+        f._sourceFolderId = originalFid;
+        f._source = d.source || 'firebase';
+
+        projects.forEach(function (rawProject, projectIndex) {
+          var p = cloneJson(rawProject || {});
+          var oldPid = String(p.id || ('project_' + projectIndex));
+          p.sheets = (Array.isArray(p.sheets) ? p.sheets : []).map(function (sid) {
+            return sheetMap[String(sid)] || String(sid);
+          });
+          p._owner = saveOwner;
+          p._ro = ro;
+          p._sourceFolderId = originalFid;
+          p._source = d.source || 'firebase';
+
+          var duplicate = null;
+          Object.keys(mergedPm).some(function (mk) {
+            return ((mergedPm[mk] && mergedPm[mk].projects) || []).some(function (ep) {
+              if (String(ep.id || '') === oldPid && projectLooksSame(ep, p)) { duplicate = ep; return true; }
+              return false;
+            });
+          });
+          if (duplicate) return;
+
+          p.id = uniqueId(oldPid, usedProjectIds, prefix + '_p');
+          f.projects.push(p);
+        });
+
+        if (originalFid === '__flat__') {
+          if (!mergedPm.__flat__) {
+            mergedPm.__flat__ = { name: f.name || 'Projetos', logo: f.logo || null, projects: [], _sourceFolderId: '__flat__', _ro: ro };
+          }
+          Array.prototype.push.apply(mergedPm.__flat__.projects, f.projects);
+          // Uma pasta plana pode reunir projetos de vários usuários; o dono
+          // fica gravado em cada projeto individualmente.
+          mergedPm.__flat__._owner = '';
+        } else {
+          var targetKey = originalFid;
+          if (mergedPm[targetKey]) targetKey = prefix + '__' + originalFid;
+          var seq = 2, baseKey = targetKey;
+          while (mergedPm[targetKey]) targetKey = baseKey + '__' + (seq++);
+          mergedPm[targetKey] = f;
+        }
+      });
+
+      if (data.clientLogos && typeof data.clientLogos === 'object') Object.assign(mergedLogos, data.clientLogos);
+    });
+
+    return { sheets: mergedSheets, pmData: mergedPm, logos: mergedLogos };
+  }
+
+  function applyState(built) {
+    applyingCloud = true;
+    try {
+      setSheetsInMemory(built.sheets);
+      setPmInMemory(built.pmData);
+      setLogosLocal(built.logos);
+      renderAfterLoad();
+      setAllReadonlyTags(!EDIT_UNLOCKED);
+      scheduleEditRefresh();
+      log('Dados aplicados. Folhas:', built.sheets.length);
+    } finally {
+      setTimeout(function () { applyingCloud = false; }, 400);
+    }
+  }
+
+  /* ==========================================================================
+     8) CARREGAR OS DOCUMENTOS PERMITIDOS PARA A PESSOA
+     ========================================================================== */
+  function knownCodesFor(u) {
+    var all = getKnownUserCodes();
+    if (u && u.code && all.indexOf(u.code) === -1) all.push(u.code);
+    return all.filter(function (v, i, a) { return v && a.indexOf(v) === i; });
+  }
+
+  function directFirestoreDocs(codes) {
+    var errors = [];
+    return Promise.all(codes.map(function (code) {
+      return db.collection(USERS_COLLECTION).doc(code).get()
+        .then(function (doc) { if (doc.exists) rememberUserCode(code); return { code: code, data: doc.exists ? doc.data() : {}, source: 'firestore:mtm_users' }; })
+        .catch(function (e) { errors.push(e); return { code: code, data: {} }; });
+    })).then(function (docs) {
+      if (errors.length === codes.length) throw errors[0];
+      return docs;
+    });
+  }
+
+  function fetchFirestoreDocsFor(u) {
+    if (!db) return Promise.reject(new Error('Firestore não inicializado'));
+    var vis = visibleOwners(u);
+    if (vis === '*' || vis === '*_except_owner') {
+      return db.collection(USERS_COLLECTION).get().then(function (snap) {
+        var docs = [];
+        snap.forEach(function (doc) {
+          if (vis === '*_except_owner' && doc.id === OWNER_CODE) return;
+          rememberUserCode(doc.id); docs.push({ code: doc.id, data: doc.data(), source: 'firestore:mtm_users' });
+        });
+        if (!docs.some(function (d) { return d.code === u.code; })) docs.push({ code: u.code, data: {} });
+        return docs;
+      }).catch(function (listErr) {
+        // Muitas regras permitem get por documento, mas bloqueiam list da coleção.
+        warn('Listagem da coleção bloqueada; tentando documentos conhecidos.', listErr);
+        var codes = knownCodesFor(u).filter(function (code) {
+          return !(vis === '*_except_owner' && code === OWNER_CODE);
+        });
+        return directFirestoreDocs(codes);
+      });
+    }
+    var codes = vis.slice();
+    if (codes.indexOf(u.code) === -1) codes.push(u.code);
+    return directFirestoreDocs(codes);
+  }
+
+  function fetchRealtimeDocsFor(u) {
+    if (!rtdb) return Promise.reject(new Error('Realtime Database não inicializado'));
+    var vis = visibleOwners(u);
+    if (vis === '*' || vis === '*_except_owner') {
+      return rtdb.ref(USERS_COLLECTION).once('value').then(function (snap) {
+        var root = snap.val() || {}, docs = [];
+        Object.keys(root).forEach(function (code) {
+          if (vis === '*_except_owner' && code === OWNER_CODE) return;
+          rememberUserCode(code); docs.push({ code: code, data: root[code] || {}, source: 'realtime:mtm_users' });
+        });
+        if (!docs.some(function (d) { return d.code === u.code; })) docs.push({ code: u.code, data: {} });
+        return docs;
+      });
+    }
+    var codes = vis.slice();
+    if (codes.indexOf(u.code) === -1) codes.push(u.code);
+    return Promise.all(codes.map(function (code) {
+      return rtdb.ref(USERS_COLLECTION + '/' + code).once('value')
+        .then(function (snap) { return { code: code, data: snap.val() || {}, source: 'realtime:mtm_users' }; });
+    }));
+  }
+
+  function docsHaveUsefulData(docs) {
+    return (docs || []).some(function (d) { return hasUsefulCloudData(d.data); });
+  }
+
+  function settled(promise, label) {
+    return Promise.resolve(promise).then(function (value) {
+      return { ok: true, label: label, value: value || [] };
+    }).catch(function (error) {
+      return { ok: false, label: label, error: error, value: [] };
+    });
+  }
+
+  function fetchLegacyFirestoreDocs(u) {
+    if (!db) return Promise.reject(new Error('Firestore não inicializado'));
+    var collections = ['mtm_data', 'app_data', 'workspaces'];
+    var jobs = collections.map(function (collectionName) {
+      return db.collection(collectionName).get().then(function (snap) {
+        var direct = [], nestedJobs = [];
+        snap.forEach(function (doc) {
+          var raw = doc.data() || {};
+          var legacyCode = 'legacy__fs__' + safeDocCode(collectionName + '__' + doc.id);
+          if (hasUsefulCloudData(raw)) {
+            direct.push({ code: legacyCode, saveOwner: u.code, data: raw, source: 'firestore:' + collectionName + '/' + doc.id });
+          }
+          if (collectionName === 'workspaces') {
+            ['data','state','documents'].forEach(function (sub) {
+              nestedJobs.push(doc.ref.collection(sub).get().then(function (subSnap) {
+                var out = [];
+                subSnap.forEach(function (subDoc) {
+                  var subRaw = subDoc.data() || {};
+                  if (hasUsefulCloudData(subRaw)) {
+                    out.push({ code: legacyCode + '__' + safeDocCode(sub + '__' + subDoc.id), saveOwner: u.code, data: subRaw, source: 'firestore:workspaces/' + doc.id + '/' + sub + '/' + subDoc.id });
+                  }
+                });
+                return out;
+              }).catch(function () { return []; }));
+            });
+          }
+        });
+        return Promise.all(nestedJobs).then(function (nested) {
+          nested.forEach(function (arr) { Array.prototype.push.apply(direct, arr); });
+          return direct;
+        });
+      }).catch(function () { return []; });
+    });
+    return Promise.all(jobs).then(function (groups) {
+      var out = [];
+      groups.forEach(function (arr) { Array.prototype.push.apply(out, arr); });
+      return out;
+    });
+  }
+
+  function fetchLegacyRealtimeDocs(u) {
+    if (!rtdb) return Promise.reject(new Error('Realtime Database não inicializado'));
+    var paths = ['mtm_data', 'app_data', 'appData', 'data', 'workspaces'];
+    return Promise.all(paths.map(function (path) {
+      return rtdb.ref(path).once('value').then(function (snap) {
+        var raw = snap.val();
+        if (!raw || typeof raw !== 'object') return [];
+        var out = [];
+        if (hasUsefulCloudData(raw)) {
+          out.push({ code: 'legacy__rt__' + safeDocCode(path), saveOwner: u.code, data: raw, source: 'realtime:' + path });
+        } else {
+          Object.keys(raw).forEach(function (key) {
+            if (hasUsefulCloudData(raw[key])) {
+              out.push({ code: 'legacy__rt__' + safeDocCode(path + '__' + key), saveOwner: u.code, data: raw[key], source: 'realtime:' + path + '/' + key });
+            }
+          });
+        }
+        return out;
+      }).catch(function () { return []; });
+    })).then(function (groups) {
+      var out = [];
+      groups.forEach(function (arr) { Array.prototype.push.apply(out, arr); });
+      return out;
+    });
+  }
+
+  // Procura em todas as origens conhecidas e combina os resultados. A versão
+  // anterior parava na primeira origem que tivesse qualquer dado, deixando os
+  // projetos antigos das demais origens invisíveis.
+  function fetchDocsFor(u) {
+    var jobs = [
+      settled(fetchFirestoreDocsFor(u), 'firestore:mtm_users'),
+      settled(fetchRealtimeDocsFor(u), 'realtime:mtm_users'),
+      settled(fetchLegacyFirestoreDocs(u), 'firestore:legado'),
+      settled(fetchLegacyRealtimeDocs(u), 'realtime:legado')
+    ];
+    return Promise.all(jobs).then(function (results) {
+      var docs = [], errors = [], sources = [];
+      results.forEach(function (r) {
+        if (!r.ok) { errors.push(r.label + ': ' + errText(r.error)); return; }
+        var useful = (r.value || []).filter(function (d) { return hasUsefulCloudData(d.data); });
+        if (useful.length) sources.push(r.label);
+        Array.prototype.push.apply(docs, useful);
+      });
+      loadedSources = sources;
+      cloudSource = sources.length > 1 ? 'multiple' : (sources[0] || 'firebase');
+      if (!docs.length && errors.length === results.length) {
+        var combined = new Error(errors.join(' | '));
+        combined.code = 'mtm/cloud-read-failed';
+        throw combined;
+      }
+      return docs;
+    });
+  }
+
+  function loadForUser() {
+    if (!CURRENT) return Promise.resolve({ ok: false, error: 'Usuário não definido.' });
+    var u = CURRENT;
+    setStatus('carregando', 'Conectando ao Firebase e procurando projetos...');
+
+    if (!cloudReady || (!db && !rtdb)) {
+      var offlineError = lastError || new Error('Firebase indisponível');
+      setStatus('erro', 'Firebase indisponível. O aplicativo abriu somente os dados deste navegador.', offlineError);
+      var local = getSheetsLocal().map(function (s) {
+        var owner = s._owner || u.code;
+        return tagSheet(s, owner, !canEdit(u, owner));
+      });
+      applyState({ sheets: local, pmData: getPmLocal(), logos: getLogosLocal() });
+      return Promise.resolve({ ok: false, offline: true, error: errText(offlineError) });
+    }
+
+    return fetchDocsFor(u).then(function (docs) {
+      loadedOwnerCodes = docs.map(function (d) { return String(d.saveOwner || d.code || ''); })
+        .filter(function (v, i, a) { return v && a.indexOf(v) === i; });
+      var built = buildFromDocs(u, docs);
+      lastCounts = countBuilt(built);
+      lastCounts.docs = docs.length;
+
+      if (!docsHaveUsefulData(docs)) {
+        // Não apaga dados locais e não envia nada automaticamente: evita sobrescrever
+        // um banco existente quando a chapa/caminho/regras estiverem incorretos.
+        if (localHasUsefulData()) {
+          setStatus('sem-dados', 'Nenhum projeto foi encontrado nas origens do Firebase. Mantendo os dados locais sem sobrescrever.');
+          renderAfterLoad();
+        } else {
+          applyState(built);
+          setStatus('sem-dados', 'Firebase conectado, mas nenhum projeto foi encontrado para a chapa ' + u.code + '.');
+        }
+        startLive();
+        return { ok: true, empty: true, source: cloudSource, counts: lastCounts };
+      }
+
+      applyState(built);
+      setStatus('online', 'Projetos recuperados: ' + lastCounts.projects + ' projeto(s), ' + lastCounts.folders + ' pasta(s) e ' + lastCounts.sheets + ' folha(s). Origens: ' + (loadedSources.join(', ') || cloudSource) + '.');
+      startLive();
+      return { ok: true, source: cloudSource, counts: lastCounts };
+    }).catch(function (err) {
+      setStatus('erro', 'Não foi possível ler os projetos do Firebase.', err);
+      var local = getSheetsLocal().map(function (s) {
+        var owner = s._owner || u.code;
+        return tagSheet(s, owner, !canEdit(u, owner));
+      });
+      applyState({ sheets: local, pmData: getPmLocal(), logos: getLogosLocal() });
+      return { ok: false, error: errText(err), offline: true };
+    });
+  }
+
+  /* ==========================================================================
+     9) SALVAR — só nos documentos que a pessoa pode editar
+     ========================================================================== */
+  function writeOwnerDoc(code, sheetsArr, pmObj, logosObj) {
+    var meta = ownerMeta[code] || {};
+    var payload = {
+      sheets: (sheetsArr || []).map(stripSheet),
+      pmData: stripPm(pmObj || {}),
+      name: meta.name || (code === (CURRENT && CURRENT.code) ? (CURRENT && CURRENT.name) : NAMES[code]) || code,
+      role: meta.role || roleFor(code),
+      updatedAtLocal: new Date().toISOString()
+    };
+    if (code === (CURRENT && CURRENT.code)) payload.clientLogos = getLogosLocal();
+    // Novas alterações são consolidadas no caminho atual mtm_users/{usuário}.
+    // Assim, dados encontrados em formatos antigos são migrados sem apagar a origem.
+    if (db) return db.collection(USERS_COLLECTION).doc(code).set(payload, { merge: false });
+    if (rtdb) return rtdb.ref(USERS_COLLECTION + '/' + code).set(payload);
+    return Promise.reject(new Error('Firebase não inicializado'));
+  }
+
+  function splitPmByOwner(u) {
+    var result = {}, pm = getPmLocal();
+    function ensure(owner) { if (!result[owner]) result[owner] = {}; return result[owner]; }
+
+    Object.keys(pm || {}).forEach(function (fid) {
+      var f = pm[fid]; if (!f) return;
+      var originalFid = String(f._sourceFolderId || fid);
+      var projects = Array.isArray(f.projects) ? f.projects : [];
+
+      if (originalFid === '__flat__' || fid === '__flat__') {
+        projects.forEach(function (p) {
+          var owner = String((p && p._owner) || f._owner || u.code);
+          var ownerPm = ensure(owner);
+          if (!ownerPm.__flat__) ownerPm.__flat__ = { name: f.name || 'Projetos', logo: f.logo || null, projects: [] };
+          ownerPm.__flat__.projects.push(p);
+        });
+        return;
+      }
+
+      var owner = String(f._owner || (projects[0] && projects[0]._owner) || u.code);
+      var ownerPm = ensure(owner);
+      var cleanFolder = cloneJson(f);
+      cleanFolder.projects = projects.filter(function (p) {
+        return String((p && p._owner) || owner) === owner;
+      });
+      ownerPm[originalFid] = cleanFolder;
+    });
+    return result;
+  }
+
+  function cloudSaveScoped(reason) {
+    if (!EDIT_UNLOCKED || !cloudReady || (!db && !rtdb) || applyingCloud || !CURRENT) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      var u = CURRENT, byOwner = {};
+      getSheetsLocal().forEach(function (sh) {
+        var owner = String((sh && sh._owner) || u.code);
+        (byOwner[owner] = byOwner[owner] || []).push(sh);
+      });
+      var pmByOwner = splitPmByOwner(u);
+      var targets = loadedOwnerCodes.concat(Object.keys(byOwner), Object.keys(pmByOwner), [u.code])
+        .filter(function (v, i, a) { return v && a.indexOf(v) === i; });
+
+      targets.forEach(function (code) {
+        writeOwnerDoc(code, byOwner[code] || [], pmByOwner[code] || {}, getLogosLocal())
+          .then(function () { log('Salvo na nuvem:', code, '(' + (reason || 'auto') + ')'); })
+          .catch(function (e) { warn('Erro ao salvar', code, e); });
+      });
+    }, 700);
+  }
+
+  /* ==========================================================================
+     10) CONTROLE GLOBAL DE EDIÇÃO — SENHA ÚNICA 2017
+     ========================================================================== */
+  var MUTATION_FUNCTIONS = [
+    'addSheetHere','addSheet','deleteCurrentSheet','renameCurrentSheet','confirmRename',
+    'moveSheet','moveRow','renameById','delById','addRow','insertRowAbove','delRow',
+    'importExcelParaFolha','importExcelPrompt','importarFolhaPrompt','importarFolhaExcelPrompt',
+    'openProjectFilePrompt','libInsertCode','frpToggleMaquina','frpSetPcsCiclo',
+    'bookClearAll','bookCmd','bookInsertLink','bookInsertTable',
+    'pmDeleteFolder','pmDeleteProject','pmRenameFolder','pmRenameProject',
+    'pmPickFolderLogo','pmPickProjectLogo','pmNewSheet','pmDeleteSheet','pmDetachSheet',
+    'pmToggleNewNote','pmAddNote','pmStartNoteEdit','pmSaveNoteEdit','pmDeleteNote',
+    'pmShowModal','pmConfirmModal','pmSaveBalanceamento',
+    'dbCreateProject','dbNewFolder','dbNewProjectInFolder','dbDelFolder','dbRenameFolder',
+    'dbDelProjectInFolder','dbRenameProjectInFolder','dbPickFolderLogo','dbPickProjectImgById',
+    'dbApplyProjectImg','dbRemoveProjectImgById','dbPickClientLogo','dbSetClientLogo',
+    'dbOpenProjectFileForFolder','dbHandleProjectFileForFolder','dbImportBackup',
+    'dbDelById','dbDelClient','balAddRow','balDelRow','balImportFromSheets','balSetMode',
+    'salvarAgora'
+  ];
+
+  function isAuthOrSearchNode(node) {
+    if (!node || !node.closest) return false;
+    if (node.closest('#mtm-chapa-screen, #fb-auth-screen, #fb-workspace-screen, #auth-screen')) return true;
+    if (node.id === 'lib-q' || node.id === 'lib-grp') return true;
+    if (node.closest('#lib-overlay') && (node.tagName === 'INPUT' || node.tagName === 'SELECT')) return true;
+    return false;
+  }
+
+  function onclickFunctionName(node) {
+    if (!node || !node.getAttribute) return '';
+    var code = node.getAttribute('onclick') || node.getAttribute('onchange') || '';
+    var m = code.match(/^\s*([A-Za-z_$][\w$]*)\s*\(/);
+    return m ? m[1] : '';
+  }
+
+  function isMutationNode(node) {
+    if (!node) return false;
+    if (node.id === 'mtm-edit-access-btn' || node.id === 'mtm-edit-access-btn-home') return false;
+    var fn = onclickFunctionName(node);
+    if (fn && MUTATION_FUNCTIONS.indexOf(fn) !== -1) return true;
+    if (node.matches && node.matches('.row-del,.row-ins,.row-drag,.tab-close,.tab-rename,.tab-add,.db-proj-del,.db-client-del,.folha-import-btn')) return true;
+    return false;
+  }
+
+  function setAllReadonlyTags(readonly) {
+    getSheetsLocal().forEach(function (s) { if (s) s._ro = !!readonly; });
+    var pm = getPmLocal();
+    Object.keys(pm || {}).forEach(function (fid) {
+      var f = pm[fid]; if (!f) return;
+      f._ro = !!readonly;
+      (f.projects || []).forEach(function (p) { if (p) p._ro = !!readonly; });
+    });
+  }
+
+  function injectEditButton(container, id) {
+    if (!container || document.getElementById(id)) return;
+    var b = document.createElement('button');
+    b.id = id;
+    b.type = 'button';
+    b.className = container.classList && container.classList.contains('db-hdr-actions') ? 'db-hdr-btn' : 'btn btn-ghost';
+    b.setAttribute('data-mtm-edit-control', '1');
+    b.onclick = function () {
+      if (EDIT_UNLOCKED) window.MTM_LOCK_EDIT();
+      else window.MTM_REQUEST_EDIT();
+    };
+    container.insertBefore(b, container.firstChild || null);
+  }
+
+  function injectUserButton(container, id) {
+    if (!container || document.getElementById(id)) return;
+    var b = document.createElement('button');
+    b.id = id;
+    b.type = 'button';
+    b.className = container.classList && container.classList.contains('db-hdr-actions') ? 'db-hdr-btn' : 'btn btn-ghost';
+    b.setAttribute('data-mtm-edit-control', '1');
+    b.onclick = function () { window.MTM_OPEN_USER_CHOOSER(); };
+    container.insertBefore(b, container.firstChild || null);
+  }
+
+  function injectRefreshButton(container, id) {
+    if (!container || document.getElementById(id)) return;
+    var b = document.createElement('button');
+    b.id = id;
+    b.type = 'button';
+    b.className = container.classList && container.classList.contains('db-hdr-actions') ? 'db-hdr-btn' : 'btn btn-ghost';
+    b.setAttribute('data-mtm-edit-control', '1');
+    b.onclick = function () { window.MTM_RELOAD_DATA(); };
+    b.innerHTML = '🔄 Atualizar projetos';
+    b.title = 'Ler novamente todas as origens do Firebase';
+    container.insertBefore(b, container.firstChild || null);
+  }
+
+  function updateUserButtons() {
+    injectUserButton(document.querySelector('.toolbar-actions'), 'mtm-user-switch-btn');
+    injectUserButton(document.querySelector('#dashboard .db-hdr-actions'), 'mtm-user-switch-btn-home');
+    injectRefreshButton(document.querySelector('.toolbar-actions'), 'mtm-refresh-projects-btn');
+    injectRefreshButton(document.querySelector('#dashboard .db-hdr-actions'), 'mtm-refresh-projects-btn-home');
+    var label = CURRENT ? (CURRENT.name || CURRENT.code) : 'Escolher usuário';
+    ['mtm-user-switch-btn','mtm-user-switch-btn-home'].forEach(function (id) {
+      var b = document.getElementById(id); if (!b) return;
+      b.innerHTML = '👤 ' + label + ' · Trocar';
+      b.title = 'Mudar o usuário/chapa atual';
+      b.style.fontWeight = '800';
+    });
+  }
+
+  function updateEditButtons() {
+    injectEditButton(document.querySelector('.toolbar-actions'), 'mtm-edit-access-btn');
+    injectEditButton(document.querySelector('#dashboard .db-hdr-actions'), 'mtm-edit-access-btn-home');
+    updateUserButtons();
+    ['mtm-edit-access-btn','mtm-edit-access-btn-home'].forEach(function (id) {
+      var b = document.getElementById(id); if (!b) return;
+      b.disabled = false;
+      b.innerHTML = EDIT_UNLOCKED ? '🔓 Edição liberada · Bloquear' : '🔒 Somente visualização · Editar';
+      b.title = EDIT_UNLOCKED ? 'Salvar e voltar ao modo somente leitura' : 'Digite a senha de edição para alterar projetos';
+      b.style.background = EDIT_UNLOCKED ? 'linear-gradient(135deg,#00e5a0,#00b87a)' : 'rgba(255,173,66,.12)';
+      b.style.color = EDIT_UNLOCKED ? '#001a12' : 'var(--orange)';
+      b.style.borderColor = EDIT_UNLOCKED ? 'transparent' : 'rgba(255,173,66,.38)';
+      b.style.fontWeight = '800';
+    });
+  }
+
+  function lockControl(node, locked) {
+    if (!node || isAuthOrSearchNode(node) || node.getAttribute('data-mtm-edit-control') === '1') return;
+    if (locked) {
+      if (node.hasAttribute && node.hasAttribute('contenteditable')) {
+        if (node.getAttribute('contenteditable') !== 'false') {
+          node.setAttribute('data-mtm-edit-ce', node.getAttribute('contenteditable') || 'true');
+          node.setAttribute('contenteditable', 'false');
+        }
+      } else if ('disabled' in node && !node.disabled) {
+        node.setAttribute('data-mtm-edit-disabled', '1');
+        node.disabled = true;
+      }
+    } else {
+      if (node.getAttribute && node.getAttribute('data-mtm-edit-ce') !== null) {
+        node.setAttribute('contenteditable', node.getAttribute('data-mtm-edit-ce') || 'true');
+        node.removeAttribute('data-mtm-edit-ce');
+      }
+      if (node.getAttribute && node.getAttribute('data-mtm-edit-disabled') === '1') {
+        node.disabled = false;
+        node.removeAttribute('data-mtm-edit-disabled');
+      }
+    }
+  }
+
+  function applyGlobalEditMode() {
+    if (editApplying) return;
+    editApplying = true;
+    var locked = !EDIT_UNLOCKED;
+    try { document.body.classList.toggle('mtm-view-only', locked); } catch (e) {}
+
+    // Campos de dados ficam bloqueados; login e busca da biblioteca continuam ativos.
+    document.querySelectorAll('input,textarea,select,[contenteditable]').forEach(function (node) {
+      lockControl(node, locked);
+    });
+
+    // Somente botões que alteram dados são bloqueados. Navegação, resultados,
+    // relatórios, PDF e abertura de projetos continuam funcionando.
+    document.querySelectorAll('button,[onclick]').forEach(function (node) {
+      if (isMutationNode(node)) lockControl(node, locked);
+      else if (!locked && node.getAttribute && node.getAttribute('data-mtm-edit-disabled') === '1') lockControl(node, false);
+    });
+
+    document.querySelectorAll('[draggable="true"], [data-mtm-was-draggable="1"]').forEach(function (node) {
+      if (locked && node.getAttribute('draggable') === 'true') {
+        node.setAttribute('data-mtm-was-draggable', '1'); node.setAttribute('draggable', 'false');
+      } else if (!locked && node.getAttribute('data-mtm-was-draggable') === '1') {
+        node.setAttribute('draggable', 'true'); node.removeAttribute('data-mtm-was-draggable');
+      }
+    });
+
+    getSheetsLocal().forEach(function (s) { if (s && s.id) applyRoLock(s.id); });
+    updateEditButtons();
+    setTimeout(function () { editApplying = false; }, 0);
+  }
+
+  function scheduleEditRefresh() {
+    clearTimeout(editRefreshTimer);
+    editRefreshTimer = setTimeout(function () { applyGlobalEditMode(); }, 40);
+  }
+
+  function showEditMessage(msg, bad) {
+    try {
+      if (typeof window.showToast === 'function') window.showToast(msg, !!bad);
+      else if (bad) alert(msg);
+    } catch (e) {}
+  }
+
+  function requestEdit(callback) {
+    if (EDIT_UNLOCKED) return callback ? callback() : true;
+    var typed = window.prompt('Digite a senha para editar, criar, renomear ou excluir projetos:');
+    if (typed === null) return false;
+    if (String(typed).trim() !== EDIT_PASSWORD) {
+      showEditMessage('❌ Senha incorreta. O sistema continua em somente visualização.', true);
+      return false;
+    }
+    EDIT_UNLOCKED = true;
+    setAllReadonlyTags(false);
+    stopLive(); // evita que uma atualização remota substitua uma edição ainda não salva
+    applyGlobalEditMode();
+    showEditMessage('🔓 Edição liberada. Todas as alterações usarão a senha 2017 nesta sessão.');
+    return callback ? callback() : true;
+  }
+
+  function lockEdit() {
+    if (!EDIT_UNLOCKED) { applyGlobalEditMode(); return true; }
+    try { if (typeof window.salvarAgora === 'function') window.salvarAgora(); } catch (e) {}
+    cloudSaveScoped('bloquear-edicao');
+    showEditMessage('💾 Salvando alterações e bloqueando a edição...');
+    setTimeout(function () {
+      EDIT_UNLOCKED = false;
+      setAllReadonlyTags(true);
+      applyGlobalEditMode();
+      startLive();
+      showEditMessage('🔒 Modo somente visualização ativado.');
+    }, 900);
+    return true;
+  }
+
+  function guardMutationFunction(name) {
+    var original = window[name];
+    if (typeof original !== 'function' || original.__mtm2017Guard) return;
+    var guarded = function () {
+      var self = this, args = arguments;
+      if (!EDIT_UNLOCKED) {
+        return requestEdit(function () { return original.apply(self, args); });
+      }
+      return original.apply(self, args);
+    };
+    guarded.__mtm2017Guard = true;
+    guarded.__mtmOriginal = original;
+    window[name] = guarded;
+  }
+
+  function installEditController() {
+    MUTATION_FUNCTIONS.forEach(guardMutationFunction);
+    setAllReadonlyTags(!EDIT_UNLOCKED);
+    applyGlobalEditMode();
+    if (!editObserver && document.body && window.MutationObserver) {
+      editObserver = new MutationObserver(function () {
+        if (editApplying) return;
+        if (!EDIT_UNLOCKED) scheduleEditRefresh(); else updateEditButtons();
+      });
+      editObserver.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+  window.MTM_REQUEST_EDIT = requestEdit;
+  window.MTM_LOCK_EDIT = lockEdit;
+  window.MTM_EDIT_IS_UNLOCKED = function () { return EDIT_UNLOCKED; };
+
+  /* ==========================================================================
+     10) SOMENTE LEITURA na interface (trava a folha não editável)
+     ========================================================================== */
+  function applyRoLock(id) {
+    try {
+      var s = (typeof get === 'function') ? get(id)
+            : getSheetsLocal().filter(function (x) { return x.id === id; })[0];
+      var el = document.getElementById('c-' + id);
+      if (!el) return;
+      var ro = !!(s && s._ro);
+
+      var prev = el.querySelector('.mtm-ro-banner'); if (prev) prev.remove();
+
+      var nodes = el.querySelectorAll('input,textarea,select,button,[contenteditable="true"],[contenteditable=""]');
+      Array.prototype.forEach.call(nodes, function (node) {
+        if (node.closest && node.closest('.mtm-ro-banner')) return;
+        // Botões de navegação/resultado continuam ativos; somente ações que
+        // alteram dados são bloqueadas no modo de visualização.
+        if (node.tagName === 'BUTTON' && !isMutationNode(node)) return;
+        if (ro) {
+          if (node.hasAttribute('contenteditable') && node.getAttribute('contenteditable') !== 'false') {
+            node.setAttribute('data-mtm-ce', '1');
+            node.setAttribute('contenteditable', 'false');
+          } else if ('disabled' in node && !node.disabled) {
+            node.setAttribute('data-mtm-dis', '1');
+            node.disabled = true;
+          }
+        } else {
+          if (node.getAttribute('data-mtm-ce') === '1') { node.setAttribute('contenteditable', 'true'); node.removeAttribute('data-mtm-ce'); }
+          if (node.getAttribute('data-mtm-dis') === '1') { node.disabled = false; node.removeAttribute('data-mtm-dis'); }
+        }
+      });
+
+      if (ro) {
+        var owner = (s && s._owner) ? (NAMES[s._owner] || s._owner) : 'outro usuário';
+        var b = document.createElement('div');
+        b.className = 'mtm-ro-banner';
+        b.style.cssText = 'position:sticky;top:0;z-index:60;background:linear-gradient(90deg,#8b5cf6,#3b82f6);color:#fff;font:600 12px Inter,system-ui,sans-serif;padding:8px 12px;border-radius:8px;margin:0 0 10px;letter-spacing:.02em';
+        b.textContent = '🔒 SOMENTE VISUALIZAÇÃO — use o botão “Editar” e informe a senha 2017 para alterar, excluir ou salvar.';
+        el.insertBefore(b, el.firstChild);
+      }
+    } catch (e) { /* nunca quebrar o render */ }
+  }
+
+  /* ==========================================================================
+     11) TEMPO REAL (conservador): atualiza os dados DOS OUTROS sem apagar o
+         que a pessoa está editando no próprio conjunto.
+     ========================================================================== */
+  function stopLive() { try { if (liveUnsub) liveUnsub(); } catch (e) {} liveUnsub = null; }
+
+  function mergeRemoteKeepingOwn(u, docs) {
+    if (applyingCloud || EDIT_UNLOCKED) return;
+    // No modo somente leitura não existem edições locais pendentes; portanto
+    // reconstruímos o conjunto completo para não perder pastas com IDs iguais.
+    applyState(buildFromDocs(u, docs));
+  }
+
+  function startLive() {
+    if (!cloudReady || !CURRENT) return;
+    stopLive();
+    if (cloudSource !== 'firestore:mtm_users' && cloudSource !== 'firestore') {
+      // Quando há múltiplas origens ou dados legados, use o botão Atualizar.
+      // Um listener apenas de mtm_users apagaria visualmente as outras origens.
+      return;
+    }
+    if (!db) return;
+    var u = CURRENT;
+    var vis = visibleOwners(u);
+
+    if (vis === '*' || vis === '*_except_owner') {
+      liveUnsub = db.collection(USERS_COLLECTION).onSnapshot(function (snap) {
+        var docs = [];
+        snap.forEach(function (doc) {
+          if (vis === '*_except_owner' && doc.id === OWNER_CODE) return;
+          rememberUserCode(doc.id); docs.push({ code: doc.id, data: doc.data(), source: 'firestore:mtm_users' });
+        });
+        mergeRemoteKeepingOwn(u, docs);
+      }, function (err) { warn('Listener falhou:', err); });
+    } else if (u.role === 'apresentado') {
+      // apenas o doc do sênior (leitura viva); o próprio a gente não sobrescreve
+      liveUnsub = db.collection(USERS_COLLECTION).doc(SENIOR_CODE).onSnapshot(function (doc) {
+        mergeRemoteKeepingOwn(u, [{ code: SENIOR_CODE, data: doc.exists ? doc.data() : {} }]);
+      }, function (err) { warn('Listener sênior falhou:', err); });
+    }
+    // comum: sem listener (evita apagar edição não salva). Recarrega ao reabrir.
+  }
+
+  /* ==========================================================================
+     12) PATCH das funções do app (liga o salvamento à nuvem + trava RO)
+     ========================================================================== */
+  function patchLocalFunctions() {
+    var originalSaveSheets = (typeof saveSheets === 'function') ? saveSheets : null;
+    var originalSalvarAgora = (typeof salvarAgora === 'function') ? salvarAgora : null;
+    var originalPmSave = (typeof pmSave === 'function') ? pmSave : null;
+    var originalSetActive = (typeof setActive === 'function') ? setActive : null;
+    var originalRenderContent = (typeof renderContent === 'function') ? renderContent : null;
+
+    window.saveSheets = function () {
+      if (!EDIT_UNLOCKED) return false;
+      if (originalSaveSheets) originalSaveSheets();
+      cloudSaveScoped('saveSheets');
+      return true;
+    };
+    window.salvarAgora = function () {
+      if (!EDIT_UNLOCKED) return requestEdit(function () { return window.salvarAgora(); });
+      if (originalSalvarAgora) originalSalvarAgora();
+      cloudSaveScoped('salvarAgora');
+      return true;
+    };
+    window.pmSave = function () {
+      if (!EDIT_UNLOCKED) return false;
+      if (originalPmSave) originalPmSave();
+      cloudSaveScoped('pmSave');
+      return true;
+    };
+    if (originalSetActive) {
+      window.setActive = function (id) { var r = originalSetActive.apply(this, arguments); applyRoLock(id); return r; };
+    }
+    if (originalRenderContent) {
+      window.renderContent = function (id) { var r = originalRenderContent.apply(this, arguments); applyRoLock(id); return r; };
+    }
+
+    window.mtmForceCloudSave = function () {
+      if (!cloudReady) { alert('Firestore ainda não está pronto.'); return; }
+      cloudSaveScoped('manual');
+    };
+
+    installEditController();
+    log('Funções do app conectadas · modo padrão: somente visualização · senha de edição: 2017.');
+  }
+
+  function ensureUserChooser() {
+    var old = document.getElementById('mtm-user-chooser');
+    if (old) return old;
+    var wrap = document.createElement('div');
+    wrap.id = 'mtm-user-chooser';
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:1000000;background:rgba(0,0,0,.68);display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(6px)';
+    wrap.innerHTML = '<div style="width:min(480px,100%);background:var(--surface);border:1px solid var(--border2);border-radius:16px;box-shadow:var(--shadow);overflow:hidden">'
+      + '<div style="padding:18px 20px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;gap:10px"><div style="font-size:16px;font-weight:800;color:var(--accent)">👤 Mudar usuário</div><button type="button" id="mtm-user-close" style="margin-left:auto;background:transparent;border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:5px 9px;cursor:pointer">✕</button></div>'
+      + '<div style="padding:20px"><div style="font-size:11px;color:var(--text2);margin-bottom:8px">Usuário atual</div><div id="mtm-user-current" style="font-size:15px;font-weight:800;color:var(--accent);margin-bottom:18px"></div>'
+      + '<label style="display:block;font-size:10px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Usuário/chapa</label>'
+      + '<select id="mtm-user-select" style="width:100%;padding:11px 12px;background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:9px;margin-bottom:10px"></select>'
+      + '<input id="mtm-user-custom" placeholder="Ou digite outra chapa/código" autocomplete="off" style="width:100%;padding:11px 12px;background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:9px;margin-bottom:14px">'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" id="mtm-user-cancel" class="btn btn-ghost">Cancelar</button><button type="button" id="mtm-user-confirm" class="btn btn-primary">Trocar usuário</button></div>'
+      + '<div style="font-size:10px;color:var(--text3);margin-top:14px;line-height:1.5">Todos continuam em modo somente visualização. Para alterar qualquer projeto, a senha é <b style="color:var(--accent)">2017</b>.</div></div></div>';
+    document.body.appendChild(wrap);
+    function close() { wrap.style.display = 'none'; }
+    wrap.querySelector('#mtm-user-close').onclick = close;
+    wrap.querySelector('#mtm-user-cancel').onclick = close;
+    wrap.onclick = function (ev) { if (ev.target === wrap) close(); };
+    wrap.querySelector('#mtm-user-confirm').onclick = function () {
+      var custom = (wrap.querySelector('#mtm-user-custom').value || '').trim();
+      var selected = (wrap.querySelector('#mtm-user-select').value || '').trim();
+      var code = custom || selected;
+      if (!code) { alert('Digite ou escolha um usuário.'); return; }
+      window.MTM_SWITCH_USER(code);
+    };
+    return wrap;
+  }
+
+  window.MTM_OPEN_USER_CHOOSER = function () {
+    var wrap = ensureUserChooser();
+    var select = wrap.querySelector('#mtm-user-select');
+    var codes = getKnownUserCodes();
+    select.innerHTML = codes.map(function (code) {
+      var name = (ownerMeta[code] && ownerMeta[code].name) || NAMES[code] || code;
+      return '<option value="' + code.replace(/&/g,'&amp;').replace(/"/g,'&quot;') + '">' + name + ' — ' + code + '</option>';
+    }).join('');
+    if (CURRENT && CURRENT.code) select.value = CURRENT.code;
+    wrap.querySelector('#mtm-user-current').textContent = CURRENT ? ((CURRENT.name || CURRENT.code) + ' · ' + CURRENT.code) : 'Nenhum';
+    wrap.querySelector('#mtm-user-custom').value = '';
+    wrap.style.display = 'flex';
+  };
+
+  window.MTM_SWITCH_USER = function (newCode) {
+    var code = String(newCode || '').trim();
+    if (!code) return;
+    rememberUserCode(code);
+    function finish() {
+      stopLive();
+      EDIT_UNLOCKED = false;
+      CURRENT = null;
+      try {
+        sessionStorage.setItem('mtm_chapa_ok', code);
+        sessionStorage.removeItem('mtm_role');
+      } catch (e) {}
+      location.reload();
+    }
+    if (EDIT_UNLOCKED) {
+      if (!confirm('As alterações serão salvas antes de trocar o usuário. Continuar?')) return;
+      try { if (typeof window.salvarAgora === 'function') window.salvarAgora(); } catch (e) {}
+      cloudSaveScoped('trocar-usuario');
+      setTimeout(finish, 1000);
+    } else finish();
+  };
+
+  window.MTM_RELOAD_DATA = function () {
+    if (!CURRENT) return;
+    var buttons = [document.getElementById('mtm-refresh-projects-btn'), document.getElementById('mtm-refresh-projects-btn-home')];
+    buttons.forEach(function (b) { if (b) { b.disabled = true; b.textContent = '⏳ Procurando...'; } });
+    loadForUser().then(function (result) {
+      var msg = result && result.counts
+        ? ('✅ ' + (result.counts.projects || 0) + ' projeto(s), ' + (result.counts.sheets || 0) + ' folha(s) recuperados.')
+        : 'Atualização concluída.';
+      showEditMessage(msg, result && result.ok === false);
+    }).finally(function () {
+      buttons.forEach(function (b) { if (b) { b.disabled = false; b.textContent = '🔄 Atualizar projetos'; } });
+      updateUserButtons();
+    });
+  };
+
+  /* ==========================================================================
+     13) API DE LOGIN (chamada pela tela de código no index.html)
+     ========================================================================== */
+  function setCurrent(code) {
+    var c = String(code || '').trim();
+    EDIT_UNLOCKED = false;
+    CURRENT = { code: c, role: 'visualizador', name: NAMES[c] || c };
+    rememberUserCode(c);
+    setTimeout(updateUserButtons, 0);
+    try { sessionStorage.setItem('mtm_role', CURRENT.role); } catch (e) {}
+    log('Usuário:', CURRENT.code, '· papel:', CURRENT.role);
+    return CURRENT;
+  }
+
+  // Retorna uma Promise e só libera a tela depois de terminar a leitura.
+  window.MTM_LOGIN = function (code) {
+    var c = String(code || '').trim();
+    if (!c) return Promise.resolve({ ok: false, error: 'Digite o seu código de acesso.' });
+    var u = setCurrent(c);
+    loadPromise = readyPromise.then(function () { return loadForUser(); }).then(function (loadResult) {
+      return {
+        ok: loadResult.ok !== false,
+        role: u.role,
+        name: u.name,
+        welcome: '🔒 Projetos abertos em modo somente visualização. Para editar, use a senha 2017.',
+        load: loadResult,
+        warning: loadResult.empty ? 'Firebase conectado, mas nenhum projeto foi encontrado.' : ''
+      };
+    });
+    return loadPromise;
+  };
+
+  window.MTM_RESUME = function (code) {
+    var c = String(code || '').trim();
+    if (!c) return Promise.resolve({ ok: false, error: 'Chapa vazia.' });
+    setCurrent(c);
+    loadPromise = readyPromise.then(function () { return loadForUser(); });
+    return loadPromise;
+  };
+
+  window.MTM_LOGOUT = function () {
+    stopLive();
+    EDIT_UNLOCKED = false;
+    CURRENT = null;
+    // Não apaga os projetos em cache: a versão anterior limpava o localStorage
+    // ao trocar usuário e podia dar a impressão de que os projetos sumiram.
+    try { sessionStorage.removeItem('mtm_chapa_ok'); sessionStorage.removeItem('mtm_role'); } catch (e) {}
+    location.reload();
+  };
+
+  window.MTM_CURRENT = function () { return CURRENT ? JSON.parse(JSON.stringify(CURRENT)) : null; };
+
+  window.MTM_DIAG = function () {
+    return {
+      cloudReady: cloudReady,
+      authOk: authOk,
+      source: cloudSource,
+      status: lastStatus,
+      error: errText(lastError),
+      current: CURRENT,
+      editUnlocked: EDIT_UNLOCKED,
+      editPasswordMode: 'senha-unica-2017',
+      hasFirebaseSDK: (typeof firebase !== 'undefined'),
+      hasFirestore: !!db,
+      hasRealtimeDatabase: !!rtdb,
+      protocol: location.protocol,
+      origin: location.origin,
+      config: (function () { var c = getFirebaseConfig(); return { projectId: c.projectId, apiKeyOk: !!(c.apiKey && c.apiKey !== 'COLE_AQUI') }; })(),
+      sheetsInMemory: getSheetsLocal().length,
+      foldersInMemory: Object.keys(getPmLocal() || {}).length,
+      knownUsers: getKnownUserCodes(),
+      loadedOwners: loadedOwnerCodes,
+      loadedSources: loadedSources,
+      lastCounts: lastCounts
+    };
+  };
+
+  /* ==========================================================================
+     14) INICIALIZAÇÃO DO FIREBASE
+     ========================================================================== */
+  function startFirebase() {
+    if (typeof firebase === 'undefined') {
+      var e1 = new Error('SDK do Firebase não carregou');
+      setStatus('erro', 'SDK do Firebase não carregou. Confira a internet e os scripts do index.html.', e1);
+      readyResolve();
+      return;
+    }
+    var cfg = getFirebaseConfig();
+    if (!cfg.apiKey || cfg.apiKey === 'COLE_AQUI') {
+      var e2 = new Error('Configuração Firebase incompleta');
+      setStatus('erro', 'A configuração do Firebase está incompleta.', e2);
+      readyResolve();
+      return;
+    }
+
+    try {
+      if (!firebase.apps.length) firebase.initializeApp(cfg);
+      try { db = firebase.firestore(); } catch (fireErr) { warn('Firestore não inicializou:', fireErr); }
+      try { if (firebase.database) rtdb = firebase.database(); } catch (rtErr) { warn('Realtime Database não inicializou:', rtErr); }
+    } catch (e) {
+      setStatus('erro', 'Falha ao inicializar o Firebase.', e);
+      readyResolve();
+      return;
+    }
+
+    var authP = Promise.resolve();
+    try {
+      if (firebase.auth) {
+        authP = firebase.auth().signInAnonymously().then(function () {
+          authOk = true;
+          log('Auth anônimo OK.');
+        }).catch(function (e) {
+          authOk = false;
+          lastError = e;
+          warn('Auth anônimo falhou:', e);
+          // Continuamos: regras públicas podem permitir leitura, e o diagnóstico
+          // mostrará o erro exato sem esconder a tela silenciosamente.
+        });
+      }
+    } catch (e) { lastError = e; }
+
+    authP.then(function () {
+      cloudReady = !!(db || rtdb);
+      if (location.protocol === 'file:') {
+        setStatus('aviso', 'O arquivo foi aberto diretamente (file://). Para autenticação confiável, use Firebase Hosting ou localhost.');
+      } else {
+        setStatus('pronto', 'Firebase inicializado.');
+      }
+      readyResolve();
+    });
+  }
+
+  /* ==========================================================================
+     15) BOOTSTRAP
+     ========================================================================== */
+  document.addEventListener('DOMContentLoaded', function () {
+    patchLocalFunctions();
+    try { startFirebase(); }
+    catch (err) { warn('Erro crítico ao iniciar Firebase:', err); readyResolve(); }
+
+    // Retomada defensiva: útil quando o index.html já tinha ocultado a portaria
+    // mas não chamou MTM_RESUME após uma atualização da página.
+    try {
+      var savedCode = sessionStorage.getItem('mtm_chapa_ok');
+      if (savedCode && !CURRENT) window.MTM_RESUME(savedCode);
+    } catch (e) {}
+  });
+
+  log('firebase-mtm.js (papéis) carregado.');
+})();
+
+</script>
 
 
 <!-- ============================================================
@@ -2434,6 +3804,22 @@ html[data-theme="light"] #dashboard{
 }
 </style>
 
+
+<style id="mtm-edit-password-2017-style">
+body.mtm-view-only input:disabled,
+body.mtm-view-only textarea:disabled,
+body.mtm-view-only select:disabled{
+  opacity:.78;
+  cursor:not-allowed;
+}
+body.mtm-view-only [data-mtm-edit-disabled="1"]{
+  filter:saturate(.55);
+}
+#mtm-edit-access-btn,#mtm-edit-access-btn-home{
+  white-space:nowrap;
+  transition:all .2s ease;
+}
+</style>
 </head>
 <body>
 
@@ -2497,11 +3883,11 @@ html[data-theme="light"] #dashboard{
     <div class="mtm-chapa-sub">ACESSO RESTRITO · COLABORADOR AUTORIZADO</div>
     <div class="mtm-chapa-title">Identifique-se para acessar</div>
     <label for="mtm-chapa-input">Chapa do colaborador autorizado</label>
-    <input id="mtm-chapa-input" type="text" inputmode="text" maxlength="8"
+    <input id="mtm-chapa-input" type="text" inputmode="text" maxlength="32"
            autocomplete="off" spellcheck="false" placeholder="0000000">
     <div class="mtm-chapa-err" id="mtm-chapa-err"></div>
     <button id="mtm-chapa-btn">Entrar na Ferramenta &#8594;</button>
-    <div class="mtm-chapa-help" id="mtm-chapa-help">Digite a sua chapa para liberar o acesso.</div>
+    <div class="mtm-chapa-help" id="mtm-chapa-help">A chapa identifica o usuário. O sistema procurará projetos atuais e antigos em todas as origens; alterações exigem a senha 2017.</div>
   </div>
 </div>
 
@@ -2527,9 +3913,9 @@ html[data-theme="light"] #dashboard{
     var btn = document.getElementById('mtm-chapa-btn');
     var v = (inp && inp.value) ? inp.value.trim() : '';
 
-    // Os papéis configurados usam códigos de 6, 7 e 8 caracteres.
-    if(!/^[A-Za-z0-9]{6,8}$/.test(v)){
-      showAccessError('A chapa deve ter entre 6 e 8 caracteres, sem espaços.');
+    // Aceita códigos antigos e novos. A chapa apenas identifica o usuário.
+    if(!/^[A-Za-z0-9_-]{1,32}$/.test(v)){
+      showAccessError('Digite uma chapa/código válido, sem espaços.');
       if(inp) inp.focus();
       return;
     }
@@ -9172,10 +10558,13 @@ function showDashboard(){
   // Volta sempre para a lista de empresas (não para uma pasta/projeto antigo)
   if(typeof currentFolderId !== 'undefined') currentFolderId = null;
   if(typeof currentCompany  !== 'undefined') currentCompany  = null;
+  var mtmUser = (typeof window.MTM_CURRENT === 'function') ? window.MTM_CURRENT() : null;
   var sess = (typeof getSession === 'function') ? getSession() : null;
-  var name = sess ? sess.name : 'Usuário';
+  var name = mtmUser ? (mtmUser.name || mtmUser.code) : (sess ? sess.name : 'Usuário');
+  var code = mtmUser ? mtmUser.code : '';
   var userEl = document.getElementById('db-user-name');
-  if(userEl) userEl.textContent = name.split(' ')[0] + ' · MTM';
+  if(userEl) userEl.textContent = name + (code ? ' · ' + code : '') + ' · MTM';
+  try { if(typeof window.MTM_CURRENT === 'function' && typeof updateUserButtons === 'function') updateUserButtons(); }catch(e){}
   var db = document.getElementById('dashboard');
   if(db){ db.classList.add('active'); db.style.display='flex'; }
   __homeFirstPending = false;
