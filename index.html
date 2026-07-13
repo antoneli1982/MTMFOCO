@@ -1765,7 +1765,7 @@ window.FIREBASE_CONFIG = {
   appId:             "1:323473561940:web:ee9f4e4f1f9ea53c5210c1"
 };
 </script>
-<script type="module" src="firebase-mtm.js?v=2"></script>
+<script type="module" src="firebase-mtm.js?v=3"></script>
 
 
 <!-- ============================================================
@@ -2434,80 +2434,58 @@ html[data-theme="light"] #dashboard{
 </head>
 <body>
 <!-- ══════════════════════════════════════════════════════════════
-     🔒 SENHA PARA EDITAR / EXCLUIR  (entrar e visualizar é LIVRE)
-     - Ver e navegar: LIVRE, sem senha nenhuma.
-     - Editar ou excluir: pede a senha 2017 (libera pela sessão).
-     - Ao recarregar a página: volta a bloquear edição/exclusão.
+     🔒 SENHA SÓ PARA EXCLUIR E MEXER EM PROJETOS  (digitar nas folhas é LIVRE)
+     - Digitar/editar o conteúdo das folhas (linhas, cabeçalho, Livro, seletores): LIVRE, sem senha.
+     - EXCLUIR qualquer coisa: exige a senha 2017.
+     - Renomear projeto/pasta/folha, trocar/editar imagem, editar nota: exige a senha 2017.
+     - Ao recarregar (F5): essas ações protegidas voltam a exigir a senha.
      Para trocar a senha, altere __EDIT_PW abaixo.
      ══════════════════════════════════════════════════════════════ -->
 <script>
 (function(){
-  window.__EDIT_PW    = '2017';   // <<< senha para editar/excluir
-  window.__edUnlocked = false;    // começa bloqueado a cada carregamento
-  var __last = 0;
+  window.__EDIT_PW    = '2017';   // <<< senha para EXCLUIR e alterar projetos/nomes/imagens
+  window.__edUnlocked = false;    // controla só as acoes protegidas (NAO a digitacao)
 
   function setBtn(){
     var b=document.getElementById('edUserBtn');
     if(b){
       if(window.__edUnlocked){
-        b.innerHTML='🔓<span class="btn-lbl"> Edição liberada</span>';
-        b.title='Edição e exclusão LIBERADAS — clique para bloquear';
+        b.innerHTML='🔓<span class="btn-lbl"> Alterações liberadas</span>';
+        b.title='Excluir e alterar projetos/nomes/imagens LIBERADO — clique para bloquear';
         b.style.background='rgba(0,229,160,.10)'; b.style.color='var(--green)'; b.style.borderColor='rgba(0,229,160,.40)';
       } else {
-        b.innerHTML='🔒<span class="btn-lbl"> Editar (senha)</span>';
-        b.title='Editar/excluir exige senha — clique e digite a senha';
+        b.innerHTML='🔒<span class="btn-lbl"> Excluir/Projetos (senha)</span>';
+        b.title='Excluir e mexer em projetos/nomes/imagens exige senha — clique e digite';
         b.style.background='rgba(255,77,109,.10)'; b.style.color='var(--red)'; b.style.borderColor='rgba(255,77,109,.40)';
       }
     }
-    var be=document.getElementById('book-editor'); if(be) be.setAttribute('contenteditable', window.__edUnlocked?'true':'false');
-    if(document.body) document.body.classList.toggle('ed-locked', !window.__edUnlocked);
+    // Digitar é LIVRE: o Livro fica sempre editável e nada de cursor bloqueado.
+    var be=document.getElementById('book-editor'); if(be) be.setAttribute('contenteditable','true');
+    if(document.body) document.body.classList.remove('ed-locked');
   }
   window.__updateUserBtn = setBtn;   // usado tambem pelo firebase-mtm.js
 
   function unlock(){
     if(window.__edUnlocked) return true;
-    var p = prompt('🔒 Digite a senha para editar ou excluir:');
+    var p = prompt('🔒 Digite a senha para excluir ou alterar projetos:');
     if(p===null) return false;
     if(p===window.__EDIT_PW){ window.__edUnlocked=true; setBtn(); return true; }
     alert('❌ Senha incorreta.');
     return false;
   }
-  // As 14 travas de editar/excluir chamam estas funções:
+  // As travas de EXCLUIR e de editar projeto/nome/imagem/nota chamam estas funções:
   window.__mtmAuth = unlock;
   window.__reqEdit = unlock;
   window.__reqDel  = unlock;
-  window.__canEditNow   = function(){ return !!window.__edUnlocked; };
+  // Compatibilidade: a digitação NÃO é mais bloqueada.
+  window.__canEditNow   = function(){ return true; };
   window.__canDeleteNow = function(){ return !!window.__edUnlocked; };
 
   window.__edToggleLock = function(){
-    if(window.__edUnlocked){ window.__edUnlocked=false; setBtn(); try{ if(document.activeElement&&document.activeElement.blur) document.activeElement.blur(); }catch(e){} }
+    if(window.__edUnlocked){ window.__edUnlocked=false; setBtn(); }
     else unlock();
   };
-  // O botao da barra chama __openUserModal(); agora ele e simplesmente o cadeado.
   window.__openUserModal = window.__edToggleLock;
-
-  function hint(){
-    var now=Date.now(); if(now-__last<2200) return; __last=now;
-    try{
-      var d=document.createElement('div');
-      d.textContent='🔒 Para editar, clique em "Editar (senha)" na barra e digite a senha.';
-      d.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:2147483000;background:rgba(255,77,109,.96);color:#fff;padding:9px 16px;border-radius:10px;font:600 13px Inter,system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.45)';
-      document.body.appendChild(d);
-      setTimeout(function(){ d.style.transition='opacity .4s'; d.style.opacity='0'; setTimeout(function(){ if(d.parentNode)d.parentNode.removeChild(d); },420); },1700);
-    }catch(e){}
-  }
-
-  function editable(t){
-    if(!t||t.nodeType!==1) return false;
-    if(t.isContentEditable) return true;
-    if(t.hasAttribute&&(t.hasAttribute('data-f')||t.hasAttribute('data-key'))) return true;
-    return false;
-  }
-  document.addEventListener('beforeinput', function(e){ if(window.__edUnlocked) return; if(editable(e.target)){ e.preventDefault(); hint(); } }, true);
-  document.addEventListener('focusin', function(e){ var t=e.target; if(t&&t.matches&&t.matches('select[data-f],select[data-key]')) t.__edPrev=t.value; }, true);
-  document.addEventListener('change', function(e){ if(window.__edUnlocked) return; var t=e.target; if(t&&t.matches&&t.matches('select[data-f],select[data-key]')){ if(t.__edPrev!=null) t.value=t.__edPrev; e.stopPropagation(); e.preventDefault(); hint(); } }, true);
-  document.addEventListener('mousedown', function(e){ if(window.__edUnlocked) return; var t=e.target; if(t&&t.closest&&t.closest('select[data-f],select[data-key]')){ e.preventDefault(); hint(); } }, true);
-  document.addEventListener('dragstart', function(e){ if(window.__edUnlocked) return; var t=e.target; if(t&&t.closest&&(t.closest('tr[id^="r_"]')||t.closest('.tab'))){ e.preventDefault(); hint(); } }, true);
 
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', setBtn);
   else setBtn();
@@ -8088,7 +8066,7 @@ function pmRenderFolders(){
 }
 
 // Trocar / adicionar imagem de uma pasta existente
-function pmPickFolderLogo(fid){
+function pmPickFolderLogo(fid){if(typeof __reqEdit==='function' && !__reqEdit())return;
   const inp = document.createElement('input');
   inp.type = 'file';
   inp.accept = 'image/*';
@@ -8198,7 +8176,7 @@ function pmDeleteProject(i){if(typeof __reqDel==='function' && !__reqDel())retur
 }
 
 // ── Renomear pasta ──
-function pmRenameFolder(fid){
+function pmRenameFolder(fid){if(typeof __reqEdit==='function' && !__reqEdit())return;
   const f = pmData[fid];
   if(!f) return;
   const nomeAtual = f.name || '';
@@ -8215,7 +8193,7 @@ function pmRenameFolder(fid){
 }
 
 // ── Renomear projeto ──
-function pmRenameProject(i){
+function pmRenameProject(i){if(typeof __reqEdit==='function' && !__reqEdit())return;
   const f = pmGetFolder();
   if(!f || !f.projects || !f.projects[i]) return;
   const p = f.projects[i];
@@ -8479,7 +8457,7 @@ function pmCancelNoteEdit(i){
   document.getElementById('pmne-'+i).style.display='none';
   document.getElementById('pmna-'+i).style.display='';
 }
-function pmSaveNoteEdit(i){
+function pmSaveNoteEdit(i){if(typeof __reqEdit==='function' && !__reqEdit())return;
   const p = pmGetProject();
   p.notes[i].title = document.getElementById('pmet-'+i)?.value.trim()||'Sem título';
   p.notes[i].body  = document.getElementById('pmeb-'+i)?.value.trim()||'';
@@ -9748,7 +9726,7 @@ function dbProjectImgBox(p){
     + '</div>';
 }
 
-function dbPickProjectImgById(pid){
+function dbPickProjectImgById(pid){if(typeof __reqEdit==='function' && !__reqEdit())return;
   var inp = document.createElement('input');
   inp.type = 'file'; inp.accept = 'image/*'; inp.style.display = 'none';
   inp.onchange = function(){
@@ -10193,7 +10171,7 @@ function closeFolderPage(){
   dbRenderList();
 }
 
-function dbRenameFolder(fid){
+function dbRenameFolder(fid){if(typeof __reqEdit==='function' && !__reqEdit())return;
   pmLoad();
   if(!pmData[fid]) return;
   var oldName = pmData[fid].name;
@@ -10462,7 +10440,7 @@ function dbHandleProjectFileForFolder(input, fid){
 }
 
 // ── Renomear projeto dentro de pasta (dashboard) ──
-function dbRenameProjectInFolder(fid, pi){
+function dbRenameProjectInFolder(fid, pi){if(typeof __reqEdit==='function' && !__reqEdit())return;
   pmLoad();
   var p = pmData[fid] && pmData[fid].projects && pmData[fid].projects[pi];
   if(!p) return;
