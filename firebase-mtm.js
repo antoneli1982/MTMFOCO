@@ -1,46 +1,47 @@
-/* firebase-mtm.js — MTM EM FOCO — sincronização Firestore (Firebase v10 modular / ESM)
+/* firebase-mtm.js — MTM EM FOCO — sincronização via REALTIME DATABASE (Firebase v10 modular / ESM)
    ------------------------------------------------------------------------------------
-   Este arquivo agora LÊ as credenciais de window.FIREBASE_CONFIG (definido no index.html),
-   em vez de ter uma cópia interna com "COLE_AQUI".
+   Esta versão usa o REALTIME DATABASE (não o Firestore), porque é o banco que o seu
+   projeto já tem configurado (databaseURL "...-default-rtdb..." e regras ".read"/".write").
+   Lê as credenciais de window.FIREBASE_CONFIG (definido no index.html).
 
-   REQUISITOS no Console do Firebase (https://console.firebase.google.com):
-     1) Authentication > Sign-in method > Anonymous  ->  ATIVADO
-     2) Firestore Database criado
-     3) Regras do Firestore permitindo leitura/escrita para usuários autenticados, ex.:
-            rules_version = '2';
-            service cloud.firestore {
-              match /databases/{database}/documents {
-                match /mtm_sync/{doc} {
-                  allow read, write: if request.auth != null;
+   >>> IMPORTANTE — no Console do Firebase (senão continua "sem permissão"):
+     1) Realtime Database > aba REGRAS (Rules) > cole e PUBLIQUE:
+
+            {
+              "rules": {
+                "mtm_sync": {
+                  ".read":  "auth != null",
+                  ".write": "auth != null"
                 }
               }
             }
+
+     2) Authentication > Sign-in method > Anonymous (Anônimo) > ATIVAR.
+
+   (Para um TESTE rápido você pode usar ".read": true / ".write": true, mas isso deixa
+    o banco ABERTO para qualquer um. Volte para "auth != null" depois do teste.)
    ------------------------------------------------------------------------------------
    OBS de segurança: a apiKey do Firebase Web é pública por natureza; a proteção real
-   vem das REGRAS do Firestore, não do sigilo da chave.
+   vem das REGRAS do banco, não do sigilo da chave.
 */
 
 // Se esta versão exata não existir no gstatic, troque o número (ex.: 10.12.0, 10.13.0...).
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import {
-  getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 (function () {
   'use strict';
 
-  // Documento único compartilhado por todos os navegadores.
-  const STATE_COLLECTION = 'mtm_sync';
-  const STATE_DOC = 'global_state';
+  // Caminho único compartilhado por todos os navegadores.
+  const STATE_PATH = 'mtm_sync/global_state';
 
   // Mesmas chaves de localStorage usadas pelo app.
   const SHEETS_KEY = 'mtm_sheets_v1';
   const PM_KEY = 'pmgr_v3';
   const LOGOS_KEY = 'mtm_client_logos_v1';
 
-  let db = null;
-  let stateRef = null;
+  let dbRef = null;
   let cloudReady = false;
   let applyingCloud = false;
   let saveTimer = null;
@@ -48,7 +49,6 @@ import {
   function log()  { console.log.apply(console, ['[MTM Firebase]'].concat([].slice.call(arguments))); }
   function warn() { console.warn.apply(console, ['[MTM Firebase]'].concat([].slice.call(arguments))); }
 
-  // Aviso discreto na tela (não bloqueia como o alert()).
   function toast(msg, isError) {
     try {
       const d = document.createElement('div');
@@ -74,6 +74,18 @@ import {
   function safeJsonSet(key, value) {
     try { localStorage.setItem(key, JSON.stringify(value)); }
     catch (e) { warn('Falha ao salvar localStorage:', key, e); }
+  }
+
+  // Realtime Database às vezes devolve arrays como objeto {0:..,1:..}. Isto normaliza de volta.
+  function asArray(v) {
+    if (Array.isArray(v)) return v;
+    if (v && typeof v === 'object') {
+      const keys = Object.keys(v);
+      if (keys.length && keys.every(function (k) { return /^\d+$/.test(k); })) {
+        return keys.sort(function (a, b) { return (+a) - (+b); }).map(function (k) { return v[k]; });
+      }
+    }
+    return null;
   }
 
   function getSheetsLocal() {
@@ -109,7 +121,7 @@ import {
       sheets: getSheetsLocal(),
       pmData: getPmLocal(),
       clientLogos: getLogosLocal(),
-      updatedAt: serverTimestamp(),
+      updatedAt: Date.now(),
       updatedAtLocal: new Date().toISOString()
     };
   }
@@ -127,7 +139,6 @@ import {
       if (typeof window.dbRenderList === 'function') window.dbRenderList();
       else if (typeof window.showDashboard === 'function') window.showDashboard();
     } catch (e) { warn('Falha ao renderizar dashboard:', e); }
-    // Atualiza o botão de usuário (se o sistema de login estiver presente).
     try { if (typeof window.__updateUserBtn === 'function') window.__updateUserBtn(); } catch (e) {}
   }
 
@@ -135,21 +146,22 @@ import {
     if (!data || typeof data !== 'object') return;
     applyingCloud = true;
     try {
-      if (Array.isArray(data.sheets)) setSheetsLocal(data.sheets);
+      const sheetsArr = asArray(data.sheets);
+      if (sheetsArr) setSheetsLocal(sheetsArr);
       if (data.pmData && typeof data.pmData === 'object') setPmLocal(data.pmData);
       if (data.clientLogos && typeof data.clientLogos === 'object') setLogosLocal(data.clientLogos);
       renderAfterLoad();
-      log('Dados carregados do Firestore.');
+      log('Dados carregados do Realtime Database.');
     } finally {
       setTimeout(function () { applyingCloud = false; }, 400);
     }
   }
 
   function queueCloudSave(reason) {
-    if (!cloudReady || !stateRef || applyingCloud) return;
+    if (!cloudReady || !dbRef || applyingCloud) return;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(function () {
-      setDoc(stateRef, buildState(), { merge: true })
+      set(dbRef, buildState())
         .then(function () { log('Salvo na nuvem:', reason || 'auto'); })
         .catch(function (err) { warn('Erro ao salvar na nuvem:', err); });
     }, 700);
@@ -164,8 +176,8 @@ import {
     const originalDbGetClientLogos  = (typeof window.dbGetClientLogos === 'function')  ? window.dbGetClientLogos  : null;
 
     window.mtmForceCloudSave = function () {
-      if (!stateRef) { toast('Firestore ainda não está pronto.', true); return; }
-      return setDoc(stateRef, buildState(), { merge: true })
+      if (!dbRef) { toast('Banco ainda não está pronto.', true); return; }
+      return set(dbRef, buildState())
         .then(function () { toast('Salvo na nuvem.'); })
         .catch(function (err) { console.error(err); toast('Erro ao salvar na nuvem: ' + err.message, true); });
     };
@@ -200,7 +212,7 @@ import {
       queueCloudSave('clientLogos');
     };
 
-    log('Funções locais conectadas ao Firestore.');
+    log('Funções locais conectadas ao Realtime Database.');
   }
 
   async function startFirebase() {
@@ -211,34 +223,40 @@ import {
       if (typeof window.showDashboard === 'function') window.showDashboard();
       return;
     }
+    if (!cfg.databaseURL) {
+      warn('Falta databaseURL em window.FIREBASE_CONFIG (necessário para Realtime Database).');
+      toast('Firebase: falta o databaseURL no index.html (Realtime Database).', true);
+      if (typeof window.showDashboard === 'function') window.showDashboard();
+      return;
+    }
 
     const app = getApps().length ? getApps()[0] : initializeApp(cfg);
-    db = getFirestore(app);
+    const db = getDatabase(app);
 
-    // Auth anônimo simplifica as regras e sincroniza sem tela de login.
+    // Auth anônimo (necessário para a regra "auth != null").
     try {
       await signInAnonymously(getAuth(app));
       log('Auth anônimo OK.');
     } catch (e) {
-      warn('Auth anônimo falhou. Ative Authentication > Sign-in method > Anonymous e ajuste as regras.', e);
+      warn('Auth anônimo falhou. Ative Authentication > Sign-in method > Anonymous.', e);
       toast('Firebase: login anônimo falhou — ative "Anonymous" no Authentication.', true);
     }
 
-    stateRef = doc(db, STATE_COLLECTION, STATE_DOC);
+    dbRef = ref(db, STATE_PATH);
 
     try {
-      const snap = await getDoc(stateRef);
+      const snap = await get(dbRef);
       if (snap.exists()) {
-        applyCloudState(snap.data());
+        applyCloudState(snap.val());
       } else if (localHasUsefulData()) {
-        await setDoc(stateRef, buildState(), { merge: true });
-        log('Firestore estava vazio. Dados locais enviados para a nuvem.');
+        await set(dbRef, buildState());
+        log('Nuvem estava vazia. Dados locais enviados para a nuvem.');
       } else {
-        log('Firestore vazio e local vazio. Nada para carregar ainda.');
+        log('Nuvem vazia e local vazio. Nada para carregar ainda.');
       }
     } catch (err) {
-      warn('Falha ao ler o documento do Firestore (verifique as regras/segurança):', err);
-      toast('Firebase: sem permissão para ler os dados — verifique as regras do Firestore.', true);
+      warn('Falha ao ler o Realtime Database (verifique as regras):', err);
+      toast('Firebase: sem permissão para ler os dados — verifique as regras do Realtime Database.', true);
       if (typeof window.showDashboard === 'function') window.showDashboard();
       return;
     }
@@ -246,10 +264,10 @@ import {
     cloudReady = true;
 
     // Tempo real: quando outro navegador salvar, este recebe.
-    onSnapshot(stateRef, function (snap) {
+    onValue(dbRef, function (snap) {
       if (!snap.exists() || applyingCloud) return;
-      applyCloudState(snap.data());
-    }, function (err) { warn('Listener Firestore falhou:', err); });
+      applyCloudState(snap.val());
+    }, function (err) { warn('Listener Realtime Database falhou:', err); });
 
     if (typeof window.showDashboard === 'function') window.showDashboard();
   }
