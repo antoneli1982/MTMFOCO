@@ -2444,13 +2444,22 @@ html[data-theme="light"] #dashboard{
      ══════════════════════════════════════════════════════════════ -->
 <script>
 (function(){
-  window.__EDIT_PW='2017';
+  window.__EDIT_PW='2017';   // senha de liberação da chapa ANTONEL (admin) — outras chapas usam a própria chapa como senha
   window.__edUnlocked=false;                                   // trava a cada F5
   window.__newIds = (window.__newIds && window.__newIds.add) ? window.__newIds : {}; // ids criados NESTA sessão
   var __last=0;
 
   function isNew(id){ return id!=null && !!window.__newIds[id]; }
   window.__isNewId = isNew;
+
+  // Senha exigida para liberar edição/exclusão nesta sessão: para a chapa ANTONEL é a senha
+  // fixa __EDIT_PW (2017); para as demais chapas (0000001–0000100) é a própria chapa da pessoa.
+  function requiredPw(){
+    var chapa = window.mtmChapa || null;
+    if(chapa && typeof window.__mtmIsAdminChapa === 'function' && window.__mtmIsAdminChapa(chapa)) return window.__EDIT_PW;
+    if(chapa) return chapa; // senha de uso = a própria chapa
+    return window.__EDIT_PW; // sem chapa identificada (fallback ao comportamento antigo)
+  }
 
   function setBtn(){
     var b=document.getElementById('edUserBtn');
@@ -2472,7 +2481,7 @@ html[data-theme="light"] #dashboard{
     if(window.__edUnlocked) return true;
     var p = prompt('🔒 Digite a senha para editar/excluir itens já existentes:');
     if(p===null) return false;
-    if(p===window.__EDIT_PW){ window.__edUnlocked=true; setBtn(); return true; }
+    if(p===requiredPw()){ window.__edUnlocked=true; setBtn(); return true; }
     alert('❌ Senha incorreta.');
     return false;
   }
@@ -2622,6 +2631,62 @@ html[data-theme="light"] #dashboard{
 <script>
 (function(){
   var KEY = 'mtm_chapa_ok';
+  window.MTM_ADMIN_CHAPA = 'ANTONEL';   // <<< chapa do dono/admin — senha de liberação continua 2017
+  window.MTM_CODE_MIN = 1;
+  window.MTM_CODE_MAX = 100;            // códigos válidos: 0000001 a 0000100
+
+  function normalizeChapa(v){
+    v = (v || '').trim().toUpperCase();
+    return v;
+  }
+  function isValidChapa(v){
+    v = normalizeChapa(v);
+    if(v === window.MTM_ADMIN_CHAPA) return true;
+    if(/^\d{7}$/.test(v)){
+      var n = parseInt(v, 10);
+      return n >= window.MTM_CODE_MIN && n <= window.MTM_CODE_MAX;
+    }
+    return false;
+  }
+  window.__mtmIsValidChapa = isValidChapa;
+  window.__mtmIsAdminChapa = function(v){ return normalizeChapa(v) === window.MTM_ADMIN_CHAPA; };
+
+  // Chapa ativa nesta sessão (definida ao logar na portaria)
+  try{
+    var __stored = normalizeChapa(sessionStorage.getItem(KEY));
+    if(__stored && !isValidChapa(__stored)){
+      // Chapa de uma sessão anterior a este recurso (não validada) — força novo login.
+      sessionStorage.removeItem(KEY);
+      __stored = null;
+    }
+    window.mtmChapa = __stored || null;
+  }catch(e){ window.mtmChapa = null; }
+  window.__mtmIsAdmin = function(){ return window.__mtmIsAdminChapa(window.mtmChapa); };
+
+  // Decide se a chapa ativa nesta sessão pode VER uma determinada pasta:
+  // - pasta sem dono definido (criada antes deste recurso) → sempre visível;
+  // - dono da pasta → sempre visível pra ele;
+  // - chapa ANTONEL (admin) → vê tudo;
+  // - chapa que o dono liberou em allowedViewers → visível.
+  window.mtmCanSeeFolder = function(f){
+    if(!f) return false;
+    if(!f.ownerChapa) return true;
+    var chapa = window.mtmChapa || null;
+    if(!chapa) return false;
+    if(window.__mtmIsAdminChapa(chapa)) return true;
+    if(f.ownerChapa === chapa) return true;
+    if(Array.isArray(f.allowedViewers) && f.allowedViewers.indexOf(chapa) !== -1) return true;
+    return false;
+  };
+  // Se a chapa ativa pode GERENCIAR quem vê essa pasta (dono ou admin)
+  window.mtmCanManageFolderViewers = function(f){
+    if(!f) return false;
+    var chapa = window.mtmChapa || null;
+    if(!chapa) return false;
+    if(window.__mtmIsAdminChapa(chapa)) return true;
+    return f.ownerChapa === chapa;
+  };
+
   // Se já entrou nesta sessão, esconde imediatamente (evita piscar a tela)
   try{
     if(sessionStorage.getItem(KEY)){
@@ -2640,10 +2705,19 @@ html[data-theme="light"] #dashboard{
       if(inp) inp.focus();
       return;
     }
+    if(!isValidChapa(v)){
+      err.textContent = 'Chapa não reconhecida. Use um código de 0000001 a 0000100, ou a chapa do administrador.';
+      err.classList.add('show');
+      if(inp) inp.focus();
+      return;
+    }
+    var norm = normalizeChapa(v);
     err.classList.remove('show');
-    try{ sessionStorage.setItem(KEY, v); }catch(e){}
+    try{ sessionStorage.setItem(KEY, norm); }catch(e){}
+    window.mtmChapa = norm;
     var scr = document.getElementById('mtm-chapa-screen');
     if(scr) scr.classList.add('hidden');
+    if(typeof dbRenderList === 'function') dbRenderList();
   }
 
   document.addEventListener('DOMContentLoaded', function(){
@@ -7835,6 +7909,14 @@ document.addEventListener('DOMContentLoaded',()=>{
 }
 .pm-folder-card:hover .pm-folder-rename{opacity:1}
 .pm-folder-rename:hover{background:var(--orange);color:#fff}
+.pm-folder-share{
+  position:absolute;top:5px;right:32px;z-index:2;
+  background:rgba(0,0,0,.55);border:1px solid transparent;border-radius:4px;
+  color:#fff;font-size:11px;padding:3px 7px;cursor:pointer;
+  opacity:0;transition:all .15s;
+}
+.pm-folder-card:hover .pm-folder-share{opacity:1}
+.pm-folder-share:hover{background:var(--accent);color:#fff}
 
 /* ── PROJECT CARDS ── */
 .pm-projects-grid{display:flex;flex-direction:column;gap:8px}
@@ -8114,7 +8196,8 @@ function pmRenderBC(){
 
 /* ── FOLDERS ── */
 function pmRenderFolders(){
-  const keys = Object.keys(pmData);
+  const allKeys = Object.keys(pmData);
+  const keys = allKeys.filter(fid => (typeof window.mtmCanSeeFolder !== 'function') || window.mtmCanSeeFolder(pmData[fid]));
   const body = document.getElementById('pm-body');
   let html = `
     <div class="pm-sh">
@@ -8137,9 +8220,14 @@ function pmRenderFolders(){
         ? `<img src="${folderPhoto}" alt="">`
         : `<div class="pm-folder-banner-placeholder">🏭</div>`;
       const editLbl = f.logo ? 'Trocar imagem' : 'Adicionar imagem';
+      const canManageViewers = (typeof window.mtmCanManageFolderViewers === 'function') && window.mtmCanManageFolderViewers(f);
+      const shareBtn = canManageViewers
+        ? `<button class="pm-folder-share" onclick="event.stopPropagation();dbManageFolderViewers('${fid}')" title="Permitir que outra chapa veja esta pasta">🔑</button>`
+        : '';
       html += `
         <div class="pm-folder-card" onclick="pmOpenFolder('${fid}')">
           <button class="pm-folder-del" onclick="event.stopPropagation();pmDeleteFolder('${fid}')" title="Excluir pasta">✕</button>
+          ${shareBtn}
           <button class="pm-folder-edit-img" onclick="event.stopPropagation();pmPickFolderLogo('${fid}')" title="${editLbl}">📷</button>
           <button class="pm-folder-rename" onclick="event.stopPropagation();pmRenameFolder('${fid}')" title="Renomear pasta">✏️</button>
           <div class="pm-folder-banner">${bannerHtml}</div>
@@ -8643,7 +8731,7 @@ function pmConfirmModal(){
 
   if(pmModalMode==='folder'){
     const id = 'f_'+Date.now();
-    pmData[id] = { name: val, logo: pmModalImg||null, projects: [] };
+    pmData[id] = { name: val, logo: pmModalImg||null, projects: [], ownerChapa: (window.mtmChapa||null), allowedViewers: [] };
     pmSave(); pmCloseModal(); pmRenderFolders();
 
   } else {
@@ -9637,6 +9725,7 @@ function dbRenderList(){
 
   folderIds.forEach(function(fid){
     var f = pmData[fid];
+    if(typeof window.mtmCanSeeFolder === 'function' && !window.mtmCanSeeFolder(f)) return; // pasta de outra chapa, sem permissão para ver
     var clientName = f.name || 'Sem nome';
     var projects = f.projects || [];
 
@@ -9679,8 +9768,14 @@ function dbRenderList(){
       : 'var(--blue)';
     var ttpDisplay = empresaTTP === null ? '—' : empresaTTP.toFixed(1) + '%';
 
+    var canManageViewers = (typeof window.mtmCanManageFolderViewers === 'function') && window.mtmCanManageFolderViewers(f);
+    var shareBtnHtml = canManageViewers
+      ? '<button onclick="event.stopPropagation();dbManageFolderViewers(\'' + fid + '\')" title="Permitir que outra chapa veja esta pasta" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:4px 8px;border-radius:6px;transition:all .2s" onmouseover="this.style.color=\'var(--accent)\';this.style.background=\'var(--accentBg)\'" onmouseout="this.style.color=\'var(--text3)\';this.style.background=\'transparent\'">🔑</button>'
+      : '';
+
     html += '<div class="db-company-card" onclick="openFolderPage(\'' + fid + '\')" style="background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:16px;cursor:pointer;transition:all .2s;position:relative" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'var(--accent)\';this.style.boxShadow=\'var(--shadow-glow)\'" onmouseout="this.style.transform=\'\';this.style.borderColor=\'var(--border2)\';this.style.boxShadow=\'\'">'
       + '<div style="position:absolute;top:10px;right:10px;display:flex;gap:2px">'
+      + shareBtnHtml
       + '<button onclick="event.stopPropagation();dbToggleHideFolder(\'' + fid + '\')" title="Ocultar esta pasta (clique na lâmpada de novo para trazer de volta)" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:4px 8px;border-radius:6px;transition:all .2s" onmouseover="this.style.color=\'#b45309\';this.style.background=\'rgba(255,214,10,.15)\'" onmouseout="this.style.color=\'var(--text3)\';this.style.background=\'transparent\'">💡</button>'
       + '<button onclick="event.stopPropagation();dbDelFolder(\'' + fid + '\')" title="Excluir pasta e tudo dentro" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:4px 8px;border-radius:6px;transition:all .2s" onmouseover="this.style.color=\'var(--red)\';this.style.background=\'var(--redBg)\'" onmouseout="this.style.color=\'var(--text3)\';this.style.background=\'transparent\'">🗑</button>'
       + '</div>'
@@ -9740,7 +9835,7 @@ function dbNewFolder(){
     if(!confirm('Já existe uma pasta com esse nome. Criar outra mesmo assim?')) return;
   }
   var fid = 'f_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
-  pmData[fid] = { name: name, logo: null, projects: [] };
+  pmData[fid] = { name: name, logo: null, projects: [], ownerChapa: (window.mtmChapa||null), allowedViewers: [] };
   pmSave();
   // Oferecer imagem imediatamente (opcional)
   if(confirm('Pasta "' + name + '" criada. Deseja adicionar uma imagem/logo agora?')){
@@ -10369,6 +10464,39 @@ function dbToggleHiddenFoldersSection(){
 
 // Oculta/mostra uma pasta (a "lâmpada"). Não apaga nada — apenas some da lista principal
 // até a pessoa clicar de novo (na lâmpada do card, ou na lista de "Pastas ocultas") para trazê-la de volta.
+// Gerencia quais chapas (0000001–0000100) podem VER esta pasta, além do dono e da ANTONEL.
+// Só o dono da pasta (ou a ANTONEL) pode abrir este gerenciamento.
+function dbManageFolderViewers(fid){
+  pmLoad();
+  var f = pmData[fid];
+  if(!f) return;
+  if(!(typeof window.mtmCanManageFolderViewers === 'function' && window.mtmCanManageFolderViewers(f))){
+    alert('Apenas o dono desta pasta (ou o administrador) pode liberar quem vê ela.');
+    return;
+  }
+  var atual = (f.allowedViewers || []).join(', ');
+  var resp = prompt(
+    '🔑 Liberar visualização da pasta "' + (f.name || '') + '"\n\n' +
+    'Digite as chapas (0000001 a 0000100) separadas por vírgula que podem VER esta pasta.\n' +
+    'Deixe em branco para não liberar ninguém além de você.\n\n' +
+    'Chapas liberadas atualmente:', atual
+  );
+  if(resp === null) return; // cancelou
+  var lista = resp.split(',')
+    .map(function(v){ return v.trim().toUpperCase(); })
+    .filter(function(v){ return v && /^\d{7}$/.test(v); });
+  // Remove duplicadas
+  var vistos = {};
+  var final = [];
+  lista.forEach(function(v){ if(!vistos[v]){ vistos[v]=1; final.push(v); } });
+  f.allowedViewers = final;
+  pmSave();
+  dbRenderList();
+  if(typeof showToast === 'function'){
+    showToast(final.length ? '🔑 ' + final.length + ' chapa(s) liberada(s) para ver esta pasta.' : '🔑 Nenhuma chapa liberada — a pasta só é vista por você.');
+  }
+}
+
 function dbToggleHideFolder(fid){
   pmLoad();
   var f = pmData[fid];
