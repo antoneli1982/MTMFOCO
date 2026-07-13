@@ -1,53 +1,64 @@
-/* firebase-mtm.js — MTM EM FOCO — sincronização via REALTIME DATABASE (Firebase v10 modular / ESM)
+/* firebase-mtm.js — MTM EM FOCO — CLOUD FIRESTORE (recuperar + salvar)
    ------------------------------------------------------------------------------------
-   Esta versão usa o REALTIME DATABASE (não o Firestore), porque é o banco que o seu
-   projeto já tem configurado (databaseURL "...-default-rtdb..." e regras ".read"/".write").
-   Lê as credenciais de window.FIREBASE_CONFIG (definido no index.html).
+   Esta versão usa o CLOUD FIRESTORE, onde estão os seus dados de verdade, nas coleções:
+     - projects : pastas/empresas  -> cada doc = { id:"f_...", name, logo, projects:[ {id:"p_...", name, client, date, img, logo, notes, sheets:["sh..."]} ] }
+     - sheets   : folhas           -> cada doc = { id:"sh...", label, order, header{...}, rows[...], book, fadiga }
+     - logos    : logos por cliente-> cada doc = { client, dataUrl }
 
-   >>> IMPORTANTE — no Console do Firebase (senão continua "sem permissão"):
-     1) Realtime Database > aba REGRAS (Rules) > cole e PUBLIQUE:
+   Ela RECUPERA esses dados para dentro da ferramenta (pmData, sheets, clientLogos) e
+   CONTINUA SALVANDO de volta no mesmo formato (um documento por item), com proteções
+   para não apagar seus dados por engano.
 
-            {
-              "rules": {
-                "mtm_sync": {
-                  ".read":  "auth != null",
-                  ".write": "auth != null"
+   Config: window.FIREBASE_CONFIG (definido no index.html).
+
+   >>> REQUISITOS no Console do Firebase:
+     1) Authentication > Sign-in method > Anonymous (Anônimo): ATIVADO (já está no seu projeto).
+     2) FIRESTORE Database > aba REGRAS (Rules) > publicar (é a sintaxe do Firestore, NÃO a do Realtime):
+
+            rules_version = '2';
+            service cloud.firestore {
+              match /databases/{database}/documents {
+                match /{document=**} {
+                  allow read, write: if request.auth != null;
                 }
               }
             }
-
-     2) Authentication > Sign-in method > Anonymous (Anônimo) > ATIVAR.
-
-   (Para um TESTE rápido você pode usar ".read": true / ".write": true, mas isso deixa
-    o banco ABERTO para qualquer um. Volte para "auth != null" depois do teste.)
    ------------------------------------------------------------------------------------
    OBS de segurança: a apiKey do Firebase Web é pública por natureza; a proteção real
-   vem das REGRAS do banco, não do sigilo da chave.
+   vem das REGRAS do Firestore, não do sigilo da chave.
 */
 
-// Se esta versão exata não existir no gstatic, troque o número (ex.: 10.12.0, 10.13.0...).
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import {
+  getFirestore, collection, getDocs, doc, setDoc, deleteDoc, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 (function () {
   'use strict';
 
-  // Caminho único compartilhado por todos os navegadores.
-  const STATE_PATH = 'mtm_sync/global_state';
+  const COL_PROJECTS = 'projects';   // pastas/empresas
+  const COL_SHEETS   = 'sheets';     // folhas
+  const COL_LOGOS    = 'logos';      // logos por cliente
 
-  // Mesmas chaves de localStorage usadas pelo app.
   const SHEETS_KEY = 'mtm_sheets_v1';
-  const PM_KEY = 'pmgr_v3';
-  const LOGOS_KEY = 'mtm_client_logos_v1';
+  const PM_KEY     = 'pmgr_v3';
+  const LOGOS_KEY  = 'mtm_client_logos_v1';
 
-  let dbRef = null;
-  let cloudReady = false;
+  let db = null;
+  let uid = null;
+  let cloudReady = false;      // só vira true APÓS uma leitura bem-sucedida (protege os dados)
   let applyingCloud = false;
   let saveTimer = null;
 
+  // Caches do que já está na nuvem (para gravar só o que mudou e detectar remoções).
+  const syncedSheets  = {};
+  const syncedFolders = {};
+  const syncedLogos   = {};
+
   function log()  { console.log.apply(console, ['[MTM Firebase]'].concat([].slice.call(arguments))); }
   function warn() { console.warn.apply(console, ['[MTM Firebase]'].concat([].slice.call(arguments))); }
+  function wErr(err) { warn('Erro ao gravar no Firestore:', err); }
 
   function toast(msg, isError) {
     try {
@@ -76,18 +87,6 @@ import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/fir
     catch (e) { warn('Falha ao salvar localStorage:', key, e); }
   }
 
-  // Realtime Database às vezes devolve arrays como objeto {0:..,1:..}. Isto normaliza de volta.
-  function asArray(v) {
-    if (Array.isArray(v)) return v;
-    if (v && typeof v === 'object') {
-      const keys = Object.keys(v);
-      if (keys.length && keys.every(function (k) { return /^\d+$/.test(k); })) {
-        return keys.sort(function (a, b) { return (+a) - (+b); }).map(function (k) { return v[k]; });
-      }
-    }
-    return null;
-  }
-
   function getSheetsLocal() {
     try { if (typeof window.sheets !== 'undefined' && Array.isArray(window.sheets)) return window.sheets; } catch (e) {}
     return safeJsonGet(SHEETS_KEY, []);
@@ -109,21 +108,10 @@ import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/fir
   function getLogosLocal() { return safeJsonGet(LOGOS_KEY, {}); }
   function setLogosLocal(obj) { safeJsonSet(LOGOS_KEY, obj && typeof obj === 'object' ? obj : {}); }
 
-  function localHasUsefulData() {
-    const s = getSheetsLocal(), p = getPmLocal(), l = getLogosLocal();
-    return (Array.isArray(s) && s.length > 0) ||
-           (p && typeof p === 'object' && Object.keys(p).length > 0) ||
-           (l && typeof l === 'object' && Object.keys(l).length > 0);
-  }
-
-  function buildState() {
-    return {
-      sheets: getSheetsLocal(),
-      pmData: getPmLocal(),
-      clientLogos: getLogosLocal(),
-      updatedAt: Date.now(),
-      updatedAtLocal: new Date().toISOString()
-    };
+  // Firestore doc id não pode ter / \ . # $ [ ] — usado só para a coleção de logos.
+  function logoDocId(client) {
+    var id = String(client == null ? '' : client).replace(/[\/\\.#$\[\]]/g, '_').slice(0, 300);
+    return id || '_';
   }
 
   function renderAfterLoad() {
@@ -142,29 +130,148 @@ import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/fir
     try { if (typeof window.__updateUserBtn === 'function') window.__updateUserBtn(); } catch (e) {}
   }
 
-  function applyCloudState(data) {
-    if (!data || typeof data !== 'object') return;
+  // ---------- LEITURA (recuperar) ----------
+  async function loadAll() {
+    const results = await Promise.all([
+      getDocs(collection(db, COL_PROJECTS)),
+      getDocs(collection(db, COL_SHEETS)),
+      getDocs(collection(db, COL_LOGOS))
+    ]);
+    const pSnap = results[0], sSnap = results[1], lSnap = results[2];
+
+    // sheets -> array de folhas
+    const sheetsArr = [];
+    sSnap.forEach(function (d) {
+      const o = d.data() || {};
+      if (!o.id) o.id = d.id;
+      sheetsArr.push(o);
+    });
+    sheetsArr.sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+
+    // projects -> pmData { folderId: { name, logo, projects:[...] } }
+    const pmObj = {};
+    pSnap.forEach(function (d) {
+      const o = d.data() || {};
+      const id = o.id || d.id;
+      const v = Object.assign({}, o);
+      delete v.id;
+      if (!Array.isArray(v.projects)) v.projects = v.projects ? v.projects : [];
+      pmObj[id] = v;
+    });
+
+    // logos -> { client: dataUrl }
+    const logosObj = {};
+    lSnap.forEach(function (d) {
+      const o = d.data() || {};
+      const client = o.client || d.id;
+      if (client) logosObj[client] = o.dataUrl || o.logo || '';
+    });
+
+    return { sheetsArr: sheetsArr, pmObj: pmObj, logosObj: logosObj };
+  }
+
+  function applyFromCloud(sheetsArr, pmObj, logosObj) {
     applyingCloud = true;
     try {
-      const sheetsArr = asArray(data.sheets);
-      if (sheetsArr) setSheetsLocal(sheetsArr);
-      if (data.pmData && typeof data.pmData === 'object') setPmLocal(data.pmData);
-      if (data.clientLogos && typeof data.clientLogos === 'object') setLogosLocal(data.clientLogos);
+      setSheetsLocal(sheetsArr);
+      setPmLocal(pmObj);
+      setLogosLocal(logosObj);
+
+      // Popular caches para o primeiro save NÃO reescrever tudo.
+      Object.keys(syncedSheets).forEach(function (k) { delete syncedSheets[k]; });
+      sheetsArr.forEach(function (sh) { if (sh && sh.id) syncedSheets[sh.id] = JSON.stringify(sh); });
+
+      Object.keys(syncedFolders).forEach(function (k) { delete syncedFolders[k]; });
+      Object.keys(pmObj).forEach(function (fid) { syncedFolders[fid] = JSON.stringify(Object.assign({ id: fid }, pmObj[fid])); });
+
+      Object.keys(syncedLogos).forEach(function (k) { delete syncedLogos[k]; });
+      Object.keys(logosObj).forEach(function (c) { syncedLogos[logoDocId(c)] = JSON.stringify({ client: c, dataUrl: logosObj[c] }); });
+
       renderAfterLoad();
-      log('Dados carregados do Realtime Database.');
+      log('Dados recuperados do Firestore: ' + sheetsArr.length + ' folha(s), ' +
+          Object.keys(pmObj).length + ' pasta(s), ' + Object.keys(logosObj).length + ' logo(s).');
     } finally {
-      setTimeout(function () { applyingCloud = false; }, 400);
+      setTimeout(function () { applyingCloud = false; }, 500);
+    }
+  }
+
+  // ---------- ESCRITA (salvar de volta) ----------
+  function syncToCloud() {
+    if (!cloudReady || !db || applyingCloud) return;
+    try {
+      // ----- SHEETS -----
+      const sArr = getSheetsLocal();
+      const curS = {};
+      sArr.forEach(function (sh) {
+        if (!sh || !sh.id) return;
+        curS[sh.id] = 1;
+        const js = JSON.stringify(sh);
+        if (syncedSheets[sh.id] !== js) {
+          syncedSheets[sh.id] = js;
+          setDoc(doc(db, COL_SHEETS, String(sh.id)), sh).catch(wErr);
+        }
+      });
+      // remoções (proteção: não apaga tudo se a lista vier vazia por engano)
+      const knownS = Object.keys(syncedSheets);
+      if (!(sArr.length === 0 && knownS.length > 0)) {
+        knownS.forEach(function (id) {
+          if (!curS[id]) { delete syncedSheets[id]; deleteDoc(doc(db, COL_SHEETS, String(id))).catch(wErr); }
+        });
+      } else {
+        warn('Ignorando remoção em massa de folhas (lista local vazia) — proteção de dados.');
+      }
+
+      // ----- FOLDERS (pmData) -----
+      const pm = getPmLocal();
+      const curF = {};
+      Object.keys(pm).forEach(function (fid) {
+        curF[fid] = 1;
+        const fd = Object.assign({ id: fid }, pm[fid]);
+        const js = JSON.stringify(fd);
+        if (syncedFolders[fid] !== js) {
+          syncedFolders[fid] = js;
+          setDoc(doc(db, COL_PROJECTS, String(fid)), fd).catch(wErr);
+        }
+      });
+      const knownF = Object.keys(syncedFolders);
+      if (!(Object.keys(pm).length === 0 && knownF.length > 0)) {
+        knownF.forEach(function (fid) {
+          if (!curF[fid]) { delete syncedFolders[fid]; deleteDoc(doc(db, COL_PROJECTS, String(fid))).catch(wErr); }
+        });
+      } else {
+        warn('Ignorando remoção em massa de pastas (pmData vazio) — proteção de dados.');
+      }
+
+      // ----- LOGOS -----
+      const lg = getLogosLocal();
+      const curL = {};
+      Object.keys(lg).forEach(function (client) {
+        const id = logoDocId(client);
+        curL[id] = 1;
+        const cmp = JSON.stringify({ client: client, dataUrl: lg[client] });
+        if (syncedLogos[id] !== cmp) {
+          syncedLogos[id] = cmp;
+          setDoc(doc(db, COL_LOGOS, id), { client: client, dataUrl: lg[client], updatedAt: serverTimestamp(), updatedBy: uid || '' }).catch(wErr);
+        }
+      });
+      const knownL = Object.keys(syncedLogos);
+      if (!(Object.keys(lg).length === 0 && knownL.length > 0)) {
+        knownL.forEach(function (id) {
+          if (!curL[id]) { delete syncedLogos[id]; deleteDoc(doc(db, COL_LOGOS, id)).catch(wErr); }
+        });
+      }
+    } catch (e) {
+      warn('Falha ao sincronizar com o Firestore:', e);
     }
   }
 
   function queueCloudSave(reason) {
-    if (!cloudReady || !dbRef || applyingCloud) return;
+    if (!cloudReady || applyingCloud) return;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(function () {
-      set(dbRef, buildState())
-        .then(function () { log('Salvo na nuvem:', reason || 'auto'); })
-        .catch(function (err) { warn('Erro ao salvar na nuvem:', err); });
-    }, 700);
+      syncToCloud();
+      log('Sincronizado (' + (reason || 'auto') + ').');
+    }, 800);
   }
 
   function patchLocalFunctions() {
@@ -176,10 +283,9 @@ import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/fir
     const originalDbGetClientLogos  = (typeof window.dbGetClientLogos === 'function')  ? window.dbGetClientLogos  : null;
 
     window.mtmForceCloudSave = function () {
-      if (!dbRef) { toast('Banco ainda não está pronto.', true); return; }
-      return set(dbRef, buildState())
-        .then(function () { toast('Salvo na nuvem.'); })
-        .catch(function (err) { console.error(err); toast('Erro ao salvar na nuvem: ' + err.message, true); });
+      if (!cloudReady) { toast('Ainda carregando/sem permissão — não é seguro salvar agora.', true); return; }
+      syncToCloud();
+      toast('Salvo na nuvem.');
     };
 
     window.saveSheets = function () {
@@ -189,7 +295,7 @@ import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/fir
     window.salvarAgora = function () {
       if (originalSalvarAgora) originalSalvarAgora();
       queueCloudSave('salvarAgora');
-      setTimeout(window.mtmForceCloudSave, 50);
+      setTimeout(window.mtmForceCloudSave, 60);
     };
     window.pmSave = function () {
       if (originalPmSave) originalPmSave();
@@ -212,10 +318,10 @@ import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/fir
       queueCloudSave('clientLogos');
     };
 
-    log('Funções locais conectadas ao Realtime Database.');
+    log('Funções locais conectadas ao Firestore.');
   }
 
-  async function startFirebase() {
+  async function start() {
     const cfg = window.FIREBASE_CONFIG;
     if (!cfg || !cfg.apiKey || String(cfg.apiKey).indexOf('COLE') === 0) {
       warn('window.FIREBASE_CONFIG ausente ou incompleto no index.html.');
@@ -223,58 +329,36 @@ import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/fir
       if (typeof window.showDashboard === 'function') window.showDashboard();
       return;
     }
-    if (!cfg.databaseURL) {
-      warn('Falta databaseURL em window.FIREBASE_CONFIG (necessário para Realtime Database).');
-      toast('Firebase: falta o databaseURL no index.html (Realtime Database).', true);
-      if (typeof window.showDashboard === 'function') window.showDashboard();
-      return;
-    }
 
     const app = getApps().length ? getApps()[0] : initializeApp(cfg);
-    const db = getDatabase(app);
+    db = getFirestore(app);
 
-    // Auth anônimo (necessário para a regra "auth != null").
     try {
-      await signInAnonymously(getAuth(app));
+      const cred = await signInAnonymously(getAuth(app));
+      uid = (cred && cred.user) ? cred.user.uid : null;
       log('Auth anônimo OK.');
     } catch (e) {
       warn('Auth anônimo falhou. Ative Authentication > Sign-in method > Anonymous.', e);
       toast('Firebase: login anônimo falhou — ative "Anonymous" no Authentication.', true);
     }
 
-    dbRef = ref(db, STATE_PATH);
-
     try {
-      const snap = await get(dbRef);
-      if (snap.exists()) {
-        applyCloudState(snap.val());
-      } else if (localHasUsefulData()) {
-        await set(dbRef, buildState());
-        log('Nuvem estava vazia. Dados locais enviados para a nuvem.');
-      } else {
-        log('Nuvem vazia e local vazio. Nada para carregar ainda.');
-      }
+      const data = await loadAll();
+      applyFromCloud(data.sheetsArr, data.pmObj, data.logosObj);
     } catch (err) {
-      warn('Falha ao ler o Realtime Database (verifique as regras):', err);
-      toast('Firebase: sem permissão para ler os dados — verifique as regras do Realtime Database.', true);
+      warn('Falha ao ler o Firestore (verifique as REGRAS do FIRESTORE):', err);
+      toast('Firebase: sem permissão para ler os dados — verifique as regras do FIRESTORE.', true);
       if (typeof window.showDashboard === 'function') window.showDashboard();
-      return;
+      return; // NÃO habilita o salvamento -> protege seus dados de serem sobrescritos.
     }
 
-    cloudReady = true;
-
-    // Tempo real: quando outro navegador salvar, este recebe.
-    onValue(dbRef, function (snap) {
-      if (!snap.exists() || applyingCloud) return;
-      applyCloudState(snap.val());
-    }, function (err) { warn('Listener Realtime Database falhou:', err); });
-
+    cloudReady = true; // só agora o salvamento fica ativo
     if (typeof window.showDashboard === 'function') window.showDashboard();
   }
 
   function boot() {
     patchLocalFunctions();
-    startFirebase().catch(function (err) {
+    start().catch(function (err) {
       console.error('[MTM Firebase] erro crítico:', err);
       toast('Erro ao iniciar Firebase: ' + (err && err.message ? err.message : err), true);
       if (typeof window.showDashboard === 'function') window.showDashboard();
