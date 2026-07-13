@@ -7868,6 +7868,36 @@ document.addEventListener('DOMContentLoaded',()=>{
 }
 .pm-proj-rename:hover{background:var(--orangeBg);color:var(--orange);border-color:var(--orange)}
 .pm-proj-edit-img:hover{background:var(--accentBg);color:var(--accent);border-color:var(--accent)}
+.pm-proj-hide{
+  background:transparent;border:1px solid transparent;border-radius:5px;
+  color:var(--text3);font-size:12px;padding:3px 7px;cursor:pointer;flex-shrink:0;
+  transition:all .15s;
+}
+.pm-proj-hide:hover{background:rgba(255,214,10,.15);color:#b45309;border-color:rgba(255,214,10,.5)}
+.pm-proj-card.pm-proj-is-hidden{opacity:.55}
+
+/* ── PROJETOS OCULTOS ── */
+.pm-hidden-section{margin-top:14px;border-top:1px dashed var(--border2);padding-top:12px}
+.pm-hidden-toggle{
+  display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;
+  font-size:12px;font-weight:700;color:var(--text2);padding:6px 2px;
+}
+.pm-hidden-toggle:hover{color:var(--text)}
+.pm-hidden-toggle .arrow{transition:transform .18s;font-size:10px;display:inline-block}
+.pm-hidden-toggle.open .arrow{transform:rotate(90deg)}
+.pm-hidden-list{display:none;flex-direction:column;gap:6px;margin-top:8px}
+.pm-hidden-list.open{display:flex}
+.pm-hidden-row{
+  display:flex;align-items:center;gap:10px;background:var(--surface2);
+  border:1px solid var(--border);border-radius:9px;padding:8px 12px;opacity:.75;
+}
+.pm-hidden-row .pm-proj-name{font-size:12px;font-weight:600;color:var(--text2);flex:1}
+.pm-hidden-restore{
+  background:transparent;border:1px solid var(--border2);border-radius:6px;
+  color:var(--text2);font-size:11px;padding:4px 9px;cursor:pointer;flex-shrink:0;
+  transition:all .15s;white-space:nowrap;
+}
+.pm-hidden-restore:hover{background:var(--greenBg);color:var(--green);border-color:var(--green)}
 
 /* ── SHEET LIST ── */
 .pm-sheets-list{display:flex;flex-direction:column;gap:8px}
@@ -8180,18 +8210,23 @@ function pmRenderProjects(){
   const f = pmGetFolder();
   const projs = f.projects || [];
   const body = document.getElementById('pm-body');
+  const visibleCount = projs.filter(p=>!p.hidden).length;
+  const hiddenList = projs.map((p,i)=>({p,i})).filter(x=>x.p.hidden);
   let html = `
     <div class="pm-sh">
       <span class="pm-sh-title">${f.name}</span>
-      <span class="pm-sh-badge">${projs.length}</span>
+      <span class="pm-sh-badge">${visibleCount}</span>
       <span style="flex:1"></span>
       <button class="pm-btn pm-btn-primary" onclick="pmShowModal('project')">＋ Novo Projeto</button>
     </div>
     <div class="pm-projects-grid">`;
   if(!projs.length){
     html += `</div><div class="pm-empty"><span>📄</span>Nenhum projeto nesta pasta.<br>Crie o primeiro projeto!</div>`;
+  } else if(!visibleCount){
+    html += `</div><div class="pm-empty"><span>💡</span>Todos os projetos desta pasta estão ocultos.<br>Abra "Projetos ocultos" abaixo para trazê-los de volta.</div>`;
   } else {
     projs.forEach((p,i)=>{
+      if(p.hidden) return; // projeto ocultado pela lâmpada: não aparece na lista principal
       const ns = (p.sheets||[]).length;
       const nn = (p.notes||[]).length;
       const iconHtml = p.logo
@@ -8206,6 +8241,7 @@ function pmRenderProjects(){
             <div class="pm-proj-sheets">📋 ${ns} folha(s) · 📝 ${nn} anotação(ões)</div>
           </div>
           <div class="pm-proj-actions">
+            <button class="pm-proj-hide" onclick="event.stopPropagation();pmToggleHideProject(${i})" title="Ocultar este projeto (clique na lâmpada de novo para trazer de volta)">💡</button>
             <button class="pm-proj-edit-img" onclick="event.stopPropagation();pmPickProjectLogo(${i})" title="${p.logo?'Trocar imagem':'Adicionar imagem'}">📷</button>
             <button class="pm-proj-rename" onclick="event.stopPropagation();pmRenameProject(${i})" title="Renomear projeto">✏️</button>
             <button class="pm-proj-del" onclick="event.stopPropagation();pmDeleteProject(${i})" title="Excluir projeto">✕</button>
@@ -8214,7 +8250,49 @@ function pmRenderProjects(){
     });
     html += `</div>`;
   }
+
+  // ── Seção de projetos ocultos (recolhível) ──
+  if(hiddenList.length){
+    const openCls = pmHiddenProjOpen ? ' open' : '';
+    html += `
+    <div class="pm-hidden-section">
+      <div class="pm-hidden-toggle${openCls}" onclick="pmToggleHiddenProjSection()">
+        <span class="arrow">▶</span>
+        <span>💡 Projetos ocultos (${hiddenList.length})</span>
+      </div>
+      <div class="pm-hidden-list${openCls}">`;
+    hiddenList.forEach(({p,i})=>{
+      html += `
+        <div class="pm-hidden-row">
+          <span class="pm-proj-name">${esc(p.name)}</span>
+          <button class="pm-hidden-restore" onclick="pmToggleHideProject(${i})" title="Trazer este projeto de volta para a lista">💡 Voltar projeto</button>
+        </div>`;
+    });
+    html += `</div></div>`;
+  }
+
   body.innerHTML = html;
+}
+
+// Estado (não persistido) se a seção "Projetos ocultos" está aberta ou fechada
+var pmHiddenProjOpen = false;
+function pmToggleHiddenProjSection(){
+  pmHiddenProjOpen = !pmHiddenProjOpen;
+  pmRenderProjects();
+}
+
+// Oculta/mostra um projeto (a "lâmpada"). Não apaga nada — apenas some da lista principal
+// até a pessoa clicar de novo (na lâmpada do card, ou na lista de "Projetos ocultos") para trazê-lo de volta.
+function pmToggleHideProject(i){
+  const f = pmGetFolder();
+  if(!f || !f.projects || !f.projects[i]) return;
+  const p = f.projects[i];
+  p.hidden = !p.hidden;
+  pmSave();
+  pmRenderProjects();
+  if(typeof showToast==='function'){
+    showToast(p.hidden ? '💡 Projeto ocultado. Abra "Projetos ocultos" para trazê-lo de volta.' : '💡 Projeto de volta à lista!');
+  }
 }
 
 function pmOpenProject(i){
@@ -9555,6 +9633,8 @@ function dbRenderList(){
   // Grid de pastas
   html += '<div class="db-companies-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">';
 
+  var hiddenFolders = [];
+
   folderIds.forEach(function(fid){
     var f = pmData[fid];
     var clientName = f.name || 'Sem nome';
@@ -9565,6 +9645,8 @@ function dbRenderList(){
     var logoHtml = logo
       ? '<img src="' + logo + '" style="width:100%;height:100%;object-fit:cover">'
       : '🏭';
+
+    if(f.hidden){ hiddenFolders.push({fid:fid, name:clientName}); return; } // pasta ocultada pela lâmpada: não aparece na grade principal
 
     // KPIs consolidados
     var totalSheets = 0, totalStdSec = 0, totalNormalSec = 0, sumAllowWeighted = 0, sheetsWithAllow = 0;
@@ -9598,7 +9680,10 @@ function dbRenderList(){
     var ttpDisplay = empresaTTP === null ? '—' : empresaTTP.toFixed(1) + '%';
 
     html += '<div class="db-company-card" onclick="openFolderPage(\'' + fid + '\')" style="background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:16px;cursor:pointer;transition:all .2s;position:relative" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'var(--accent)\';this.style.boxShadow=\'var(--shadow-glow)\'" onmouseout="this.style.transform=\'\';this.style.borderColor=\'var(--border2)\';this.style.boxShadow=\'\'">'
-      + '<button onclick="event.stopPropagation();dbDelFolder(\'' + fid + '\')" title="Excluir pasta e tudo dentro" style="position:absolute;top:10px;right:10px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:4px 8px;border-radius:6px;transition:all .2s" onmouseover="this.style.color=\'var(--red)\';this.style.background=\'var(--redBg)\'" onmouseout="this.style.color=\'var(--text3)\';this.style.background=\'transparent\'">🗑</button>'
+      + '<div style="position:absolute;top:10px;right:10px;display:flex;gap:2px">'
+      + '<button onclick="event.stopPropagation();dbToggleHideFolder(\'' + fid + '\')" title="Ocultar esta pasta (clique na lâmpada de novo para trazer de volta)" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:4px 8px;border-radius:6px;transition:all .2s" onmouseover="this.style.color=\'#b45309\';this.style.background=\'rgba(255,214,10,.15)\'" onmouseout="this.style.color=\'var(--text3)\';this.style.background=\'transparent\'">💡</button>'
+      + '<button onclick="event.stopPropagation();dbDelFolder(\'' + fid + '\')" title="Excluir pasta e tudo dentro" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:4px 8px;border-radius:6px;transition:all .2s" onmouseover="this.style.color=\'var(--red)\';this.style.background=\'var(--redBg)\'" onmouseout="this.style.color=\'var(--text3)\';this.style.background=\'transparent\'">🗑</button>'
+      + '</div>'
       + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
       + '<div style="width:56px;height:56px;border-radius:12px;background:var(--surface3);border:1px solid var(--border2);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;position:relative;cursor:pointer" onclick="event.stopPropagation();dbPickFolderLogo(\'' + fid + '\')" title="' + (logo?'Trocar imagem':'Adicionar imagem') + '">' + logoHtml + '<div style="position:absolute;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;font-size:18px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">📷</div></div>'
       + '<div style="min-width:0;flex:1">'
@@ -9619,6 +9704,24 @@ function dbRenderList(){
   });
 
   html += '</div>';
+
+  // ── Seção de pastas ocultas (recolhível) ──
+  if(hiddenFolders.length){
+    var openCls = dbHiddenFoldersOpen ? ' open' : '';
+    html += '<div class="pm-hidden-section">'
+      + '<div class="pm-hidden-toggle' + openCls + '" onclick="dbToggleHiddenFoldersSection()">'
+      + '<span class="arrow">▶</span><span>💡 Pastas ocultas (' + hiddenFolders.length + ')</span>'
+      + '</div>'
+      + '<div class="pm-hidden-list' + openCls + '">';
+    hiddenFolders.forEach(function(hf){
+      html += '<div class="pm-hidden-row">'
+        + '<span class="pm-proj-name">' + dbEsc(hf.name) + '</span>'
+        + '<button class="pm-hidden-restore" onclick="dbToggleHideFolder(\'' + hf.fid + '\')" title="Trazer esta pasta de volta para a lista">💡 Voltar pasta</button>'
+        + '</div>';
+    });
+    html += '</div></div>';
+  }
+
   el.innerHTML = html;
 }
 
@@ -10177,8 +10280,17 @@ function openFolderPage(fid){
       + '<div style="font-size:11px">Clique em <strong style="color:var(--accent)">＋ Novo Projeto</strong> acima para criar o primeiro.</div>'
       + '</div>';
   } else {
+    var hiddenProjectsHere = [];
+    var anyVisibleProject = projects.some(function(p){ return !p.hidden; });
+    if(!anyVisibleProject){
+      html += '<div style="text-align:center;padding:40px 20px;color:var(--text3)">'
+        + '<div style="font-size:40px;margin-bottom:10px">💡</div>'
+        + '<div style="font-size:12px;font-weight:600">Todos os projetos desta pasta estão ocultos.<br>Abra "Projetos ocultos" abaixo para trazê-los de volta.</div>'
+        + '</div>';
+    }
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">';
     projects.forEach(function(p, pi){
+      if(p.hidden){ hiddenProjectsHere.push({pi:pi, name:p.name}); return; } // projeto ocultado pela lâmpada: não aparece na lista principal
       var ns = (p.sheets||[]).length;
       var pSec = 0, pStdSec = 0, pNormSec = 0, pSumAllow = 0;
       (p.sheets||[]).forEach(function(sid){
@@ -10201,11 +10313,12 @@ function openFolderPage(fid){
       html += ''
         + '<div style="background:var(--surface3);border:1px solid var(--border);border-radius:10px;padding:12px;position:relative">'
         + '<div style="position:absolute;top:6px;right:6px;display:flex;gap:4px">'
+        + '<button onclick="event.stopPropagation();dbToggleHideProjectInFolder(\'' + fid + '\',' + pi + ')" title="Ocultar este projeto (clique na lâmpada de novo para trazer de volta)" style="background:transparent;border:1px solid transparent;color:var(--text3);cursor:pointer;font-size:11px;border-radius:5px;padding:3px 7px;font-weight:700" onmouseover="this.style.background=\'rgba(255,214,10,.15)\';this.style.color=\'#b45309\'" onmouseout="this.style.background=\'transparent\';this.style.color=\'var(--text3)\'">💡</button>'
         + '<button onclick="event.stopPropagation();dbSalvarProjetoIndividual(\'' + fid + '\',' + pi + ')" title="Salvar este projeto como arquivo .mtm.json" style="background:linear-gradient(135deg,#f5a623,#e07b00);color:#000;border:none;cursor:pointer;font-size:11px;border-radius:5px;padding:3px 8px;font-weight:800" onmouseover="this.style.filter=\'brightness(1.15)\'" onmouseout="this.style.filter=\'\'">💾</button>'
         +   '<button onclick="event.stopPropagation();dbRenameProjectInFolder(\'' + fid + '\',' + pi + ')" title="Renomear projeto" style="background:var(--orangeBg);border:1px solid rgba(255,149,0,.4);color:var(--orange);cursor:pointer;font-size:11px;border-radius:5px;padding:3px 7px;font-weight:700" onmouseover="this.style.background=\'var(--orange)\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'var(--orangeBg)\';this.style.color=\'var(--orange)\'">✏️</button>'
         +   '<button onclick="event.stopPropagation();dbDelProjectInFolder(\'' + fid + '\',' + pi + ')" title="Excluir projeto" style="background:var(--redBg);border:1px solid rgba(255,77,109,.4);color:var(--red);cursor:pointer;font-size:11px;border-radius:5px;padding:3px 7px;font-weight:700" onmouseover="this.style.background=\'var(--red)\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'var(--redBg)\';this.style.color=\'var(--red)\'">✕</button>'
         + '</div>'
-        + '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;padding-right:60px">' + dbEsc(p.name) + '</div>'
+        + '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;padding-right:80px">' + dbEsc(p.name) + '</div>'
         + '<div style="font-size:10px;color:var(--text3);margin-bottom:10px">Criado em ' + dbEsc(p.date||'—') + '</div>'
         + '<div style="display:flex;gap:10px;font-size:10px;color:var(--text2);margin-bottom:10px">'
         + '<span>📋 <strong>' + ns + '</strong> folha(s)</span>'
@@ -10216,6 +10329,23 @@ function openFolderPage(fid){
         + '</div>';
     });
     html += '</div>';
+
+    // ── Seção de projetos ocultos desta pasta (recolhível) ──
+    if(hiddenProjectsHere.length){
+      var openClsP = dbHiddenProjOpen ? ' open' : '';
+      html += '<div class="pm-hidden-section">'
+        + '<div class="pm-hidden-toggle' + openClsP + '" onclick="dbToggleHiddenProjSection()">'
+        + '<span class="arrow">▶</span><span>💡 Projetos ocultos (' + hiddenProjectsHere.length + ')</span>'
+        + '</div>'
+        + '<div class="pm-hidden-list' + openClsP + '">';
+      hiddenProjectsHere.forEach(function(hp){
+        html += '<div class="pm-hidden-row">'
+          + '<span class="pm-proj-name">' + dbEsc(hp.name) + '</span>'
+          + '<button class="pm-hidden-restore" onclick="dbToggleHideProjectInFolder(\'' + fid + '\',' + hp.pi + ')" title="Trazer este projeto de volta para a lista">💡 Voltar projeto</button>'
+          + '</div>';
+      });
+      html += '</div></div>';
+    }
   }
   html += '</div>';
 
@@ -10228,6 +10358,27 @@ function closeFolderPage(){
   currentFolderId = null;
   currentCompany = null;
   dbRenderList();
+}
+
+// Estado (não persistido) se a seção "Pastas ocultas" está aberta ou fechada
+var dbHiddenFoldersOpen = false;
+function dbToggleHiddenFoldersSection(){
+  dbHiddenFoldersOpen = !dbHiddenFoldersOpen;
+  dbRenderList();
+}
+
+// Oculta/mostra uma pasta (a "lâmpada"). Não apaga nada — apenas some da lista principal
+// até a pessoa clicar de novo (na lâmpada do card, ou na lista de "Pastas ocultas") para trazê-la de volta.
+function dbToggleHideFolder(fid){
+  pmLoad();
+  var f = pmData[fid];
+  if(!f) return;
+  f.hidden = !f.hidden;
+  pmSave();
+  dbRenderList();
+  if(typeof showToast === 'function'){
+    showToast(f.hidden ? '💡 Pasta ocultada. Abra "Pastas ocultas" para trazê-la de volta.' : '💡 Pasta de volta à lista!');
+  }
 }
 
 function dbRenameFolder(fid){if(typeof __reqEdit==='function' && !__reqEdit(fid))return;
@@ -10339,6 +10490,28 @@ function dbOpenProjectInFolder(fid, pi){
     }
     window.scrollTo({top:0, behavior:'smooth'});
   }, 80);
+}
+
+// Estado (não persistido) se a seção "Projetos ocultos" (dentro de uma pasta) está aberta ou fechada
+var dbHiddenProjOpen = false;
+function dbToggleHiddenProjSection(){
+  dbHiddenProjOpen = !dbHiddenProjOpen;
+  if(currentFolderId) openFolderPage(currentFolderId);
+}
+
+// Oculta/mostra um projeto dentro de uma pasta (a "lâmpada"). Não apaga nada — apenas some da
+// lista principal até a pessoa clicar de novo (na lâmpada do card, ou na lista de "Projetos
+// ocultos") para trazê-lo de volta.
+function dbToggleHideProjectInFolder(fid, pi){
+  pmLoad();
+  var p = pmData[fid] && pmData[fid].projects && pmData[fid].projects[pi];
+  if(!p) return;
+  p.hidden = !p.hidden;
+  pmSave();
+  openFolderPage(fid);
+  if(typeof showToast === 'function'){
+    showToast(p.hidden ? '💡 Projeto ocultado. Abra "Projetos ocultos" para trazê-lo de volta.' : '💡 Projeto de volta à lista!');
+  }
 }
 
 function dbDelProjectInFolder(fid, pi){if(typeof __reqDel==='function' && !__reqDel(window.__projId(fid,pi)))return;
