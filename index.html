@@ -1741,8 +1741,11 @@ table.mtm tfoot tr.total-row td{
 <!-- ═══════════════════════════════════════════════════════════════
      FIREBASE SDK — Integração MTM (adicionado automaticamente)
      ═══════════════════════════════════════════════════════════════ -->
-<!-- FB-MTM: scripts antigos do Firebase v9 compat removidos.
-     Agora usamos Firebase v10 modular via ESM (firebase-mtm.js). -->
+<!-- Firebase v10 COMPAT — necessário porque firebase-mtm.js usa a API global firebase.* -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 
 <style id="mtm-no-initial-screen-override">
 /* Tela inicial (home) reativada: mostra empresas e projetos.
@@ -1765,7 +1768,7 @@ window.FIREBASE_CONFIG = {
   appId:             "1:323473561940:web:ee9f4e4f1f9ea53c5210c1"
 };
 </script>
-<script type="module" src="firebase-mtm.js"></script>
+<script src="firebase-mtm.js"></script>
 
 
 <!-- ============================================================
@@ -2494,50 +2497,117 @@ html[data-theme="light"] #dashboard{
     <div class="mtm-chapa-sub">ACESSO RESTRITO · COLABORADOR AUTORIZADO</div>
     <div class="mtm-chapa-title">Identifique-se para acessar</div>
     <label for="mtm-chapa-input">Chapa do colaborador autorizado</label>
-    <input id="mtm-chapa-input" type="text" inputmode="text" maxlength="7"
+    <input id="mtm-chapa-input" type="text" inputmode="text" maxlength="8"
            autocomplete="off" spellcheck="false" placeholder="0000000">
     <div class="mtm-chapa-err" id="mtm-chapa-err"></div>
     <button id="mtm-chapa-btn">Entrar na Ferramenta &#8594;</button>
-    <div class="mtm-chapa-help">Digite a sua chapa para liberar o acesso.</div>
+    <div class="mtm-chapa-help" id="mtm-chapa-help">Digite a sua chapa para liberar o acesso.</div>
   </div>
 </div>
 
 <script>
 (function(){
   var KEY = 'mtm_chapa_ok';
-  // Se já entrou nesta sessão, esconde imediatamente (evita piscar a tela)
-  try{
-    if(sessionStorage.getItem(KEY)){
-      var s = document.getElementById('mtm-chapa-screen');
-      if(s) s.classList.add('hidden');
-    }
-  }catch(e){}
 
-  function entrar(){
-    var inp = document.getElementById('mtm-chapa-input');
+  function showAccessError(message){
     var err = document.getElementById('mtm-chapa-err');
-    var v = (inp && inp.value) ? inp.value : '';
-    if(v.length !== 7){
-      err.textContent = 'A chapa deve ter exatamente 7 caracteres.';
-      err.classList.add('show');
-      if(inp) inp.focus();
-      return;
-    }
-    err.classList.remove('show');
-    try{ sessionStorage.setItem(KEY, v); }catch(e){}
+    if(!err) return;
+    err.textContent = message || 'Não foi possível iniciar o acesso.';
+    err.classList.add('show');
+  }
+
+  function hidePortaria(){
     var scr = document.getElementById('mtm-chapa-screen');
     if(scr) scr.classList.add('hidden');
   }
 
+  function entrar(){
+    var inp = document.getElementById('mtm-chapa-input');
+    var err = document.getElementById('mtm-chapa-err');
+    var btn = document.getElementById('mtm-chapa-btn');
+    var v = (inp && inp.value) ? inp.value.trim() : '';
+
+    // Os papéis configurados usam códigos de 6, 7 e 8 caracteres.
+    if(!/^[A-Za-z0-9]{6,8}$/.test(v)){
+      showAccessError('A chapa deve ter entre 6 e 8 caracteres, sem espaços.');
+      if(inp) inp.focus();
+      return;
+    }
+
+    if(typeof window.MTM_LOGIN !== 'function'){
+      showAccessError('O módulo de dados não carregou. Verifique se firebase-mtm.js está na mesma pasta do index.html.');
+      return;
+    }
+
+    if(err) err.classList.remove('show');
+    if(btn){ btn.disabled = true; btn.textContent = 'Carregando projetos...'; }
+
+    try{
+      Promise.resolve(window.MTM_LOGIN(v)).then(function(result){
+        if(!result || result.ok === false){
+          var detail = (result && (result.error || (result.load && result.load.error))) || 'Não foi possível ler os projetos.';
+          showAccessError(detail);
+          if(btn){ btn.disabled = false; btn.innerHTML = 'Entrar na Ferramenta &#8594;'; }
+          return;
+        }
+        sessionStorage.setItem(KEY, v);
+        hidePortaria();
+        if(result.welcome && typeof window.showToast === 'function') window.showToast(result.welcome);
+        if(result.warning && typeof window.showToast === 'function') window.showToast('⚠️ ' + result.warning, true);
+      }).catch(function(e){
+        console.error('Falha ao iniciar usuário MTM:', e);
+        showAccessError((e && (e.code || e.message)) || 'Falha ao carregar os projetos.');
+        if(btn){ btn.disabled = false; btn.innerHTML = 'Entrar na Ferramenta &#8594;'; }
+      });
+    }catch(e){
+      console.error('Falha ao iniciar usuário MTM:', e);
+      showAccessError((e && (e.code || e.message)) || 'Falha ao carregar os projetos.');
+      if(btn){ btn.disabled = false; btn.innerHTML = 'Entrar na Ferramenta &#8594;'; }
+    }
+  }
+
+  window.addEventListener('mtm-cloud-status', function(ev){
+    var help = document.getElementById('mtm-chapa-help');
+    var d = ev && ev.detail ? ev.detail : {};
+    if(help && d.message) help.textContent = d.message;
+    if(d.status === 'erro' && d.error) showAccessError(d.message + ' — ' + d.error);
+  });
+
   document.addEventListener('DOMContentLoaded', function(){
-    var scr = document.getElementById('mtm-chapa-screen');
-    if(scr && scr.classList.contains('hidden')) return; // já estava logado
     var btn = document.getElementById('mtm-chapa-btn');
     var inp = document.getElementById('mtm-chapa-input');
+    var savedCode = '';
+    try{ savedCode = sessionStorage.getItem(KEY) || ''; }catch(e){}
+
+    // Retoma a chapa e solicita novamente os dados da nuvem após atualizar a página.
+    if(savedCode && typeof window.MTM_RESUME === 'function'){
+      var btnResume = document.getElementById('mtm-chapa-btn');
+      if(btnResume){ btnResume.disabled = true; btnResume.textContent = 'Carregando projetos...'; }
+      Promise.resolve(window.MTM_RESUME(savedCode)).then(function(result){
+        if(result && result.ok === false){
+          try{ sessionStorage.removeItem(KEY); }catch(e){}
+          var scr = document.getElementById('mtm-chapa-screen');
+          if(scr) scr.classList.remove('hidden');
+          showAccessError(result.error || 'Não foi possível carregar os projetos salvos.');
+          if(btnResume){ btnResume.disabled = false; btnResume.innerHTML = 'Entrar na Ferramenta &#8594;'; }
+          return;
+        }
+        hidePortaria();
+      }).catch(function(e){
+        try{ sessionStorage.removeItem(KEY); }catch(ex){}
+        var scr = document.getElementById('mtm-chapa-screen');
+        if(scr) scr.classList.remove('hidden');
+        showAccessError((e && (e.code || e.message)) || 'Falha ao retomar a sessão.');
+        if(btnResume){ btnResume.disabled = false; btnResume.innerHTML = 'Entrar na Ferramenta &#8594;'; }
+      });
+    }
+
     if(btn) btn.addEventListener('click', entrar);
     if(inp){
-      inp.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); entrar(); } });
-      setTimeout(function(){ try{ inp.focus(); }catch(e){} }, 120);
+      inp.addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){ e.preventDefault(); entrar(); }
+      });
+      if(!savedCode) setTimeout(function(){ try{ inp.focus(); }catch(e){} }, 120);
     }
   });
 })();
