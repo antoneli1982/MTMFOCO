@@ -634,6 +634,13 @@
     patchLocalFunctions();
     try { startFirebase(); }
     catch (err) { warn('Erro crítico ao iniciar Firebase:', err); readyResolve(); }
+
+    // Retomada defensiva: útil quando o index.html já tinha ocultado a portaria
+    // mas não chamou MTM_RESUME após uma atualização da página.
+    try {
+      var savedCode = sessionStorage.getItem('mtm_chapa_ok');
+      if (savedCode && !CURRENT) window.MTM_RESUME(savedCode);
+    } catch (e) {}
   });
 
   log('firebase-mtm.js (papéis) carregado.');
