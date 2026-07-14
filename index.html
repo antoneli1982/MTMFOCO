@@ -5636,6 +5636,9 @@ function renderContent(id){
     </div>`;
   document.getElementById('sheets-container').appendChild(div);
   div.querySelectorAll('.f-input[data-key]').forEach(inp=>{
+    // Impede o realce AMARELO de autofill do Chrome nos campos do cabeçalho.
+    // (As linhas de análise já usam autocomplete="off"; aqui damos a mesma proteção ao cabeçalho.)
+    try{ inp.setAttribute('autocomplete','off'); inp.setAttribute('autocorrect','off'); inp.setAttribute('data-lpignore','true'); }catch(_e){}
     const saveHandler = ()=>{
       s.header[inp.dataset.key]=inp.value;
       updateTotals(id);
@@ -18328,6 +18331,183 @@ table.mtm tbody tr:not(.row-dragging):hover .row-del:hover {
   border-color: rgba(190,18,60,.28) !important;
 }
 </style>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     COPIAR / COLAR FOLHA ENTRE ABAS
+     • Duplo-clique numa aba de folha  → copia a folha (nome + cabeçalho + linhas)
+     • Com uma folha copiada, 1 clique numa ABA VAZIA (sem linhas de análise) → cola ali
+     • A área de transferência é global + localStorage → funciona entre pastas/projetos
+     • Esc cancela o modo "colar"
+     Bloco isolado: só embrulha renderTabs (mesmo padrão já usado no arquivo).
+     ═══════════════════════════════════════════════════════════════════════ -->
+<style id="folha-clip-styles">
+  .tab.paste-target{
+    outline:2px dashed var(--green,#00e5a0);
+    outline-offset:-2px;
+    animation:folhaClipPulse 1.2s ease-in-out infinite;
+  }
+  @keyframes folhaClipPulse{ 0%,100%{opacity:1} 50%{opacity:.55} }
+</style>
+<script>
+(function(){
+  if(window.__folhaClipInit) return; window.__folhaClipInit = true;
+
+  // Restaura o conteúdo copiado (se houver) — mas NÃO deixa "armado" ao recarregar a página.
+  try{ var _raw = localStorage.getItem('mtm_folha_clip'); if(_raw) window.__folhaClip = JSON.parse(_raw); }catch(_e){}
+  window.__folhaClipArmed = false;
+  var _pasteClickTimer = null;
+
+  function _sheet(id){ return (typeof get === 'function') ? get(id) : null; }
+
+  function _rowIsBlank(r){
+    if(!r) return true;
+    var v = function(x){ return String(x==null?'':x).trim(); };
+    return !v(r.desc) && !v(r.code) && !v(r.tmu) && !v(r.q) && !v(r.f) && !v(r.agrega);
+  }
+  // "Aba vazia" = folha sem NENHUMA linha de análise preenchida.
+  // (Uma folha nova nasce com rows:[] e, ao ser aberta, ganha 10 linhas em branco —
+  //  por isso conta as linhas em branco como vazio.)
+  function _isEmptyFolha(s){
+    if(!s) return false;
+    if(!s.rows || !s.rows.length) return true;
+    return s.rows.every(_rowIsBlank);
+  }
+
+  function _refreshPasteHints(){
+    var armed = !!window.__folhaClipArmed && !!window.__folhaClip;
+    var tabs = document.querySelectorAll('#tabs-bar .tab');
+    tabs.forEach(function(t){
+      var s = _sheet(t.dataset.sid);
+      if(armed && _isEmptyFolha(s)){
+        t.classList.add('paste-target');
+        t.setAttribute('title','Colar a folha copiada aqui');
+      }else{
+        t.classList.remove('paste-target');
+        if(t.getAttribute('title') === 'Colar a folha copiada aqui') t.removeAttribute('title');
+      }
+    });
+  }
+
+  function _copyFolha(sid){
+    var s = _sheet(sid); if(!s) return;
+    var clip = null;
+    try{ clip = JSON.parse(JSON.stringify(s)); }catch(_e){ clip = null; }
+    if(!clip){ if(typeof showToast==='function') showToast('Não consegui copiar a folha.', true); return; }
+    delete clip.id;                       // o alvo mantém o próprio id
+    window.__folhaClip = clip;
+    window.__folhaClipArmed = true;
+    try{ localStorage.setItem('mtm_folha_clip', JSON.stringify(clip)); }catch(_e){}
+    _refreshPasteHints();
+    if(typeof showToast==='function')
+      showToast('📋 "'+(clip.label||'Folha')+'" copiada — clique numa aba vazia para colar (Esc cancela)');
+  }
+
+  function _pasteInto(targetId){
+    var s = _sheet(targetId); if(!s) return;
+    var clip = window.__folhaClip;
+    if(!clip){ try{ var r=localStorage.getItem('mtm_folha_clip'); if(r) clip=JSON.parse(r); }catch(_e){} }
+    if(!clip){ if(typeof showToast==='function') showToast('Nenhuma folha copiada.', true); return; }
+    if(!_isEmptyFolha(s)){ if(typeof showToast==='function') showToast('Essa folha já tem conteúdo — cole numa folha vazia.', true); return; }
+
+    // Copia todos os campos da folha copiada (menos id e rows) para a folha alvo.
+    try{
+      Object.keys(clip).forEach(function(k){
+        if(k==='id' || k==='rows') return;
+        s[k] = JSON.parse(JSON.stringify(clip[k]));
+      });
+    }catch(_e){}
+
+    // Recria as linhas com IDs NOVOS e únicos (evita colisão de id no DOM se a origem coexistir).
+    var src = Array.isArray(clip.rows) ? clip.rows : [];
+    s.rows = src.map(function(r,i){
+      var nr; try{ nr = JSON.parse(JSON.stringify(r)); }catch(_e){ nr = {}; }
+      nr.id = 'r_'+targetId+'_'+Date.now()+'_'+i+'_'+Math.floor(Math.random()*99999);
+      return nr;
+    });
+
+    // Libera a folha colada para edição (não cai na trava de "isto já existe").
+    try{ if(window.__newIds) window.__newIds[targetId] = 1; }catch(_e){}
+
+    // Reconstrói o conteúdo. O cabeçalho é desenhado a partir do modelo (s.header),
+    // então nasce NORMAL (sem amarelo), sem precisar clicar campo por campo.
+    var old = document.getElementById('c-'+targetId);
+    if(old) old.remove();
+    try{ document.querySelectorAll('.folha-content').forEach(function(el){ el.classList.remove('active'); }); }catch(_e){}
+    if(typeof activeId !== 'undefined') activeId = targetId; else window.activeId = targetId;
+    if(typeof renderContent==='function') renderContent(targetId);
+    var el = document.getElementById('c-'+targetId);
+    if(el) el.classList.add('active');
+    if(typeof renderTabs==='function') renderTabs();
+    if(typeof recalcSheet==='function') recalcSheet(targetId);
+    if(typeof syncSheetEmpresaProjeto==='function') syncSheetEmpresaProjeto(targetId);
+    if(typeof saveSheets==='function') saveSheets();
+    if(typeof persistNow==='function') persistNow();
+
+    if(typeof showToast==='function') showToast('✅ Folha "'+(s.label||'')+'" colada aqui');
+  }
+
+  function _isControl(e){
+    return !!(e.target && e.target.closest && (e.target.closest('.tab-rename') || e.target.closest('.tab-close')));
+  }
+
+  function _bindTab(t){
+    if(t.__folhaClipBound) return; t.__folhaClipBound = true;
+
+    // Duplo-clique = COPIAR
+    t.addEventListener('dblclick', function(e){
+      if(_isControl(e)) return;
+      e.preventDefault(); e.stopPropagation();
+      if(_pasteClickTimer){ clearTimeout(_pasteClickTimer); _pasteClickTimer = null; } // cancela colagem pendente
+      _copyFolha(t.dataset.sid);
+    }, true);
+
+    // Clique (captura) = COLAR, só se estiver "armado" e a aba estiver vazia.
+    // Usa um pequeno atraso para diferenciar de duplo-clique (copiar).
+    t.addEventListener('click', function(e){
+      if(!window.__folhaClipArmed || !window.__folhaClip) return;   // sem folha copiada → clique normal
+      if(_isControl(e)) return;
+      var s = _sheet(t.dataset.sid);
+      if(!_isEmptyFolha(s)) return;                                  // aba com conteúdo → clique normal (abre)
+      e.preventDefault(); e.stopPropagation();                       // bloqueia a ativação padrão da aba
+      if(_pasteClickTimer) return;                                   // já há colagem pendente
+      var sid = t.dataset.sid;
+      _pasteClickTimer = setTimeout(function(){ _pasteClickTimer = null; _pasteInto(sid); }, 250);
+    }, true);
+  }
+
+  function _attachAll(){
+    document.querySelectorAll('#tabs-bar .tab').forEach(_bindTab);
+    _refreshPasteHints();
+  }
+
+  // Embrulha renderTabs: como ele recria as abas, reanexamos os handlers a cada render.
+  if(typeof window.renderTabs === 'function'){
+    var _origRenderTabs = window.renderTabs;
+    window.renderTabs = function(){
+      var out = _origRenderTabs.apply(this, arguments);
+      try{ _attachAll(); }catch(_e){}
+      return out;
+    };
+  }
+
+  // Esc cancela o modo "colar".
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && window.__folhaClipArmed){
+      window.__folhaClipArmed = false;
+      if(_pasteClickTimer){ clearTimeout(_pasteClickTimer); _pasteClickTimer = null; }
+      _refreshPasteHints();
+      if(typeof showToast==='function') showToast('Colar cancelado');
+    }
+  }, true);
+
+  // Anexo inicial (caso as abas já tenham sido renderizadas).
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(_attachAll, 0); });
+  }else{
+    setTimeout(_attachAll, 0);
+  }
+})();
+</script>
 
 </body>
 </html>
