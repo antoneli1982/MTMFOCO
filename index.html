@@ -11126,6 +11126,14 @@ function balCalcProjeto(proj, params){
     });
   });
 
+  return balMetricsFromPosts(posts, params);
+}
+
+// Calcula os indicadores do balanceamento a partir de uma lista de postos.
+// Usado tanto pelo cálculo real (balCalcProjeto) quanto pela simulação de cenário,
+// para que os dois usem exatamente a mesma matemática.
+function balMetricsFromPosts(posts, params){
+  params = params || {};
   // Takt de referência: 1) Takt manual; senão 2) Takt da meta de peças/hora;
   // senão 3) maior Takt das folhas; senão 4) maior tempo padrão (gargalo).
   var taktCalc = 0;
@@ -11209,9 +11217,37 @@ function pmRenderBalanceamento(el){
     return;
   }
 
-  // KPIs
+  // ── Simulação de cenário (lâmpada) ──
+  // Quando a lâmpada está acesa para ESTE projeto, tudo passa a ser desenhado
+  // a partir do cenário (SIM.posts) em vez do dado real. O dado real (bal)
+  // continua servindo de "original" para a comparação e para o PDF.
+  var simOn = (typeof simIsOn==='function') && simIsOn(p);
+  var viewBal = simOn ? balMetricsFromPosts(simClonePosts(SIM.posts), bp) : bal;
+
+  // Toda a parte movida a dados (KPIs + gráfico + capacidade + tabela + diagnóstico)
+  // fica dentro de #bal-viz para poder ser atualizada ao vivo durante a simulação.
+  html += '<div id="bal-viz">' + buildBalViz(viewBal, bal, simOn) + '</div>';
+
+  // Editor da simulação — só aparece com a lâmpada acesa.
+  if(simOn){ html += buildSimEditor(viewBal, bal); }
+
+  // Ações (o PDF sempre sai do dado real do projeto)
+  html += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">'
+    + '<button class="pm-btn pm-btn-green" onclick="exportBalanceamentoPDF()">⬇ PDF do Balanceamento</button>'
+    + '</div>';
+
+  el.innerHTML = html;
+  applyBalChartVis();
+  // Renderiza os resultados iniciais do painel Capacidade × Recursos.
+  if(typeof balLiveUpdate === 'function') balLiveUpdate();
+}
+
+// Monta a parte visual do balanceamento (KPIs + gráfico + capacidade + tabela +
+// diagnóstico). Recebe o "bal" a exibir (real ou simulado) e, quando em simulação,
+// o "realBal" para a faixa de comparação Original × Simulação.
+function buildBalViz(bal, realBal, simOn){
   var eficColor = bal.eficBal>85?'var(--green)':bal.eficBal>70?'var(--orange)':'var(--red)';
-  html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px">'
+  var html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px">'
     + balKpi(bal.nPostos, 'Postos', 'var(--blue)')
     + balKpi(bal.totalStd.toFixed(1)+'s', 'Tempo Total', 'var(--text)')
     + balKpi((bal.takt>0?bal.takt.toFixed(1):'—')+'s', 'Takt — '+bal.taktOrigem, 'var(--accent)')
@@ -11220,8 +11256,11 @@ function pmRenderBalanceamento(el){
     + balKpi(bal.capacidadeHora.toFixed(0), 'Capacidade (pç/h)', 'var(--green)')
     + '</div>';
 
-  // Gráfico Yamazumi
-  html += balChartHtml(bal, { toggle:true });
+  // Gráfico Yamazumi (com o botão de lâmpada no título)
+  html += balChartHtml(bal, { toggle:true, sim:true, simOn:simOn });
+
+  // Comparação Original × Simulação (só na simulação)
+  if(simOn && realBal){ html += simCompareHtml(realBal, bal); }
 
   // Painel Capacidade × Recursos (cálculo nos dois sentidos)
   html += balCapacidadeHtml(bal);
@@ -11254,16 +11293,306 @@ function pmRenderBalanceamento(el){
 
   // Diagnóstico
   html += balDiagnostico(bal);
+  return html;
+}
 
-  // Ações
-  html += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">'
-    + '<button class="pm-btn pm-btn-green" onclick="exportBalanceamentoPDF()">⬇ PDF do Balanceamento</button>'
-    + '</div>';
+// ============================================================
+// SIMULAÇÃO DE CENÁRIO NO GRÁFICO YAMAZUMI (BALANCEAMENTO)
+// Lâmpada acesa = modo simulação (edita tempo dos postos, adiciona/remove
+// postos, redistribui tempo). Botão Salvar grava o cenário no projeto.
+// Lâmpada apagada = descarta as edições não salvas e volta ao dado original.
+// ============================================================
+var SIM = { on:false, pid:null, posts:[], seed:'' };
 
-  el.innerHTML = html;
-  applyBalChartVis();
-  // Renderiza os resultados iniciais do painel Capacidade × Recursos.
+function simPid(p){ return p ? (p.id || p.name || '__cur__') : '__cur__'; }
+function simIsOn(p){ return !!(SIM.on && p && SIM.pid === simPid(p)); }
+function simDirty(){ return !!(SIM.on && JSON.stringify(SIM.posts) !== SIM.seed); }
+
+// Clona os postos (objetos simples) para o cenário não referenciar o dado real.
+function simClonePosts(posts){
+  return (posts||[]).map(function(o){
+    return { sid:o.sid, label:o.label, operador:o.operador, stdSec:o.stdSec,
+             taktFolha:o.taktFolha||0, va:o.va||0, nva:o.nva||0, nnva:o.nnva||0,
+             unc:o.unc||0, totalTmu:o.totalTmu||0, allowUsed:o.allowUsed||0,
+             virtual:!!o.virtual };
+  });
+}
+
+// Ajusta o tempo de um posto e escala os segmentos VA/NNVA/NVA proporcionalmente,
+// para a barra continuar coerente (altura = novo tempo).
+function simScalePost(po, newStd){
+  newStd = Math.max(0, newStd);
+  var oldTot = (po.va||0)+(po.nva||0)+(po.nnva||0)+(po.unc||0);
+  if(oldTot > 0 && po.stdSec > 0){
+    var k = newStd / po.stdSec;
+    po.va = (po.va||0)*k; po.nva = (po.nva||0)*k;
+    po.nnva = (po.nnva||0)*k; po.unc = (po.unc||0)*k;
+  } else {
+    po.va = 0; po.nva = 0; po.nnva = 0; po.unc = newStd; // sem classificação
+  }
+  po.stdSec = newStd;
+}
+
+// Liga/desliga a lâmpada.
+function simToggle(){
+  var p = (typeof pmGetProject==='function') ? pmGetProject() : null;
+  if(!p) return;
+  if(simIsOn(p)){
+    // Apagando a lâmpada → volta ao original. Avisa se houver edição não salva.
+    if(simDirty()){
+      var ok = confirm('Apagar a lâmpada e voltar ao processo original?\n\nA simulação atual (não salva) será descartada.\nOs cenários já salvos são mantidos.');
+      if(!ok) return;
+    }
+    SIM.on = false; SIM.pid = null; SIM.posts = []; SIM.seed = '';
+  } else {
+    // Acendendo a lâmpada → parte do dado real.
+    var bal = balCalcProjeto(p, p.balanceamento||{});
+    if(!bal.nPostos){
+      if(typeof showToast==='function') showToast('Nenhuma folha com tempo para simular', true);
+      return;
+    }
+    SIM.on = true; SIM.pid = simPid(p);
+    SIM.posts = simClonePosts(bal.posts);
+    SIM.seed = JSON.stringify(SIM.posts);
+  }
+  pmRenderProjTab();
+}
+
+// Re-renderiza SÓ a visualização (#bal-viz), sem tocar no editor — assim o
+// slider/inputs mantêm o foco enquanto o gráfico atualiza ao vivo.
+function simRenderViz(){
+  var p = (typeof pmGetProject==='function') ? pmGetProject() : null;
+  var box = document.getElementById('bal-viz');
+  if(!p || !box) return;
+  var bal = balCalcProjeto(p, p.balanceamento||{});
+  var viewBal = simIsOn(p) ? balMetricsFromPosts(simClonePosts(SIM.posts), p.balanceamento||{}) : bal;
+  box.innerHTML = buildBalViz(viewBal, bal, simIsOn(p));
+  if(typeof applyBalChartVis === 'function') applyBalChartVis();
   if(typeof balLiveUpdate === 'function') balLiveUpdate();
+}
+
+// Edição do tempo pelo campo numérico (confirma ao sair do campo).
+function simSetTime(i, val){
+  if(!SIM.posts[i]) return;
+  var v = parseFloat(String(val).replace(',','.'));
+  if(!isFinite(v) || v < 0) v = 0;
+  simScalePost(SIM.posts[i], v);
+  var sl = document.getElementById('sim-sl-'+i); if(sl) sl.value = v;
+  simRenderViz();
+}
+// Edição do tempo pelo slider (ao vivo).
+function simSetTimeLive(i, val){
+  if(!SIM.posts[i]) return;
+  var v = parseFloat(val);
+  if(!isFinite(v) || v < 0) v = 0;
+  simScalePost(SIM.posts[i], v);
+  var nu = document.getElementById('sim-num-'+i); if(nu) nu.value = v.toFixed(1);
+  simRenderViz();
+}
+// Renomear posto no cenário.
+function simSetName(i, val){
+  if(!SIM.posts[i]) return;
+  SIM.posts[i].operador = (val==null?'':String(val));
+  simRenderViz();
+}
+// Adicionar posto (novo operador) ao cenário.
+function simAddPost(){
+  var p = (typeof pmGetProject==='function') ? pmGetProject() : null;
+  if(!p) return;
+  var bal = balCalcProjeto(p, p.balanceamento||{});
+  var base = bal.takt > 0 ? bal.takt*0.5
+    : (SIM.posts.length ? SIM.posts.reduce(function(a,o){return a+o.stdSec;},0)/SIM.posts.length : 30);
+  base = Math.round(base*10)/10;
+  SIM.posts.push({ sid:null, label:'simulado', operador:'Novo posto '+(SIM.posts.length+1),
+    stdSec:base, taktFolha:0, va:0, nva:0, nnva:0, unc:base, totalTmu:0, allowUsed:0, virtual:true });
+  pmRenderProjTab();
+}
+// Remover posto do cenário.
+function simRemovePost(i){
+  if(i<0 || i>=SIM.posts.length) return;
+  SIM.posts.splice(i,1);
+  pmRenderProjTab();
+}
+// Redistribuir: move X segundos de um posto para outro.
+function simRedistribute(){
+  var gf = document.getElementById('sim-redi-from');
+  var gt = document.getElementById('sim-redi-to');
+  var ga = document.getElementById('sim-redi-amt');
+  if(!gf || !gt || !ga) return;
+  var from = parseInt(gf.value, 10);
+  var to   = parseInt(gt.value, 10);
+  var amt  = parseFloat(String(ga.value).replace(',','.'));
+  if(!isFinite(amt) || amt <= 0){ if(typeof showToast==='function') showToast('Informe os segundos a mover', true); return; }
+  if(isNaN(from) || isNaN(to) || from === to){ if(typeof showToast==='function') showToast('Escolha postos diferentes', true); return; }
+  var a = SIM.posts[from], b = SIM.posts[to];
+  if(!a || !b) return;
+  amt = Math.min(amt, a.stdSec);
+  simScalePost(a, a.stdSec - amt);
+  simScalePost(b, b.stdSec + amt);
+  pmRenderProjTab();
+}
+// Restaurar o cenário para o dado original (continua em modo simulação).
+function simRestoreOriginal(){
+  var p = (typeof pmGetProject==='function') ? pmGetProject() : null;
+  if(!p) return;
+  var bal = balCalcProjeto(p, p.balanceamento||{});
+  SIM.posts = simClonePosts(bal.posts);
+  SIM.seed = JSON.stringify(SIM.posts); // voltou ao original → não está "sujo"
+  pmRenderProjTab();
+}
+// Salvar o cenário atual dentro do projeto (persiste no navegador).
+function simSaveScenario(){
+  var p = (typeof pmGetProject==='function') ? pmGetProject() : null;
+  if(!p) return;
+  if(!p.balanceamento) p.balanceamento = {};
+  if(!Array.isArray(p.balanceamento.cenarios)) p.balanceamento.cenarios = [];
+  var sugestao = 'Cenário ' + (p.balanceamento.cenarios.length + 1);
+  var nome = prompt('Nome do cenário:', sugestao);
+  if(nome === null) return; // cancelou
+  nome = (nome || '').trim() || sugestao;
+  p.balanceamento.cenarios.push({
+    id: 'cen_' + Date.now(),
+    nome: nome,
+    ts: Date.now(),
+    params: {
+      taktManual: (p.balanceamento.taktManual || ''),
+      pphAlvo:    (p.balanceamento.pphAlvo || ''),
+      efic:       (p.balanceamento.efic || '')
+    },
+    posts: simClonePosts(SIM.posts)
+  });
+  if(typeof pmSave === 'function') pmSave();
+  SIM.seed = JSON.stringify(SIM.posts); // salvou → não está mais "sujo"
+  if(typeof showToast === 'function') showToast('💾 Cenário "' + nome + '" salvo');
+  pmRenderProjTab();
+}
+// Carregar um cenário salvo (entra em simulação se não estiver).
+function simLoadScenario(id){
+  var p = (typeof pmGetProject==='function') ? pmGetProject() : null;
+  if(!p || !p.balanceamento || !Array.isArray(p.balanceamento.cenarios)) return;
+  var c = p.balanceamento.cenarios.filter(function(x){ return x.id === id; })[0];
+  if(!c) return;
+  if(!simIsOn(p)){ SIM.on = true; SIM.pid = simPid(p); }
+  SIM.posts = simClonePosts(c.posts);
+  SIM.seed = JSON.stringify(SIM.posts);
+  if(typeof showToast === 'function') showToast('📁 Cenário "' + c.nome + '" carregado');
+  pmRenderProjTab();
+}
+// Excluir um cenário salvo.
+function simDeleteScenario(id){
+  var p = (typeof pmGetProject==='function') ? pmGetProject() : null;
+  if(!p || !p.balanceamento || !Array.isArray(p.balanceamento.cenarios)) return;
+  if(!confirm('Excluir este cenário salvo?')) return;
+  p.balanceamento.cenarios = p.balanceamento.cenarios.filter(function(x){ return x.id !== id; });
+  if(typeof pmSave === 'function') pmSave();
+  pmRenderProjTab();
+}
+
+// Faixa de comparação Original × Simulação.
+function simCompareHtml(a, b){
+  function f1(x){ return (Math.round(x*10)/10).toFixed(1); }
+  function f2(x){ return (Math.round(x*100)/100).toFixed(2); }
+  function f0(x){ return String(Math.round(x)); }
+  function row(lbl, ov, sv, fmt, dir, suf){
+    suf = suf || '';
+    var d = sv - ov;
+    var dc = 'var(--text2)';
+    if(dir === 'up')       dc = d > 0.05 ? 'var(--green)' : d < -0.05 ? 'var(--red)' : 'var(--text2)';
+    else if(dir === 'down') dc = d < -0.05 ? 'var(--green)' : d > 0.05 ? 'var(--red)' : 'var(--text2)';
+    var ds = (d > 0 ? '+' : '') + fmt(d) + suf;
+    return '<tr>'
+      + '<td class="res-desc" style="font-size:11px">' + lbl + '</td>'
+      + '<td class="r" style="color:var(--text2)">' + fmt(ov) + suf + '</td>'
+      + '<td class="r" style="color:var(--text);font-weight:700">' + fmt(sv) + suf + '</td>'
+      + '<td class="r" style="color:' + dc + ';font-weight:700">' + ds + '</td>'
+      + '</tr>';
+  }
+  var ga = a.gargalo ? a.gargalo.stdSec : 0, gb = b.gargalo ? b.gargalo.stdSec : 0;
+  return '<div class="res-section-title" style="margin-top:16px">📊 Original × Simulação</div>'
+    + '<div style="overflow-x:auto"><table class="res-table"><thead><tr>'
+    +   '<th>Indicador</th><th class="r">Original</th><th class="r">Simulação</th><th class="r">Δ</th>'
+    + '</tr></thead><tbody>'
+    +   row('Tempo total', a.totalStd, b.totalStd, f1, 'down', 's')
+    +   row('Takt', a.takt, b.takt, f1, null, 's')
+    +   row('Operadores teóricos', a.opTeoricos, b.opTeoricos, f2, 'down', '')
+    +   row('Eficiência balanc.', a.eficBal, b.eficBal, f1, 'up', '%')
+    +   row('Gargalo', ga, gb, f1, 'down', 's')
+    +   row('Capacidade', a.capacidadeHora, b.capacidadeHora, f0, 'up', ' pç/h')
+    + '</tbody></table></div>';
+}
+
+// Editor da simulação (controles). Fica FORA de #bal-viz para não ser
+// re-renderizado durante o arraste do slider (mantém foco/arraste).
+function buildSimEditor(simBal, realBal){
+  var p = (typeof pmGetProject==='function') ? pmGetProject() : null;
+  var takt = simBal.takt;
+  var maxStd = 0; SIM.posts.forEach(function(o){ if(o.stdSec > maxStd) maxStd = o.stdSec; });
+  var slMax = Math.max(takt||0, maxStd, realBal.takt||0) * 1.5;
+  if(slMax < 10) slMax = 10;
+  var step = slMax > 200 ? 1 : 0.1;
+
+  var rows = SIM.posts.map(function(o, i){
+    var pct = takt > 0 ? (o.stdSec/takt*100) : 0;
+    var col = pct>100?'var(--red)':pct>90?'var(--orange)':pct>70?'var(--green)':'var(--blue)';
+    return '<div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:8px">'
+      + '<div style="min-width:0">'
+      +   '<input type="text" value="'+dbEsc(o.operador)+'" onchange="simSetName('+i+',this.value)" '
+      +     'style="width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);font-size:12px;font-weight:600;padding:2px 0;outline:none;-webkit-user-select:text;user-select:text">'
+      +   '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">'
+      +     '<input id="sim-num-'+i+'" type="text" inputmode="decimal" value="'+o.stdSec.toFixed(1)+'" onchange="simSetTime('+i+',this.value)" '
+      +       'style="width:64px;background:var(--surface);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:\'JetBrains Mono\',monospace;font-size:12px;padding:5px 6px;text-align:right;outline:none;-webkit-user-select:text;user-select:text">'
+      +     '<span style="font-size:10px;color:var(--text3)">s</span>'
+      +     '<input id="sim-sl-'+i+'" type="range" min="0" max="'+slMax.toFixed(1)+'" step="'+step+'" value="'+o.stdSec.toFixed(1)+'" oninput="simSetTimeLive('+i+',this.value)" '
+      +       'style="flex:1;min-width:70px;accent-color:var(--accent)">'
+      +   '</div>'
+      + '</div>'
+      + '<div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px">'
+      +   '<span id="sim-sat-'+i+'" style="font-size:11px;font-weight:800;color:'+col+'">'+pct.toFixed(0)+'%</span>'
+      +   '<button type="button" onclick="simRemovePost('+i+')" title="Remover posto" style="background:var(--redBg);border:1px solid var(--red);color:var(--red);border-radius:6px;width:26px;height:26px;font-size:12px;cursor:pointer">✕</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+
+  var optFrom = SIM.posts.map(function(o,i){ return '<option value="'+i+'">'+dbEsc(o.operador)+'</option>'; }).join('');
+  var optTo   = SIM.posts.map(function(o,i){ return '<option value="'+i+'"'+(i===1?' selected':'')+'>'+dbEsc(o.operador)+'</option>'; }).join('');
+
+  var cen = (p && p.balanceamento && Array.isArray(p.balanceamento.cenarios)) ? p.balanceamento.cenarios : [];
+  var cenHtml = cen.length ? cen.map(function(c){
+      var dt = new Date(c.ts || Date.now());
+      var when = dt.toLocaleDateString('pt-BR') + ' ' + dt.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+      return '<div style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:6px 9px;margin-bottom:6px">'
+        + '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+dbEsc(c.nome)+'</div>'
+        +   '<div style="font-size:9px;color:var(--text3)">'+(c.posts?c.posts.length:0)+' posto(s) · '+when+'</div></div>'
+        + '<button type="button" onclick="simLoadScenario(\''+c.id+'\')" style="background:var(--accentBg);border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer">Carregar</button>'
+        + '<button type="button" onclick="simDeleteScenario(\''+c.id+'\')" title="Excluir" style="background:transparent;border:1px solid var(--border2);color:var(--text3);border-radius:6px;width:26px;height:26px;font-size:12px;cursor:pointer">🗑</button>'
+        + '</div>';
+    }).join('') : '<div style="font-size:11px;color:var(--text3);padding:4px 0">Nenhum cenário salvo ainda.</div>';
+
+  return ''
+    + '<div id="sim-editor" style="background:var(--surface);border:1px solid rgba(255,214,10,.35);border-radius:12px;padding:14px;margin:16px 0;box-shadow:0 0 20px rgba(255,214,10,.08)">'
+    +   '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap">'
+    +     '<div style="font-size:12px;font-weight:800;color:var(--yellow);letter-spacing:.3px">🎛 Simulação de cenário</div>'
+    +     '<button type="button" onclick="simToggle()" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text2);border-radius:7px;padding:6px 11px;font-size:11px;font-weight:700;cursor:pointer">🔌 Apagar lâmpada (voltar ao original)</button>'
+    +   '</div>'
+    +   '<div style="font-size:10px;color:var(--text3);margin-bottom:12px;line-height:1.6">Ajuste o tempo de cada posto (campo ou barra), adicione/remova postos e redistribua tempo. Nada aqui altera o dado real do projeto — apagar a lâmpada descarta o que não foi salvo e volta ao original.</div>'
+    +   rows
+    +   '<button type="button" onclick="simAddPost()" style="width:100%;background:var(--greenBg);border:1px dashed var(--green);color:var(--green);border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:12px">➕ Adicionar posto</button>'
+    +   '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:12px">'
+    +     '<div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">↔ Redistribuir tempo entre postos</div>'
+    +     '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--text2)">'
+    +       'Mover <input id="sim-redi-amt" type="text" inputmode="decimal" value="1" style="width:52px;background:var(--surface);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:\'JetBrains Mono\',monospace;font-size:11px;padding:5px 6px;text-align:right;outline:none;-webkit-user-select:text;user-select:text"> s de '
+    +       '<select id="sim-redi-from" style="background:var(--surface);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:11px;padding:5px 6px;max-width:120px">'+optFrom+'</select> → '
+    +       '<select id="sim-redi-to" style="background:var(--surface);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:11px;padding:5px 6px;max-width:120px">'+optTo+'</select> '
+    +       '<button type="button" onclick="simRedistribute()" style="background:var(--accentBg);border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer">Mover</button>'
+    +     '</div>'
+    +   '</div>'
+    +   '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'
+    +     '<button type="button" onclick="simSaveScenario()" style="flex:1;min-width:130px;background:linear-gradient(135deg,#00e5a0,#00b894);border:none;color:#04231a;border-radius:8px;padding:10px;font-size:12px;font-weight:800;cursor:pointer">💾 Salvar cenário</button>'
+    +     '<button type="button" onclick="simRestoreOriginal()" style="flex:1;min-width:130px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:10px;font-size:12px;font-weight:700;cursor:pointer">↩ Restaurar original</button>'
+    +   '</div>'
+    +   '<div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📁 Cenários salvos ('+cen.length+')</div>'
+    +   cenHtml
+    + '</div>';
 }
 
 function balField(id,label,val,ph,extra){
@@ -11427,7 +11756,9 @@ function balLiveUpdate(){
     recursos:   g('bal-recursos'),
     efic:       ef1!=='' ? ef1 : ef2
   };
-  var bal = balCalcProjeto(p, params);
+  var bal = (typeof simIsOn === 'function' && simIsOn(p))
+    ? balMetricsFromPosts(simClonePosts(SIM.posts), params)
+    : balCalcProjeto(p, params);
   var c = balCapacidade(bal, params);
   var r1 = document.getElementById('bal-res1');
   var r2 = document.getElementById('bal-res2');
@@ -11444,9 +11775,20 @@ function balChartHtml(bal, opts){
   var scaleMax = Math.max(bal.takt, maxStd) * 1.12 || 1;
   // Título: com botão de ocultar quando opts.toggle (tela do projeto);
   // sem botão nos demais usos (relatório/PDF), preservando o layout antigo.
+  // Botão de lâmpada (só na tela do projeto, quando opts.sim). Acesa = simulação.
+  var lampBtn = opts.sim
+    ? '<button type="button" onclick="simToggle()" title="Simular cenário no gráfico" style="text-transform:none;letter-spacing:.2px;border-radius:8px;padding:6px 11px;font-size:11px;font-weight:700;cursor:pointer;'
+      + (opts.simOn
+          ? 'background:linear-gradient(135deg,#ffd60a,#ff9500);border:1px solid #ffd60a;color:#2a1e00;box-shadow:0 0 14px rgba(255,214,10,.55)'
+          : 'background:var(--surface3);border:1px solid var(--border2);color:var(--text2)')
+      + '">' + (opts.simOn ? '💡 Simulação ON' : '💡 Simular') + '</button>'
+    : '';
   var titulo = opts.toggle
-    ? '<div class="res-section-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>📊 Gráfico Yamazumi</span><button type="button" id="bal-chart-toggle" class="btn btn-ghost" onclick="toggleBalChart()" style="text-transform:none;letter-spacing:.2px">🙈 Ocultar gráfico</button></div>'
+    ? '<div class="res-section-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>📊 Gráfico Yamazumi</span><span style="display:flex;gap:8px;align-items:center">' + lampBtn + '<button type="button" id="bal-chart-toggle" class="btn btn-ghost" onclick="toggleBalChart()" style="text-transform:none;letter-spacing:.2px">🙈 Ocultar gráfico</button></span></div>'
     : '<div class="res-section-title">📊 Gráfico Yamazumi</div>';
+  var simBanner = opts.simOn
+    ? '<div style="display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,rgba(255,214,10,.15),transparent);border:1px solid rgba(255,214,10,.35);border-radius:8px;padding:7px 10px;margin-bottom:10px;font-size:11px;font-weight:700;color:var(--yellow)">💡 MODO SIMULAÇÃO — os números abaixo são um cenário, não o processo real</div>'
+    : '';
   var html = ''
     + '<div style="position:relative;padding:10px 0 72px 60px;background:var(--surface);border-radius:10px;border:1px solid var(--border)">'
     + (bal.takt>0 ? '<div style="position:absolute;left:60px;right:10px;top:'+(10+chartH-(bal.takt/scaleMax*chartH))+'px;height:0;border-top:2px dashed var(--accent);z-index:5"><span style="position:absolute;left:-55px;top:-9px;font-size:10px;font-weight:700;color:var(--accent);background:var(--surface);padding:2px 4px;border-radius:3px">TAKT '+bal.takt.toFixed(1)+'s</span></div>' : '')
@@ -11485,7 +11827,7 @@ function balChartHtml(bal, opts){
     + '</div>';
   // Na tela do projeto, gráfico+legenda ficam num invólucro que pode ser ocultado;
   // o título (com o botão) continua visível para trazer o gráfico de volta.
-  if(opts.toggle) return titulo + '<div id="bal-chart-area">' + html + '</div>';
+  if(opts.toggle) return titulo + simBanner + '<div id="bal-chart-area">' + html + '</div>';
   return titulo + html;
 }
 
