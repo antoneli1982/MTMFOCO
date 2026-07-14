@@ -18417,6 +18417,13 @@ table.mtm tbody tr:not(.row-dragging):hover .row-del:hover {
       });
     }catch(_e){}
 
+    // Marca a folha como CÓPIA: o nome recebe "(cópia)" e Empresa/Projeto vêm escritos "cópia".
+    // (Como não ficam vazios, o auto-sync de Empresa/Projeto do projeto NÃO sobrescreve.)
+    s.label = (clip.label || 'Folha') + ' (cópia)';
+    s.header = s.header || {};
+    s.header.empresa = 'cópia';
+    s.header.projeto = 'cópia';
+
     // Recria as linhas com IDs NOVOS e únicos (evita colisão de id no DOM se a origem coexistir).
     var src = Array.isArray(clip.rows) ? clip.rows : [];
     s.rows = src.map(function(r,i){
