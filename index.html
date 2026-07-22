@@ -4372,6 +4372,16 @@ body.home-clean .db-company-card::after{
       <input type="text" class="lib-search" id="lib-q" placeholder="🔍  Buscar código ou descrição..." oninput="renderLibrary()">
       <select class="lib-sel" id="lib-grp" onchange="renderLibrary()">
         <option value="">Todos os grupos</option>
+        <option value="CategoriaM">Categoria M · processos padrão UAS</option>
+        <option value="M Complementares">M · Valores complementares</option>
+        <option value="Desembalar">M · Desembalar</option>
+        <option value="Parafusar">M · Parafusar</option>
+        <option value="Prender">M · Prender e afrouxar</option>
+        <option value="Colar">M · Atividades de colar</option>
+        <option value="Linhas">M · Linhas elétricas</option>
+        <option value="Marcar">M · Marcar</option>
+        <option value="Normatizadas">M · Peças normatizadas</option>
+        <option value="Medir">M · Examinar ou medir</option>
         <option value="Complementares">Complementares</option>
         <option value="Manuseio">Manuseio</option>
         <option value="Abrir">Abrir Embalagem</option>
@@ -4388,7 +4398,7 @@ body.home-clean .db-company-card::after{
         <option value="Carrinho">Carrinho de Transporte</option>
       </select>
     </div>
-    <div class="lib-hint">⚡ Clique em qualquer linha para preencher o código e o TMU quando o valor estiver informado no manual.</div>
+    <div class="lib-hint">⚡ Clique em qualquer linha para preencher o código, o TMU e calcular os segundos automaticamente.</div>
     <div class="lib-body">
       <table>
         <thead><tr>
@@ -4714,6 +4724,69 @@ const MATRIZ = {
   "IDTW" :{tmu:65,desc:"Inserir dados — palavra/código (máx. 6 teclas)"},
   "IDES" :{tmu:60,desc:"Digitalizar — scanner (código de barras)"},
   "IDEM" :{tmu:40,desc:"Digitalizar — cartão magnético"},
+  /* ── PROCESSOS PADRÃO UAS: CATEGORIA M COM VALORES ── */
+  "M-EH1":{tmu:20,desc:"Valor complementar para meio auxiliar na faixa de distância 1"},
+  "M-EH2":{tmu:40,desc:"Valor complementar para meio auxiliar na faixa de distância 2"},
+  "M-EH3":{tmu:55,desc:"Valor complementar para meio auxiliar na faixa de distância 3"},
+  "M-ET3":{tmu:15,desc:"Valor complementar para peça na faixa de distância 3"},
+  "M-AAB":{tmu:145,desc:"Remover ou abrir tampa de 20 x 20 cm manualmente"},
+  "M-AAC":{tmu:290,desc:"Remover ou abrir tampa de 50 x 50 cm manualmente"},
+  "M-AAD":{tmu:530,desc:"Remover ou abrir tampa de 100 x 100 cm manualmente"},
+  "M-ABB":{tmu:95,desc:"Remover ou abrir tampa de 20 x 20 cm com ferramenta"},
+  "M-ABC":{tmu:190,desc:"Remover ou abrir tampa de 50 x 50 cm com ferramenta"},
+  "M-ABD":{tmu:330,desc:"Remover ou abrir tampa de 100 x 100 cm com ferramenta"},
+  "M-ACB":{tmu:280,desc:"Retirar conteúdo de embalagem a vácuo de 20 x 20 cm"},
+  "M-ACC":{tmu:305,desc:"Retirar conteúdo de embalagem a vácuo de 50 x 50 cm"},
+  "M-ADB":{tmu:230,desc:"Retirar conteúdo de embalagem de folha de 20 x 20 cm"},
+  "M-ADC":{tmu:245,desc:"Retirar conteúdo de embalagem de folha de 50 x 50 cm"},
+  "M-AFB":{tmu:170,desc:"Retirar conteúdo de caixa de papelão de 20 x 20 cm"},
+  "M-AFC":{tmu:180,desc:"Retirar conteúdo de caixa de papelão de 50 x 50 cm"},
+  "M-AGB":{tmu:165,desc:"Retirar conteúdo de saco ou invólucro de 20 x 20 cm"},
+  "M-AGC":{tmu:180,desc:"Retirar conteúdo de saco ou invólucro de 50 x 50 cm"},
+  "M-AHB":{tmu:235,desc:"Retirar conteúdo de papelão ondulado ou papel de 20 x 20 cm"},
+  "M-AHC":{tmu:310,desc:"Retirar conteúdo de papelão ondulado ou papel de 50 x 50 cm"},
+  "M-SAA":{tmu:85,desc:"Encaixar peça roscada com uma mão, procurar o passo e executar 2 giros"},
+  "M-SBA":{tmu:125,desc:"Encaixar duas peças roscadas, procurar o passo e executar 2 giros em paralelo"},
+  "M-SCA":{tmu:145,desc:"Encaixar peça roscada com uma mão e executar 4 giros"},
+  "M-SDA":{tmu:185,desc:"Encaixar duas peças roscadas e executar 4 giros em paralelo"},
+  "M-SHS":{tmu:60,desc:"Parafusar e apertar parafuso métrico com parafusadeira"},
+  "M-SJS":{tmu:85,desc:"Parafusar e apertar com parafusadeira manual"},
+  "M-SKS":{tmu:135,desc:"Parafusar e apertar com chave de fenda"},
+  "M-SLS":{tmu:140,desc:"Parafusar e apertar com chave de catraca"},
+  "M-SMS":{tmu:210,desc:"Parafusar e apertar com chave de boca, estrela ou inglesa, com recolocar"},
+  "M-SNS":{tmu:125,desc:"Alinhar, parafusar e apertar parafuso para chapa com parafusadeira"},
+  "M-SHA":{tmu:55,desc:"Aperto adicional"},
+  "M-SGA":{tmu:95,desc:"Posicionar segunda peça roscada e contra chave"},
+  "M-SZA":{tmu:30,desc:"Posicionar contra chave na segunda peça roscada"},
+  "M-SZB":{tmu:55,desc:"Introduzir peça adicional com uma mão"},
+  "M-SZC":{tmu:85,desc:"Introduzir peças adicionais com duas mãos"},
+  "M-FCA":{tmu:240,desc:"Prender e afrouxar com sargento"},
+  "M-FLA":{tmu:650,desc:"Prender e afrouxar com grampo de fixação estacionário"},
+  "M-FPA":{tmu:370,desc:"Prender aproximadamente e afrouxar em morsa"},
+  "M-FQA":{tmu:610,desc:"Prender com precisão e afrouxar em morsa"},
+  "M-FZA":{tmu:175,desc:"Prender e afrouxar com meio auxiliar adicional ou mandíbulas da morsa"},
+  "M-KAB":{tmu:150,desc:"Colar placa ou etiqueta com precisão, sem máscara"},
+  "M-KHD":{tmu:180,desc:"Aplicar manta de absorção de até 50 x 50 cm sem folha protetora"},
+  "M-LAA":{tmu:60,desc:"Conectar fio flexível, cabo ou conexão roscada"},
+  "M-LBA":{tmu:65,desc:"Fixar linha em clip ou grampo sem ferramenta"},
+  "M-LBB":{tmu:100,desc:"Fixar linha em clip ou grampo com ferramenta"},
+  "M-LBK":{tmu:145,desc:"Fechar prendedor de cabos sem ferramenta"},
+  "M-LVA":{tmu:130,desc:"Estender os primeiros 80 cm de linha de forma aproximada"},
+  "M-LVB":{tmu:45,desc:"Estender outros 50 cm de linha de forma aproximada"},
+  "M-LVC":{tmu:50,desc:"Instalar com precisão cada 30 cm de linha"},
+  "M-LVD":{tmu:140,desc:"Estender os primeiros 50 cm de chicote de forma aproximada"},
+  "M-LVE":{tmu:110,desc:"Estender outros 50 cm de chicote de forma aproximada"},
+  "M-LVF":{tmu:50,desc:"Instalar com precisão cada 30 cm de chicote"},
+  "M-MAA":{tmu:80,desc:"Marcar com punção ou tipo, sem controle após o primeiro golpe"},
+  "M-MGZ":{tmu:40,desc:"Escrever ou sublinhar um caractere ou traço de até 20 cm"},
+  "M-NAA":{tmu:170,desc:"Montar peça normatizada com uma ferramenta"},
+  "M-NCA":{tmu:135,desc:"Montar peça normatizada com ferramenta especial"},
+  "M-PAA":{tmu:80,desc:"Examinar medida ou forma com calibrador de até 150 mm"},
+  "M-PBA":{tmu:270,desc:"Examinar rosca com calibrador de rosca de até 150 mm"},
+  "M-PCA":{tmu:80,desc:"Examinar medida com equipamento de ponteiro de até 150 mm"},
+  "M-PEB":{tmu:75,desc:"Determinar medida de 150 a 500 mm com equipamento graduado sem peças móveis"},
+  "M-PFA":{tmu:190,desc:"Determinar medida de até 150 mm com paquímetro ou micrômetro"},
+  "M-PZF":{tmu:105,desc:"Ajustar faixa de atuação ou zerar equipamento de medição de até 150 mm"},
   /* ── PROCESSOS PADRÃO UAS: TRATAR ── */
   "M-RAD":{tmu:145,desc:"Limpar superfície de 50 x 50 cm com ar comprimido, escova ou vassoura"},
   "M-BHA":{tmu:60,desc:"Aplicar óleo, tinta ou agente de limpeza em um ponto com pincel, almotolia, trapo ou tecido"},
@@ -6649,7 +6722,7 @@ const MTM_CATEGORIES = {
   'Z': { name: 'Ciclos de Movimento', color: '#ffd60a' },
   'W': { name: 'Andar com Carga', color: '#f59e0b' },
   'S': { name: 'Parafusar', color: '#ef4444' },
-  'M': { name: 'Paradas', color: '#64748b' },
+  'M': { name: 'Processos padrão UAS', color: '#64748b' },
   'PT': { name: 'Tempo de Espera', color: '#94a3b8' },
   'SCNER': { name: 'Leitura Scanner', color: '#06b6d4' },
   '-': { name: 'Outros', color: '#6b7280' }
@@ -13854,6 +13927,69 @@ const LIB_CODES = [
   {code:"IDTW",tmu:65,  desc:"Inserir dados — palavra/código (máx. 6 teclas)", grp:"Info", cat:"Man"},
   {code:"IDES",tmu:60,  desc:"Digitalizar — scanner (código de barras)", grp:"Info", cat:"Man"},
   {code:"IDEM",tmu:40,  desc:"Digitalizar — cartão magnético", grp:"Info", cat:"Man"},
+  // PROCESSOS PADRÃO UAS: CATEGORIA M COM VALORES
+  {code:"M-EH1",tmu:20,desc:"Valor complementar para meio auxiliar na faixa de distância 1",grp:"M Complementares",cat:"Man"},
+  {code:"M-EH2",tmu:40,desc:"Valor complementar para meio auxiliar na faixa de distância 2",grp:"M Complementares",cat:"Man"},
+  {code:"M-EH3",tmu:55,desc:"Valor complementar para meio auxiliar na faixa de distância 3",grp:"M Complementares",cat:"Man"},
+  {code:"M-ET3",tmu:15,desc:"Valor complementar para peça na faixa de distância 3",grp:"M Complementares",cat:"Man"},
+  {code:"M-AAB",tmu:145,desc:"Remover ou abrir tampa de 20 x 20 cm manualmente",grp:"Desembalar",cat:"Man"},
+  {code:"M-AAC",tmu:290,desc:"Remover ou abrir tampa de 50 x 50 cm manualmente",grp:"Desembalar",cat:"Man"},
+  {code:"M-AAD",tmu:530,desc:"Remover ou abrir tampa de 100 x 100 cm manualmente",grp:"Desembalar",cat:"Man"},
+  {code:"M-ABB",tmu:95,desc:"Remover ou abrir tampa de 20 x 20 cm com ferramenta",grp:"Desembalar",cat:"Man"},
+  {code:"M-ABC",tmu:190,desc:"Remover ou abrir tampa de 50 x 50 cm com ferramenta",grp:"Desembalar",cat:"Man"},
+  {code:"M-ABD",tmu:330,desc:"Remover ou abrir tampa de 100 x 100 cm com ferramenta",grp:"Desembalar",cat:"Man"},
+  {code:"M-ACB",tmu:280,desc:"Retirar conteúdo de embalagem a vácuo de 20 x 20 cm",grp:"Desembalar",cat:"Man"},
+  {code:"M-ACC",tmu:305,desc:"Retirar conteúdo de embalagem a vácuo de 50 x 50 cm",grp:"Desembalar",cat:"Man"},
+  {code:"M-ADB",tmu:230,desc:"Retirar conteúdo de embalagem de folha de 20 x 20 cm",grp:"Desembalar",cat:"Man"},
+  {code:"M-ADC",tmu:245,desc:"Retirar conteúdo de embalagem de folha de 50 x 50 cm",grp:"Desembalar",cat:"Man"},
+  {code:"M-AFB",tmu:170,desc:"Retirar conteúdo de caixa de papelão de 20 x 20 cm",grp:"Desembalar",cat:"Man"},
+  {code:"M-AFC",tmu:180,desc:"Retirar conteúdo de caixa de papelão de 50 x 50 cm",grp:"Desembalar",cat:"Man"},
+  {code:"M-AGB",tmu:165,desc:"Retirar conteúdo de saco ou invólucro de 20 x 20 cm",grp:"Desembalar",cat:"Man"},
+  {code:"M-AGC",tmu:180,desc:"Retirar conteúdo de saco ou invólucro de 50 x 50 cm",grp:"Desembalar",cat:"Man"},
+  {code:"M-AHB",tmu:235,desc:"Retirar conteúdo de papelão ondulado ou papel de 20 x 20 cm",grp:"Desembalar",cat:"Man"},
+  {code:"M-AHC",tmu:310,desc:"Retirar conteúdo de papelão ondulado ou papel de 50 x 50 cm",grp:"Desembalar",cat:"Man"},
+  {code:"M-SAA",tmu:85,desc:"Encaixar peça roscada com uma mão, procurar o passo e executar 2 giros",grp:"Parafusar",cat:"Man"},
+  {code:"M-SBA",tmu:125,desc:"Encaixar duas peças roscadas, procurar o passo e executar 2 giros em paralelo",grp:"Parafusar",cat:"Man"},
+  {code:"M-SCA",tmu:145,desc:"Encaixar peça roscada com uma mão e executar 4 giros",grp:"Parafusar",cat:"Man"},
+  {code:"M-SDA",tmu:185,desc:"Encaixar duas peças roscadas e executar 4 giros em paralelo",grp:"Parafusar",cat:"Man"},
+  {code:"M-SHS",tmu:60,desc:"Parafusar e apertar parafuso métrico com parafusadeira",grp:"Parafusar",cat:"Man"},
+  {code:"M-SJS",tmu:85,desc:"Parafusar e apertar com parafusadeira manual",grp:"Parafusar",cat:"Man"},
+  {code:"M-SKS",tmu:135,desc:"Parafusar e apertar com chave de fenda",grp:"Parafusar",cat:"Man"},
+  {code:"M-SLS",tmu:140,desc:"Parafusar e apertar com chave de catraca",grp:"Parafusar",cat:"Man"},
+  {code:"M-SMS",tmu:210,desc:"Parafusar e apertar com chave de boca, estrela ou inglesa, com recolocar",grp:"Parafusar",cat:"Man"},
+  {code:"M-SNS",tmu:125,desc:"Alinhar, parafusar e apertar parafuso para chapa com parafusadeira",grp:"Parafusar",cat:"Man"},
+  {code:"M-SHA",tmu:55,desc:"Aperto adicional",grp:"Parafusar",cat:"Man"},
+  {code:"M-SGA",tmu:95,desc:"Posicionar segunda peça roscada e contra chave",grp:"Parafusar",cat:"Man"},
+  {code:"M-SZA",tmu:30,desc:"Posicionar contra chave na segunda peça roscada",grp:"Parafusar",cat:"Man"},
+  {code:"M-SZB",tmu:55,desc:"Introduzir peça adicional com uma mão",grp:"Parafusar",cat:"Man"},
+  {code:"M-SZC",tmu:85,desc:"Introduzir peças adicionais com duas mãos",grp:"Parafusar",cat:"Man"},
+  {code:"M-FCA",tmu:240,desc:"Prender e afrouxar com sargento",grp:"Prender",cat:"Man"},
+  {code:"M-FLA",tmu:650,desc:"Prender e afrouxar com grampo de fixação estacionário",grp:"Prender",cat:"Man"},
+  {code:"M-FPA",tmu:370,desc:"Prender aproximadamente e afrouxar em morsa",grp:"Prender",cat:"Man"},
+  {code:"M-FQA",tmu:610,desc:"Prender com precisão e afrouxar em morsa",grp:"Prender",cat:"Man"},
+  {code:"M-FZA",tmu:175,desc:"Prender e afrouxar com meio auxiliar adicional ou mandíbulas da morsa",grp:"Prender",cat:"Man"},
+  {code:"M-KAB",tmu:150,desc:"Colar placa ou etiqueta com precisão, sem máscara",grp:"Colar",cat:"Man"},
+  {code:"M-KHD",tmu:180,desc:"Aplicar manta de absorção de até 50 x 50 cm sem folha protetora",grp:"Colar",cat:"Man"},
+  {code:"M-LAA",tmu:60,desc:"Conectar fio flexível, cabo ou conexão roscada",grp:"Linhas",cat:"Man"},
+  {code:"M-LBA",tmu:65,desc:"Fixar linha em clip ou grampo sem ferramenta",grp:"Linhas",cat:"Man"},
+  {code:"M-LBB",tmu:100,desc:"Fixar linha em clip ou grampo com ferramenta",grp:"Linhas",cat:"Man"},
+  {code:"M-LBK",tmu:145,desc:"Fechar prendedor de cabos sem ferramenta",grp:"Linhas",cat:"Man"},
+  {code:"M-LVA",tmu:130,desc:"Estender os primeiros 80 cm de linha de forma aproximada",grp:"Linhas",cat:"Man"},
+  {code:"M-LVB",tmu:45,desc:"Estender outros 50 cm de linha de forma aproximada",grp:"Linhas",cat:"Man"},
+  {code:"M-LVC",tmu:50,desc:"Instalar com precisão cada 30 cm de linha",grp:"Linhas",cat:"Man"},
+  {code:"M-LVD",tmu:140,desc:"Estender os primeiros 50 cm de chicote de forma aproximada",grp:"Linhas",cat:"Man"},
+  {code:"M-LVE",tmu:110,desc:"Estender outros 50 cm de chicote de forma aproximada",grp:"Linhas",cat:"Man"},
+  {code:"M-LVF",tmu:50,desc:"Instalar com precisão cada 30 cm de chicote",grp:"Linhas",cat:"Man"},
+  {code:"M-MAA",tmu:80,desc:"Marcar com punção ou tipo, sem controle após o primeiro golpe",grp:"Marcar",cat:"Man"},
+  {code:"M-MGZ",tmu:40,desc:"Escrever ou sublinhar um caractere ou traço de até 20 cm",grp:"Marcar",cat:"Man"},
+  {code:"M-NAA",tmu:170,desc:"Montar peça normatizada com uma ferramenta",grp:"Normatizadas",cat:"Man"},
+  {code:"M-NCA",tmu:135,desc:"Montar peça normatizada com ferramenta especial",grp:"Normatizadas",cat:"Man"},
+  {code:"M-PAA",tmu:80,desc:"Examinar medida ou forma com calibrador de até 150 mm",grp:"Medir",cat:"Man"},
+  {code:"M-PBA",tmu:270,desc:"Examinar rosca com calibrador de rosca de até 150 mm",grp:"Medir",cat:"Man"},
+  {code:"M-PCA",tmu:80,desc:"Examinar medida com equipamento de ponteiro de até 150 mm",grp:"Medir",cat:"Man"},
+  {code:"M-PEB",tmu:75,desc:"Determinar medida de 150 a 500 mm com equipamento graduado sem peças móveis",grp:"Medir",cat:"Man"},
+  {code:"M-PFA",tmu:190,desc:"Determinar medida de até 150 mm com paquímetro ou micrômetro",grp:"Medir",cat:"Man"},
+  {code:"M-PZF",tmu:105,desc:"Ajustar faixa de atuação ou zerar equipamento de medição de até 150 mm",grp:"Medir",cat:"Man"},
   // PROCESSOS PADRÃO UAS: TRATAR
   {code:"M-RAB",tmu:null,desc:"Limpar superfície de 10 x 10 cm com ar comprimido, escova ou vassoura",grp:"Tratar",cat:"Man"},
   {code:"M-RAC",tmu:null,desc:"Limpar superfície de 20 x 20 cm com ar comprimido, escova ou vassoura",grp:"Tratar",cat:"Man"},
@@ -14786,7 +14922,8 @@ function renderLibrary(){
   var grp = document.getElementById('lib-grp').value;
 
   var data = (typeof LIB_CODES !== 'undefined' && Array.isArray(LIB_CODES)) ? LIB_CODES : (window.MTM_LIBRARY_CODES || []);
-  if(grp)  data = data.filter(function(c){ return c.grp === grp; });
+  if(grp==='CategoriaM') data = data.filter(function(c){ return String(c.code||'').toUpperCase().startsWith('M-'); });
+  else if(grp) data = data.filter(function(c){ return c.grp === grp; });
   if(q)    data = data.filter(function(c){
     return c.code.toLowerCase().includes(q) || c.desc.toLowerCase().includes(q);
   });
@@ -14805,7 +14942,9 @@ function renderLibrary(){
     Fechar:'Fechar Emb.', Info:'Tratar Info.', Tratar:'Tratar', Geral:'T. Geral',
     Frontal:'Empilh. F.', Retratil:'Empilh. R.', Ope:'Empilh. Pé',
     Modulos:'Mód. Esp.', Rebocador:'Rebocador', Transpaleteira:'Transpal.',
-    Carrinho:'Carrinho'
+    Carrinho:'Carrinho', 'M Complementares':'M Compl.', Desembalar:'M Desemb.',
+    Parafusar:'M Paraf.', Prender:'M Prender', Colar:'M Colar', Linhas:'M Linhas',
+    Marcar:'M Marcar', Normatizadas:'M Norm.', Medir:'M Medir'
   };
 
   tb.innerHTML = data.map(function(c){
