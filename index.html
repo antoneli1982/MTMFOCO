@@ -18952,158 +18952,365 @@ table.mtm tbody tr:not(.row-dragging):hover .row-del:hover {
 
 
 
-<!-- Persistência reforçada das imagens de projeto -->
-<script id="mtm-project-image-persistence-v2">
+<!-- Persistência estável das imagens de projeto -->
+<script id="mtm-project-image-persistence-v3">
 (function(){
-  var IMG_KEY='mtm_project_images_v2';
-  var DB_NAME='mtm_project_assets_v2';
-  var DB_STORE='projectImages';
-  var hydrating=false;
+  'use strict';
 
-  function localMap(){
-    try{ return JSON.parse(localStorage.getItem(IMG_KEY)||'{}')||{}; }catch(e){ return {}; }
+  var META_KEY = (typeof PM_KEY !== 'undefined' ? PM_KEY : 'pmgr_v3');
+  var LEGACY_IMG_KEY = 'mtm_project_images_v2';
+  var DB_NAME = 'mtm_project_assets_v3';
+  var LEGACY_DB_NAME = 'mtm_project_assets_v2';
+  var DB_STORE = 'projectImages';
+  var cache = Object.create(null);
+  var hydrateStarted = false;
+  var hydrateFinished = false;
+  var renderQueued = false;
+
+  function isDataImage(v){
+    return typeof v === 'string' && /^data:image\//i.test(v);
   }
-  function saveLocal(pid,data){
-    try{
-      var m=localMap();
-      if(data) m[pid]=data; else delete m[pid];
-      localStorage.setItem(IMG_KEY,JSON.stringify(m));
-      return true;
-    }catch(e){ return false; }
+
+  function eachProject(data, fn){
+    Object.keys(data || {}).forEach(function(fid){
+      var folder = data[fid];
+      (folder && folder.projects || []).forEach(function(p, idx){
+        if(p) fn(p, fid, idx, folder);
+      });
+    });
   }
+
   function openDb(cb){
     if(!window.indexedDB){ cb(null); return; }
     try{
-      var req=indexedDB.open(DB_NAME,1);
-      req.onupgradeneeded=function(){
-        var db=req.result;
+      var req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = function(){
+        var db = req.result;
         if(!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE);
       };
-      req.onsuccess=function(){ cb(req.result); };
-      req.onerror=function(){ cb(null); };
+      req.onsuccess = function(){ cb(req.result); };
+      req.onerror = function(){ cb(null); };
+      req.onblocked = function(){ cb(null); };
     }catch(e){ cb(null); }
   }
-  function saveDb(pid,data){
+
+  function dbPut(pid, data){
+    if(!pid || !data) return;
     openDb(function(db){
       if(!db) return;
       try{
-        var tx=db.transaction(DB_STORE,'readwrite');
-        var st=tx.objectStore(DB_STORE);
-        if(data) st.put(data,pid); else st.delete(pid);
-        tx.oncomplete=tx.onerror=function(){ try{db.close();}catch(e){} };
-      }catch(e){ try{db.close();}catch(_e){} }
-    });
-  }
-  function persist(pid,data){
-    saveLocal(pid,data);
-    saveDb(pid,data);
-  }
-  window.mtmPersistProjectImage=persist;
-  function applyMap(m){
-    if(!m || typeof pmData==='undefined' || !pmData) return false;
-    var changed=false;
-    Object.keys(pmData).forEach(function(fid){
-      var f=pmData[fid];
-      (f&&f.projects||[]).forEach(function(p){
-        if(p&&p.id&&m[p.id]){ if(!p.img){p.img=m[p.id];changed=true;} if(!p.logo){p.logo=m[p.id];changed=true;} }
-      });
-    });
-    return changed;
-  }
-  function hydrateFromDb(){
-    if(hydrating) return;
-    hydrating=true;
-    openDb(function(db){
-      if(!db){ hydrating=false; return; }
-      try{
-        var tx=db.transaction(DB_STORE,'readonly');
-        var st=tx.objectStore(DB_STORE);
-        var req=st.openCursor();
-        var m={};
-        req.onsuccess=function(ev){
-          var cur=ev.target.result;
-          if(cur){ m[cur.key]=cur.value; cur.continue(); return; }
-          var changed=applyMap(m);
-          hydrating=false;
-          try{db.close();}catch(e){}
-          if(changed){
-            try{ if(typeof dbRenderList==='function' && document.getElementById('dashboard')&&document.getElementById('dashboard').classList.contains('active')) dbRenderList(); }catch(e){}
-            try{ if(typeof pmRenderProjects==='function' && typeof pmFolderId!=='undefined' && pmFolderId) pmRenderProjects(); }catch(e){}
-          }
-        };
-        req.onerror=function(){ hydrating=false; try{db.close();}catch(e){} };
-      }catch(e){ hydrating=false; try{db.close();}catch(_e){} }
+        var tx = db.transaction(DB_STORE, 'readwrite');
+        tx.objectStore(DB_STORE).put(data, String(pid));
+        tx.oncomplete = tx.onerror = tx.onabort = function(){ try{ db.close(); }catch(e){} };
+      }catch(e){ try{ db.close(); }catch(_e){} }
     });
   }
 
-  var originalPmLoad=typeof pmLoad==='function'?pmLoad:null;
-  if(originalPmLoad){
-    window.pmLoad=function(){
-      originalPmLoad();
-      applyMap(localMap());
-      setTimeout(hydrateFromDb,0);
+  function dbDelete(pid){
+    if(!pid) return;
+    openDb(function(db){
+      if(!db) return;
+      try{
+        var tx = db.transaction(DB_STORE, 'readwrite');
+        tx.objectStore(DB_STORE).delete(String(pid));
+        tx.oncomplete = tx.onerror = tx.onabort = function(){ try{ db.close(); }catch(e){} };
+      }catch(e){ try{ db.close(); }catch(_e){} }
+    });
+  }
+
+  function dbReadAll(done){
+    openDb(function(db){
+      if(!db){ done({}); return; }
+      var map = {};
+      try{
+        var tx = db.transaction(DB_STORE, 'readonly');
+        var req = tx.objectStore(DB_STORE).openCursor();
+        req.onsuccess = function(ev){
+          var cur = ev.target.result;
+          if(cur){ map[String(cur.key)] = cur.value; cur.continue(); return; }
+          try{ db.close(); }catch(e){}
+          done(map);
+        };
+        req.onerror = function(){ try{ db.close(); }catch(e){} done(map); };
+      }catch(e){ try{ db.close(); }catch(_e){} done(map); }
+    });
+  }
+
+  function dbReadLegacyV2(done){
+    if(!window.indexedDB){ done({}); return; }
+    try{
+      var req = indexedDB.open(LEGACY_DB_NAME);
+      req.onsuccess = function(){
+        var db = req.result;
+        var map = {};
+        try{
+          if(!db.objectStoreNames.contains(DB_STORE)){ try{ db.close(); }catch(e){} done(map); return; }
+          var tx = db.transaction(DB_STORE, 'readonly');
+          var curReq = tx.objectStore(DB_STORE).openCursor();
+          curReq.onsuccess = function(ev){
+            var cur = ev.target.result;
+            if(cur){ map[String(cur.key)] = cur.value; cur.continue(); return; }
+            try{ db.close(); }catch(e){}
+            done(map);
+          };
+          curReq.onerror = function(){ try{ db.close(); }catch(e){} done(map); };
+        }catch(e){ try{ db.close(); }catch(_e){} done(map); }
+      };
+      req.onerror = function(){ done({}); };
+      req.onblocked = function(){ done({}); };
+    }catch(e){ done({}); }
+  }
+
+  function remember(pid, data){
+    if(!pid || !data) return;
+    cache[String(pid)] = data;
+    dbPut(String(pid), data);
+  }
+
+  function forget(pid){
+    if(!pid) return;
+    delete cache[String(pid)];
+    dbDelete(String(pid));
+  }
+
+  function collectRuntimeImages(data){
+    eachProject(data, function(p){
+      var pid = p.id;
+      if(!pid) return;
+      var img = isDataImage(p.img) ? p.img : (isDataImage(p.logo) ? p.logo : null);
+      if(img){
+        remember(pid, img);
+        p.imageAssetId = String(pid);
+      }
+    });
+  }
+
+  function applyCache(data){
+    eachProject(data, function(p){
+      if(!p.id) return;
+      var img = cache[String(p.id)];
+      if(img){
+        p.img = img;
+        p.logo = img;
+        p.imageAssetId = String(p.id);
+      }
+    });
+  }
+
+  function cleanClone(data){
+    var clone;
+    try{ clone = JSON.parse(JSON.stringify(data || {})); }
+    catch(e){ clone = {}; }
+    eachProject(clone, function(p){
+      if(isDataImage(p.img)) delete p.img;
+      if(isDataImage(p.logo)) delete p.logo;
+      if(p.id && cache[String(p.id)]) p.imageAssetId = String(p.id);
+    });
+    return clone;
+  }
+
+  function saveMetadata(){
+    if(typeof pmData === 'undefined') return false;
+    collectRuntimeImages(pmData);
+    var clean = cleanClone(pmData);
+    try{
+      localStorage.setItem(META_KEY, JSON.stringify(clean));
+      return true;
+    }catch(e){
+      try{ localStorage.removeItem(LEGACY_IMG_KEY); }catch(_e){}
+      try{
+        localStorage.setItem(META_KEY, JSON.stringify(clean));
+        return true;
+      }catch(_e2){
+        try{ console.warn('Não foi possível salvar os metadados do projeto.', _e2); }catch(_e3){}
+        return false;
+      }
+    }
+  }
+
+  function loadMetadata(){
+    var loaded = {};
+    try{
+      var raw = localStorage.getItem(META_KEY);
+      loaded = raw ? (JSON.parse(raw) || {}) : {};
+    }catch(e){ loaded = {}; }
+    window.pmData = loaded;
+    try{ pmData = loaded; }catch(e){}
+    applyCache(loaded);
+    return loaded;
+  }
+
+  function queueRender(){
+    if(renderQueued) return;
+    renderQueued = true;
+    setTimeout(function(){
+      renderQueued = false;
+      try{
+        var dash = document.getElementById('dashboard');
+        if(dash && dash.classList.contains('active')){
+          if(typeof currentFolderId !== 'undefined' && currentFolderId && pmData[currentFolderId] && typeof openFolderPage === 'function'){
+            openFolderPage(currentFolderId);
+          }else if(typeof dbRenderList === 'function'){
+            dbRenderList();
+          }
+        }
+      }catch(e){}
+      try{
+        if(typeof pmFolderId !== 'undefined' && pmFolderId && typeof pmRenderProjects === 'function') pmRenderProjects();
+      }catch(e){}
+    }, 0);
+  }
+
+  function migrateLegacyLocalMap(){
+    var legacy = {};
+    try{ legacy = JSON.parse(localStorage.getItem(LEGACY_IMG_KEY) || '{}') || {}; }catch(e){ legacy = {}; }
+    Object.keys(legacy).forEach(function(pid){
+      if(isDataImage(legacy[pid])) remember(pid, legacy[pid]);
+    });
+    try{ localStorage.removeItem(LEGACY_IMG_KEY); }catch(e){}
+  }
+
+  function hydrateOnce(){
+    if(hydrateStarted) return;
+    hydrateStarted = true;
+    migrateLegacyLocalMap();
+    try{ collectRuntimeImages(pmData); }catch(e){}
+    saveMetadata();
+    dbReadAll(function(map){
+      Object.keys(map || {}).forEach(function(pid){
+        if(isDataImage(map[pid])) cache[String(pid)] = map[pid];
+      });
+      dbReadLegacyV2(function(legacyMap){
+        Object.keys(legacyMap || {}).forEach(function(pid){
+          if(isDataImage(legacyMap[pid]) && !cache[String(pid)]){
+            cache[String(pid)] = legacyMap[pid];
+            dbPut(String(pid), legacyMap[pid]);
+          }
+        });
+        hydrateFinished = true;
+        try{ applyCache(pmData); }catch(e){}
+        saveMetadata();
+        queueRender();
+      });
+    });
+  }
+
+  window.pmLoad = loadMetadata;
+  window.pmSave = saveMetadata;
+  window.mtmPersistProjectImage = function(pid, data){
+    if(data) remember(pid, data); else forget(pid);
+  };
+  window.mtmGetProjectImage = function(projectOrId){
+    var pid = typeof projectOrId === 'object' && projectOrId ? projectOrId.id : projectOrId;
+    var direct = typeof projectOrId === 'object' && projectOrId ? (projectOrId.img || projectOrId.logo) : null;
+    return (isDataImage(direct) ? direct : null) || cache[String(pid || '')] || null;
+  };
+
+  window.dbApplyProjectImg = function(pid, dataUrl){
+    var found = (typeof dbFindByPid === 'function') ? dbFindByPid(pid) : null;
+    if(!found || !found.p) return;
+    if(dataUrl){
+      remember(pid, dataUrl);
+      found.p.img = dataUrl;
+      found.p.logo = dataUrl;
+      found.p.imageAssetId = String(pid);
+    }else{
+      forget(pid);
+      found.p.img = null;
+      found.p.logo = null;
+      delete found.p.imageAssetId;
+    }
+    saveMetadata();
+    try{ if(typeof dbRefreshProjectImgBox === 'function') dbRefreshProjectImgBox(found.p); }catch(e){}
+    try{ if(typeof pmRenderProjects === 'function' && typeof pmFolderId !== 'undefined' && pmFolderId) pmRenderProjects(); }catch(e){}
+    try{ if(typeof showToast === 'function') showToast('🖼️ Imagem salva sem bloquear os projetos.'); }catch(e){}
+  };
+
+  window.dbRemoveProjectImgById = function(pid){
+    if(typeof __reqDel === 'function' && !__reqDel(pid)) return;
+    var found = (typeof dbFindByPid === 'function') ? dbFindByPid(pid) : null;
+    if(!found || !found.p) return;
+    if(!confirm('Remover a imagem da peça deste projeto?')) return;
+    window.dbApplyProjectImg(pid, null);
+  };
+
+  function pickCompressed(pid, maxBytes){
+    if(typeof __reqEdit === 'function' && !__reqEdit(pid)) return;
+    var inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/*';
+    inp.style.display = 'none';
+    inp.onchange = function(){
+      var file = inp.files && inp.files[0];
+      if(!file){ inp.remove(); return; }
+      if(file.size > (maxBytes || 12 * 1024 * 1024)){
+        alert('Imagem muito grande. Selecione uma imagem de até 12 MB.');
+        inp.remove(); return;
+      }
+      var reader = new FileReader();
+      reader.onload = function(ev){
+        var original = ev.target.result;
+        var image = new Image();
+        image.onload = function(){
+          var output = original;
+          try{
+            var maxSide = 960;
+            var w = image.naturalWidth || image.width;
+            var h = image.naturalHeight || image.height;
+            if(w > maxSide || h > maxSide){
+              var ratio = Math.min(maxSide / w, maxSide / h);
+              w = Math.max(1, Math.round(w * ratio));
+              h = Math.max(1, Math.round(h * ratio));
+            }
+            var canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(image, 0, 0, w, h);
+            output = canvas.toDataURL('image/jpeg', 0.78) || original;
+          }catch(e){ output = original; }
+          window.dbApplyProjectImg(pid, output);
+          inp.remove();
+        };
+        image.onerror = function(){ window.dbApplyProjectImg(pid, original); inp.remove(); };
+        image.src = original;
+      };
+      reader.onerror = function(){ alert('Erro ao ler a imagem.'); inp.remove(); };
+      reader.readAsDataURL(file);
+    };
+    document.body.appendChild(inp);
+    inp.click();
+  }
+
+  window.dbPickProjectImgById = function(pid){ pickCompressed(pid, 12 * 1024 * 1024); };
+  window.pmPickProjectLogo = function(i){
+    var f = (typeof pmGetFolder === 'function') ? pmGetFolder() : null;
+    var p = f && f.projects && f.projects[i];
+    if(!p || !p.id) return;
+    pickCompressed(p.id, 12 * 1024 * 1024);
+  };
+
+  if(typeof mtmReportImgHtml === 'function'){
+    window.mtmReportImgHtml = function(){
+      var p = (typeof mtmActiveProject === 'function') ? mtmActiveProject() : null;
+      var img = p ? window.mtmGetProjectImage(p) : null;
+      if(!img) return '';
+      var nm = p && p.name && typeof esc === 'function' ? esc(p.name) : '';
+      return '<div style="text-align:center;margin-bottom:20px">'
+        + '<img src="' + img + '" alt="Imagem da peça" style="max-width:100%;max-height:300px;border-radius:12px;border:1px solid var(--border2);box-shadow:var(--shadow-sm)">'
+        + (nm ? '<div style="font-size:11px;color:var(--text3);margin-top:6px">Peça: <strong style="color:var(--text2)">' + nm + '</strong></div>' : '')
+        + '</div>';
     };
   }
 
-  window.pmSave=function(){
-    if(typeof pmData==='undefined') return;
-    var imgs={};
-    Object.keys(pmData||{}).forEach(function(fid){
-      var f=pmData[fid];
-      (f&&f.projects||[]).forEach(function(p){
-        if(p&&p.id&&(p.img||p.logo)){ var im=p.img||p.logo; imgs[p.id]=im; persist(p.id,im); }
-      });
-    });
-    try{
-      localStorage.setItem(typeof PM_KEY!=='undefined'?PM_KEY:'pmgr_v3',JSON.stringify(pmData));
-    }catch(e){
-      try{
-        var clone=JSON.parse(JSON.stringify(pmData));
-        Object.keys(clone||{}).forEach(function(fid){
-          (clone[fid]&&clone[fid].projects||[]).forEach(function(p){ if(p) delete p.img; });
-        });
-        localStorage.setItem(typeof PM_KEY!=='undefined'?PM_KEY:'pmgr_v3',JSON.stringify(clone));
-      }catch(_e){}
-    }
-  };
-
-  window.dbApplyProjectImg=function(pid,dataUrl){
-    var found=(typeof dbFindByPid==='function')?dbFindByPid(pid):null;
-    if(!found||!found.p) return;
-    found.p.img=dataUrl||null;
-    found.p.logo=dataUrl||null;
-    persist(pid,found.p.img);
-    try{pmSave();}catch(e){}
-    try{if(typeof dbRefreshProjectImgBox==='function')dbRefreshProjectImgBox(found.p);}catch(e){}
-    try{if(typeof dbRenderList==='function'&&document.getElementById('dashboard')&&document.getElementById('dashboard').classList.contains('active'))dbRenderList();}catch(e){}
-    try{if(typeof showToast==='function')showToast('🖼️ Imagem da peça salva e mantida após atualizar.');}catch(e){}
-  };
-
-  window.dbRemoveProjectImgById=function(pid){
-    if(typeof __reqDel==='function'&&!__reqDel(pid))return;
-    var found=(typeof dbFindByPid==='function')?dbFindByPid(pid):null;
-    if(!found||!found.p)return;
-    if(!confirm('Remover a imagem da peça deste projeto?'))return;
-    found.p.img=null;
-    found.p.logo=null;
-    persist(pid,null);
-    try{pmSave();}catch(e){}
-    try{if(typeof dbRefreshProjectImgBox==='function')dbRefreshProjectImgBox(found.p);}catch(e){}
-  };
-
-  function bootImages(){
-    try{applyMap(localMap());}catch(e){}
-    setTimeout(hydrateFromDb,20);
+  function boot(){
+    try{ loadMetadata(); }catch(e){}
+    hydrateOnce();
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootImages);
-  else bootImages();
-  window.addEventListener('pageshow',bootImages);
-  document.addEventListener('visibilitychange',function(){
-    if(document.visibilityState==='hidden'){
-      try{pmSave();}catch(e){}
-    }
-  });
-  window.addEventListener('beforeunload',function(){ try{pmSave();}catch(e){} });
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, {once:true});
+  else boot();
+
+  window.addEventListener('beforeunload', function(){ try{ saveMetadata(); }catch(e){} });
 })();
 </script>
 
