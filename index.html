@@ -2431,6 +2431,14 @@ html[data-theme="light"] #dashboard{
 }
 </style>
 
+
+<style id="tratar-library-and-project-image-fix">
+#lib-grp option[value="Tratar"]{font-weight:800}
+.db-project-image-top{background:var(--surface2)}
+.db-project-image-top img{transition:transform .2s ease}
+.db-project-image-top:hover img{transform:scale(1.015)}
+</style>
+
 </head>
 <body>
 <!-- ══════════════════════════════════════════════════════════════
@@ -4369,7 +4377,7 @@ body.home-clean .db-company-card::after{
         <option value="Abrir">Abrir Embalagem</option>
         <option value="Fechar">Fechar Embalagem</option>
         <option value="Info">Tratar Informações</option>
-        <option value="Tratar">Tratar</option>
+        <option value="Tratar">Tratar · páginas 91 a 93 · 30 códigos</option>
         <option value="Geral">Transporte — Geral</option>
         <option value="Frontal">Empilhadeira Frontal</option>
         <option value="Retratil">Empilhadeira Retrátil</option>
@@ -4706,6 +4714,10 @@ const MATRIZ = {
   "IDTW" :{tmu:65,desc:"Inserir dados — palavra/código (máx. 6 teclas)"},
   "IDES" :{tmu:60,desc:"Digitalizar — scanner (código de barras)"},
   "IDEM" :{tmu:40,desc:"Digitalizar — cartão magnético"},
+  /* ── PROCESSOS PADRÃO UAS: TRATAR ── */
+  "M-RAD":{tmu:145,desc:"Limpar superfície de 50 x 50 cm com ar comprimido, escova ou vassoura"},
+  "M-BHA":{tmu:60,desc:"Aplicar óleo, tinta ou agente de limpeza em um ponto com pincel, almotolia, trapo ou tecido"},
+  "M-BRD":{tmu:220,desc:"Aplicar uma demão em superfície de 50 x 50 cm com rolo"},
   /* ── TRANSPORTE GERAL ── */
   "ABH"  :{tmu:20,desc:"Acionar — comando por alavanca (6LTABH)"},
   "ABJ"  :{tmu:10,desc:"Acionar — joystick ou semelhante (6LTABJ)"},
@@ -5816,9 +5828,19 @@ function renderRow(sid,rid,focus=false){
   codeInp.addEventListener('input',()=>{
     const v=codeInp.value.toUpperCase().trim();
     row.code=codeInp.value;
-    showAC(v,acList,(code,tmu)=>{
-      codeInp.value=code; row.code=code; row.tmu=tmu;
-      tr.querySelector('[data-f="tmu"]').value=tmu;
+    showAC(v,acList,(code,tmu,desc)=>{
+      codeInp.value=code;
+      row.code=code;
+      const hasTmu = tmu !== null && tmu !== undefined && tmu !== '' && isFinite(Number(tmu));
+      if(hasTmu){
+        row.tmu=Number(tmu);
+        tr.querySelector('[data-f="tmu"]').value=Number(tmu);
+      }
+      const descInp = tr.querySelector('[data-f="desc"]');
+      if(descInp && !String(descInp.value||'').trim() && desc){
+        descInp.value=desc;
+        row.desc=desc;
+      }
       calcRow(sid,rid); acList.classList.remove('show');
       saveSheets();
     });
@@ -5859,16 +5881,43 @@ function hlAC(items,idx){
 
 function showAC(val,list,onSel){
   if(!val){list.classList.remove('show');return}
-  const m=Object.entries(MATRIZ).filter(([c])=>c.startsWith(val)||c.includes(val)).slice(0,18);
+  const query=String(val||'').toUpperCase().trim();
+  const merged=[];
+  const seen={};
+  function add(code,tmu,desc){
+    const c=String(code||'').toUpperCase().trim();
+    if(!c || seen[c]) return;
+    if(!(c.startsWith(query)||c.includes(query))) return;
+    seen[c]=true;
+    merged.push({code:c,tmu:tmu,desc:desc||''});
+  }
+  Object.entries(MATRIZ||{}).forEach(([c,info])=>add(c,info&&info.tmu,info&&info.desc));
+  try{
+    if(typeof LIB_CODES!=='undefined' && Array.isArray(LIB_CODES)){
+      LIB_CODES.forEach(info=>add(info.code,info.tmu,info.desc));
+    }
+  }catch(e){}
+  merged.sort((a,b)=>{
+    const ap=a.code.startsWith(query)?0:1, bp=b.code.startsWith(query)?0:1;
+    return ap-bp || a.code.localeCompare(b.code,'pt-BR');
+  });
+  const m=merged.slice(0,30);
   if(!m.length){list.classList.remove('show');return}
-  list.innerHTML=m.map(([c,info])=>`
-    <div class="ac-item" data-code="${c}" data-tmu="${info.tmu}">
-      <span class="ac-code">${c}</span>
-      <span class="ac-tmu">${info.tmu} TMU</span>
-      <span class="ac-desc">${info.desc}</span>
-    </div>`).join('');
+  list.innerHTML=m.map(info=>{
+    const hasTmu=info.tmu!==null&&info.tmu!==undefined&&info.tmu!==''&&isFinite(Number(info.tmu));
+    const tmuTxt=hasTmu?Number(info.tmu)+' TMU':'Consultar';
+    const dataTmu=hasTmu?String(Number(info.tmu)):'';
+    return `<div class="ac-item" data-code="${info.code}" data-tmu="${dataTmu}" data-desc="${String(info.desc||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">
+      <span class="ac-code">${info.code}</span>
+      <span class="ac-tmu">${tmuTxt}</span>
+      <span class="ac-desc">${info.desc||''}</span>
+    </div>`;
+  }).join('');
   list.querySelectorAll('.ac-item').forEach(it=>{
-    it.addEventListener('mousedown',()=>onSel(it.dataset.code,parseFloat(it.dataset.tmu)));
+    it.addEventListener('mousedown',()=>{
+      const raw=it.dataset.tmu;
+      onSel(it.dataset.code,raw===''?null:parseFloat(raw),it.dataset.desc||'');
+    });
   });
   list.classList.add('show');
 }
@@ -8219,7 +8268,8 @@ function pmRenderFolders(){
       const np = (f.projects||[]).length;
       const ns = (f.projects||[]).reduce((a,p)=>(a + (p.sheets||[]).length),0);
       const folderProjects = f.projects || [];
-      const folderPhoto = (typeof dbGetClientLogo === 'function' ? dbGetClientLogo(f.name) : null) || f.logo || (folderProjects[0] && (folderProjects[0].img || folderProjects[0].logo)) || null;
+      const folderProjectWithPhoto = folderProjects.find(function(p){ return p && (p.img || p.logo); });
+      const folderPhoto = (typeof dbGetClientLogo === 'function' ? dbGetClientLogo(f.name) : null) || f.logo || (folderProjectWithPhoto && (folderProjectWithPhoto.img || folderProjectWithPhoto.logo)) || null;
       const bannerHtml = folderPhoto
         ? `<img src="${folderPhoto}" alt="">`
         : `<div class="pm-folder-banner-placeholder">🏭</div>`;
@@ -8460,6 +8510,8 @@ function pmPickProjectLogo(i){
     reader.onload = function(e){
       if(!f.projects[i]){ inp.remove(); return; }
       f.projects[i].logo = e.target.result;
+      f.projects[i].img = e.target.result;
+      try{ if(typeof window.mtmPersistProjectImage==='function') window.mtmPersistProjectImage(f.projects[i].id, e.target.result); }catch(_e){}
       pmSave();
       pmRenderProjects();
       inp.remove();
@@ -9735,8 +9787,9 @@ function dbRenderList(){
     var clientName = f.name || 'Sem nome';
     var projects = f.projects || [];
 
-    // Logo: store dedicado → logo da pasta → primeiro projeto
-    var logo = dbGetClientLogo(clientName) || f.logo || (projects[0] && (projects[0].img || projects[0].logo)) || null;
+    // Logo: store dedicado, logo da pasta ou primeiro projeto que realmente possui imagem
+    var projectWithPhoto = projects.find(function(p){ return p && (p.img || p.logo); });
+    var logo = dbGetClientLogo(clientName) || f.logo || (projectWithPhoto && (projectWithPhoto.img || projectWithPhoto.logo)) || null;
     var logoHtml = logo
       ? '<img src="' + logo + '" style="width:100%;height:100%;object-fit:cover">'
       : '🏭';
@@ -9972,17 +10025,18 @@ function dbProjectImgBox(p){
   if(!p) return '';
   var pid = p.id;
   var idArg = "'" + pid + "'";
-  if(p.img){
-    return '<div id="projimg-' + pid + '" style="position:relative;margin-bottom:10px;border-radius:8px;overflow:hidden;border:1px solid var(--border2)">'
-      + '<img src="' + p.img + '" alt="Imagem da peça" style="width:100%;height:96px;object-fit:cover;display:block">'
+  var projectImg = p.img || p.logo || null;
+  if(projectImg){
+    return '<div class="db-project-image-top" id="projimg-' + pid + '" style="position:relative;margin:-12px -12px 12px;border-radius:10px 10px 0 0;overflow:hidden;border-bottom:1px solid var(--border2)">'
+      + '<img src="' + projectImg + '" alt="Imagem da peça" style="width:100%;height:168px;object-fit:cover;display:block">'
       + '<div style="position:absolute;bottom:4px;right:4px;display:flex;gap:4px">'
       +   '<button onclick="event.stopPropagation();dbPickProjectImgById(' + idArg + ')" title="Trocar imagem da peça" style="background:rgba(0,0,0,.62);color:#fff;border:none;border-radius:5px;font-size:11px;padding:3px 7px;cursor:pointer">📷</button>'
       +   '<button onclick="event.stopPropagation();dbRemoveProjectImgById(' + idArg + ')" title="Remover imagem da peça" style="background:rgba(0,0,0,.62);color:#fff;border:none;border-radius:5px;font-size:11px;padding:3px 7px;cursor:pointer">🗑</button>'
       + '</div>'
       + '</div>';
   }
-  return '<div id="projimg-' + pid + '" onclick="event.stopPropagation();dbPickProjectImgById(' + idArg + ')" title="Adicionar imagem da peça (opcional)" '
-    + 'style="margin-bottom:10px;border:1px dashed var(--border3);border-radius:8px;height:44px;display:flex;align-items:center;justify-content:center;gap:6px;color:var(--text3);font-size:11px;cursor:pointer;background:var(--surface2)" '
+  return '<div class="db-project-image-top db-project-image-empty" id="projimg-' + pid + '" onclick="event.stopPropagation();dbPickProjectImgById(' + idArg + ')" title="Adicionar imagem da peça (opcional)" '
+    + 'style="margin:-12px -12px 12px;border-bottom:1px dashed var(--border3);height:74px;display:flex;align-items:center;justify-content:center;gap:6px;color:var(--text3);font-size:11px;cursor:pointer;background:var(--surface2)" '
     + 'onmouseover="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--accent)\'" '
     + 'onmouseout="this.style.borderColor=\'var(--border3)\';this.style.color=\'var(--text3)\'">'
     + '📷 <span>Imagem da peça (opcional)</span>'
@@ -10003,12 +10057,12 @@ function dbPickProjectImgById(pid){if(typeof __reqEdit==='function' && !__reqEdi
       imgEl.onload = function(){
         var out = src;
         try{
-          var max = 900, w = imgEl.width, h = imgEl.height;
+          var max = 720, w = imgEl.width, h = imgEl.height;
           if(w >= h && w > max){ h = Math.round(h * max / w); w = max; }
           else if(h > w && h > max){ w = Math.round(w * max / h); h = max; }
           var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
           cv.getContext('2d').drawImage(imgEl, 0, 0, w, h);
-          out = cv.toDataURL('image/jpeg', 0.85);
+          out = cv.toDataURL('image/jpeg', 0.76);
           if(!out || out.length < 32) out = src;
         }catch(err){ out = src; }
         dbApplyProjectImg(pid, out);
@@ -10419,13 +10473,13 @@ function openFolderPage(fid){
         +   '<button onclick="event.stopPropagation();dbRenameProjectInFolder(\'' + fid + '\',' + pi + ')" title="Renomear projeto" style="background:var(--orangeBg);border:1px solid rgba(255,149,0,.4);color:var(--orange);cursor:pointer;font-size:11px;border-radius:5px;padding:3px 7px;font-weight:700" onmouseover="this.style.background=\'var(--orange)\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'var(--orangeBg)\';this.style.color=\'var(--orange)\'">✏️</button>'
         +   '<button onclick="event.stopPropagation();dbDelProjectInFolder(\'' + fid + '\',' + pi + ')" title="Excluir projeto" style="background:var(--redBg);border:1px solid rgba(255,77,109,.4);color:var(--red);cursor:pointer;font-size:11px;border-radius:5px;padding:3px 7px;font-weight:700" onmouseover="this.style.background=\'var(--red)\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'var(--redBg)\';this.style.color=\'var(--red)\'">✕</button>'
         + '</div>'
+        + dbProjectImgBox(p)
         + '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;padding-right:80px">' + dbEsc(p.name) + '</div>'
         + '<div style="font-size:10px;color:var(--text3);margin-bottom:10px">Criado em ' + dbEsc(p.date||'—') + '</div>'
         + '<div style="display:flex;gap:10px;font-size:10px;color:var(--text2);margin-bottom:10px">'
         + '<span>📋 <strong>' + ns + '</strong> folha(s)</span>'
         + '<span title="TTP = 100 − Allowance Total médio ponderado (TV + TER)">⏱ ' + pTTPText + '</span>'
         + '</div>'
-        + dbProjectImgBox(p)
         + '<button onclick="dbOpenProjectInFolder(\'' + fid + '\',' + pi + ')" style="width:100%;background:var(--accentGrad);color:#fff;border:none;padding:7px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700">Abrir Projeto →</button>'
         + '</div>';
     });
@@ -14012,6 +14066,7 @@ const LIB_CODES = [
   {code:"WRC",tmu:160,desc:"Carrinho de transporte — acréscimo acertar, <=200 kg", grp:"Carrinho", cat:"Tra"},
   {code:"WRD",tmu:215,desc:"Carrinho de transporte — acréscimo acertar, >200 kg", grp:"Carrinho", cat:"Tra"}
 ];
+window.MTM_LIBRARY_CODES = LIB_CODES;
 
 // ══════════════════════════════════════════════════════
 // RELATÓRIO FINAL — CONSOLIDADO DE TODAS AS FOLHAS
@@ -14730,7 +14785,7 @@ function renderLibrary(){
   var q   = (document.getElementById('lib-q').value||'').toLowerCase();
   var grp = document.getElementById('lib-grp').value;
 
-  var data = LIB_CODES;
+  var data = (typeof LIB_CODES !== 'undefined' && Array.isArray(LIB_CODES)) ? LIB_CODES : (window.MTM_LIBRARY_CODES || []);
   if(grp)  data = data.filter(function(c){ return c.grp === grp; });
   if(q)    data = data.filter(function(c){
     return c.code.toLowerCase().includes(q) || c.desc.toLowerCase().includes(q);
@@ -18892,6 +18947,163 @@ table.mtm tbody tr:not(.row-dragging):hover .row-del:hover {
   }else{
     setTimeout(_attachAll, 0);
   }
+})();
+</script>
+
+
+
+<!-- Persistência reforçada das imagens de projeto -->
+<script id="mtm-project-image-persistence-v2">
+(function(){
+  var IMG_KEY='mtm_project_images_v2';
+  var DB_NAME='mtm_project_assets_v2';
+  var DB_STORE='projectImages';
+  var hydrating=false;
+
+  function localMap(){
+    try{ return JSON.parse(localStorage.getItem(IMG_KEY)||'{}')||{}; }catch(e){ return {}; }
+  }
+  function saveLocal(pid,data){
+    try{
+      var m=localMap();
+      if(data) m[pid]=data; else delete m[pid];
+      localStorage.setItem(IMG_KEY,JSON.stringify(m));
+      return true;
+    }catch(e){ return false; }
+  }
+  function openDb(cb){
+    if(!window.indexedDB){ cb(null); return; }
+    try{
+      var req=indexedDB.open(DB_NAME,1);
+      req.onupgradeneeded=function(){
+        var db=req.result;
+        if(!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE);
+      };
+      req.onsuccess=function(){ cb(req.result); };
+      req.onerror=function(){ cb(null); };
+    }catch(e){ cb(null); }
+  }
+  function saveDb(pid,data){
+    openDb(function(db){
+      if(!db) return;
+      try{
+        var tx=db.transaction(DB_STORE,'readwrite');
+        var st=tx.objectStore(DB_STORE);
+        if(data) st.put(data,pid); else st.delete(pid);
+        tx.oncomplete=tx.onerror=function(){ try{db.close();}catch(e){} };
+      }catch(e){ try{db.close();}catch(_e){} }
+    });
+  }
+  function persist(pid,data){
+    saveLocal(pid,data);
+    saveDb(pid,data);
+  }
+  window.mtmPersistProjectImage=persist;
+  function applyMap(m){
+    if(!m || typeof pmData==='undefined' || !pmData) return false;
+    var changed=false;
+    Object.keys(pmData).forEach(function(fid){
+      var f=pmData[fid];
+      (f&&f.projects||[]).forEach(function(p){
+        if(p&&p.id&&m[p.id]){ if(!p.img){p.img=m[p.id];changed=true;} if(!p.logo){p.logo=m[p.id];changed=true;} }
+      });
+    });
+    return changed;
+  }
+  function hydrateFromDb(){
+    if(hydrating) return;
+    hydrating=true;
+    openDb(function(db){
+      if(!db){ hydrating=false; return; }
+      try{
+        var tx=db.transaction(DB_STORE,'readonly');
+        var st=tx.objectStore(DB_STORE);
+        var req=st.openCursor();
+        var m={};
+        req.onsuccess=function(ev){
+          var cur=ev.target.result;
+          if(cur){ m[cur.key]=cur.value; cur.continue(); return; }
+          var changed=applyMap(m);
+          hydrating=false;
+          try{db.close();}catch(e){}
+          if(changed){
+            try{ if(typeof dbRenderList==='function' && document.getElementById('dashboard')&&document.getElementById('dashboard').classList.contains('active')) dbRenderList(); }catch(e){}
+            try{ if(typeof pmRenderProjects==='function' && typeof pmFolderId!=='undefined' && pmFolderId) pmRenderProjects(); }catch(e){}
+          }
+        };
+        req.onerror=function(){ hydrating=false; try{db.close();}catch(e){} };
+      }catch(e){ hydrating=false; try{db.close();}catch(_e){} }
+    });
+  }
+
+  var originalPmLoad=typeof pmLoad==='function'?pmLoad:null;
+  if(originalPmLoad){
+    window.pmLoad=function(){
+      originalPmLoad();
+      applyMap(localMap());
+      setTimeout(hydrateFromDb,0);
+    };
+  }
+
+  window.pmSave=function(){
+    if(typeof pmData==='undefined') return;
+    var imgs={};
+    Object.keys(pmData||{}).forEach(function(fid){
+      var f=pmData[fid];
+      (f&&f.projects||[]).forEach(function(p){
+        if(p&&p.id&&(p.img||p.logo)){ var im=p.img||p.logo; imgs[p.id]=im; persist(p.id,im); }
+      });
+    });
+    try{
+      localStorage.setItem(typeof PM_KEY!=='undefined'?PM_KEY:'pmgr_v3',JSON.stringify(pmData));
+    }catch(e){
+      try{
+        var clone=JSON.parse(JSON.stringify(pmData));
+        Object.keys(clone||{}).forEach(function(fid){
+          (clone[fid]&&clone[fid].projects||[]).forEach(function(p){ if(p) delete p.img; });
+        });
+        localStorage.setItem(typeof PM_KEY!=='undefined'?PM_KEY:'pmgr_v3',JSON.stringify(clone));
+      }catch(_e){}
+    }
+  };
+
+  window.dbApplyProjectImg=function(pid,dataUrl){
+    var found=(typeof dbFindByPid==='function')?dbFindByPid(pid):null;
+    if(!found||!found.p) return;
+    found.p.img=dataUrl||null;
+    found.p.logo=dataUrl||null;
+    persist(pid,found.p.img);
+    try{pmSave();}catch(e){}
+    try{if(typeof dbRefreshProjectImgBox==='function')dbRefreshProjectImgBox(found.p);}catch(e){}
+    try{if(typeof dbRenderList==='function'&&document.getElementById('dashboard')&&document.getElementById('dashboard').classList.contains('active'))dbRenderList();}catch(e){}
+    try{if(typeof showToast==='function')showToast('🖼️ Imagem da peça salva e mantida após atualizar.');}catch(e){}
+  };
+
+  window.dbRemoveProjectImgById=function(pid){
+    if(typeof __reqDel==='function'&&!__reqDel(pid))return;
+    var found=(typeof dbFindByPid==='function')?dbFindByPid(pid):null;
+    if(!found||!found.p)return;
+    if(!confirm('Remover a imagem da peça deste projeto?'))return;
+    found.p.img=null;
+    found.p.logo=null;
+    persist(pid,null);
+    try{pmSave();}catch(e){}
+    try{if(typeof dbRefreshProjectImgBox==='function')dbRefreshProjectImgBox(found.p);}catch(e){}
+  };
+
+  function bootImages(){
+    try{applyMap(localMap());}catch(e){}
+    setTimeout(hydrateFromDb,20);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootImages);
+  else bootImages();
+  window.addEventListener('pageshow',bootImages);
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='hidden'){
+      try{pmSave();}catch(e){}
+    }
+  });
+  window.addEventListener('beforeunload',function(){ try{pmSave();}catch(e){} });
 })();
 </script>
 
