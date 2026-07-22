@@ -991,7 +991,62 @@ tr.row-drop-below td{border-bottom:2px solid var(--accent)!important}
 .lib-footer{padding:10px 14px;border-top:1px solid var(--border);background:var(--surface2);font-size:10px;color:var(--text3);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .lib-hint{background:var(--accentBg);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;padding:7px 12px;font-size:10.5px;color:var(--accent);font-weight:500;margin:10px 14px;flex-shrink:0}
 .lib-no-results{text-align:center;padding:40px 20px;color:var(--text3);font-size:12px}
-@media(max-width:600px){#lib-panel{max-width:100%}}
+
+.lib-admin-bar{
+  padding:8px 14px;border-bottom:1px solid var(--border);background:var(--surface2);
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0;
+}
+.lib-admin-btn{
+  border:1px solid var(--border2);border-radius:8px;background:var(--surface3);color:var(--text2);
+  padding:7px 11px;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.lib-admin-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accentBg)}
+.lib-admin-btn.primary{background:var(--accentGrad);color:#fff;border:none}
+.lib-admin-note{font-size:10px;color:var(--text3);margin-left:auto}
+.lib-row-actions{display:flex;align-items:center;justify-content:flex-end;gap:4px;white-space:nowrap}
+.lib-row-act{
+  width:28px;height:28px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);
+  color:var(--text2);cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;
+}
+.lib-row-act:hover{color:var(--accent);border-color:var(--accent);background:var(--accentBg)}
+.lib-row-act.del:hover{color:var(--red);border-color:var(--red);background:var(--redBg)}
+.lib-admin-overlay{
+  position:fixed;inset:0;z-index:650;background:rgba(0,0,0,.68);display:flex;align-items:center;justify-content:center;
+  padding:18px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+.lib-admin-overlay.hidden{display:none}
+.lib-admin-modal{
+  width:min(540px,100%);background:var(--surface);border:1px solid var(--border2);border-radius:14px;
+  box-shadow:var(--shadow);overflow:hidden;position:relative;
+}
+.lib-admin-modal::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accentGrad)}
+.lib-admin-head{padding:16px 18px 12px;border-bottom:1px solid var(--border);background:var(--surface2)}
+.lib-admin-title{font-size:15px;font-weight:800;color:var(--text)}
+.lib-admin-sub{font-size:10px;color:var(--text3);margin-top:3px;line-height:1.5}
+.lib-admin-body{padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.lib-admin-field{display:flex;flex-direction:column;gap:5px}
+.lib-admin-field.full{grid-column:1/-1}
+.lib-admin-field label{font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--text2)}
+.lib-admin-input,.lib-admin-textarea,.lib-admin-select{
+  width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);
+  padding:9px 11px;font-family:inherit;font-size:12px;outline:none;
+}
+.lib-admin-textarea{min-height:86px;resize:vertical;line-height:1.45}
+.lib-admin-input:focus,.lib-admin-textarea:focus,.lib-admin-select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accentBg)}
+.lib-admin-sec{font-family:'JetBrains Mono','Inter',monospace;color:var(--green);font-weight:800;font-size:12px;padding-top:7px}
+.lib-admin-check{grid-column:1/-1;display:flex;align-items:flex-start;gap:8px;font-size:11px;color:var(--text2);line-height:1.45}
+.lib-admin-check input{margin-top:2px;accent-color:var(--accent)}
+.lib-admin-err{grid-column:1/-1;display:none;padding:9px 11px;border-radius:7px;background:var(--redBg);color:var(--red);border:1px solid rgba(255,77,109,.3);font-size:11px;font-weight:700}
+.lib-admin-err.show{display:block}
+.lib-admin-foot{padding:12px 18px;border-top:1px solid var(--border);background:var(--surface2);display:flex;justify-content:flex-end;gap:8px}
+@media(max-width:600px){
+  #lib-panel{max-width:100%}
+  .lib-admin-note{width:100%;margin-left:0}
+  .lib-admin-body{grid-template-columns:1fr}
+  .lib-admin-field.full,.lib-admin-check,.lib-admin-err{grid-column:1}
+}
+
 
 /* ===== RESULTS MODAL ===== */
 .res-overlay{
@@ -4398,7 +4453,12 @@ body.home-clean .db-company-card::after{
         <option value="Carrinho">Carrinho de Transporte</option>
       </select>
     </div>
-    <div class="lib-hint">⚡ Clique em qualquer linha para preencher o código, o TMU e calcular os segundos automaticamente.</div>
+    <div class="lib-admin-bar">
+      <button class="lib-admin-btn primary" onclick="libAdminAdd()">➕ Adicionar código</button>
+      <button class="lib-admin-btn" onclick="libAdminOpenHelp()">ℹ️ Regras de edição</button>
+      <span class="lib-admin-note">Adicionar, editar e excluir exige liberação de edição. As alterações ficam salvas neste navegador.</span>
+    </div>
+    <div class="lib-hint" id="lib-target-hint">⚡ Clique em qualquer linha para preencher o código, o TMU e calcular os segundos automaticamente.</div>
     <div class="lib-body">
       <table>
         <thead><tr>
@@ -4407,6 +4467,7 @@ body.home-clean .db-company-card::after{
           <th style="width:66px;text-align:right">TMU</th>
           <th style="width:72px;text-align:right">Segundos</th>
           <th style="width:86px">Grupo</th>
+          <th style="width:78px;text-align:right">Ações</th>
         </tr></thead>
         <tbody id="lib-table-body"></tbody>
       </table>
@@ -4414,6 +4475,63 @@ body.home-clean .db-company-card::after{
     <div class="lib-footer">
       <span id="lib-count">0 códigos</span>
       <span>1 TMU = 0,036 s &nbsp;·&nbsp; “Consultar” indica valor não apresentado nas páginas 91 a 93</span>
+    </div>
+  </div>
+</div>
+
+<div class="lib-admin-overlay hidden" id="lib-admin-overlay" onclick="libAdminCloseOnBg(event)">
+  <div class="lib-admin-modal">
+    <div class="lib-admin-head">
+      <div class="lib-admin-title" id="lib-admin-title">Adicionar código</div>
+      <div class="lib-admin-sub">O valor em segundos é calculado automaticamente usando 1 TMU = 0,036 segundo.</div>
+    </div>
+    <div class="lib-admin-body">
+      <input type="hidden" id="lib-admin-original">
+      <div class="lib-admin-field">
+        <label>Código</label>
+        <input class="lib-admin-input" id="lib-admin-code" maxlength="20" autocomplete="off" placeholder="M-RAB" oninput="libAdminNormalizeCode(this);libAdminUpdateSeconds()">
+      </div>
+      <div class="lib-admin-field">
+        <label>TMU</label>
+        <input class="lib-admin-input" id="lib-admin-tmu" type="number" min="0" step="0.01" placeholder="Deixe vazio para Consultar" oninput="libAdminUpdateSeconds()">
+      </div>
+      <div class="lib-admin-field full">
+        <label>Descrição</label>
+        <textarea class="lib-admin-textarea" id="lib-admin-desc" placeholder="Descreva claramente a atividade"></textarea>
+      </div>
+      <div class="lib-admin-field">
+        <label>Grupo</label>
+        <input class="lib-admin-input" id="lib-admin-grp" list="lib-admin-groups" placeholder="Tratar">
+        <datalist id="lib-admin-groups">
+          <option value="Tratar"><option value="M Complementares"><option value="Desembalar"><option value="Parafusar">
+          <option value="Prender"><option value="Colar"><option value="Linhas"><option value="Marcar">
+          <option value="Normatizadas"><option value="Medir"><option value="Complementares"><option value="Manuseio">
+          <option value="Abrir"><option value="Fechar"><option value="Info"><option value="Geral">
+          <option value="Frontal"><option value="Retratil"><option value="Ope"><option value="Modulos">
+          <option value="Rebocador"><option value="Transpaleteira"><option value="Carrinho">
+        </datalist>
+      </div>
+      <div class="lib-admin-field">
+        <label>Categoria visual</label>
+        <select class="lib-admin-select" id="lib-admin-cat">
+          <option value="Man">Manuseio e processos UAS</option>
+          <option value="Comp">Complementar</option>
+          <option value="Tra">Transporte</option>
+        </select>
+      </div>
+      <div class="lib-admin-field full">
+        <label>Segundos calculados</label>
+        <div class="lib-admin-sec" id="lib-admin-sec">Consultar</div>
+      </div>
+      <label class="lib-admin-check" id="lib-admin-update-wrap">
+        <input type="checkbox" id="lib-admin-update-rows" checked>
+        <span>Ao editar, atualizar também o código e o TMU nas linhas existentes das folhas que usam este código. A descrição personalizada de uma linha será preservada.</span>
+      </label>
+      <div class="lib-admin-err" id="lib-admin-err"></div>
+    </div>
+    <div class="lib-admin-foot">
+      <button class="btn btn-ghost" onclick="libAdminClose()">Cancelar</button>
+      <button class="btn btn-primary" onclick="libAdminSave()">Salvar código</button>
     </div>
   </div>
 </div>
@@ -14205,6 +14323,239 @@ const LIB_CODES = [
 window.MTM_LIBRARY_CODES = LIB_CODES;
 
 // ══════════════════════════════════════════════════════
+// ADMINISTRAÇÃO DA BIBLIOTECA: adicionar, editar e excluir códigos
+// As alterações são persistidas no navegador e sincronizadas com o autocomplete.
+// ══════════════════════════════════════════════════════
+var LIB_ADMIN_STORAGE_KEY = 'mtm_library_admin_v2';
+var LIB_BASE_CODES = LIB_CODES.map(function(x){ return Object.assign({}, x); });
+var LIB_BASE_MATRIX = {};
+try{
+  Object.keys(MATRIZ || {}).forEach(function(k){ LIB_BASE_MATRIX[k] = Object.assign({}, MATRIZ[k]); });
+}catch(e){}
+var LIB_ADMIN_STATE = { upserts:{}, deleted:{} };
+
+function libAdminLoadState(){
+  try{
+    var raw = localStorage.getItem(LIB_ADMIN_STORAGE_KEY);
+    if(raw){
+      var parsed = JSON.parse(raw);
+      if(parsed && typeof parsed === 'object'){
+        LIB_ADMIN_STATE.upserts = parsed.upserts && typeof parsed.upserts === 'object' ? parsed.upserts : {};
+        LIB_ADMIN_STATE.deleted = parsed.deleted && typeof parsed.deleted === 'object' ? parsed.deleted : {};
+      }
+    }
+  }catch(e){
+    LIB_ADMIN_STATE = { upserts:{}, deleted:{} };
+  }
+}
+
+function libAdminPersist(){
+  try{ localStorage.setItem(LIB_ADMIN_STORAGE_KEY, JSON.stringify(LIB_ADMIN_STATE)); }
+  catch(e){ alert('Não foi possível salvar a alteração da biblioteca neste navegador.'); }
+}
+
+function libAdminCleanCode(v){
+  return String(v || '').trim().toUpperCase().replace(/\s+/g, '');
+}
+
+function libAdminEffectiveCodes(){
+  var order = [];
+  var map = {};
+  LIB_BASE_CODES.forEach(function(item){
+    var c = libAdminCleanCode(item.code);
+    if(!c || LIB_ADMIN_STATE.deleted[c]) return;
+    order.push(c);
+    map[c] = Object.assign({}, item, {code:c});
+  });
+  Object.keys(LIB_ADMIN_STATE.upserts || {}).forEach(function(k){
+    var item = LIB_ADMIN_STATE.upserts[k];
+    if(!item) return;
+    var c = libAdminCleanCode(item.code || k);
+    if(!c || LIB_ADMIN_STATE.deleted[c]) return;
+    if(!map[c]) order.push(c);
+    map[c] = {
+      code:c,
+      tmu:(item.tmu === null || item.tmu === undefined || item.tmu === '') ? null : Number(item.tmu),
+      desc:String(item.desc || ''),
+      grp:String(item.grp || 'Personalizados'),
+      cat:String(item.cat || 'Man')
+    };
+  });
+  return order.map(function(c){ return map[c]; }).filter(Boolean);
+}
+
+function libAdminApplyState(){
+  var effective = libAdminEffectiveCodes();
+  LIB_CODES.splice.apply(LIB_CODES, [0, LIB_CODES.length].concat(effective));
+  try{
+    Object.keys(MATRIZ || {}).forEach(function(k){ delete MATRIZ[k]; });
+    Object.keys(LIB_BASE_MATRIX).forEach(function(k){ MATRIZ[k] = Object.assign({}, LIB_BASE_MATRIX[k]); });
+    Object.keys(LIB_ADMIN_STATE.deleted || {}).forEach(function(k){ if(LIB_ADMIN_STATE.deleted[k]) delete MATRIZ[k]; });
+    effective.forEach(function(item){
+      MATRIZ[item.code] = { tmu:item.tmu, desc:item.desc };
+    });
+  }catch(e){}
+  window.MTM_LIBRARY_CODES = LIB_CODES;
+}
+
+function libAdminGate(){
+  if(window.__edUnlocked) return true;
+  if(typeof window.__mtmAuth === 'function') return !!window.__mtmAuth();
+  return confirm('Liberar edição da biblioteca?');
+}
+
+function libAdminFind(code){
+  var c = libAdminCleanCode(code);
+  return LIB_CODES.find(function(x){ return libAdminCleanCode(x.code) === c; }) || null;
+}
+
+function libAdminNormalizeCode(input){
+  if(!input) return;
+  var pos = input.selectionStart;
+  input.value = libAdminCleanCode(input.value).replace(/[^A-Z0-9-]/g, '');
+  try{ input.setSelectionRange(pos, pos); }catch(e){}
+}
+
+function libAdminUpdateSeconds(){
+  var el = document.getElementById('lib-admin-sec');
+  var raw = document.getElementById('lib-admin-tmu').value;
+  if(raw === '' || raw == null){ el.textContent = 'Consultar'; return; }
+  var n = Number(raw);
+  el.textContent = isFinite(n) && n >= 0 ? (n * 0.036).toFixed(3).replace('.', ',') + ' s' : 'Valor inválido';
+}
+
+function libAdminShowError(msg){
+  var el = document.getElementById('lib-admin-err');
+  el.textContent = msg || '';
+  el.classList.toggle('show', !!msg);
+}
+
+function libAdminOpen(item){
+  var editing = !!item;
+  document.getElementById('lib-admin-title').textContent = editing ? 'Editar código' : 'Adicionar código';
+  document.getElementById('lib-admin-original').value = editing ? item.code : '';
+  document.getElementById('lib-admin-code').value = editing ? item.code : '';
+  document.getElementById('lib-admin-tmu').value = editing && item.tmu !== null && item.tmu !== undefined ? item.tmu : '';
+  document.getElementById('lib-admin-desc').value = editing ? item.desc : '';
+  document.getElementById('lib-admin-grp').value = editing ? item.grp : 'Tratar';
+  document.getElementById('lib-admin-cat').value = editing ? (item.cat || 'Man') : 'Man';
+  document.getElementById('lib-admin-update-wrap').style.display = editing ? 'flex' : 'none';
+  document.getElementById('lib-admin-update-rows').checked = true;
+  libAdminShowError('');
+  libAdminUpdateSeconds();
+  document.getElementById('lib-admin-overlay').classList.remove('hidden');
+  setTimeout(function(){ document.getElementById('lib-admin-code').focus(); }, 60);
+}
+
+function libAdminAdd(){
+  if(!libAdminGate()) return;
+  libAdminOpen(null);
+}
+
+function libAdminEdit(code, ev){
+  if(ev){ ev.preventDefault(); ev.stopPropagation(); }
+  if(!libAdminGate()) return;
+  var item = libAdminFind(code);
+  if(!item){ alert('Código não encontrado.'); return; }
+  libAdminOpen(item);
+}
+
+function libAdminClose(){ document.getElementById('lib-admin-overlay').classList.add('hidden'); }
+function libAdminCloseOnBg(e){ if(e.target && e.target.id === 'lib-admin-overlay') libAdminClose(); }
+
+function libAdminUpdateSheetRows(oldCode, newItem){
+  var oldC = libAdminCleanCode(oldCode);
+  var count = 0;
+  try{
+    (sheets || []).forEach(function(s){
+      (s.rows || []).forEach(function(r){
+        if(libAdminCleanCode(r.code) !== oldC) return;
+        r.code = newItem.code;
+        r.tmu = newItem.tmu === null ? '' : newItem.tmu;
+        count++;
+        try{ calcRow(s.id, r.id); }catch(e){}
+      });
+    });
+    if(typeof saveSheets === 'function') saveSheets();
+    if(activeId){
+      var activeEl = document.getElementById('c-' + activeId);
+      if(activeEl){ activeEl.remove(); renderContent(activeId); }
+    }
+  }catch(e){}
+  return count;
+}
+
+function libAdminSave(){
+  var original = libAdminCleanCode(document.getElementById('lib-admin-original').value);
+  var code = libAdminCleanCode(document.getElementById('lib-admin-code').value);
+  var desc = String(document.getElementById('lib-admin-desc').value || '').trim();
+  var grp = String(document.getElementById('lib-admin-grp').value || '').trim();
+  var cat = String(document.getElementById('lib-admin-cat').value || 'Man');
+  var rawTmu = document.getElementById('lib-admin-tmu').value;
+  var tmu = rawTmu === '' ? null : Number(rawTmu);
+
+  if(!code) return libAdminShowError('Informe o código.');
+  if(code.length > 20) return libAdminShowError('O código pode ter no máximo 20 caracteres.');
+  if(!/^[A-Z0-9]+(?:-[A-Z0-9]+)*$/.test(code)) return libAdminShowError('Use apenas letras, números e hífen entre os blocos do código.');
+  if(!desc) return libAdminShowError('Informe a descrição do código.');
+  if(!grp) return libAdminShowError('Informe o grupo.');
+  if(tmu !== null && (!isFinite(tmu) || tmu < 0)) return libAdminShowError('O TMU deve ser um número igual ou maior que zero, ou ficar vazio para Consultar.');
+
+  var existing = libAdminFind(code);
+  if(existing && code !== original) return libAdminShowError('Já existe um código com este nome.');
+
+  var item = { code:code, tmu:tmu, desc:desc, grp:grp, cat:cat };
+  if(original && original !== code){
+    LIB_ADMIN_STATE.deleted[original] = true;
+    delete LIB_ADMIN_STATE.upserts[original];
+  }
+  delete LIB_ADMIN_STATE.deleted[code];
+  LIB_ADMIN_STATE.upserts[code] = item;
+  libAdminPersist();
+  libAdminApplyState();
+
+  var updated = 0;
+  if(original && document.getElementById('lib-admin-update-rows').checked){
+    updated = libAdminUpdateSheetRows(original, item);
+  }
+  libAdminClose();
+  renderLibrary();
+  if(typeof showToast === 'function') showToast('Código salvo' + (updated ? ' e atualizado em ' + updated + ' linha(s).' : '.'), false);
+}
+
+function libAdminCountUses(code){
+  var c = libAdminCleanCode(code), count = 0;
+  try{ (sheets || []).forEach(function(s){ (s.rows || []).forEach(function(r){ if(libAdminCleanCode(r.code) === c) count++; }); }); }catch(e){}
+  return count;
+}
+
+function libAdminDelete(code, ev){
+  if(ev){ ev.preventDefault(); ev.stopPropagation(); }
+  if(!libAdminGate()) return;
+  var item = libAdminFind(code);
+  if(!item){ alert('Código não encontrado.'); return; }
+  var uses = libAdminCountUses(code);
+  var msg = 'Digite exatamente ' + item.code + ' para excluir este código da biblioteca.';
+  if(uses) msg += '\n\nEle está usado em ' + uses + ' linha(s). Essas linhas serão preservadas e não serão apagadas.';
+  var typed = prompt(msg);
+  if(typed === null) return;
+  if(libAdminCleanCode(typed) !== item.code){ alert('Código digitado não confere. Exclusão cancelada.'); return; }
+  LIB_ADMIN_STATE.deleted[item.code] = true;
+  delete LIB_ADMIN_STATE.upserts[item.code];
+  libAdminPersist();
+  libAdminApplyState();
+  renderLibrary();
+  if(typeof showToast === 'function') showToast('Código excluído da biblioteca. As linhas existentes foram preservadas.', false);
+}
+
+function libAdminOpenHelp(){
+  alert('CONDIÇÕES DA BIBLIOTECA\n\nADICIONAR\nCódigo único, descrição e grupo são obrigatórios. TMU pode ficar vazio e aparecerá como Consultar. Segundos são calculados automaticamente.\n\nEDITAR\nExige liberação de edição. O código pode ser renomeado. É possível atualizar também as linhas existentes que usam o código.\n\nEXCLUIR\nExige liberação de edição e digitação exata do código. A exclusão remove o item da biblioteca e do autocomplete, mas preserva as linhas já usadas nas folhas.\n\nPERSISTÊNCIA\nAs alterações ficam salvas neste navegador.');
+}
+
+libAdminLoadState();
+libAdminApplyState();
+
+// ══════════════════════════════════════════════════════
 // RELATÓRIO FINAL — CONSOLIDADO DE TODAS AS FOLHAS
 // ══════════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════
@@ -14933,7 +15284,7 @@ function renderLibrary(){
   cnt.textContent = data.length + ' código' + (data.length!==1?'s':'');
 
   if(!data.length){
-    tb.innerHTML = '<tr><td colspan="5" class="lib-no-results">🔍 Nenhum código encontrado.<br>Tente outro filtro ou busca.</td></tr>';
+    tb.innerHTML = '<tr><td colspan="6" class="lib-no-results">🔍 Nenhum código encontrado.<br>Tente outro filtro ou busca.</td></tr>';
     return;
   }
 
@@ -14962,6 +15313,10 @@ function renderLibrary(){
          + '<td class="lib-tmu">'+tmuTxt+'</td>'
          + '<td class="lib-sec">'+secTxt+'</td>'
          + '<td><span class="lib-cat '+cls+'">'+lbl+'</span></td>'
+         + '<td><div class="lib-row-actions">'
+         + '<button class="lib-row-act" title="Editar código" onclick="libAdminEdit(\''+c.code.replace(/'/g,"\\'")+'\',event)">✏️</button>'
+         + '<button class="lib-row-act del" title="Excluir código" onclick="libAdminDelete(\''+c.code.replace(/'/g,"\\'")+'\',event)">🗑️</button>'
+         + '</div></td>'
          + '</tr>';
   }).join('');
 }
