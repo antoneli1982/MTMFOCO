@@ -4356,8 +4356,8 @@ body.home-clean .db-company-card::after{
 <div id="lib-overlay" onclick="libCloseOnBg(event)">
   <div id="lib-panel">
     <div class="lib-hdr">
-      <span class="lib-hdr-logo">📚 Biblioteca MTM Logística</span>
-      <span class="lib-hdr-sub">— Cap. 6 &amp; 7 · Clique para inserir na linha em foco</span>
+      <span class="lib-hdr-logo">📚 Biblioteca MTM e UAS</span>
+      <span class="lib-hdr-sub">— Logística e processos padrão UAS · Clique para inserir na linha em foco</span>
       <button class="lib-close" onclick="closeLibrary()">✕</button>
     </div>
     <div class="lib-filters">
@@ -4369,6 +4369,7 @@ body.home-clean .db-company-card::after{
         <option value="Abrir">Abrir Embalagem</option>
         <option value="Fechar">Fechar Embalagem</option>
         <option value="Info">Tratar Informações</option>
+        <option value="Tratar">Tratar</option>
         <option value="Geral">Transporte — Geral</option>
         <option value="Frontal">Empilhadeira Frontal</option>
         <option value="Retratil">Empilhadeira Retrátil</option>
@@ -4379,7 +4380,7 @@ body.home-clean .db-company-card::after{
         <option value="Carrinho">Carrinho de Transporte</option>
       </select>
     </div>
-    <div class="lib-hint">⚡ Clique em qualquer linha para preencher automaticamente o código e TMU da célula em foco na folha de processo.</div>
+    <div class="lib-hint">⚡ Clique em qualquer linha para preencher o código e o TMU quando o valor estiver informado no manual.</div>
     <div class="lib-body">
       <table>
         <thead><tr>
@@ -4394,7 +4395,7 @@ body.home-clean .db-company-card::after{
     </div>
     <div class="lib-footer">
       <span id="lib-count">0 códigos</span>
-      <span>1 TMU = 0,036 s &nbsp;·&nbsp; * Inclui val. complementares</span>
+      <span>1 TMU = 0,036 s &nbsp;·&nbsp; “Consultar” indica valor não apresentado nas páginas 91 a 93</span>
     </div>
   </div>
 </div>
@@ -13799,6 +13800,37 @@ const LIB_CODES = [
   {code:"IDTW",tmu:65,  desc:"Inserir dados — palavra/código (máx. 6 teclas)", grp:"Info", cat:"Man"},
   {code:"IDES",tmu:60,  desc:"Digitalizar — scanner (código de barras)", grp:"Info", cat:"Man"},
   {code:"IDEM",tmu:40,  desc:"Digitalizar — cartão magnético", grp:"Info", cat:"Man"},
+  // PROCESSOS PADRÃO UAS: TRATAR
+  {code:"M-RAB",tmu:null,desc:"Limpar superfície de 10 x 10 cm com ar comprimido, escova ou vassoura",grp:"Tratar",cat:"Man"},
+  {code:"M-RAC",tmu:null,desc:"Limpar superfície de 20 x 20 cm com ar comprimido, escova ou vassoura",grp:"Tratar",cat:"Man"},
+  {code:"M-RAD",tmu:145, desc:"Limpar superfície de 50 x 50 cm com ar comprimido, escova ou vassoura",grp:"Tratar",cat:"Man"},
+  {code:"M-RBB",tmu:null,desc:"Limpar superfície de 10 x 10 cm com pincel",grp:"Tratar",cat:"Man"},
+  {code:"M-RBC",tmu:null,desc:"Limpar superfície de 20 x 20 cm com pincel",grp:"Tratar",cat:"Man"},
+  {code:"M-RBD",tmu:null,desc:"Limpar superfície de 50 x 50 cm com pincel",grp:"Tratar",cat:"Man"},
+  {code:"M-RCB",tmu:null,desc:"Limpar superfície de 10 x 10 cm com pano ou tecido",grp:"Tratar",cat:"Man"},
+  {code:"M-RCC",tmu:null,desc:"Limpar superfície de 20 x 20 cm com pano ou tecido",grp:"Tratar",cat:"Man"},
+  {code:"M-RCD",tmu:null,desc:"Limpar superfície de 50 x 50 cm com pano ou tecido",grp:"Tratar",cat:"Man"},
+  {code:"M-BHA",tmu:60,  desc:"Aplicar óleo, tinta ou agente de limpeza em um ponto com pincel, almotolia, trapo ou tecido",grp:"Tratar",cat:"Man"},
+  {code:"M-BHB",tmu:null,desc:"Aplicar óleo, tinta ou agente de limpeza em 10 x 10 cm com pincel, almotolia, trapo ou tecido",grp:"Tratar",cat:"Man"},
+  {code:"M-BHC",tmu:null,desc:"Aplicar óleo, tinta ou agente de limpeza em 20 x 20 cm com pincel, almotolia, trapo ou tecido",grp:"Tratar",cat:"Man"},
+  {code:"M-BHD",tmu:null,desc:"Aplicar óleo, tinta ou agente de limpeza em 50 x 50 cm com pincel, almotolia, trapo ou tecido",grp:"Tratar",cat:"Man"},
+  {code:"M-BIB",tmu:null,desc:"Aplicar óleo, tinta ou agente de limpeza em 10 x 10 cm com lata de spray",grp:"Tratar",cat:"Man"},
+  {code:"M-BIC",tmu:null,desc:"Aplicar óleo, tinta ou agente de limpeza em 20 x 20 cm com lata de spray",grp:"Tratar",cat:"Man"},
+  {code:"M-BID",tmu:null,desc:"Aplicar óleo, tinta ou agente de limpeza em 50 x 50 cm com lata de spray",grp:"Tratar",cat:"Man"},
+  {code:"M-BKA",tmu:null,desc:"Engraxar um ponto com engraxadeira",grp:"Tratar",cat:"Man"},
+  {code:"M-BRB",tmu:null,desc:"Aplicar uma demão em superfície de 10 x 10 cm com rolo",grp:"Tratar",cat:"Man"},
+  {code:"M-BRC",tmu:null,desc:"Aplicar uma demão em superfície de 20 x 20 cm com rolo",grp:"Tratar",cat:"Man"},
+  {code:"M-BRD",tmu:220, desc:"Aplicar uma demão em superfície de 50 x 50 cm com rolo",grp:"Tratar",cat:"Man"},
+  {code:"M-BNA",tmu:null,desc:"Aplicar cola ou massa de vedação em um ponto com pincel ou espátula",grp:"Tratar",cat:"Man"},
+  {code:"M-BNB",tmu:null,desc:"Aplicar cola ou massa de vedação em 10 x 10 cm com pincel ou espátula",grp:"Tratar",cat:"Man"},
+  {code:"M-BNC",tmu:null,desc:"Aplicar cola ou massa de vedação em 20 x 20 cm com pincel ou espátula",grp:"Tratar",cat:"Man"},
+  {code:"M-BND",tmu:null,desc:"Aplicar cola ou massa de vedação em 50 x 50 cm com pincel ou espátula",grp:"Tratar",cat:"Man"},
+  {code:"M-BQA",tmu:null,desc:"Aplicar cola ou massa de vedação em um ponto com tubo ou bastão",grp:"Tratar",cat:"Man"},
+  {code:"M-BQB",tmu:null,desc:"Aplicar cola ou massa de vedação em 10 x 10 cm com tubo ou bastão",grp:"Tratar",cat:"Man"},
+  {code:"M-BQC",tmu:null,desc:"Aplicar cola ou massa de vedação em 20 x 20 cm com tubo ou bastão",grp:"Tratar",cat:"Man"},
+  {code:"M-BQD",tmu:null,desc:"Aplicar cola ou massa de vedação em 50 x 50 cm com tubo ou bastão",grp:"Tratar",cat:"Man"},
+  {code:"M-BZI",tmu:null,desc:"Limpar ou lavar as mãos",grp:"Tratar",cat:"Man"},
+  {code:"M-BZH",tmu:null,desc:"Enxugar ou secar as mãos",grp:"Tratar",cat:"Man"},
   // TRANSPORTE — GERAL
   {code:"ABH", tmu:20,  desc:"Acionar — comando por alavanca", grp:"Geral", cat:"Tra"},
   {code:"ABJ", tmu:10,  desc:"Acionar — joystick ou semelhante", grp:"Geral", cat:"Tra"},
@@ -14715,7 +14747,7 @@ function renderLibrary(){
 
   var grpLabels = {
     Complementares:'Comp.', Manuseio:'Manuseio', Abrir:'Abrir Emb.',
-    Fechar:'Fechar Emb.', Info:'Tratar Info.', Geral:'T. Geral',
+    Fechar:'Fechar Emb.', Info:'Tratar Info.', Tratar:'Tratar', Geral:'T. Geral',
     Frontal:'Empilh. F.', Retratil:'Empilh. R.', Ope:'Empilh. Pé',
     Modulos:'Mód. Esp.', Rebocador:'Rebocador', Transpaleteira:'Transpal.',
     Carrinho:'Carrinho'
@@ -14725,12 +14757,16 @@ function renderLibrary(){
     var lbl = grpLabels[c.grp] || c.grp;
     var cls = getCatClass(c.cat);
     var d = c.desc.replace(/"/g,'&quot;');
-    return '<tr onclick="libInsertCode(\''+c.code.replace(/'/g,"\\'")+'\',' + c.tmu + ',\''+d.replace(/'/g,"\\'")+'\')"'
+    var hasTmu = c.tmu !== null && c.tmu !== undefined && c.tmu !== '' && isFinite(Number(c.tmu));
+    var tmuArg = hasTmu ? String(Number(c.tmu)) : 'null';
+    var tmuTxt = hasTmu ? String(c.tmu) : 'Consultar';
+    var secTxt = hasTmu ? (Number(c.tmu)*0.036).toFixed(2).replace('.',',') : '—';
+    return '<tr onclick="libInsertCode(\''+c.code.replace(/'/g,"\\'")+'\',' + tmuArg + ',\''+d.replace(/'/g,"\\'")+'\')"'
          + ' title="Clique para inserir: '+c.code+' — '+d+'">'
          + '<td><span class="lib-code">'+c.code+'</span></td>'
          + '<td class="lib-desc" title="'+d+'">'+c.desc+'</td>'
-         + '<td class="lib-tmu">'+c.tmu+'</td>'
-         + '<td class="lib-sec">'+((Number(c.tmu)||0)*0.036).toFixed(2).replace('.',',')+'</td>'
+         + '<td class="lib-tmu">'+tmuTxt+'</td>'
+         + '<td class="lib-sec">'+secTxt+'</td>'
          + '<td><span class="lib-cat '+cls+'">'+lbl+'</span></td>'
          + '</tr>';
   }).join('');
@@ -14746,7 +14782,8 @@ function libInsertCode(code, tmu, desc){
     var tr = input.closest('tr');
     if(tr){
       var tmuInput = tr.querySelector('[data-f="tmu"]');
-      if(tmuInput && !tmuInput.value){
+      var hasTmu = tmu !== null && tmu !== undefined && tmu !== '' && isFinite(Number(tmu));
+      if(tmuInput && !tmuInput.value && hasTmu){
         tmuInput.value = tmu;
         tmuInput.dispatchEvent(new Event('input', {bubbles:true}));
       }
