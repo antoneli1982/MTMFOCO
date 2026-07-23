@@ -14063,6 +14063,18 @@ const LIB_CODES = [
   {code:"KC",  tmu:110, desc:"Sentar-se e levantar-se", grp:"Complementares", cat:"Comp"},
   {code:"EH",  tmu:55,  desc:"Apanhar e depor meio auxiliar / ferramenta", grp:"Complementares", cat:"Comp"},
   // MANUSEIO
+  // VALORES IMPORTADOS DA BASE MTM2
+  {code:"HA1",tmu:25,desc:"Manusear meios auxiliar - Aprox. - faixa de dist. 1 · <= 20cm",grp:"Manuseio",cat:"Man"},
+  {code:"HA2",tmu:45,desc:"Manusear meios auxiliar - Aprox. - faixa de dist. 2 · >20cm <=50cm",grp:"Manuseio",cat:"Man"},
+  {code:"HA3",tmu:65,desc:"Manusear meios auxiliar - Aprox. - faixa de dist. 3 · >50cm <=80cm",grp:"Manuseio",cat:"Man"},
+  {code:"HB1",tmu:40,desc:"Manusear meios auxiliar - Solto - faixa de dist. 1 · <= 20cm",grp:"Manuseio",cat:"Man"},
+  {code:"HB2",tmu:60,desc:"Manusear meios auxiliar - Solto - faixa de dist. 2 · >20cm <=50cm",grp:"Manuseio",cat:"Man"},
+  {code:"HB3",tmu:75,desc:"Manusear meios auxiliar - Solto - faixa de dist. 3 · >50cm <=80cm",grp:"Manuseio",cat:"Man"},
+  {code:"HC1",tmu:50,desc:"Manusear meios auxiliar - Firme - faixa de dist. 1 · <= 20cm",grp:"Manuseio",cat:"Man"},
+  {code:"HC2",tmu:70,desc:"Manusear meios auxiliar - Firme - faixa de dist. 2 · >20cm <=50cm",grp:"Manuseio",cat:"Man"},
+  {code:"HC3",tmu:85,desc:"Manusear meios auxiliar - Firme - faixa de dist. 3 · >50cm <=80cm",grp:"Manuseio",cat:"Man"},
+  {code:"HUTZ",tmu:25,desc:"Manusear - Transferir -  Peça - Acréscimo de pega simultânea > 1 kg e/ou volumosa",grp:"Manuseio",cat:"Man"},
+  {code:"HB",tmu:60,desc:"Objeto - manusear meios aux.",grp:"Manuseio",cat:"Man"},
   {code:"HUKA",tmu:55,  desc:"Reposicionar recip. peq. (<=30cm), vazio, individual", grp:"Manuseio", cat:"Man"},
   {code:"HUKB",tmu:70,  desc:"Reposicionar recip. peq. (<=30cm), vazio, aos pares", grp:"Manuseio", cat:"Man"},
   {code:"HUKC",tmu:65,  desc:"Reposicionar recip. peq. (<=30cm), vazio, pilha (máx. 4)", grp:"Manuseio", cat:"Man"},
@@ -14205,36 +14217,36 @@ const LIB_CODES = [
   {code:"M-PFA",tmu:190,desc:"Determinar medida de até 150 mm com paquímetro ou micrômetro",grp:"Medir",cat:"Man"},
   {code:"M-PZF",tmu:105,desc:"Ajustar faixa de atuação ou zerar equipamento de medição de até 150 mm",grp:"Medir",cat:"Man"},
   // PROCESSOS PADRÃO UAS: TRATAR
-  {code:"M-RAB",tmu:null,desc:"Limpar superfície de 10 x 10 cm com ar comprimido, escova ou vassoura",grp:"Tratar",cat:"Man"},
-  {code:"M-RAC",tmu:null,desc:"Limpar superfície de 20 x 20 cm com ar comprimido, escova ou vassoura",grp:"Tratar",cat:"Man"},
+  {code:"M-RAB",tmu:30,desc:"Limpar superfície de 10 x 10 cm com ar comprimido, escova ou vassoura",grp:"Tratar",cat:"Man"},
+  {code:"M-RAC",tmu:45,desc:"Limpar superfície de 20 x 20 cm com ar comprimido, escova ou vassoura",grp:"Tratar",cat:"Man"},
   {code:"M-RAD",tmu:145, desc:"Limpar superfície de 50 x 50 cm com ar comprimido, escova ou vassoura",grp:"Tratar",cat:"Man"},
-  {code:"M-RBB",tmu:null,desc:"Limpar superfície de 10 x 10 cm com pincel",grp:"Tratar",cat:"Man"},
-  {code:"M-RBC",tmu:null,desc:"Limpar superfície de 20 x 20 cm com pincel",grp:"Tratar",cat:"Man"},
-  {code:"M-RBD",tmu:null,desc:"Limpar superfície de 50 x 50 cm com pincel",grp:"Tratar",cat:"Man"},
-  {code:"M-RCB",tmu:null,desc:"Limpar superfície de 10 x 10 cm com pano ou tecido",grp:"Tratar",cat:"Man"},
-  {code:"M-RCC",tmu:null,desc:"Limpar superfície de 20 x 20 cm com pano ou tecido",grp:"Tratar",cat:"Man"},
-  {code:"M-RCD",tmu:null,desc:"Limpar superfície de 50 x 50 cm com pano ou tecido",grp:"Tratar",cat:"Man"},
+  {code:"M-RBB",tmu:45,desc:"Limpar superfície de 10 x 10 cm com pincel",grp:"Tratar",cat:"Man"},
+  {code:"M-RBC",tmu:105,desc:"Limpar superfície de 20 x 20 cm com pincel",grp:"Tratar",cat:"Man"},
+  {code:"M-RBD",tmu:390,desc:"Limpar superfície de 50 x 50 cm com pincel",grp:"Tratar",cat:"Man"},
+  {code:"M-RCB",tmu:35,desc:"Limpar superfície de 10 x 10 cm com pano ou tecido",grp:"Tratar",cat:"Man"},
+  {code:"M-RCC",tmu:45,desc:"Limpar superfície de 20 x 20 cm com pano ou tecido",grp:"Tratar",cat:"Man"},
+  {code:"M-RCD",tmu:195,desc:"Limpar superfície de 50 x 50 cm com pano ou tecido",grp:"Tratar",cat:"Man"},
   {code:"M-BHA",tmu:60,  desc:"Aplicar óleo, tinta ou agente de limpeza em um ponto com pincel, almotolia, trapo ou tecido",grp:"Tratar",cat:"Man"},
-  {code:"M-BHB",tmu:null,desc:"Aplicar óleo, tinta ou agente de limpeza em 10 x 10 cm com pincel, almotolia, trapo ou tecido",grp:"Tratar",cat:"Man"},
-  {code:"M-BHC",tmu:null,desc:"Aplicar óleo, tinta ou agente de limpeza em 20 x 20 cm com pincel, almotolia, trapo ou tecido",grp:"Tratar",cat:"Man"},
-  {code:"M-BHD",tmu:null,desc:"Aplicar óleo, tinta ou agente de limpeza em 50 x 50 cm com pincel, almotolia, trapo ou tecido",grp:"Tratar",cat:"Man"},
-  {code:"M-BIB",tmu:null,desc:"Aplicar óleo, tinta ou agente de limpeza em 10 x 10 cm com lata de spray",grp:"Tratar",cat:"Man"},
-  {code:"M-BIC",tmu:null,desc:"Aplicar óleo, tinta ou agente de limpeza em 20 x 20 cm com lata de spray",grp:"Tratar",cat:"Man"},
-  {code:"M-BID",tmu:null,desc:"Aplicar óleo, tinta ou agente de limpeza em 50 x 50 cm com lata de spray",grp:"Tratar",cat:"Man"},
-  {code:"M-BKA",tmu:null,desc:"Engraxar um ponto com engraxadeira",grp:"Tratar",cat:"Man"},
-  {code:"M-BRB",tmu:null,desc:"Aplicar uma demão em superfície de 10 x 10 cm com rolo",grp:"Tratar",cat:"Man"},
-  {code:"M-BRC",tmu:null,desc:"Aplicar uma demão em superfície de 20 x 20 cm com rolo",grp:"Tratar",cat:"Man"},
+  {code:"M-BHB",tmu:60,desc:"Aplicar óleo, tinta ou agente de limpeza em 10 x 10 cm com pincel, almotolia, trapo ou tecido",grp:"Tratar",cat:"Man"},
+  {code:"M-BHC",tmu:75,desc:"Aplicar óleo, tinta ou agente de limpeza em 20 x 20 cm com pincel, almotolia, trapo ou tecido",grp:"Tratar",cat:"Man"},
+  {code:"M-BHD",tmu:200,desc:"Aplicar óleo, tinta ou agente de limpeza em 50 x 50 cm com pincel, almotolia, trapo ou tecido",grp:"Tratar",cat:"Man"},
+  {code:"M-BIB",tmu:110,desc:"Aplicar óleo, tinta ou agente de limpeza em 10 x 10 cm com lata de spray",grp:"Tratar",cat:"Man"},
+  {code:"M-BIC",tmu:160,desc:"Aplicar óleo, tinta ou agente de limpeza em 20 x 20 cm com lata de spray",grp:"Tratar",cat:"Man"},
+  {code:"M-BID",tmu:460,desc:"Aplicar óleo, tinta ou agente de limpeza em 50 x 50 cm com lata de spray",grp:"Tratar",cat:"Man"},
+  {code:"M-BKA",tmu:70,desc:"Engraxar um ponto com engraxadeira",grp:"Tratar",cat:"Man"},
+  {code:"M-BRB",tmu:80,desc:"Aplicar uma demão em superfície de 10 x 10 cm com rolo",grp:"Tratar",cat:"Man"},
+  {code:"M-BRC",tmu:105,desc:"Aplicar uma demão em superfície de 20 x 20 cm com rolo",grp:"Tratar",cat:"Man"},
   {code:"M-BRD",tmu:220, desc:"Aplicar uma demão em superfície de 50 x 50 cm com rolo",grp:"Tratar",cat:"Man"},
-  {code:"M-BNA",tmu:null,desc:"Aplicar cola ou massa de vedação em um ponto com pincel ou espátula",grp:"Tratar",cat:"Man"},
-  {code:"M-BNB",tmu:null,desc:"Aplicar cola ou massa de vedação em 10 x 10 cm com pincel ou espátula",grp:"Tratar",cat:"Man"},
-  {code:"M-BNC",tmu:null,desc:"Aplicar cola ou massa de vedação em 20 x 20 cm com pincel ou espátula",grp:"Tratar",cat:"Man"},
-  {code:"M-BND",tmu:null,desc:"Aplicar cola ou massa de vedação em 50 x 50 cm com pincel ou espátula",grp:"Tratar",cat:"Man"},
-  {code:"M-BQA",tmu:null,desc:"Aplicar cola ou massa de vedação em um ponto com tubo ou bastão",grp:"Tratar",cat:"Man"},
-  {code:"M-BQB",tmu:null,desc:"Aplicar cola ou massa de vedação em 10 x 10 cm com tubo ou bastão",grp:"Tratar",cat:"Man"},
-  {code:"M-BQC",tmu:null,desc:"Aplicar cola ou massa de vedação em 20 x 20 cm com tubo ou bastão",grp:"Tratar",cat:"Man"},
-  {code:"M-BQD",tmu:null,desc:"Aplicar cola ou massa de vedação em 50 x 50 cm com tubo ou bastão",grp:"Tratar",cat:"Man"},
-  {code:"M-BZI",tmu:null,desc:"Limpar ou lavar as mãos",grp:"Tratar",cat:"Man"},
-  {code:"M-BZH",tmu:null,desc:"Enxugar ou secar as mãos",grp:"Tratar",cat:"Man"},
+  {code:"M-BNA",tmu:70,desc:"Aplicar cola ou massa de vedação em um ponto com pincel ou espátula",grp:"Tratar",cat:"Man"},
+  {code:"M-BNB",tmu:190,desc:"Aplicar cola ou massa de vedação em 10 x 10 cm com pincel ou espátula",grp:"Tratar",cat:"Man"},
+  {code:"M-BNC",tmu:360,desc:"Aplicar cola ou massa de vedação em 20 x 20 cm com pincel ou espátula",grp:"Tratar",cat:"Man"},
+  {code:"M-BND",tmu:700,desc:"Aplicar cola ou massa de vedação em 50 x 50 cm com pincel ou espátula",grp:"Tratar",cat:"Man"},
+  {code:"M-BQA",tmu:50,desc:"Aplicar cola ou massa de vedação em um ponto com tubo ou bastão",grp:"Tratar",cat:"Man"},
+  {code:"M-BQB",tmu:80,desc:"Aplicar cola ou massa de vedação em 10 x 10 cm com tubo ou bastão",grp:"Tratar",cat:"Man"},
+  {code:"M-BQC",tmu:100,desc:"Aplicar cola ou massa de vedação em 20 x 20 cm com tubo ou bastão",grp:"Tratar",cat:"Man"},
+  {code:"M-BQD",tmu:340,desc:"Aplicar cola ou massa de vedação em 50 x 50 cm com tubo ou bastão",grp:"Tratar",cat:"Man"},
+  {code:"M-BZI",tmu:515,desc:"Limpar ou lavar as mãos",grp:"Tratar",cat:"Man"},
+  {code:"M-BZH",tmu:160,desc:"Enxugar ou secar as mãos",grp:"Tratar",cat:"Man"},
   // TRANSPORTE — GERAL
   {code:"ABH", tmu:20,  desc:"Acionar — comando por alavanca", grp:"Geral", cat:"Tra"},
   {code:"ABJ", tmu:10,  desc:"Acionar — joystick ou semelhante", grp:"Geral", cat:"Tra"},
@@ -14423,6 +14435,71 @@ window.MTM_LIBRARY_CODES = LIB_CODES;
 // As alterações são persistidas no navegador e sincronizadas com o autocomplete.
 // ══════════════════════════════════════════════════════
 var LIB_ADMIN_STORAGE_KEY = 'mtm_library_admin_v2';
+var LIB_OFFICIAL_TMU_PATCH = {
+  "HA1":25,
+  "HA2":45,
+  "HA3":65,
+  "HB1":40,
+  "HB2":60,
+  "HB3":75,
+  "HC1":50,
+  "HC2":70,
+  "HC3":85,
+  "M-RAB":30,
+  "M-RAC":45,
+  "M-RAD":145,
+  "M-RBB":45,
+  "M-RBC":105,
+  "M-RBD":390,
+  "M-RCB":35,
+  "M-RCC":45,
+  "M-RCD":195,
+  "M-BHA":60,
+  "M-BHB":60,
+  "M-BHC":75,
+  "M-BHD":200,
+  "M-BIB":110,
+  "M-BIC":160,
+  "M-BID":460,
+  "M-BKA":70,
+  "M-BRB":80,
+  "M-BRC":105,
+  "M-BRD":220,
+  "M-BNA":70,
+  "M-BNB":190,
+  "M-BNC":360,
+  "M-BND":700,
+  "M-BQA":50,
+  "M-BQB":80,
+  "M-BQC":100,
+  "M-BQD":340,
+  "M-BZI":515,
+  "M-BZH":160,
+  "HUKA":55,
+  "HUKB":70,
+  "HUKC":65,
+  "HUKD":90,
+  "HUGA":65,
+  "HUGB":100,
+  "HUGC":125,
+  "HUGD":125,
+  "HUTA":50,
+  "HUTB":55,
+  "HUTC":55,
+  "HUTD":115,
+  "HUTZ":25,
+  "HUPL":210,
+  "HTAA":145,
+  "HTAB":190,
+  "HFHV":65,
+  "HFHS":65,
+  "HFSA":175,
+  "HFSB":250,
+  "IAHA":70,
+  "IAHT":85,
+  "IAHR":50,
+  "HB":60
+};
 var LIB_BASE_CODES = LIB_CODES.map(function(x){ return Object.assign({}, x); });
 var LIB_BASE_MATRIX = {};
 try{
@@ -14645,10 +14722,23 @@ function libAdminDelete(code, ev){
 }
 
 function libAdminOpenHelp(){
-  alert('CONDIÇÕES DA BIBLIOTECA\n\nADICIONAR\nCódigo único, descrição e grupo são obrigatórios. TMU pode ficar vazio e aparecerá como Consultar. Segundos são calculados automaticamente.\n\nEDITAR\nExige liberação de edição. O código pode ser renomeado. É possível atualizar também as linhas existentes que usam o código.\n\nEXCLUIR\nExige liberação de edição e digitação exata do código. A exclusão remove o item da biblioteca e do autocomplete, mas preserva as linhas já usadas nas folhas.\n\nPERSISTÊNCIA\nAs alterações ficam salvas neste navegador.');
+  alert('CONDIÇÕES DA BIBLIOTECA\n\nADICIONAR\nCódigo único, descrição e grupo são obrigatórios. TMU pode ficar vazio e aparecerá como Consultar. Segundos são calculados automaticamente.\n\nEDITAR\nExige liberação de edição. O código pode ser renomeado. É possível atualizar também as linhas existentes que usam o código.\n\nEXCLUIR\nExige liberação de edição e digitação exata do código. A exclusão remove o item da biblioteca e do autocomplete, mas preserva as linhas já usadas nas folhas.\n\nPERSISTÊNCIA\nAs alterações ficam salvas neste navegador.\n\nBASE DE TEMPOS\nOs valores preenchidos nesta versão foram importados da planilha base mtm2.xlsx.');
 }
 
 libAdminLoadState();
+(function libAdminMigrateOfficialTmu(){
+  var changed = false;
+  try{
+    Object.keys(LIB_OFFICIAL_TMU_PATCH || {}).forEach(function(code){
+      var item = LIB_ADMIN_STATE.upserts && LIB_ADMIN_STATE.upserts[code];
+      if(item && (item.tmu === null || item.tmu === undefined || item.tmu === '')){
+        item.tmu = LIB_OFFICIAL_TMU_PATCH[code];
+        changed = true;
+      }
+    });
+  }catch(e){}
+  if(changed) libAdminPersist();
+})();
 libAdminApplyState();
 
 // ══════════════════════════════════════════════════════
