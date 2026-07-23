@@ -2494,6 +2494,99 @@ html[data-theme="light"] #dashboard{
 .db-project-image-top:hover img{transform:scale(1.015)}
 </style>
 
+
+<style id="lib-pdf-print-style">
+@media print{
+  #print-area .lib-print{
+    font-family:Arial,Helvetica,sans-serif;
+    color:#101828 !important;
+    background:#ffffff !important;
+    width:100%;
+    padding:0;
+  }
+  #print-area .lib-print *{
+    box-sizing:border-box;
+    text-shadow:none !important;
+    box-shadow:none !important;
+  }
+  #print-area .lib-print-header{
+    border-bottom:2px solid #075fbd;
+    padding:0 0 8pt;
+    margin-bottom:9pt;
+  }
+  #print-area .lib-print-title{
+    margin:0;
+    font-size:17pt;
+    font-weight:800;
+    color:#075fbd !important;
+  }
+  #print-area .lib-print-meta{
+    margin-top:4pt;
+    font-size:8.5pt;
+    color:#40516f !important;
+    line-height:1.5;
+  }
+  #print-area .lib-print-table{
+    width:100%;
+    border-collapse:collapse;
+    table-layout:fixed;
+    font-size:8.2pt;
+  }
+  #print-area .lib-print-table thead{
+    display:table-header-group;
+  }
+  #print-area .lib-print-table tr{
+    page-break-inside:avoid;
+  }
+  #print-area .lib-print-table th{
+    background:#e7f1ff !important;
+    color:#075fbd !important;
+    border:1px solid #9db9d6;
+    padding:5pt 4pt;
+    text-align:left;
+    font-size:7.5pt;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.3pt;
+  }
+  #print-area .lib-print-table td{
+    border:1px solid #b8c6d5;
+    padding:4.5pt 4pt;
+    vertical-align:top;
+    color:#101828 !important;
+    line-height:1.35;
+    word-wrap:break-word;
+  }
+  #print-area .lib-print-table tbody tr:nth-child(even) td{
+    background:#f6faff !important;
+  }
+  #print-area .lib-print-code{
+    font-family:"Courier New",monospace;
+    font-weight:800;
+    color:#075fbd !important;
+    white-space:nowrap;
+  }
+  #print-area .lib-print-num{
+    text-align:right;
+    font-family:"Courier New",monospace;
+    font-weight:700;
+    white-space:nowrap;
+  }
+  #print-area .lib-print-consultar{
+    color:#047857 !important;
+    font-weight:800;
+  }
+  #print-area .lib-print-footer{
+    margin-top:8pt;
+    padding-top:5pt;
+    border-top:1px solid #9db9d6;
+    font-size:7.5pt;
+    color:#40516f !important;
+    line-height:1.5;
+  }
+}
+</style>
+
 </head>
 <body>
 <!-- ══════════════════════════════════════════════════════════════
@@ -4455,6 +4548,7 @@ body.home-clean .db-company-card::after{
     </div>
     <div class="lib-admin-bar">
       <button class="lib-admin-btn primary" onclick="libAdminAdd()">➕ Adicionar código</button>
+      <button class="lib-admin-btn" onclick="libExportPDF()" title="Gerar PDF com a lista atualmente exibida">🖨️ Gerar PDF</button>
       <button class="lib-admin-btn" onclick="libAdminOpenHelp()">ℹ️ Regras de edição</button>
       <span class="lib-admin-note">Adicionar, editar e excluir exige liberação de edição. As alterações ficam salvas neste navegador.</span>
     </div>
@@ -6816,7 +6910,9 @@ function prepararPrint(){
 window.addEventListener('beforeprint', function(){
   try{
     var repOpen = document.querySelector('#finalrep-overlay:not(.hidden) .res-modal');
-    if((window._mtmPrintMode === 'relatorio' || repOpen) && typeof prepararPrintRelatorio === 'function'){
+    if(window._mtmPrintMode === 'biblioteca' && typeof prepararPrintBiblioteca === 'function'){
+      prepararPrintBiblioteca();
+    } else if((window._mtmPrintMode === 'relatorio' || repOpen) && typeof prepararPrintRelatorio === 'function'){
       prepararPrintRelatorio();
     } else {
       prepararPrint();
@@ -15319,6 +15415,115 @@ function renderLibrary(){
          + '</div></td>'
          + '</tr>';
   }).join('');
+}
+
+
+function libPdfCurrentData(){
+  var qEl = document.getElementById('lib-q');
+  var grpEl = document.getElementById('lib-grp');
+  var q = String(qEl ? qEl.value : '').toLowerCase();
+  var grp = String(grpEl ? grpEl.value : '');
+  var data = (typeof LIB_CODES !== 'undefined' && Array.isArray(LIB_CODES)) ? LIB_CODES.slice() : ((window.MTM_LIBRARY_CODES || []).slice());
+  if(grp === 'CategoriaM') data = data.filter(function(c){ return String(c.code || '').toUpperCase().startsWith('M-'); });
+  else if(grp) data = data.filter(function(c){ return String(c.grp || '') === grp; });
+  if(q) data = data.filter(function(c){
+    return String(c.code || '').toLowerCase().includes(q) || String(c.desc || '').toLowerCase().includes(q);
+  });
+  return data;
+}
+
+function libPdfEsc(v){
+  return String(v == null ? '' : v).replace(/[&<>\"]/g, function(ch){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'})[ch];
+  });
+}
+
+function prepararPrintBiblioteca(){
+  var box = document.getElementById('print-area');
+  if(!box) return;
+  var data = libPdfCurrentData();
+  var qEl = document.getElementById('lib-q');
+  var grpEl = document.getElementById('lib-grp');
+  var busca = String(qEl ? qEl.value : '').trim();
+  var grupo = '';
+  if(grpEl && grpEl.selectedIndex >= 0){
+    grupo = String(grpEl.options[grpEl.selectedIndex].text || '').trim();
+  }
+  if(!grupo) grupo = 'Todos os grupos';
+
+  var grpLabels = {
+    Complementares:'Complementares', Manuseio:'Manuseio', Abrir:'Abrir embalagem',
+    Fechar:'Fechar embalagem', Info:'Tratar informações', Tratar:'Tratar', Geral:'Transporte geral',
+    Frontal:'Empilhadeira frontal', Retratil:'Empilhadeira retrátil', Ope:'Empilhadeira operador a pé',
+    Modulos:'Módulos específicos', Rebocador:'Rebocador elétrico', Transpaleteira:'Transpaleteira manual',
+    Carrinho:'Carrinho de transporte', 'M Complementares':'Valores complementares M', Desembalar:'Desembalar',
+    Parafusar:'Parafusar', Prender:'Prender e afrouxar', Colar:'Atividades de colar', Linhas:'Linhas elétricas',
+    Marcar:'Marcar', Normatizadas:'Peças normatizadas', Medir:'Examinar ou medir'
+  };
+
+  var rows = data.map(function(c){
+    var hasTmu = c.tmu !== null && c.tmu !== undefined && c.tmu !== '' && isFinite(Number(c.tmu));
+    var tmu = hasTmu ? Number(c.tmu).toLocaleString('pt-BR', {maximumFractionDigits:3}) : 'Consultar';
+    var sec = hasTmu ? (Number(c.tmu) * 0.036).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:3}) : '—';
+    var grp = grpLabels[c.grp] || c.grp || 'Sem grupo';
+    return '<tr>'
+      + '<td><span class="lib-print-code">' + libPdfEsc(c.code) + '</span></td>'
+      + '<td>' + libPdfEsc(c.desc) + '</td>'
+      + '<td class="lib-print-num' + (hasTmu ? '' : ' lib-print-consultar') + '">' + libPdfEsc(tmu) + '</td>'
+      + '<td class="lib-print-num">' + libPdfEsc(sec) + '</td>'
+      + '<td>' + libPdfEsc(grp) + '</td>'
+      + '</tr>';
+  }).join('');
+
+  if(!rows){
+    rows = '<tr><td colspan="5" style="text-align:center;padding:18pt">Nenhum código encontrado para os filtros atuais.</td></tr>';
+  }
+
+  var agora = new Date();
+  var meta = 'Gerado em ' + agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})
+    + ' · Grupo: ' + grupo
+    + (busca ? ' · Busca: “' + busca + '”' : '')
+    + ' · Total: ' + data.length + ' código' + (data.length === 1 ? '' : 's');
+
+  box.innerHTML = ''
+    + '<div class="lib-print">'
+    + '<div class="lib-print-header">'
+    + '<h1 class="lib-print-title">Biblioteca MTM e UAS</h1>'
+    + '<div class="lib-print-meta">' + libPdfEsc(meta) + '</div>'
+    + '</div>'
+    + '<table class="lib-print-table">'
+    + '<colgroup><col style="width:15%"><col style="width:48%"><col style="width:10%"><col style="width:11%"><col style="width:16%"></colgroup>'
+    + '<thead><tr><th>Código</th><th>Descrição</th><th style="text-align:right">TMU</th><th style="text-align:right">Segundos</th><th>Grupo</th></tr></thead>'
+    + '<tbody>' + rows + '</tbody>'
+    + '</table>'
+    + '<div class="lib-print-footer">1 TMU corresponde a 0,036 segundo. “Consultar” indica que o valor numérico ainda não foi informado na biblioteca.</div>'
+    + '</div>';
+}
+
+function libExportPDF(){
+  var data = libPdfCurrentData();
+  if(!data.length){
+    alert('Nenhum código encontrado para gerar o PDF. Ajuste a busca ou o filtro.');
+    return;
+  }
+  var box = document.getElementById('print-area');
+  if(!box){
+    alert('Área de impressão indisponível.');
+    return;
+  }
+  var tituloAnterior = document.title;
+  window._mtmPrintMode = 'biblioteca';
+  prepararPrintBiblioteca();
+  document.title = 'Biblioteca MTM e UAS';
+
+  function restaurar(){
+    document.title = tituloAnterior;
+    window._mtmPrintMode = 'folhas';
+    try{ box.innerHTML = ''; }catch(e){}
+  }
+  window.addEventListener('afterprint', restaurar, {once:true});
+  setTimeout(function(){ window.print(); }, 120);
+  setTimeout(function(){ if(document.title === 'Biblioteca MTM e UAS') document.title = tituloAnterior; }, 8000);
 }
 
 function libInsertCode(code, tmu, desc){
