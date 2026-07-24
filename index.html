@@ -8555,8 +8555,8 @@ function pmRenderFolders(){
       const np = (f.projects||[]).length;
       const ns = (f.projects||[]).reduce((a,p)=>(a + (p.sheets||[]).length),0);
       const folderProjects = f.projects || [];
-      const folderProjectWithPhoto = folderProjects.find(function(p){ return p && (p.img || p.logo); });
-      const folderPhoto = (typeof dbGetClientLogo === 'function' ? dbGetClientLogo(f.name) : null) || f.logo || (folderProjectWithPhoto && (folderProjectWithPhoto.img || folderProjectWithPhoto.logo)) || null;
+      const folderProjectWithPhoto = folderProjects.find(function(p){ return p && dbResolveProjectImage(p); });
+      const folderPhoto = (typeof dbGetClientLogo === 'function' ? dbGetClientLogo(f.name) : null) || f.logo || (folderProjectWithPhoto && dbResolveProjectImage(folderProjectWithPhoto)) || null;
       const bannerHtml = folderPhoto
         ? `<img src="${folderPhoto}" alt="">`
         : `<div class="pm-folder-banner-placeholder">🏭</div>`;
@@ -8658,8 +8658,9 @@ function pmRenderProjects(){
       if(p.hidden) return; // projeto ocultado pela lâmpada: não aparece na lista principal
       const ns = (p.sheets||[]).length;
       const nn = (p.notes||[]).length;
-      const iconHtml = p.logo
-        ? `<img src="${p.logo}">`
+      const projectImage = dbResolveProjectImage(p);
+      const iconHtml = projectImage
+        ? `<img src="${projectImage}">`
         : `📄`;
       html += `
         <div class="pm-proj-card" onclick="pmOpenProject(${i})">
@@ -8671,7 +8672,7 @@ function pmRenderProjects(){
           </div>
           <div class="pm-proj-actions">
             <button class="pm-proj-hide" onclick="event.stopPropagation();pmToggleHideProject(${i})" title="Ocultar este projeto (clique na lâmpada de novo para trazer de volta)">💡</button>
-            <button class="pm-proj-edit-img" onclick="event.stopPropagation();pmPickProjectLogo(${i})" title="${p.logo?'Trocar imagem':'Adicionar imagem'}">📷</button>
+            <button class="pm-proj-edit-img" onclick="event.stopPropagation();pmPickProjectLogo(${i})" title="${projectImage?'Trocar imagem':'Adicionar imagem'}">📷</button>
             <button class="pm-proj-rename" onclick="event.stopPropagation();pmRenameProject(${i})" title="Renomear projeto">✏️</button>
             <button class="pm-proj-del" onclick="event.stopPropagation();pmDeleteProject(${i})" title="Excluir projeto">✕</button>
           </div>
@@ -8817,10 +8818,11 @@ function pmRenderProject(){
   const p = pmGetProject();
   if(!p) return;
   const body = document.getElementById('pm-body');
+  const projectImage = dbResolveProjectImage(p);
   body.innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
       <div style="width:42px;height:42px;border-radius:8px;border:1px solid var(--border2);overflow:hidden;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">
-        ${p.logo ? `<img src="${p.logo}" style="width:100%;height:100%;object-fit:cover">` : '📄'}
+        ${projectImage ? `<img src="${projectImage}" style="width:100%;height:100%;object-fit:cover">` : '📄'}
       </div>
       <div style="flex:1">
         <div style="font-size:14px;font-weight:700;color:var(--text)">${esc(p.name)}</div>
@@ -10075,8 +10077,8 @@ function dbRenderList(){
     var projects = f.projects || [];
 
     // Logo: store dedicado, logo da pasta ou primeiro projeto que realmente possui imagem
-    var projectWithPhoto = projects.find(function(p){ return p && (p.img || p.logo); });
-    var logo = dbGetClientLogo(clientName) || f.logo || (projectWithPhoto && (projectWithPhoto.img || projectWithPhoto.logo)) || null;
+    var projectWithPhoto = projects.find(function(p){ return p && dbResolveProjectImage(p); });
+    var logo = dbGetClientLogo(clientName) || f.logo || (projectWithPhoto && dbResolveProjectImage(projectWithPhoto)) || null;
     var logoHtml = logo
       ? '<img src="' + logo + '" style="width:100%;height:100%;object-fit:cover">'
       : '🏭';
@@ -10308,11 +10310,35 @@ function dbPickFolderLogo(fid){
 // IMAGEM DA PEÇA (opcional) — por projeto. Aparece no card e no relatório.
 // Guardada em p.img (data URL comprimido). Persiste no localStorage (pmSave).
 // ════════════════════════════════════════════════════════════════
+function dbResolveProjectImage(p){
+  if(!p) return null;
+  try{
+    if(typeof window.mtmGetProjectImage === 'function'){
+      var stored = window.mtmGetProjectImage(p);
+      if(stored) return stored;
+    }
+  }catch(e){}
+  return p.img || p.logo || null;
+}
+
+function dbProjectExportClone(p){
+  var clone;
+  try{ clone = JSON.parse(JSON.stringify(p || {})); }
+  catch(e){ clone = {}; }
+  var image = dbResolveProjectImage(p);
+  if(image){
+    clone.img = image;
+    clone.logo = image;
+    if(p && p.id) clone.imageAssetId = String(p.id);
+  }
+  return clone;
+}
+
 function dbProjectImgBox(p){
   if(!p) return '';
   var pid = p.id;
   var idArg = "'" + pid + "'";
-  var projectImg = p.img || p.logo || null;
+  var projectImg = dbResolveProjectImage(p);
   if(projectImg){
     return '<div class="db-project-image-top" id="projimg-' + pid + '" style="position:relative;margin:-12px -12px 12px;border-radius:10px 10px 0 0;overflow:hidden;border-bottom:1px solid var(--border2)">'
       + '<img src="' + projectImg + '" alt="Imagem da peça" style="width:100%;height:168px;object-fit:cover;display:block">'
@@ -11086,10 +11112,14 @@ function dbHandleProjectFileForFolder(input, fid){
       //    - Se o arquivo tem PM com 1 projeto: usar nome desse projeto
       //    - Senão: usar nome do arquivo (sem extensão)
       var nomeProjeto = null;
+      var incomingProjectData = null;
       if(incomingPM && typeof incomingPM === 'object'){
         Object.keys(incomingPM).forEach(function(k){
           var pl = (incomingPM[k] && incomingPM[k].projects) || [];
-          if(pl.length === 1 && !nomeProjeto) nomeProjeto = pl[0].name;
+          if(pl.length === 1 && !nomeProjeto){
+            nomeProjeto = pl[0].name;
+            incomingProjectData = pl[0];
+          }
         });
       }
       if(!nomeProjeto){
@@ -11104,11 +11134,15 @@ function dbHandleProjectFileForFolder(input, fid){
       }
 
       // 4) Criar projeto na empresa-alvo, vinculando as folhas reconstruídas
+      var importedProjectImage = incomingProjectData
+        ? (incomingProjectData.img || incomingProjectData.logo || null)
+        : null;
       var proj = {
         id: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
         client: pmData[fid].name,
         name: nomeProjeto,
-        logo: pmData[fid].logo || null,
+        logo: importedProjectImage || pmData[fid].logo || null,
+        img: importedProjectImage || null,
         date: new Date().toLocaleDateString('pt-BR'),
         sheets: rebuilt.map(function(s){
           // Atualizar header.projeto para refletir o nome do novo projeto
@@ -11119,6 +11153,9 @@ function dbHandleProjectFileForFolder(input, fid){
       };
       pmData[fid].projects = pmData[fid].projects || [];
       pmData[fid].projects.push(proj);
+      if(importedProjectImage && typeof window.mtmPersistProjectImage === 'function'){
+        window.mtmPersistProjectImage(proj.id, importedProjectImage);
+      }
       pmSave();
       if(typeof saveSheets === 'function') saveSheets();
 
@@ -14833,7 +14870,7 @@ function mtmActiveProject(){
 // Banner da imagem da peça para o relatório na TELA (vazio se não houver).
 function mtmReportImgHtml(){
   var p = mtmActiveProject();
-  var img = p && p.img;
+  var img = p ? dbResolveProjectImage(p) : null;
   if(!img) return '';
   var nm = (p && p.name) ? esc(p.name) : '';
   return '<div style="text-align:center;margin-bottom:20px">'
@@ -17788,7 +17825,7 @@ function saveProjectFile(){
           id:       fidAtivo,
           name:     pastaAtiva.name,
           logo:     pastaAtiva.logo || null,
-          projects: [ JSON.parse(JSON.stringify(projetoAtivo)) ]
+          projects: [ dbProjectExportClone(projetoAtivo) ]
         };
         // Ajusta os IDs de sheet no PM para os que foram exportados
         var _idsExport = sheetsPayload.map(function(s){ return s.id; });
@@ -17927,7 +17964,7 @@ function dbSalvarProjetoIndividual(fid, pi){
     id:       fid,
     name:     folder.name,
     logo:     folder.logo || null,
-    projects: [ JSON.parse(JSON.stringify(projeto)) ]
+    projects: [ dbProjectExportClone(projeto) ]
   };
   pmFiltrado[fid].projects[0].sheets = sheetsPayload.map(function(s){ return s.id; });
 
@@ -18113,15 +18150,21 @@ function mergePMData(currentPM, incomingPM, sidMap){
 
       // Adicionar projeto à empresa-alvo
       targetFolder.projects = targetFolder.projects || [];
+      var importedImage = incomingProj.img || incomingProj.logo || null;
+      var importedProjectId = 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
       targetFolder.projects.push({
-        id: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+        id: importedProjectId,
         client: targetFolder.name,
         name: incomingProj.name,
-        logo: incomingProj.logo || targetFolder.logo || null,
+        logo: importedImage || targetFolder.logo || null,
+        img: importedImage || null,
         date: incomingProj.date || new Date().toLocaleDateString('pt-BR'),
         sheets: mappedSheets,
         notes: incomingProj.notes || []
       });
+      if(importedImage && typeof window.mtmPersistProjectImage === 'function'){
+        window.mtmPersistProjectImage(importedProjectId, importedImage);
+      }
       stats.projetosAdicionados++;
       stats.folhasVinculadas += mappedSheets.length;
     });
@@ -19751,13 +19794,126 @@ table.mtm tbody tr:not(.row-dragging):hover .row-del:hover {
   var DB_NAME = 'mtm_project_assets_v3';
   var LEGACY_DB_NAME = 'mtm_project_assets_v2';
   var DB_STORE = 'projectImages';
+  var IMAGE_TIME_KEY = 'mtm_project_image_times_v1';
+  var CLOUD_NODE = 'mtm_project_images_v1';
   var cache = Object.create(null);
+  var imageTimes = loadImageTimes();
   var hydrateStarted = false;
   var hydrateFinished = false;
   var renderQueued = false;
+  var cloudTimer = null;
+  var cloudBusy = false;
+  var cloudRerun = false;
+  var lastCloudScan = 0;
+  var lastProjectSignature = '';
 
   function isDataImage(v){
     return typeof v === 'string' && /^data:image\//i.test(v);
+  }
+
+  function loadImageTimes(){
+    try{
+      var obj = JSON.parse(localStorage.getItem(IMAGE_TIME_KEY) || '{}');
+      return obj && typeof obj === 'object' ? obj : {};
+    }catch(e){ return {}; }
+  }
+
+  function saveImageTimes(){
+    try{ localStorage.setItem(IMAGE_TIME_KEY, JSON.stringify(imageTimes || {})); }catch(e){}
+  }
+
+  function imageTime(pid){
+    var n = Number(imageTimes[String(pid)] || 0);
+    return isFinite(n) && n > 0 ? n : 0;
+  }
+
+  function setImageTime(pid, stamp){
+    var n = Number(stamp || 0);
+    if(!pid || !isFinite(n) || n <= 0) return;
+    imageTimes[String(pid)] = n;
+    saveImageTimes();
+  }
+
+  function cloudBase(){
+    try{
+      var cfg = window.FIREBASE_CONFIG || {};
+      return String(cfg.databaseURL || '').replace(/\/+$/, '');
+    }catch(e){ return ''; }
+  }
+
+  function cloudKey(pid){
+    var raw = String(pid || '');
+    try{
+      return btoa(unescape(encodeURIComponent(raw)))
+        .replace(/\+/g, '_p_')
+        .replace(/\//g, '_s_')
+        .replace(/=+$/g, '');
+    }catch(e){
+      return raw.replace(/[.#$\[\]\/]/g, '_');
+    }
+  }
+
+  function cloudUrl(pid, silent){
+    var base = cloudBase();
+    if(!base || !pid) return '';
+    return base + '/' + CLOUD_NODE + '/' + cloudKey(pid) + '.json' + (silent ? '?print=silent' : '');
+  }
+
+  function cloudRead(pid){
+    var url = cloudUrl(pid, false);
+    if(!url || typeof fetch !== 'function') return Promise.resolve({ok:false});
+    return fetch(url, { method:'GET', cache:'no-store', credentials:'omit' })
+      .then(function(resp){
+        if(!resp.ok) throw new Error('HTTP ' + resp.status);
+        return resp.json().then(function(value){ return {ok:true, value:value}; });
+      })
+      .catch(function(){ return {ok:false}; });
+  }
+
+  function cloudWrite(pid, value){
+    var url = cloudUrl(pid, true);
+    if(!url || typeof fetch !== 'function') return Promise.resolve(false);
+    return fetch(url, {
+      method:'PUT',
+      cache:'no-store',
+      credentials:'omit',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(value)
+    }).then(function(resp){
+      if(!resp.ok) throw new Error('HTTP ' + resp.status);
+      return true;
+    }).catch(function(){ return false; });
+  }
+
+  function activeChapa(){
+    try{
+      return String(window.mtmChapa || sessionStorage.getItem('mtm_chapa_ok') || '');
+    }catch(e){ return ''; }
+  }
+
+  function uploadCloudImage(pid, data, stamp){
+    if(!pid || !isDataImage(data)) return Promise.resolve(false);
+    var when = Number(stamp || Date.now());
+    setImageTime(pid, when);
+    return cloudWrite(pid, {
+      projectId:String(pid),
+      dataUrl:data,
+      deleted:false,
+      updatedAt:when,
+      ownerChapa:activeChapa()
+    });
+  }
+
+  function uploadCloudDeletion(pid, stamp){
+    if(!pid) return Promise.resolve(false);
+    var when = Number(stamp || Date.now());
+    setImageTime(pid, when);
+    return cloudWrite(pid, {
+      projectId:String(pid),
+      deleted:true,
+      updatedAt:when,
+      ownerChapa:activeChapa()
+    });
   }
 
   function eachProject(data, fn){
@@ -19850,28 +20006,37 @@ table.mtm tbody tr:not(.row-dragging):hover .row-del:hover {
     }catch(e){ done({}); }
   }
 
-  function remember(pid, data){
+  function remember(pid, data, stamp){
     if(!pid || !data) return;
     cache[String(pid)] = data;
+    if(stamp) setImageTime(pid, stamp);
     dbPut(String(pid), data);
   }
 
-  function forget(pid){
+  function forget(pid, stamp){
     if(!pid) return;
     delete cache[String(pid)];
+    if(stamp) setImageTime(pid, stamp);
+    else {
+      delete imageTimes[String(pid)];
+      saveImageTimes();
+    }
     dbDelete(String(pid));
   }
 
   function collectRuntimeImages(data){
+    var discovered = false;
     eachProject(data, function(p){
       var pid = p.id;
       if(!pid) return;
       var img = isDataImage(p.img) ? p.img : (isDataImage(p.logo) ? p.logo : null);
       if(img){
+        if(cache[String(pid)] !== img) discovered = true;
         remember(pid, img);
         p.imageAssetId = String(pid);
       }
     });
+    return discovered;
   }
 
   function applyCache(data){
@@ -19898,17 +20063,143 @@ table.mtm tbody tr:not(.row-dragging):hover .row-del:hover {
     return clone;
   }
 
-  function saveMetadata(){
+  function projectSignature(data){
+    var ids = [];
+    eachProject(data, function(p){ if(p && p.id) ids.push(String(p.id)); });
+    return ids.sort().join('|');
+  }
+
+  function findProject(pid){
+    try{
+      if(typeof dbFindByPid === 'function'){
+        var found = dbFindByPid(pid);
+        if(found && found.p) return found.p;
+      }
+    }catch(e){}
+    var answer = null;
+    eachProject(typeof pmData !== 'undefined' ? pmData : {}, function(p){
+      if(!answer && p && String(p.id) === String(pid)) answer = p;
+    });
+    return answer;
+  }
+
+  function syncOneCloudImage(pid){
+    return cloudRead(pid).then(function(result){
+      if(!result.ok) return false;
+      var p = findProject(pid);
+      if(!p) return false;
+
+      var local = isDataImage(p.img) ? p.img : (isDataImage(p.logo) ? p.logo : cache[String(pid)] || null);
+      var localStamp = imageTime(pid);
+      var remote = result.value;
+      if(isDataImage(remote)) remote = { dataUrl:remote, updatedAt:0, deleted:false };
+
+      if(remote && typeof remote === 'object' && remote.deleted){
+        var deletedAt = Number(remote.updatedAt || 0);
+        if(deletedAt >= localStamp){
+          var hadImage = !!local;
+          forget(pid, deletedAt || Date.now());
+          p.img = null;
+          p.logo = null;
+          delete p.imageAssetId;
+          return hadImage;
+        }
+        if(local && localStamp > deletedAt) uploadCloudImage(pid, local, localStamp);
+        return false;
+      }
+
+      var remoteData = remote && typeof remote === 'object' ? remote.dataUrl : null;
+      var remoteStamp = Number(remote && remote.updatedAt || 0);
+      if(isDataImage(remoteData)){
+        if(!local || remoteStamp >= localStamp){
+          var changed = local !== remoteData;
+          remember(pid, remoteData, remoteStamp || Date.now());
+          p.img = remoteData;
+          p.logo = remoteData;
+          p.imageAssetId = String(pid);
+          return changed;
+        }
+        if(localStamp > remoteStamp) uploadCloudImage(pid, local, localStamp);
+        return false;
+      }
+
+      if(local){
+        var migrationStamp = localStamp || Date.now();
+        setImageTime(pid, migrationStamp);
+        uploadCloudImage(pid, local, migrationStamp);
+      }
+      return false;
+    });
+  }
+
+  function syncCloudImages(force){
+    if(!cloudBase()) return;
+    if(cloudBusy){
+      cloudRerun = cloudRerun || !!force;
+      return;
+    }
+    if(!force && Date.now() - lastCloudScan < 15000) return;
+
+    var ids = [];
+    eachProject(typeof pmData !== 'undefined' ? pmData : {}, function(p){
+      if(p && p.id && ids.indexOf(String(p.id)) === -1) ids.push(String(p.id));
+    });
+    if(!ids.length) return;
+
+    cloudBusy = true;
+    lastCloudScan = Date.now();
+    var changed = false;
+    var cursor = 0;
+
+    function finish(){
+      cloudBusy = false;
+      if(changed){
+        try{ saveMetadata(true); }catch(e){}
+        queueRender();
+      }
+      if(cloudRerun){
+        var rerun = cloudRerun;
+        cloudRerun = false;
+        queueCloudSync(250, rerun);
+      }
+    }
+
+    function nextBatch(){
+      if(cursor >= ids.length){ finish(); return; }
+      var batch = ids.slice(cursor, cursor + 4);
+      cursor += batch.length;
+      Promise.all(batch.map(syncOneCloudImage))
+        .then(function(results){
+          if(results.some(function(v){ return !!v; })) changed = true;
+          nextBatch();
+        })
+        .catch(function(){ nextBatch(); });
+    }
+    nextBatch();
+  }
+
+  function queueCloudSync(delay, force){
+    if(!cloudBase()) return;
+    if(cloudTimer) clearTimeout(cloudTimer);
+    cloudTimer = setTimeout(function(){
+      cloudTimer = null;
+      syncCloudImages(!!force);
+    }, typeof delay === 'number' ? delay : 300);
+  }
+
+  function saveMetadata(skipCloud){
     if(typeof pmData === 'undefined') return false;
-    collectRuntimeImages(pmData);
+    var discovered = collectRuntimeImages(pmData);
     var clean = cleanClone(pmData);
     try{
       localStorage.setItem(META_KEY, JSON.stringify(clean));
+      if(!skipCloud && discovered) queueCloudSync(120, true);
       return true;
     }catch(e){
       try{ localStorage.removeItem(LEGACY_IMG_KEY); }catch(_e){}
       try{
         localStorage.setItem(META_KEY, JSON.stringify(clean));
+        if(!skipCloud && discovered) queueCloudSync(120, true);
         return true;
       }catch(_e2){
         try{ console.warn('Não foi possível salvar os metadados do projeto.', _e2); }catch(_e3){}
@@ -19925,7 +20216,13 @@ table.mtm tbody tr:not(.row-dragging):hover .row-del:hover {
     }catch(e){ loaded = {}; }
     window.pmData = loaded;
     try{ pmData = loaded; }catch(e){}
+    var discovered = collectRuntimeImages(loaded);
     applyCache(loaded);
+    var signature = projectSignature(loaded);
+    if(discovered || signature !== lastProjectSignature){
+      lastProjectSignature = signature;
+      queueCloudSync(180, true);
+    }
     return loaded;
   }
 
@@ -19980,6 +20277,7 @@ table.mtm tbody tr:not(.row-dragging):hover .row-del:hover {
         try{ applyCache(pmData); }catch(e){}
         saveMetadata();
         queueRender();
+        queueCloudSync(80, true);
       });
     });
   }
@@ -19987,27 +20285,66 @@ table.mtm tbody tr:not(.row-dragging):hover .row-del:hover {
   window.pmLoad = loadMetadata;
   window.pmSave = saveMetadata;
   window.mtmPersistProjectImage = function(pid, data){
-    if(data) remember(pid, data); else forget(pid);
+    var stamp = Date.now();
+    if(data){
+      remember(pid, data, stamp);
+      uploadCloudImage(pid, data, stamp);
+    }else{
+      forget(pid, stamp);
+      uploadCloudDeletion(pid, stamp);
+    }
   };
   window.mtmGetProjectImage = function(projectOrId){
     var pid = typeof projectOrId === 'object' && projectOrId ? projectOrId.id : projectOrId;
     var direct = typeof projectOrId === 'object' && projectOrId ? (projectOrId.img || projectOrId.logo) : null;
     return (isDataImage(direct) ? direct : null) || cache[String(pid || '')] || null;
   };
+  window.mtmGetProjectImagesMap = function(){
+    try{ collectRuntimeImages(typeof pmData !== 'undefined' ? pmData : {}); }catch(e){}
+    var out = {};
+    Object.keys(cache).forEach(function(pid){
+      if(isDataImage(cache[pid])) out[String(pid)] = cache[pid];
+    });
+    return out;
+  };
+  window.mtmImportProjectImages = function(map){
+    var count = 0;
+    Object.keys(map || {}).forEach(function(pid){
+      if(isDataImage(map[pid])){
+        remember(String(pid), map[pid]);
+        count++;
+      }
+    });
+    try{ applyCache(typeof pmData !== 'undefined' ? pmData : {}); }catch(e){}
+    try{ saveMetadata(); }catch(e){}
+    queueRender();
+    return count;
+  };
+  window.mtmHydrateProjectImages = function(data){
+    var target = data || (typeof pmData !== 'undefined' ? pmData : {});
+    try{ collectRuntimeImages(target); }catch(e){}
+    try{ applyCache(target); }catch(e){}
+    queueRender();
+    return target;
+  };
 
   window.dbApplyProjectImg = function(pid, dataUrl){
     var found = (typeof dbFindByPid === 'function') ? dbFindByPid(pid) : null;
     if(!found || !found.p) return;
     if(dataUrl){
-      remember(pid, dataUrl);
+      var imageStamp = Date.now();
+      remember(pid, dataUrl, imageStamp);
       found.p.img = dataUrl;
       found.p.logo = dataUrl;
       found.p.imageAssetId = String(pid);
+      uploadCloudImage(pid, dataUrl, imageStamp);
     }else{
-      forget(pid);
+      var deleteStamp = Date.now();
+      forget(pid, deleteStamp);
       found.p.img = null;
       found.p.logo = null;
       delete found.p.imageAssetId;
+      uploadCloudDeletion(pid, deleteStamp);
     }
     saveMetadata();
     try{ if(typeof dbRefreshProjectImgBox === 'function') dbRefreshProjectImgBox(found.p); }catch(e){}
@@ -20100,6 +20437,17 @@ table.mtm tbody tr:not(.row-dragging):hover .row-del:hover {
   else boot();
 
   window.addEventListener('beforeunload', function(){ try{ saveMetadata(); }catch(e){} });
+  window.addEventListener('load', function(){ queueCloudSync(1200, true); });
+  window.addEventListener('storage', function(ev){
+    if(ev && ev.key === META_KEY) queueCloudSync(250, true);
+  });
+  window.addEventListener('mtm-cloud-status', function(){ queueCloudSync(350, true); });
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible') queueCloudSync(250, true);
+  });
+  setInterval(function(){
+    if(document.visibilityState === 'visible') syncCloudImages(true);
+  }, 60000);
 })();
 </script>
 
