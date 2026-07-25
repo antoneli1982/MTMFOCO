@@ -3874,6 +3874,7 @@ body.home-clean .db-company-card::after{
     <div class="db-hdr-user" id="db-user-name"></div>
     <div class="db-hdr-actions">
       <button class="db-hdr-btn" onclick="openProcessPlanning()" style="background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;border:none;font-weight:800">🗓️ Planejamento</button>
+      <button class="db-hdr-btn" onclick="openMasterProductionPlan()" style="background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;border:none;font-weight:800">🏭 Plano Mestre</button>
       <button class="db-hdr-btn db-hdr-btn-purple" onclick="openApostilas()">📚 Apostilas</button>
     </div>
   </div>
@@ -4250,6 +4251,7 @@ body.home-clean .db-company-card::after{
     <button class="btn btn-primary" onclick="showFinalReport()" title="Relatório consolidado de todas as folhas — inclui o balanceamento" style="background:linear-gradient(135deg,#00e5a0,#00b87a);border:none;color:#001a12;font-weight:800;font-size:12px;padding:7px 16px">📋<span class="btn-lbl"> Relatório Final</span></button>
     <button class="btn btn-primary" onclick="openProjectManager()" title="Gerenciador de Projetos" style="background:linear-gradient(135deg,#4f8ef7,#6366f1);border:none;color:#fff;font-weight:800;font-size:12px;padding:7px 16px">📁<span class="btn-lbl"> Projetos</span></button>
     <button class="btn btn-primary" onclick="openProcessPlanning()" title="Planejamento consolidado por pasta, projeto e folha" style="background:linear-gradient(135deg,#f59e0b,#ea580c);border:none;color:#fff;font-weight:800;font-size:12px;padding:7px 16px">🗓️<span class="btn-lbl"> Planejamento</span></button>
+    <button class="btn btn-primary" onclick="openMasterProductionPlan()" title="Calendário do plano mestre de produção" style="background:linear-gradient(135deg,#2563eb,#4f46e5);border:none;color:#fff;font-weight:800;font-size:12px;padding:7px 16px">🏭<span class="btn-lbl"> Plano Mestre</span></button>
     <!-- separador visual -->
     <div class="tb-divider" style="width:1px;height:26px;background:var(--border2);margin:0 4px;flex-shrink:0"></div>
     <button class="btn btn-ghost" onclick="startDirectMtmApp()" title="Ir para as folhas" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(0,212,255,.25)">📄<span class="btn-lbl"> Folhas</span></button>
@@ -20538,7 +20540,7 @@ body.plan-open{overflow:hidden!important}
   background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.20);
   color:var(--text2);font-size:10px;line-height:1.55;
 }
-.plan-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.plan-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
 .plan-kpi{
   min-height:92px;padding:14px;background:var(--surface);
   border:1px solid var(--border2);border-radius:13px;position:relative;overflow:hidden;
@@ -20561,7 +20563,7 @@ body.plan-open{overflow:hidden!important}
 }
 .plan-search{height:32px;flex:1;min-width:150px}
 .plan-table-wrap{overflow:auto}
-.plan-table{width:100%;border-collapse:separate;border-spacing:0;min-width:1260px}
+.plan-table{width:100%;border-collapse:separate;border-spacing:0;min-width:1345px}
 .plan-table th{
   position:sticky;top:0;z-index:2;background:var(--header-bg);
   border-bottom:1px solid var(--border2);padding:9px 8px;text-align:left;
@@ -20585,6 +20587,14 @@ body.plan-open{overflow:hidden!important}
 .plan-num{font-family:'JetBrains Mono',monospace;text-align:right}
 .plan-duration{
   font:800 11px 'JetBrains Mono',monospace;color:var(--text);white-space:nowrap;
+}
+.plan-sequence-input{
+  width:58px;margin:0 auto;text-align:center;font-weight:800;
+  color:#f59e0b;border-color:rgba(245,158,11,.38);
+  background:rgba(245,158,11,.08);
+}
+.plan-sequence-input:focus{
+  border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.12);
 }
 .plan-group-tag{
   display:inline-flex;align-items:center;gap:4px;background:var(--purpleBg);
@@ -20635,10 +20645,64 @@ body.plan-open{overflow:hidden!important}
   padding:9px 11px;border:1px solid rgba(0,229,160,.24);background:var(--greenBg);
   color:var(--green);border-radius:8px;font-size:10px;line-height:1.5;
 }
+.plan-people-body{padding:15px 16px}
+.plan-people-toolbar{
+  display:grid;grid-template-columns:minmax(190px,240px) 1fr;gap:14px;align-items:end;
+  margin-bottom:13px;
+}
+.plan-people-count-row{display:flex;gap:7px;align-items:center}
+.plan-people-count-row .plan-input{flex:1}
+.plan-people-rule{
+  padding:10px 12px;border-radius:9px;background:var(--blueBg);
+  border:1px solid rgba(79,142,247,.22);color:var(--text2);
+  font-size:10px;line-height:1.55;
+}
+.plan-people-overview{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:13px;
+}
+.plan-people-metric{
+  padding:10px 11px;border:1px solid var(--border);border-radius:9px;
+  background:var(--surface2);min-width:0;
+}
+.plan-people-metric span{
+  display:block;color:var(--text3);font-size:8px;font-weight:800;
+  letter-spacing:.65px;text-transform:uppercase;margin-bottom:4px;
+}
+.plan-people-metric strong{
+  display:block;color:var(--text);font:800 14px 'JetBrains Mono',monospace;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.plan-people-head,.plan-person-row{
+  display:grid;grid-template-columns:34px minmax(180px,1fr) minmax(120px,180px) 110px 34px;
+  gap:8px;align-items:center;
+}
+.plan-people-head{
+  padding:0 5px 6px;color:var(--text3);font-size:8px;font-weight:800;
+  letter-spacing:.65px;text-transform:uppercase;
+}
+.plan-person-row{
+  padding:7px 5px;border-top:1px solid var(--border);
+}
+.plan-person-index{
+  width:27px;height:27px;border-radius:8px;background:var(--accentBg);
+  color:var(--accent);display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:800;
+}
+.plan-person-ptt{
+  display:inline-flex;align-items:center;justify-content:center;height:31px;
+  border-radius:7px;background:var(--purpleBg);color:var(--purple);
+  border:1px solid rgba(167,139,250,.22);
+  font:800 10px 'JetBrains Mono',monospace;white-space:nowrap;
+}
+.plan-people-empty{
+  padding:18px;text-align:center;border:1px dashed var(--border2);
+  border-radius:9px;color:var(--text3);font-size:10px;
+}
 @media(max-width:1050px){
   .plan-source{grid-template-columns:1fr 1fr}
   .plan-add-stack{grid-column:1/-1}
   .plan-kpis{grid-template-columns:repeat(3,1fr)}
+  .plan-people-overview{grid-template-columns:1fr 1fr}
 }
 @media(max-width:720px){
   .plan-top{padding:10px 12px}
@@ -20649,9 +20713,17 @@ body.plan-open{overflow:hidden!important}
   .plan-kpis{grid-template-columns:1fr 1fr}
   .plan-table-tools{min-width:100%;margin-left:0}
   .plan-kpi-value{font-size:17px}
+  .plan-people-toolbar{grid-template-columns:1fr}
+  .plan-people-head{display:none}
+  .plan-person-row{grid-template-columns:34px 1fr 100px}
+  .plan-person-row .plan-person-name{grid-column:2/4}
+  .plan-person-row .plan-person-percent{grid-column:2}
+  .plan-person-row .plan-person-ptt{grid-column:3}
+  .plan-person-row .plan-person-remove{grid-column:1;grid-row:2}
 }
 @media(max-width:460px){
   .plan-kpis{grid-template-columns:1fr}
+  .plan-people-overview{grid-template-columns:1fr}
   .plan-top-btn span{display:none}
 }
 </style>
@@ -20664,6 +20736,7 @@ body.plan-open{overflow:hidden!important}
       <div class="plan-subtitle">Consolidação por pasta, projeto, folha e unidade com tempo real de simultaneidade</div>
     </div>
     <div class="plan-top-spacer"></div>
+    <button class="plan-top-btn" onclick="openMasterProductionPlan(true)">🏭 <span>Plano Mestre</span></button>
     <button class="plan-top-btn" onclick="planExportCsv()">📤 <span>Exportar CSV</span></button>
     <button class="plan-top-btn" onclick="planPrint()">🖨️ <span>Imprimir</span></button>
     <button class="plan-top-btn danger" onclick="planClear()">🧹 <span>Limpar</span></button>
@@ -20691,6 +20764,42 @@ body.plan-open{overflow:hidden!important}
             <label for="plan-start">Data e hora de início</label>
             <input class="plan-input" id="plan-start" type="datetime-local" oninput="planUpdateMeta('start',this.value)">
           </div>
+        </div>
+      </section>
+
+      <section class="plan-card">
+        <div class="plan-card-head">
+          <span>👥</span>
+          <span class="plan-card-title">Equipe, participação e PTT</span>
+          <span class="plan-card-help">Cadastre as pessoas e informe quanto cada uma atuará no processo</span>
+        </div>
+        <div class="plan-people-body">
+          <div class="plan-people-toolbar">
+            <div class="plan-field">
+              <label for="plan-people-count">Quantidade de pessoas</label>
+              <div class="plan-people-count-row">
+                <input class="plan-input" id="plan-people-count" type="number" min="0" max="50" step="1" value="0" onchange="planSetPeopleCount(this.value)">
+                <button class="plan-add-btn secondary" onclick="planAddPerson()">＋ Pessoa</button>
+              </div>
+            </div>
+            <div class="plan-people-rule">
+              <strong>Regra de cálculo:</strong> a quantidade de pessoas representa o PTT nominal. O PTT efetivo é a soma dos percentuais de atuação dividida por 100. O esforço do processo é o tempo real multiplicado pelo PTT efetivo.
+            </div>
+          </div>
+          <div class="plan-people-overview">
+            <div class="plan-people-metric"><span>Pessoas</span><strong id="plan-people-total">0</strong></div>
+            <div class="plan-people-metric"><span>PTT nominal</span><strong id="plan-ptt-nominal">0,00</strong></div>
+            <div class="plan-people-metric"><span>PTT efetivo</span><strong id="plan-ptt-effective">0,00</strong></div>
+            <div class="plan-people-metric"><span>Esforço do processo</span><strong id="plan-people-effort">00:00:00</strong></div>
+          </div>
+          <div class="plan-people-head">
+            <span>Nº</span>
+            <span>Pessoa</span>
+            <span>Atuação no processo</span>
+            <span>PTT efetivo</span>
+            <span></span>
+          </div>
+          <div id="plan-people-list"></div>
         </div>
       </section>
 
@@ -20735,6 +20844,11 @@ body.plan-open{overflow:hidden!important}
           <div class="plan-kpi-value" id="plan-kpi-qty">0</div>
           <div class="plan-kpi-foot">Soma das quantidades informadas</div>
         </article>
+        <article class="plan-kpi" style="--kpi-color:var(--purple)">
+          <div class="plan-kpi-label">Equipe planejada</div>
+          <div class="plan-kpi-value" id="plan-kpi-team">0 pessoas</div>
+          <div class="plan-kpi-foot" id="plan-kpi-ptt">PTT efetivo: 0,00 de 0,00</div>
+        </article>
         <article class="plan-kpi" style="--kpi-color:var(--orange)">
           <div class="plan-kpi-label">Tempo bruto</div>
           <div class="plan-kpi-value" id="plan-kpi-gross">00:00:00</div>
@@ -20744,6 +20858,11 @@ body.plan-open{overflow:hidden!important}
           <div class="plan-kpi-label">Tempo real</div>
           <div class="plan-kpi-value" id="plan-kpi-real">00:00:00</div>
           <div class="plan-kpi-foot">Duração usada no planejamento</div>
+        </article>
+        <article class="plan-kpi" style="--kpi-color:var(--accent)">
+          <div class="plan-kpi-label">Esforço do processo</div>
+          <div class="plan-kpi-value" id="plan-kpi-effort">00:00:00</div>
+          <div class="plan-kpi-foot">Tempo real multiplicado pelo PTT efetivo</div>
         </article>
         <article class="plan-kpi" style="--kpi-color:var(--purple)">
           <div class="plan-kpi-label">Final previsto</div>
@@ -20757,6 +20876,7 @@ body.plan-open{overflow:hidden!important}
           <span>📋</span>
           <span class="plan-card-title">Itens do planejamento</span>
           <span class="plan-card-help" id="plan-row-count">0 itens</span>
+          <span class="plan-card-help">Altere a sequência para movimentar uma linha</span>
           <div class="plan-table-tools">
             <input class="plan-input plan-search" id="plan-search" placeholder="Buscar pasta, projeto, folha ou responsável" oninput="planFilterRows(this.value)">
           </div>
@@ -20765,6 +20885,7 @@ body.plan-open{overflow:hidden!important}
           <table class="plan-table">
             <thead>
               <tr>
+                <th style="width:86px;text-align:center">Sequência</th>
                 <th style="width:120px">Unidade</th>
                 <th style="width:230px">Origem</th>
                 <th style="width:160px">Folha</th>
@@ -20790,8 +20911,8 @@ body.plan-open{overflow:hidden!important}
         <article class="plan-card">
           <div class="plan-card-head">
             <span>👥</span>
-            <span class="plan-card-title">Distribuição por responsável</span>
-            <span class="plan-card-help">Carga total atribuída a cada participante</span>
+            <span class="plan-card-title">Carga por responsável das folhas</span>
+            <span class="plan-card-help">Carga bruta informada em cada item do planejamento</span>
           </div>
           <div class="plan-summary-body" id="plan-team-summary"></div>
         </article>
@@ -20811,7 +20932,7 @@ body.plan-open{overflow:hidden!important}
 <script>
 (function(){
   var PLAN_KEY = 'mtm_process_planning_v1';
-  var planState = { name:'', owner:'', start:'', rows:[] };
+  var planState = { name:'', owner:'', start:'', people:[], rows:[] };
   var planPreviousOverflow = '';
 
   function planId(){
@@ -20820,6 +20941,15 @@ body.plan-open{overflow:hidden!important}
   function planNumber(v){
     var n = parseFloat(String(v == null ? '' : v).replace(',','.'));
     return isFinite(n) && n >= 0 ? n : 0;
+  }
+  function planPercent(v){
+    return Math.min(100,planNumber(v));
+  }
+  function planDecimal(v,digits){
+    return planNumber(v).toLocaleString('pt-BR',{
+      minimumFractionDigits:digits,
+      maximumFractionDigits:digits
+    });
   }
   function planEsc(v){
     return String(v == null ? '' : v)
@@ -20859,6 +20989,13 @@ body.plan-open{overflow:hidden!important}
     planState.name = planState.name || '';
     planState.owner = planState.owner || '';
     planState.start = planState.start || '';
+    planState.people = Array.isArray(planState.people) ? planState.people.map(function(person,index){
+      return {
+        id:person && person.id ? person.id : planId(),
+        name:person && person.name ? person.name : 'Pessoa ' + (index + 1),
+        allocationPct:planPercent(person && person.allocationPct != null ? person.allocationPct : 100)
+      };
+    }) : [];
     planState.rows = Array.isArray(planState.rows) ? planState.rows : [];
   }
   function planSave(){
@@ -21028,8 +21165,16 @@ body.plan-open{overflow:hidden!important}
       }
     });
     var groupReal = Object.keys(groups).reduce(function(total,key){ return total + groups[key].max; },0);
+    var real = sequential + groupReal;
+    var peopleCount = planState.people.length;
+    var pttNominal = peopleCount;
+    var pttEffective = planState.people.reduce(function(total,person){
+      return total + planPercent(person.allocationPct) / 100;
+    },0);
     return {
-      gross:gross, real:sequential + groupReal, qty:qty, groups:groups, people:people,
+      gross:gross, real:real, qty:qty, groups:groups, people:people,
+      peopleCount:peopleCount, pttNominal:pttNominal, pttEffective:pttEffective,
+      effort:real * pttEffective,
       folderCount:Object.keys(folders).length, projectCount:Object.keys(projects).length,
       missing:missing
     };
@@ -21052,11 +21197,12 @@ body.plan-open{overflow:hidden!important}
       return;
     }
     empty.style.display = 'none';
-    tbody.innerHTML = planState.rows.map(function(row){
+    tbody.innerHTML = planState.rows.map(function(row,index){
       var duration = planNumber(row.qty) * planNumber(row.unitSec);
       var search = [row.folderName,row.projectName,row.sheetName,row.unit,row.responsible,row.group].join(' ').toLowerCase();
       var sim = row.execution === 'sim';
       return '<tr data-plan-search="' + planEsc(search) + '">'
+        + '<td style="text-align:center"><input class="plan-cell-input plan-sequence-input plan-num" type="number" min="1" max="' + planState.rows.length + '" step="1" value="' + (index + 1) + '" aria-label="Sequência da linha ' + (index + 1) + '" onchange="planMoveRow(\'' + row.id + '\',this.value,this)" onkeydown="if(event.key===\'Enter\')this.blur()"></td>'
         + '<td><input class="plan-cell-input" value="' + planEsc(row.unit) + '" oninput="planUpdateRow(\'' + row.id + '\',\'unit\',this.value)"></td>'
         + '<td><div class="plan-context-main">' + planEsc(row.folderName) + '</div><div class="plan-context-sub">' + planEsc(row.projectName) + '</div></td>'
         + '<td><div class="plan-context-main">' + planEsc(row.sheetName) + '</div><div class="plan-context-sub">' + planEsc(row.unitType || 'unidade') + ' · origem ' + planClock(row.sourceStdSec || 0) + '</div></td>'
@@ -21073,7 +21219,35 @@ body.plan-open{overflow:hidden!important}
         + '<td style="text-align:right"><span class="plan-duration" id="plan-duration-' + row.id + '">' + planClock(duration) + '</span></td>'
         + '<td style="white-space:nowrap"><button class="plan-row-action" onclick="planDuplicateRow(\'' + row.id + '\')" title="Duplicar">⧉</button>'
         + '<button class="plan-row-action remove" onclick="planDeleteRow(\'' + row.id + '\')" title="Remover">✕</button></td>'
-        + '</tr>';
+      + '</tr>';
+    }).join('');
+  }
+  function planRenderPeopleMetrics(calc){
+    var count = document.getElementById('plan-people-count');
+    if(count) count.value = calc.peopleCount;
+    document.getElementById('plan-people-total').textContent = calc.peopleCount;
+    document.getElementById('plan-ptt-nominal').textContent = planDecimal(calc.pttNominal,2);
+    document.getElementById('plan-ptt-effective').textContent = planDecimal(calc.pttEffective,2);
+    document.getElementById('plan-people-effort').textContent = planClock(calc.effort);
+  }
+  function planRenderPeople(calc){
+    calc = calc || planCalc();
+    planRenderPeopleMetrics(calc);
+    var list = document.getElementById('plan-people-list');
+    if(!list) return;
+    if(!planState.people.length){
+      list.innerHTML = '<div class="plan-people-empty">Informe a quantidade de pessoas ou use o botão Pessoa para montar a equipe.</div>';
+      return;
+    }
+    list.innerHTML = planState.people.map(function(person,index){
+      var pct = planPercent(person.allocationPct);
+      return '<div class="plan-person-row">'
+        + '<div class="plan-person-index">' + (index + 1) + '</div>'
+        + '<input class="plan-cell-input plan-person-name" placeholder="Nome da pessoa" value="' + planEsc(person.name) + '" oninput="planUpdatePerson(\'' + person.id + '\',\'name\',this.value)">'
+        + '<div class="plan-person-percent"><input class="plan-cell-input plan-num" type="number" min="0" max="100" step="1" value="' + planEsc(pct) + '" title="Percentual de atuação no processo" oninput="planUpdatePerson(\'' + person.id + '\',\'allocationPct\',this.value,this)"></div>'
+        + '<span class="plan-person-ptt" id="plan-person-ptt-' + person.id + '">' + planDecimal(pct / 100,2) + ' PTT</span>'
+        + '<button class="plan-row-action remove plan-person-remove" onclick="planDeletePerson(\'' + person.id + '\')" title="Remover pessoa">✕</button>'
+        + '</div>';
     }).join('');
   }
   function planRenderTeam(calc){
@@ -21118,16 +21292,21 @@ body.plan-open{overflow:hidden!important}
     }
     el.innerHTML = html;
   }
-  function planRenderSummary(){
+  function planRenderSummary(keepPeopleInputs){
     var calc = planCalc();
     document.getElementById('plan-kpi-rows').textContent = planState.rows.length;
     document.getElementById('plan-kpi-qty').textContent = calc.qty.toLocaleString('pt-BR',{maximumFractionDigits:2});
+    document.getElementById('plan-kpi-team').textContent = calc.peopleCount + (calc.peopleCount === 1 ? ' pessoa' : ' pessoas');
+    document.getElementById('plan-kpi-ptt').textContent = 'PTT efetivo: ' + planDecimal(calc.pttEffective,2) + ' de ' + planDecimal(calc.pttNominal,2);
     document.getElementById('plan-kpi-gross').textContent = planClock(calc.gross);
     document.getElementById('plan-kpi-real').textContent = planClock(calc.real);
+    document.getElementById('plan-kpi-effort').textContent = planClock(calc.effort);
     document.getElementById('plan-kpi-end').textContent = planEndText(calc.real);
     document.getElementById('plan-kpi-gain').textContent = 'Ganho por simultaneidade: ' + planClock(calc.gross - calc.real);
     document.getElementById('plan-kpi-scope').textContent = calc.folderCount + ' pasta(s) · ' + calc.projectCount + ' projeto(s)';
     document.getElementById('plan-row-count').textContent = planState.rows.length + (planState.rows.length === 1 ? ' item' : ' itens');
+    if(keepPeopleInputs) planRenderPeopleMetrics(calc);
+    else planRenderPeople(calc);
     planRenderTeam(calc);
     planRenderGroups(calc);
   }
@@ -21140,6 +21319,53 @@ body.plan-open{overflow:hidden!important}
     var search = document.getElementById('plan-search');
     if(search && search.value) planFilterRows(search.value);
   }
+  window.planSetPeopleCount = function(value){
+    var target = Math.min(50,Math.max(0,Math.floor(planNumber(value))));
+    while(planState.people.length < target){
+      planState.people.push({
+        id:planId(),
+        name:'Pessoa ' + (planState.people.length + 1),
+        allocationPct:100
+      });
+    }
+    if(planState.people.length > target) planState.people.splice(target);
+    planSave();
+    planRenderSummary();
+  };
+  window.planAddPerson = function(){
+    if(planState.people.length >= 50){
+      if(typeof showToast === 'function') showToast('O limite é de 50 pessoas',true);
+      return;
+    }
+    planState.people.push({
+      id:planId(),
+      name:'Pessoa ' + (planState.people.length + 1),
+      allocationPct:100
+    });
+    planSave();
+    planRenderSummary();
+  };
+  window.planUpdatePerson = function(id,key,value,source){
+    var person = planState.people.find(function(item){ return item.id === id; });
+    if(!person) return;
+    if(key === 'allocationPct'){
+      person.allocationPct = planPercent(value);
+      if(source && String(value).trim() !== '' && planNumber(value) !== person.allocationPct){
+        source.value = person.allocationPct;
+      }
+      var badge = document.getElementById('plan-person-ptt-' + id);
+      if(badge) badge.textContent = planDecimal(person.allocationPct / 100,2) + ' PTT';
+    }else{
+      person[key] = value;
+    }
+    planSave();
+    planRenderSummary(true);
+  };
+  window.planDeletePerson = function(id){
+    planState.people = planState.people.filter(function(person){ return person.id !== id; });
+    planSave();
+    planRenderSummary();
+  };
   window.planUpdateMeta = function(key,value){
     planState[key] = value;
     planSave();
@@ -21179,6 +21405,21 @@ body.plan-open{overflow:hidden!important}
     planSave();
     planRender();
   };
+  window.planMoveRow = function(id,value,source){
+    var from = planState.rows.findIndex(function(item){ return item.id === id; });
+    if(from < 0) return;
+    var total = planState.rows.length;
+    var requested = Math.round(planNumber(value));
+    if(!(requested > 0)) requested = from + 1;
+    var target = Math.max(1,Math.min(total,requested)) - 1;
+    if(source) source.value = target + 1;
+    if(target === from) return;
+    var moved = planState.rows.splice(from,1)[0];
+    planState.rows.splice(target,0,moved);
+    planSave();
+    planRender();
+    if(typeof showToast === 'function') showToast('Linha movida para a sequência ' + (target + 1));
+  };
   window.planDeleteRow = function(id){
     planState.rows = planState.rows.filter(function(item){ return item.id !== id; });
     planSave();
@@ -21191,9 +21432,9 @@ body.plan-open{overflow:hidden!important}
     });
   };
   window.planClear = function(){
-    if(!planState.rows.length && !planState.name && !planState.owner && !planState.start) return;
+    if(!planState.rows.length && !planState.people.length && !planState.name && !planState.owner && !planState.start) return;
     if(!confirm('Limpar todo o planejamento atual?')) return;
-    planState = { name:'', owner:'', start:'', rows:[] };
+    planState = { name:'', owner:'', start:'', people:[], rows:[] };
     planSave();
     planRender();
   };
@@ -21228,12 +21469,30 @@ body.plan-open{overflow:hidden!important}
       ['Início',planState.start || ''],
       ['Tempo bruto',planClock(calc.gross)],
       ['Tempo real',planClock(calc.real)],
+      ['Quantidade de pessoas',calc.peopleCount],
+      ['PTT nominal',planDecimal(calc.pttNominal,2)],
+      ['PTT efetivo',planDecimal(calc.pttEffective,2)],
+      ['Esforço do processo',planClock(calc.effort)],
       [],
-      ['Unidade','Pasta','Projeto','Folha','Responsável','Quantidade','Tempo por unidade em segundos','Execução','Grupo','Duração']
+      ['Equipe'],
+      ['Pessoa','Atuação no processo','PTT efetivo','Esforço individual']
     ];
-    planState.rows.forEach(function(row){
+    planState.people.forEach(function(person){
+      var pct = planPercent(person.allocationPct);
       lines.push([
-        row.unit,row.folderName,row.projectName,row.sheetName,row.responsible,
+        person.name,
+        planDecimal(pct,2) + '%',
+        planDecimal(pct / 100,2),
+        planClock(calc.real * pct / 100)
+      ]);
+    });
+    lines.push(
+      [],
+      ['Sequência','Unidade','Pasta','Projeto','Folha','Responsável','Quantidade','Tempo por unidade em segundos','Execução','Grupo','Duração']
+    );
+    planState.rows.forEach(function(row,index){
+      lines.push([
+        index + 1,row.unit,row.folderName,row.projectName,row.sheetName,row.responsible,
         row.qty,row.unitSec,row.execution === 'sim' ? 'Simultânea' : 'Sequencial',
         row.group || '',planClock(planNumber(row.qty) * planNumber(row.unitSec))
       ]);
@@ -21270,6 +21529,16 @@ body.plan-open{overflow:hidden!important}
         + '<td style="border:1px solid #cbd5e1;padding:5px;text-align:right;font-weight:700">' + planClock(planNumber(row.qty) * planNumber(row.unitSec)) + '</td>'
         + '</tr>';
     }).join('');
+    var peopleRows = planState.people.map(function(person,index){
+      var pct = planPercent(person.allocationPct);
+      return '<tr>'
+        + '<td style="border:1px solid #cbd5e1;padding:5px">' + (index + 1) + '</td>'
+        + '<td style="border:1px solid #cbd5e1;padding:5px">' + planEsc(person.name || 'Pessoa ' + (index + 1)) + '</td>'
+        + '<td style="border:1px solid #cbd5e1;padding:5px;text-align:right">' + planDecimal(pct,2) + ' %</td>'
+        + '<td style="border:1px solid #cbd5e1;padding:5px;text-align:right">' + planDecimal(pct / 100,2) + '</td>'
+        + '<td style="border:1px solid #cbd5e1;padding:5px;text-align:right;font-weight:700">' + planClock(calc.real * pct / 100) + '</td>'
+        + '</tr>';
+    }).join('');
     box.innerHTML = '<div style="font-family:Arial,sans-serif;color:#0f172a">'
       + '<div style="border-bottom:3px solid #f59e0b;padding-bottom:10px;margin-bottom:14px">'
       + '<div style="font-size:20pt;font-weight:800">Planejamento do Processo</div>'
@@ -21280,11 +21549,22 @@ body.plan-open{overflow:hidden!important}
       + '<div><strong>Final previsto:</strong><br>' + planEsc(planEndText(calc.real)) + '</div></div>'
       + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:14px">'
       + '<div style="background:#eff6ff;padding:8px;border-radius:6px"><small>Quantidade</small><br><strong>' + calc.qty.toLocaleString('pt-BR') + '</strong></div>'
+      + '<div style="background:#eff6ff;padding:8px;border-radius:6px"><small>Pessoas</small><br><strong>' + calc.peopleCount + '</strong></div>'
+      + '<div style="background:#f5f3ff;padding:8px;border-radius:6px"><small>PTT nominal</small><br><strong>' + planDecimal(calc.pttNominal,2) + '</strong></div>'
+      + '<div style="background:#f5f3ff;padding:8px;border-radius:6px"><small>PTT efetivo</small><br><strong>' + planDecimal(calc.pttEffective,2) + '</strong></div>'
       + '<div style="background:#fff7ed;padding:8px;border-radius:6px"><small>Tempo bruto</small><br><strong>' + planClock(calc.gross) + '</strong></div>'
       + '<div style="background:#ecfdf5;padding:8px;border-radius:6px"><small>Tempo real</small><br><strong>' + planClock(calc.real) + '</strong></div>'
+      + '<div style="background:#ecfeff;padding:8px;border-radius:6px"><small>Esforço do processo</small><br><strong>' + planClock(calc.effort) + '</strong></div>'
       + '<div style="background:#f5f3ff;padding:8px;border-radius:6px"><small>Ganho simultâneo</small><br><strong>' + planClock(calc.gross - calc.real) + '</strong></div></div>'
+      + '<div style="font-size:10pt;font-weight:800;margin:0 0 6px">Equipe e participação</div>'
+      + (peopleRows
+        ? '<table style="width:100%;border-collapse:collapse;font-size:8pt;margin-bottom:14px"><thead><tr style="background:#334155;color:#fff">'
+          + '<th style="padding:6px">Nº</th><th style="padding:6px">Pessoa</th><th style="padding:6px">Atuação</th><th style="padding:6px">PTT efetivo</th><th style="padding:6px">Esforço individual</th>'
+          + '</tr></thead><tbody>' + peopleRows + '</tbody></table>'
+        : '<div style="padding:7px;border:1px solid #cbd5e1;margin-bottom:14px;font-size:8pt">Nenhuma pessoa cadastrada.</div>')
+      + '<div style="font-size:10pt;font-weight:800;margin:0 0 6px">Itens do planejamento</div>'
       + '<table style="width:100%;border-collapse:collapse;font-size:7.5pt"><thead><tr style="background:#172033;color:#fff">'
-      + '<th style="padding:6px">Nº</th><th style="padding:6px">Unidade</th><th style="padding:6px">Origem</th><th style="padding:6px">Folha</th>'
+          + '<th style="padding:6px">Sequência</th><th style="padding:6px">Unidade</th><th style="padding:6px">Origem</th><th style="padding:6px">Folha</th>'
       + '<th style="padding:6px">Responsável</th><th style="padding:6px">Qtd.</th><th style="padding:6px">Tempo unit.</th><th style="padding:6px">Execução</th><th style="padding:6px">Duração</th>'
       + '</tr></thead><tbody>' + rows + '</tbody></table>'
       + '<div style="margin-top:10px;font-size:8pt;color:#64748b">Nos grupos simultâneos foi considerado somente o maior tempo do grupo, representando a duração real transcorrida.</div>'
@@ -21295,6 +21575,1139 @@ body.plan-open{overflow:hidden!important}
     if(event.key === 'Escape'){
       var overlay = document.getElementById('plan-overlay');
       if(overlay && overlay.classList.contains('open')) closeProcessPlanning();
+    }
+  });
+})();
+</script>
+
+<!-- PLANO MESTRE DE PRODUÇÃO -->
+<style id="master-production-plan-style">
+body.pmp-open{overflow:hidden!important}
+#pmp-overlay{
+  position:fixed;inset:0;z-index:9800;display:none;flex-direction:column;
+  color:var(--text);font-family:'Inter',sans-serif;
+  background:
+    radial-gradient(circle at 8% 0%,rgba(37,99,235,.13),transparent 28%),
+    radial-gradient(circle at 94% 6%,rgba(79,70,229,.11),transparent 26%),
+    var(--bg);
+}
+#pmp-overlay.open{display:flex}
+.pmp-top{
+  min-height:70px;padding:12px 22px;border-bottom:1px solid var(--border2);
+  background:rgba(9,17,31,.95);backdrop-filter:blur(18px);
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex-shrink:0;
+}
+[data-theme="light"] .pmp-top{background:rgba(255,255,255,.96)}
+.pmp-mark{
+  width:42px;height:42px;border-radius:13px;display:flex;align-items:center;
+  justify-content:center;font-size:20px;background:linear-gradient(135deg,#2563eb,#4f46e5);
+  box-shadow:0 9px 26px rgba(37,99,235,.28);flex-shrink:0;
+}
+.pmp-title{font-size:17px;font-weight:850;letter-spacing:-.25px}
+.pmp-subtitle{font-size:10px;color:var(--text3);margin-top:2px}
+.pmp-top-spacer{flex:1}
+.pmp-btn{
+  height:34px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);
+  border-radius:8px;padding:0 12px;font:750 10px 'Inter',sans-serif;
+  cursor:pointer;transition:all .18s;white-space:nowrap;
+}
+.pmp-btn:hover{background:var(--surface3);color:var(--text);transform:translateY(-1px)}
+.pmp-btn.primary{border:none;color:#fff;background:linear-gradient(135deg,#2563eb,#4f46e5)}
+.pmp-btn.success{border-color:rgba(0,229,160,.30);color:var(--green);background:var(--greenBg)}
+.pmp-scroll{flex:1;overflow:auto;padding:20px}
+.pmp-shell{width:min(1540px,100%);margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.pmp-card{
+  background:var(--surface);border:1px solid var(--border2);border-radius:14px;
+  box-shadow:var(--shadow-sm);overflow:hidden;
+}
+.pmp-card-head{
+  min-height:46px;padding:10px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:9px;flex-wrap:wrap;background:var(--surface2);
+}
+.pmp-card-title{font-size:12px;font-weight:800;color:var(--text)}
+.pmp-card-help{font-size:9px;color:var(--text3)}
+.pmp-plan-line{
+  padding:12px 15px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  background:linear-gradient(90deg,rgba(37,99,235,.10),rgba(79,70,229,.04));
+}
+.pmp-plan-main{flex:1;min-width:220px}
+.pmp-plan-name{font-size:14px;font-weight:850;color:var(--text)}
+.pmp-plan-meta{font-size:10px;color:var(--text3);margin-top:3px}
+.pmp-sync{
+  display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:14px;
+  border:1px solid rgba(0,229,160,.25);background:var(--greenBg);
+  color:var(--green);font-size:9px;font-weight:800;
+}
+.pmp-sync::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+.pmp-controls{
+  display:grid;grid-template-columns:minmax(320px,.9fr) minmax(640px,1.6fr);gap:14px;
+}
+.pmp-nav-body,.pmp-capacity-body{padding:14px}
+.pmp-nav-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pmp-nav-title{flex:1;min-width:170px;font-size:15px;font-weight:850;color:var(--text)}
+.pmp-icon-btn{
+  width:34px;height:34px;border:1px solid var(--border2);border-radius:8px;
+  background:var(--surface2);color:var(--text2);cursor:pointer;font-weight:800;
+}
+.pmp-icon-btn:hover{border-color:var(--blue);color:var(--blue)}
+.pmp-view-switch{
+  display:inline-flex;padding:3px;background:var(--surface3);border:1px solid var(--border);
+  border-radius:9px;gap:3px;
+}
+.pmp-view-btn{
+  height:28px;border:0;border-radius:6px;padding:0 12px;background:transparent;
+  color:var(--text3);font:750 9px 'Inter',sans-serif;cursor:pointer;
+}
+.pmp-view-btn.active{background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff}
+.pmp-capacity-grid{
+  display:grid;grid-template-columns:repeat(4,minmax(110px,1fr));gap:9px;align-items:end;
+}
+.pmp-field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.pmp-field label{
+  font-size:8px;font-weight:800;letter-spacing:.65px;text-transform:uppercase;color:var(--text3)
+}
+.pmp-input,.pmp-select{
+  width:100%;height:34px;padding:0 9px;border:1px solid var(--border2);border-radius:7px;
+  background:var(--surface2);color:var(--text);font:650 10px 'Inter',sans-serif;outline:none;
+}
+.pmp-input:focus,.pmp-select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.11)}
+.pmp-days{display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:11px}
+.pmp-days-label{font-size:9px;color:var(--text3);font-weight:750;margin-right:3px}
+.pmp-day-btn{
+  width:29px;height:27px;border:1px solid var(--border2);border-radius:7px;
+  background:var(--surface2);color:var(--text3);font:800 8px 'Inter',sans-serif;cursor:pointer;
+}
+.pmp-day-btn.active{background:var(--blueBg);border-color:rgba(79,142,247,.55);color:var(--blue)}
+.pmp-kpis{display:grid;grid-template-columns:repeat(7,minmax(130px,1fr));gap:9px}
+.pmp-kpi{
+  min-height:89px;padding:13px;background:var(--surface);border:1px solid var(--border2);
+  border-radius:12px;position:relative;overflow:hidden;
+}
+.pmp-kpi::before{
+  content:'';position:absolute;left:0;right:0;top:0;height:2px;background:var(--pmp-kpi,var(--blue));
+}
+.pmp-kpi-label{
+  color:var(--text3);font-size:8px;font-weight:800;letter-spacing:.65px;
+  text-transform:uppercase;margin-bottom:7px;
+}
+.pmp-kpi-value{
+  color:var(--pmp-kpi,var(--text));font:850 18px 'JetBrains Mono',monospace;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.pmp-kpi-foot{font-size:8px;color:var(--text3);margin-top:5px;line-height:1.35}
+.pmp-filter-bar{
+  margin-left:auto;display:grid;grid-template-columns:repeat(3,minmax(130px,190px));gap:7px;
+}
+.pmp-calendar-body{padding:0}
+.pmp-week-head,.pmp-week-grid{
+  display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));
+}
+.pmp-week-head{border-bottom:1px solid var(--border)}
+.pmp-week-head-cell{
+  padding:9px 10px;background:var(--header-bg);border-right:1px solid var(--border);
+  color:var(--text3);font-size:8px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
+}
+.pmp-week-head-cell:last-child{border-right:0}
+.pmp-day-column{
+  min-height:390px;border-right:1px solid var(--border);padding:9px;background:var(--surface);
+}
+.pmp-day-column:last-child{border-right:0}
+.pmp-day-column.off{background:var(--surface2);opacity:.72}
+.pmp-day-column.today{box-shadow:inset 0 3px 0 var(--blue)}
+.pmp-day-top{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px}
+.pmp-day-date{font:800 18px 'JetBrains Mono',monospace;color:var(--text)}
+.pmp-day-column.today .pmp-day-date{color:var(--blue)}
+.pmp-day-load{
+  padding:3px 6px;border-radius:10px;background:var(--greenBg);color:var(--green);
+  font:800 8px 'JetBrains Mono',monospace;
+}
+.pmp-day-load.warn{background:var(--orangeBg);color:var(--orange)}
+.pmp-day-load.over{background:var(--redBg);color:var(--red)}
+.pmp-day-cap{font-size:8px;color:var(--text3);margin-bottom:8px}
+.pmp-event{
+  position:relative;padding:8px 8px 8px 10px;margin-bottom:7px;border-radius:8px;
+  border:1px solid color-mix(in srgb,var(--evt,#4f8ef7) 35%,transparent);
+  background:color-mix(in srgb,var(--evt,#4f8ef7) 10%,var(--surface2));
+  overflow:hidden;cursor:default;
+}
+.pmp-event::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--evt,#4f8ef7);
+}
+.pmp-event-time{font:800 8px 'JetBrains Mono',monospace;color:var(--evt,#4f8ef7);margin-bottom:4px}
+.pmp-event-title{font-size:10px;font-weight:800;color:var(--text);line-height:1.28}
+.pmp-event-meta{font-size:8px;color:var(--text3);line-height:1.4;margin-top:3px}
+.pmp-event-status{
+  display:inline-flex;margin-top:6px;padding:3px 6px;border:1px solid var(--border2);
+  border-radius:9px;background:var(--surface);color:var(--text3);
+  font:750 7px 'Inter',sans-serif;cursor:pointer;
+}
+.pmp-event-status.running{color:var(--blue);border-color:rgba(79,142,247,.35);background:var(--blueBg)}
+.pmp-event-status.done{color:var(--green);border-color:rgba(0,229,160,.30);background:var(--greenBg)}
+.pmp-event-status.blocked{color:var(--red);border-color:rgba(255,77,109,.30);background:var(--redBg)}
+.pmp-no-event{
+  margin-top:16px;padding:13px 8px;border:1px dashed var(--border);border-radius:8px;
+  color:var(--text3);font-size:8px;text-align:center;
+}
+.pmp-month-head,.pmp-month-grid{display:grid;grid-template-columns:repeat(7,minmax(125px,1fr))}
+.pmp-month-head{border-bottom:1px solid var(--border)}
+.pmp-month-weekday{
+  padding:9px;background:var(--header-bg);border-right:1px solid var(--border);
+  color:var(--text3);font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;
+}
+.pmp-month-day{
+  min-height:122px;padding:7px;border-right:1px solid var(--border);
+  border-bottom:1px solid var(--border);background:var(--surface);cursor:pointer;
+}
+.pmp-month-day:nth-child(7n){border-right:0}
+.pmp-month-day.out{background:var(--surface2);opacity:.62}
+.pmp-month-day.today{box-shadow:inset 0 0 0 2px rgba(79,142,247,.65)}
+.pmp-month-date{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.pmp-month-number{font:800 10px 'JetBrains Mono',monospace;color:var(--text)}
+.pmp-month-load{font:800 7px 'JetBrains Mono',monospace;color:var(--green)}
+.pmp-month-event{
+  padding:4px 5px;margin-bottom:4px;border-left:3px solid var(--evt,#4f8ef7);
+  border-radius:4px;background:color-mix(in srgb,var(--evt,#4f8ef7) 10%,var(--surface2));
+  color:var(--text2);font-size:7.5px;font-weight:700;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+}
+.pmp-month-more{font-size:7px;color:var(--text3);padding:2px 3px}
+.pmp-bottom{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(300px,.7fr);gap:14px}
+.pmp-table-wrap{overflow:auto}
+.pmp-table{width:100%;border-collapse:collapse;min-width:990px}
+.pmp-table th{
+  padding:8px;background:var(--header-bg);border-bottom:1px solid var(--border2);
+  color:var(--text3);font-size:7.5px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.55px;text-align:left;white-space:nowrap;
+}
+.pmp-table td{
+  padding:7px 8px;border-bottom:1px solid var(--border);font-size:9px;color:var(--text2);
+  vertical-align:middle;
+}
+.pmp-table tbody tr:nth-child(even){background:var(--row-odd)}
+.pmp-table tbody tr:hover{background:var(--row-hover)}
+.pmp-order-name{font-size:9.5px;font-weight:800;color:var(--text)}
+.pmp-order-sub{font-size:7.5px;color:var(--text3);margin-top:2px}
+.pmp-status-select{height:28px;min-width:105px}
+.pmp-note-input{height:28px;min-width:170px}
+.pmp-insights{padding:13px}
+.pmp-insight{
+  padding:10px 11px;border-radius:9px;border:1px solid var(--border);
+  background:var(--surface2);margin-bottom:8px;font-size:9px;line-height:1.5;color:var(--text2);
+}
+.pmp-insight:last-child{margin-bottom:0}
+.pmp-insight strong{display:block;color:var(--text);font-size:9.5px;margin-bottom:2px}
+.pmp-insight.good{border-color:rgba(0,229,160,.24);background:var(--greenBg)}
+.pmp-insight.warn{border-color:rgba(255,149,0,.25);background:var(--orangeBg)}
+.pmp-insight.bad{border-color:rgba(255,77,109,.25);background:var(--redBg)}
+.pmp-empty{
+  padding:44px 20px;text-align:center;color:var(--text3);font-size:10px;
+}
+.pmp-empty-icon{font-size:38px;margin-bottom:10px}
+@media(max-width:1280px){
+  .pmp-controls{grid-template-columns:1fr}
+  .pmp-kpis{grid-template-columns:repeat(4,1fr)}
+  .pmp-week-head,.pmp-week-grid{min-width:1060px}
+  .pmp-calendar-body{overflow:auto}
+}
+@media(max-width:820px){
+  .pmp-top{padding:10px 12px}
+  .pmp-scroll{padding:10px}
+  .pmp-subtitle{display:none}
+  .pmp-capacity-grid{grid-template-columns:1fr 1fr}
+  .pmp-kpis{grid-template-columns:1fr 1fr}
+  .pmp-filter-bar{width:100%;margin-left:0;grid-template-columns:1fr}
+  .pmp-bottom{grid-template-columns:1fr}
+  .pmp-month-head,.pmp-month-grid{min-width:875px}
+}
+@media(max-width:460px){
+  .pmp-top .pmp-btn span{display:none}
+  .pmp-kpis{grid-template-columns:1fr}
+  .pmp-capacity-grid{grid-template-columns:1fr}
+}
+</style>
+
+<div id="pmp-overlay" aria-hidden="true">
+  <header class="pmp-top">
+    <div class="pmp-mark">🏭</div>
+    <div>
+      <div class="pmp-title">Plano Mestre de Produção</div>
+      <div class="pmp-subtitle">Calendário de execução, capacidade da equipe e acompanhamento do plano</div>
+    </div>
+    <div class="pmp-top-spacer"></div>
+    <button class="pmp-btn" onclick="pmpBackToPlanning()">🗓️ <span>Planejamento</span></button>
+    <button class="pmp-btn success" onclick="pmpRefresh()">↻ <span>Atualizar dados</span></button>
+    <button class="pmp-btn" onclick="pmpExportCsv()">📤 <span>Exportar CSV</span></button>
+    <button class="pmp-btn" onclick="pmpPrint()">🖨️ <span>Imprimir</span></button>
+    <button class="pmp-btn primary" onclick="closeMasterProductionPlan()">✕ <span>Fechar</span></button>
+  </header>
+
+  <div class="pmp-scroll">
+    <main class="pmp-shell">
+      <section class="pmp-card">
+        <div class="pmp-plan-line">
+          <div class="pmp-plan-main">
+            <div class="pmp-plan-name" id="pmp-plan-name">Planejamento do processo</div>
+            <div class="pmp-plan-meta" id="pmp-plan-meta">Aguardando dados do planejamento</div>
+          </div>
+          <div class="pmp-sync" id="pmp-sync">Sincronizado com o planejamento</div>
+        </div>
+      </section>
+
+      <section class="pmp-controls">
+        <article class="pmp-card">
+          <div class="pmp-card-head">
+            <span>📅</span>
+            <span class="pmp-card-title">Período do calendário</span>
+          </div>
+          <div class="pmp-nav-body">
+            <div class="pmp-nav-row">
+              <button class="pmp-icon-btn" onclick="pmpMove(-1)" title="Período anterior">‹</button>
+              <button class="pmp-btn" onclick="pmpToday()">Hoje</button>
+              <button class="pmp-icon-btn" onclick="pmpMove(1)" title="Próximo período">›</button>
+              <div class="pmp-nav-title" id="pmp-period-title">Semana atual</div>
+              <div class="pmp-view-switch">
+                <button class="pmp-view-btn active" id="pmp-view-week" onclick="pmpSetView('week')">Semana</button>
+                <button class="pmp-view-btn" id="pmp-view-month" onclick="pmpSetView('month')">Mês</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="pmp-card">
+          <div class="pmp-card-head">
+            <span>⚙️</span>
+            <span class="pmp-card-title">Calendário de capacidade</span>
+            <span class="pmp-card-help">A programação respeita turno, intervalo e dias produtivos</span>
+          </div>
+          <div class="pmp-capacity-body">
+            <div class="pmp-capacity-grid">
+              <div class="pmp-field">
+                <label for="pmp-shift-start">Início do turno</label>
+                <input class="pmp-input" id="pmp-shift-start" type="time" onchange="pmpUpdateSetting('shiftStart',this.value)">
+              </div>
+              <div class="pmp-field">
+                <label for="pmp-shift-end">Fim do turno</label>
+                <input class="pmp-input" id="pmp-shift-end" type="time" onchange="pmpUpdateSetting('shiftEnd',this.value)">
+              </div>
+              <div class="pmp-field">
+                <label for="pmp-break-start">Início do intervalo</label>
+                <input class="pmp-input" id="pmp-break-start" type="time" onchange="pmpUpdateSetting('breakStart',this.value)">
+              </div>
+              <div class="pmp-field">
+                <label for="pmp-break-minutes">Intervalo em minutos</label>
+                <input class="pmp-input" id="pmp-break-minutes" type="number" min="0" max="240" step="5" onchange="pmpUpdateSetting('breakMinutes',this.value)">
+              </div>
+            </div>
+            <div class="pmp-days">
+              <span class="pmp-days-label">Dias produtivos</span>
+              <button class="pmp-day-btn" data-pmp-day="1" onclick="pmpToggleDay(1)">SEG</button>
+              <button class="pmp-day-btn" data-pmp-day="2" onclick="pmpToggleDay(2)">TER</button>
+              <button class="pmp-day-btn" data-pmp-day="3" onclick="pmpToggleDay(3)">QUA</button>
+              <button class="pmp-day-btn" data-pmp-day="4" onclick="pmpToggleDay(4)">QUI</button>
+              <button class="pmp-day-btn" data-pmp-day="5" onclick="pmpToggleDay(5)">SEX</button>
+              <button class="pmp-day-btn" data-pmp-day="6" onclick="pmpToggleDay(6)">SÁB</button>
+              <button class="pmp-day-btn" data-pmp-day="0" onclick="pmpToggleDay(0)">DOM</button>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="pmp-kpis">
+        <article class="pmp-kpi" style="--pmp-kpi:var(--blue)">
+          <div class="pmp-kpi-label">Ordens programadas</div>
+          <div class="pmp-kpi-value" id="pmp-kpi-orders">0</div>
+          <div class="pmp-kpi-foot">Sequências reais do calendário</div>
+        </article>
+        <article class="pmp-kpi" style="--pmp-kpi:var(--accent)">
+          <div class="pmp-kpi-label">Quantidade total</div>
+          <div class="pmp-kpi-value" id="pmp-kpi-qty">0</div>
+          <div class="pmp-kpi-foot">Unidades previstas no planejamento</div>
+        </article>
+        <article class="pmp-kpi" style="--pmp-kpi:var(--purple)">
+          <div class="pmp-kpi-label">PTT efetivo</div>
+          <div class="pmp-kpi-value" id="pmp-kpi-ptt">0,00</div>
+          <div class="pmp-kpi-foot" id="pmp-kpi-people">Nenhuma pessoa cadastrada</div>
+        </article>
+        <article class="pmp-kpi" style="--pmp-kpi:var(--orange)">
+          <div class="pmp-kpi-label">Carga total</div>
+          <div class="pmp-kpi-value" id="pmp-kpi-effort">0,00 h</div>
+          <div class="pmp-kpi-foot">Esforço em horas pessoa</div>
+        </article>
+        <article class="pmp-kpi" style="--pmp-kpi:var(--green)">
+          <div class="pmp-kpi-label">Capacidade diária</div>
+          <div class="pmp-kpi-value" id="pmp-kpi-capacity">0,00 h</div>
+          <div class="pmp-kpi-foot">Turno produtivo multiplicado pelo PTT</div>
+        </article>
+        <article class="pmp-kpi" style="--pmp-kpi:var(--blue)">
+          <div class="pmp-kpi-label">Ocupação do período</div>
+          <div class="pmp-kpi-value" id="pmp-kpi-usage">0%</div>
+          <div class="pmp-kpi-foot" id="pmp-kpi-days">0 dias produtivos</div>
+        </article>
+        <article class="pmp-kpi" style="--pmp-kpi:var(--purple)">
+          <div class="pmp-kpi-label">Final previsto</div>
+          <div class="pmp-kpi-value" id="pmp-kpi-end" style="font-size:13px">Sem programação</div>
+          <div class="pmp-kpi-foot">Calculado pelo calendário de capacidade</div>
+        </article>
+      </section>
+
+      <section class="pmp-card">
+        <div class="pmp-card-head">
+          <span>🗓️</span>
+          <span class="pmp-card-title">Calendário do plano mestre</span>
+          <span class="pmp-card-help" id="pmp-calendar-help">Programação semanal</span>
+          <div class="pmp-filter-bar">
+            <select class="pmp-select" id="pmp-filter-folder" onchange="pmpSetFilter('folder',this.value)"></select>
+            <select class="pmp-select" id="pmp-filter-project" onchange="pmpSetFilter('project',this.value)"></select>
+            <select class="pmp-select" id="pmp-filter-person" onchange="pmpSetFilter('person',this.value)"></select>
+          </div>
+        </div>
+        <div class="pmp-calendar-body" id="pmp-calendar"></div>
+      </section>
+
+      <section class="pmp-bottom">
+        <article class="pmp-card">
+          <div class="pmp-card-head">
+            <span>📋</span>
+            <span class="pmp-card-title">Sequenciamento da produção</span>
+            <span class="pmp-card-help">Atualize o status e registre observações de acompanhamento</span>
+          </div>
+          <div class="pmp-table-wrap" id="pmp-sequence"></div>
+        </article>
+        <article class="pmp-card">
+          <div class="pmp-card-head">
+            <span>💡</span>
+            <span class="pmp-card-title">Leitura do plano</span>
+          </div>
+          <div class="pmp-insights" id="pmp-insights"></div>
+        </article>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+(function(){
+  var PMP_KEY = 'mtm_master_production_plan_v1';
+  var PLAN_KEY_PMP = 'mtm_process_planning_v1';
+  var pmpState = {
+    view:'week',
+    focus:'',
+    shiftStart:'06:00',
+    shiftEnd:'15:00',
+    breakStart:'12:00',
+    breakMinutes:60,
+    workdays:[1,2,3,4,5],
+    filters:{folder:'',project:'',person:''},
+    statuses:{},
+    notes:{}
+  };
+  var pmpPlan = {name:'',owner:'',start:'',people:[],rows:[]};
+  var pmpScheduleCache = null;
+  var pmpPreviousOverflow = '';
+
+  function pmpNum(value){
+    var n = parseFloat(String(value == null ? '' : value).replace(',','.'));
+    return isFinite(n) && n >= 0 ? n : 0;
+  }
+  function pmpEsc(value){
+    return String(value == null ? '' : value)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function pmpCsv(value){ return '"' + String(value == null ? '' : value).replace(/"/g,'""') + '"'; }
+  function pmpPad(value){ return String(Math.max(0,Math.floor(value))).padStart(2,'0'); }
+  function pmpDate(value){
+    if(value instanceof Date) return new Date(value.getTime());
+    var text = String(value || '');
+    var match = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(match) return new Date(+match[1],+match[2]-1,+match[3],0,0,0,0);
+    var parsed = new Date(value);
+    return isNaN(parsed.getTime()) ? new Date() : parsed;
+  }
+  function pmpDateKey(value){
+    var date = pmpDate(value);
+    return date.getFullYear() + '-' + pmpPad(date.getMonth()+1) + '-' + pmpPad(date.getDate());
+  }
+  function pmpDateTimeLocal(value){
+    var date = pmpDate(value);
+    return pmpDateKey(date) + 'T' + pmpPad(date.getHours()) + ':' + pmpPad(date.getMinutes());
+  }
+  function pmpMinutes(value){
+    var parts = String(value || '00:00').split(':');
+    return Math.max(0,Math.min(1439,(parseInt(parts[0],10)||0)*60 + (parseInt(parts[1],10)||0)));
+  }
+  function pmpAtMinutes(day,minutes){
+    var date = pmpDate(day);
+    date.setHours(0,0,0,0);
+    date.setMinutes(minutes);
+    return date;
+  }
+  function pmpAddDays(value,days){
+    var date = pmpDate(value);
+    date.setDate(date.getDate()+days);
+    return date;
+  }
+  function pmpStartWeek(value){
+    var date = pmpDate(value);
+    date.setHours(0,0,0,0);
+    var diff = (date.getDay()+6)%7;
+    date.setDate(date.getDate()-diff);
+    return date;
+  }
+  function pmpStartMonth(value){
+    var date = pmpDate(value);
+    return new Date(date.getFullYear(),date.getMonth(),1);
+  }
+  function pmpClockSeconds(seconds){
+    seconds = Math.max(0,Math.round(pmpNum(seconds)));
+    var hours = Math.floor(seconds/3600);
+    var minutes = Math.floor((seconds%3600)/60);
+    return pmpPad(hours)+':'+pmpPad(minutes);
+  }
+  function pmpHours(seconds){
+    return (pmpNum(seconds)/3600).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' h';
+  }
+  function pmpPercent(value){
+    return Math.max(0,value).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:1})+'%';
+  }
+  function pmpFormatDate(value,withTime){
+    var date = pmpDate(value);
+    var options = {day:'2-digit',month:'2-digit',year:'numeric'};
+    if(withTime){ options.hour='2-digit'; options.minute='2-digit'; }
+    return date.toLocaleString('pt-BR',options);
+  }
+  function pmpFormatShort(value){
+    return pmpDate(value).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+  }
+  function pmpTime(value){
+    return pmpDate(value).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  }
+  function pmpHashColor(text){
+    var colors = ['#4f8ef7','#7c6cff','#00b8d9','#00b87a','#f59e0b','#e879f9','#06b6d4','#8b5cf6'];
+    var hash = 0;
+    String(text || '').split('').forEach(function(char){ hash = ((hash<<5)-hash)+char.charCodeAt(0); });
+    return colors[Math.abs(hash)%colors.length];
+  }
+  function pmpStatusLabel(status){
+    return {planned:'Planejado',running:'Em produção',done:'Concluído',blocked:'Bloqueado'}[status] || 'Planejado';
+  }
+  function pmpLoadState(){
+    try{
+      var raw = localStorage.getItem(PMP_KEY);
+      if(raw){
+        var data = JSON.parse(raw);
+        if(data && typeof data === 'object') pmpState = Object.assign(pmpState,data);
+      }
+    }catch(e){}
+    pmpState.view = pmpState.view === 'month' ? 'month' : 'week';
+    pmpState.focus = pmpState.focus || pmpDateKey(new Date());
+    pmpState.workdays = Array.isArray(pmpState.workdays) && pmpState.workdays.length
+      ? pmpState.workdays.map(Number) : [1,2,3,4,5];
+    pmpState.filters = pmpState.filters || {folder:'',project:'',person:''};
+    pmpState.statuses = pmpState.statuses || {};
+    pmpState.notes = pmpState.notes || {};
+  }
+  function pmpSaveState(){
+    try{ localStorage.setItem(PMP_KEY,JSON.stringify(pmpState)); }catch(e){}
+  }
+  function pmpLoadPlan(){
+    pmpPlan = {name:'',owner:'',start:'',people:[],rows:[]};
+    try{
+      var raw = localStorage.getItem(PLAN_KEY_PMP);
+      if(raw){
+        var data = JSON.parse(raw);
+        if(data && Array.isArray(data.rows)) pmpPlan = data;
+      }
+    }catch(e){}
+    pmpPlan.people = Array.isArray(pmpPlan.people) ? pmpPlan.people : [];
+    pmpPlan.rows = Array.isArray(pmpPlan.rows) ? pmpPlan.rows : [];
+  }
+  function pmpAlignFocusToPlan(){
+    if(pmpPlan.start && pmpState.sourceStart !== pmpPlan.start){
+      pmpState.focus = pmpDateKey(pmpPlan.start);
+      pmpState.sourceStart = pmpPlan.start;
+      pmpSaveState();
+    }
+  }
+  function pmpPtt(){
+    return pmpPlan.people.reduce(function(total,person){
+      return total + Math.min(100,pmpNum(person && person.allocationPct))/100;
+    },0);
+  }
+  function pmpIsWorkday(date){ return pmpState.workdays.indexOf(pmpDate(date).getDay()) !== -1; }
+  function pmpIntervals(day){
+    if(!pmpIsWorkday(day)) return [];
+    var startMin = pmpMinutes(pmpState.shiftStart);
+    var endMin = pmpMinutes(pmpState.shiftEnd);
+    if(endMin <= startMin) endMin += 1440;
+    var start = pmpAtMinutes(day,startMin);
+    var end = pmpAtMinutes(day,endMin);
+    var breakMin = Math.min(240,pmpNum(pmpState.breakMinutes));
+    var pauseStartMin = pmpMinutes(pmpState.breakStart);
+    if(pauseStartMin < startMin && endMin > 1440) pauseStartMin += 1440;
+    var pauseStart = pmpAtMinutes(day,pauseStartMin);
+    var pauseEnd = new Date(pauseStart.getTime()+breakMin*60000);
+    if(!breakMin || pauseStart <= start || pauseStart >= end) return [[start,end]];
+    if(pauseEnd > end) pauseEnd = end;
+    var list = [];
+    if(pauseStart > start) list.push([start,pauseStart]);
+    if(pauseEnd < end) list.push([pauseEnd,end]);
+    return list;
+  }
+  function pmpDaySeconds(day){
+    return pmpIntervals(day).reduce(function(total,interval){
+      return total + Math.max(0,(interval[1]-interval[0])/1000);
+    },0);
+  }
+  function pmpNextWork(value){
+    var cursor = pmpDate(value);
+    for(var guard=0;guard<370;guard++){
+      var intervals = pmpIntervals(cursor);
+      for(var i=0;i<intervals.length;i++){
+        if(cursor <= intervals[i][0]) return new Date(intervals[i][0].getTime());
+        if(cursor > intervals[i][0] && cursor < intervals[i][1]) return new Date(cursor.getTime());
+      }
+      cursor = pmpAddDays(cursor,1);
+      cursor.setHours(0,0,0,0);
+    }
+    return cursor;
+  }
+  function pmpAllocate(value,seconds){
+    var requested = Math.max(0,pmpNum(seconds));
+    var cursor = pmpNextWork(value);
+    var start = new Date(cursor.getTime());
+    var pieces = [];
+    if(!requested) return {start:start,end:start,pieces:pieces};
+    var left = requested;
+    for(var guard=0;left>0 && guard<2000;guard++){
+      cursor = pmpNextWork(cursor);
+      var intervals = pmpIntervals(cursor);
+      var current = null;
+      for(var i=0;i<intervals.length;i++){
+        if(cursor >= intervals[i][0] && cursor < intervals[i][1]){ current = intervals[i]; break; }
+        if(cursor <= intervals[i][0]){ cursor = new Date(intervals[i][0].getTime()); current = intervals[i]; break; }
+      }
+      if(!current){
+        cursor = pmpAddDays(cursor,1);
+        cursor.setHours(0,0,0,0);
+        continue;
+      }
+      var available = Math.max(0,(current[1]-cursor)/1000);
+      var used = Math.min(left,available);
+      var pieceEnd = new Date(cursor.getTime()+used*1000);
+      pieces.push({start:new Date(cursor.getTime()),end:pieceEnd});
+      left -= used;
+      cursor = pieceEnd;
+      if(left > 0 && cursor >= current[1]) cursor = new Date(current[1].getTime());
+    }
+    return {start:start,end:new Date(cursor.getTime()),pieces:pieces};
+  }
+  function pmpRowDuration(row){ return pmpNum(row && row.qty)*pmpNum(row && row.unitSec); }
+  function pmpBuildSchedule(){
+    var rows = pmpPlan.rows || [];
+    var start = pmpPlan.start ? new Date(pmpPlan.start) : pmpAtMinutes(new Date(),pmpMinutes(pmpState.shiftStart));
+    if(isNaN(start.getTime())) start = pmpAtMinutes(new Date(),pmpMinutes(pmpState.shiftStart));
+    var cursor = pmpNextWork(start);
+    var usedGroups = {};
+    var segments = [];
+    rows.forEach(function(row,index){
+      var group = String(row.group || '').trim();
+      var simultaneous = row.execution === 'sim' && group;
+      if(simultaneous && usedGroups[group]) return;
+      var segmentRows;
+      var segmentId;
+      var title;
+      if(simultaneous){
+        usedGroups[group] = true;
+        segmentRows = rows.filter(function(item){
+          return item.execution === 'sim' && String(item.group || '').trim() === group;
+        });
+        segmentId = 'group:'+group;
+        title = 'Grupo simultâneo '+group;
+      }else{
+        segmentRows = [row];
+        segmentId = 'row:'+(row.id || index);
+        title = row.sheetName || row.unit || 'Ordem de produção';
+      }
+      var duration = segmentRows.reduce(function(max,item){ return Math.max(max,pmpRowDuration(item)); },0);
+      var allocation = pmpAllocate(cursor,duration);
+      segments.push({
+        id:segmentId,
+        rows:segmentRows,
+        title:title,
+        duration:duration,
+        start:allocation.start,
+        end:allocation.end,
+        pieces:allocation.pieces,
+        simultaneous:!!simultaneous,
+        group:group,
+        status:pmpState.statuses[segmentId] || 'planned',
+        note:pmpState.notes[segmentId] || ''
+      });
+      cursor = new Date(allocation.end.getTime());
+    });
+    var ptt = pmpPtt();
+    var real = segments.reduce(function(total,item){ return total+item.duration; },0);
+    var qty = rows.reduce(function(total,row){ return total+pmpNum(row.qty); },0);
+    var gross = rows.reduce(function(total,row){ return total+pmpRowDuration(row); },0);
+    var first = segments.length ? segments[0].start : pmpNextWork(start);
+    var last = segments.length ? segments[segments.length-1].end : first;
+    var days = 0;
+    var capacity = 0;
+    var walk = pmpDate(first);
+    walk.setHours(0,0,0,0);
+    var limit = pmpDate(last);
+    limit.setHours(23,59,59,999);
+    for(var guard=0;walk<=limit && guard<2000;guard++){
+      if(pmpIsWorkday(walk)){
+        days++;
+        capacity += pmpDaySeconds(walk)*ptt;
+      }
+      walk = pmpAddDays(walk,1);
+    }
+    return {
+      segments:segments,ptt:ptt,real:real,gross:gross,qty:qty,
+      effort:real*ptt,first:first,last:last,days:segments.length ? days : 0,
+      capacity:segments.length ? capacity : 0,
+      dailyCapacity:pmpDaySeconds(first)*ptt
+    };
+  }
+  function pmpSegmentMatches(segment){
+    var filters = pmpState.filters || {};
+    return segment.rows.some(function(row){
+      return (!filters.folder || row.folderName === filters.folder)
+        && (!filters.project || row.projectName === filters.project)
+        && (!filters.person || row.responsible === filters.person);
+    });
+  }
+  function pmpPieceSecondsOnDay(piece,day){
+    var begin = pmpDate(day); begin.setHours(0,0,0,0);
+    var finish = pmpAddDays(begin,1);
+    var start = Math.max(piece.start.getTime(),begin.getTime());
+    var end = Math.min(piece.end.getTime(),finish.getTime());
+    return Math.max(0,(end-start)/1000);
+  }
+  function pmpSegmentsForDay(day){
+    var key = pmpDateKey(day);
+    return pmpScheduleCache.segments.filter(function(segment){
+      if(!pmpSegmentMatches(segment)) return false;
+      if(!segment.duration) return pmpDateKey(segment.start) === key;
+      return segment.pieces.some(function(piece){ return pmpPieceSecondsOnDay(piece,day)>0; });
+    });
+  }
+  function pmpLoadForDay(day){
+    return pmpScheduleCache.segments.reduce(function(total,segment){
+      return total + segment.pieces.reduce(function(sum,piece){ return sum+pmpPieceSecondsOnDay(piece,day); },0);
+    },0);
+  }
+  function pmpUnique(key){
+    var map = {};
+    pmpPlan.rows.forEach(function(row){
+      var value = String(row[key] || '').trim();
+      if(value) map[value] = true;
+    });
+    return Object.keys(map).sort(function(a,b){ return a.localeCompare(b,'pt-BR'); });
+  }
+  function pmpOptions(el,values,placeholder,current){
+    if(!el) return;
+    el.innerHTML = '<option value="">'+pmpEsc(placeholder)+'</option>'
+      + values.map(function(value){
+        return '<option value="'+pmpEsc(value)+'"'+(value===current?' selected':'')+'>'+pmpEsc(value)+'</option>';
+      }).join('');
+  }
+  function pmpRenderFilters(){
+    pmpOptions(document.getElementById('pmp-filter-folder'),pmpUnique('folderName'),'Todas as pastas',pmpState.filters.folder);
+    pmpOptions(document.getElementById('pmp-filter-project'),pmpUnique('projectName'),'Todos os projetos',pmpState.filters.project);
+    pmpOptions(document.getElementById('pmp-filter-person'),pmpUnique('responsible'),'Todos os responsáveis',pmpState.filters.person);
+  }
+  function pmpRenderSettings(){
+    document.getElementById('pmp-shift-start').value = pmpState.shiftStart;
+    document.getElementById('pmp-shift-end').value = pmpState.shiftEnd;
+    document.getElementById('pmp-break-start').value = pmpState.breakStart;
+    document.getElementById('pmp-break-minutes').value = pmpState.breakMinutes;
+    document.querySelectorAll('[data-pmp-day]').forEach(function(button){
+      button.classList.toggle('active',pmpState.workdays.indexOf(+button.getAttribute('data-pmp-day'))!==-1);
+    });
+    document.getElementById('pmp-view-week').classList.toggle('active',pmpState.view==='week');
+    document.getElementById('pmp-view-month').classList.toggle('active',pmpState.view==='month');
+  }
+  function pmpRenderPlanLine(){
+    document.getElementById('pmp-plan-name').textContent = pmpPlan.name || 'Planejamento do processo';
+    var meta = [];
+    if(pmpPlan.owner) meta.push('Responsável: '+pmpPlan.owner);
+    if(pmpPlan.start) meta.push('Início: '+pmpFormatDate(pmpPlan.start,true));
+    meta.push(pmpPlan.rows.length+(pmpPlan.rows.length===1?' item importado':' itens importados'));
+    document.getElementById('pmp-plan-meta').textContent = meta.join(' · ');
+    document.getElementById('pmp-sync').textContent = 'Atualizado às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  }
+  function pmpRenderKpis(){
+    var schedule = pmpScheduleCache;
+    document.getElementById('pmp-kpi-orders').textContent = schedule.segments.length;
+    document.getElementById('pmp-kpi-qty').textContent = schedule.qty.toLocaleString('pt-BR',{maximumFractionDigits:2});
+    document.getElementById('pmp-kpi-ptt').textContent = schedule.ptt.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    document.getElementById('pmp-kpi-people').textContent = pmpPlan.people.length+(pmpPlan.people.length===1?' pessoa cadastrada':' pessoas cadastradas');
+    document.getElementById('pmp-kpi-effort').textContent = pmpHours(schedule.effort);
+    document.getElementById('pmp-kpi-capacity').textContent = pmpHours(schedule.dailyCapacity);
+    var usage = schedule.capacity > 0 ? schedule.effort/schedule.capacity*100 : 0;
+    document.getElementById('pmp-kpi-usage').textContent = pmpPercent(usage);
+    document.getElementById('pmp-kpi-days').textContent = schedule.days+(schedule.days===1?' dia produtivo':' dias produtivos');
+    document.getElementById('pmp-kpi-end').textContent = schedule.segments.length ? pmpFormatDate(schedule.last,true) : 'Sem programação';
+  }
+  function pmpEventHtml(segment,day,compact){
+    var color = pmpHashColor(segment.rows[0] && segment.rows[0].folderName);
+    var first = segment.rows[0] || {};
+    var title = segment.simultaneous
+      ? segment.title+' · '+segment.rows.length+' atividades'
+      : (first.sheetName || first.unit || 'Ordem de produção');
+    if(compact){
+      return '<div class="pmp-month-event" style="--evt:'+color+'" title="'+pmpEsc(title)+'">'
+        +pmpEsc(pmpTime(segment.start)+' · '+title)+'</div>';
+    }
+    var rowNames = segment.rows.map(function(row){ return row.sheetName || row.unit || 'Atividade'; }).join(', ');
+    var datesDiffer = pmpDateKey(segment.start)!==pmpDateKey(segment.end);
+    var timeText = pmpDateKey(segment.start)===pmpDateKey(day) ? pmpTime(segment.start) : 'Continuação';
+    timeText += ' até '+pmpTime(segment.end)+(datesDiffer?' · '+pmpFormatShort(segment.end):'');
+    return '<article class="pmp-event" style="--evt:'+color+'">'
+      +'<div class="pmp-event-time">'+pmpEsc(timeText)+'</div>'
+      +'<div class="pmp-event-title">'+pmpEsc(title)+'</div>'
+      +'<div class="pmp-event-meta">'+pmpEsc(first.folderName || 'Sem pasta')+' · '+pmpEsc(first.projectName || 'Sem projeto')+'</div>'
+      +'<div class="pmp-event-meta">'+pmpEsc(rowNames)+' · '+pmpClockSeconds(segment.duration)+'</div>'
+      +'<button class="pmp-event-status '+pmpEsc(segment.status)+'" onclick="pmpCycleStatus(\''+pmpEsc(segment.id)+'\')">'+pmpEsc(pmpStatusLabel(segment.status))+'</button>'
+      +'</article>';
+  }
+  function pmpDayUsage(day){
+    var dayCapacity = pmpDaySeconds(day);
+    var load = pmpLoadForDay(day);
+    return dayCapacity > 0 ? load/dayCapacity*100 : 0;
+  }
+  function pmpRenderWeek(){
+    var focus = pmpDate(pmpState.focus);
+    var start = pmpStartWeek(focus);
+    var end = pmpAddDays(start,6);
+    document.getElementById('pmp-period-title').textContent =
+      pmpFormatShort(start)+' a '+pmpFormatDate(end,false);
+    document.getElementById('pmp-calendar-help').textContent = 'Programação semanal por dia produtivo';
+    var names = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
+    var header = '<div class="pmp-week-head">'+names.map(function(name){
+      return '<div class="pmp-week-head-cell">'+name+'</div>';
+    }).join('')+'</div>';
+    var today = pmpDateKey(new Date());
+    var columns = '';
+    for(var i=0;i<7;i++){
+      var day = pmpAddDays(start,i);
+      var events = pmpSegmentsForDay(day);
+      var usage = pmpDayUsage(day);
+      var active = pmpIsWorkday(day);
+      var loadClass = usage>100?' over':usage>85?' warn':'';
+      columns += '<div class="pmp-day-column'+(active?'':' off')+(pmpDateKey(day)===today?' today':'')+'">'
+        +'<div class="pmp-day-top"><span class="pmp-day-date">'+pmpPad(day.getDate())+'</span>'
+        +'<span class="pmp-day-load'+loadClass+'">'+(active?pmpPercent(usage):'Folga')+'</span></div>'
+        +'<div class="pmp-day-cap">'+(active?pmpHours(pmpDaySeconds(day)*pmpScheduleCache.ptt)+' de capacidade':'Dia não produtivo')+'</div>'
+        +(events.length ? events.map(function(event){ return pmpEventHtml(event,day,false); }).join('')
+          : '<div class="pmp-no-event">Nenhuma ordem programada</div>')
+        +'</div>';
+    }
+    document.getElementById('pmp-calendar').innerHTML = header+'<div class="pmp-week-grid">'+columns+'</div>';
+  }
+  function pmpRenderMonth(){
+    var focus = pmpDate(pmpState.focus);
+    var month = pmpStartMonth(focus);
+    var gridStart = pmpStartWeek(month);
+    document.getElementById('pmp-period-title').textContent =
+      focus.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).replace(/^./,function(char){ return char.toUpperCase(); });
+    document.getElementById('pmp-calendar-help').textContent = 'Visão mensal com carga diária';
+    var names = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+    var header = '<div class="pmp-month-head">'+names.map(function(name){
+      return '<div class="pmp-month-weekday">'+name+'</div>';
+    }).join('')+'</div>';
+    var today = pmpDateKey(new Date());
+    var cells = '';
+    for(var i=0;i<42;i++){
+      var day = pmpAddDays(gridStart,i);
+      var events = pmpSegmentsForDay(day);
+      var usage = pmpDayUsage(day);
+      var visible = events.slice(0,3);
+      cells += '<div class="pmp-month-day'+(day.getMonth()!==month.getMonth()?' out':'')+(pmpDateKey(day)===today?' today':'')+'" onclick="pmpOpenDay(\''+pmpDateKey(day)+'\')">'
+        +'<div class="pmp-month-date"><span class="pmp-month-number">'+day.getDate()+'</span>'
+        +'<span class="pmp-month-load">'+(pmpIsWorkday(day)?pmpPercent(usage):'')+'</span></div>'
+        +visible.map(function(event){ return pmpEventHtml(event,day,true); }).join('')
+        +(events.length>3?'<div class="pmp-month-more">Mais '+(events.length-3)+' ordem(ns)</div>':'')
+        +'</div>';
+    }
+    document.getElementById('pmp-calendar').innerHTML = header+'<div class="pmp-month-grid">'+cells+'</div>';
+  }
+  function pmpRenderSequence(){
+    var box = document.getElementById('pmp-sequence');
+    var segments = pmpScheduleCache.segments.filter(pmpSegmentMatches);
+    if(!segments.length){
+      box.innerHTML = '<div class="pmp-empty"><div class="pmp-empty-icon">📭</div>Nenhuma ordem encontrada para os filtros selecionados.</div>';
+      return;
+    }
+    var rows = segments.map(function(segment,index){
+      var first = segment.rows[0] || {};
+      var qty = segment.rows.reduce(function(total,row){ return total+pmpNum(row.qty); },0);
+      var names = segment.rows.map(function(row){ return row.sheetName || row.unit || 'Atividade'; }).join(', ');
+      return '<tr>'
+        +'<td style="text-align:center">'+(index+1)+'</td>'
+        +'<td><div class="pmp-order-name">'+pmpEsc(segment.title)+'</div><div class="pmp-order-sub">'+pmpEsc(names)+'</div></td>'
+        +'<td><div class="pmp-order-name">'+pmpEsc(first.folderName || 'Sem pasta')+'</div><div class="pmp-order-sub">'+pmpEsc(first.projectName || 'Sem projeto')+'</div></td>'
+        +'<td>'+pmpEsc(first.responsible || 'Não atribuído')+'</td>'
+        +'<td style="text-align:right">'+qty.toLocaleString('pt-BR',{maximumFractionDigits:2})+'</td>'
+        +'<td>'+pmpEsc(pmpFormatDate(segment.start,true))+'</td>'
+        +'<td>'+pmpEsc(pmpFormatDate(segment.end,true))+'</td>'
+        +'<td style="text-align:right;font-family:\'JetBrains Mono\',monospace">'+pmpClockSeconds(segment.duration)+'</td>'
+        +'<td><select class="pmp-select pmp-status-select" onchange="pmpSetStatus(\''+pmpEsc(segment.id)+'\',this.value)">'
+          +'<option value="planned"'+(segment.status==='planned'?' selected':'')+'>Planejado</option>'
+          +'<option value="running"'+(segment.status==='running'?' selected':'')+'>Em produção</option>'
+          +'<option value="done"'+(segment.status==='done'?' selected':'')+'>Concluído</option>'
+          +'<option value="blocked"'+(segment.status==='blocked'?' selected':'')+'>Bloqueado</option>'
+        +'</select></td>'
+        +'<td><input class="pmp-input pmp-note-input" placeholder="Observação" value="'+pmpEsc(segment.note)+'" oninput="pmpSetNote(\''+pmpEsc(segment.id)+'\',this.value)"></td>'
+        +'</tr>';
+    }).join('');
+    box.innerHTML = '<table class="pmp-table"><thead><tr>'
+      +'<th>Sequência</th><th>Ordem</th><th>Origem</th><th>Responsável</th><th style="text-align:right">Qtd.</th>'
+      +'<th>Início</th><th>Fim</th><th style="text-align:right">Duração</th><th>Status</th><th>Observação</th>'
+      +'</tr></thead><tbody>'+rows+'</tbody></table>';
+  }
+  function pmpRenderInsights(){
+    var box = document.getElementById('pmp-insights');
+    var schedule = pmpScheduleCache;
+    if(!pmpPlan.rows.length){
+      box.innerHTML = '<div class="pmp-insight warn"><strong>Planejamento vazio</strong>Abra a página de planejamento, adicione as folhas e informe as quantidades antes de montar o calendário.</div>';
+      return;
+    }
+    var missingTime = pmpPlan.rows.filter(function(row){ return !(pmpRowDuration(row)>0); }).length;
+    var missingPerson = pmpPlan.rows.filter(function(row){ return !String(row.responsible || '').trim(); }).length;
+    var blocked = schedule.segments.filter(function(segment){ return segment.status==='blocked'; }).length;
+    var simultaneous = schedule.segments.filter(function(segment){ return segment.simultaneous; }).length;
+    var items = [];
+    if(schedule.ptt>0){
+      items.push('<div class="pmp-insight good"><strong>Capacidade calculada</strong>A equipe oferece '+pmpHours(schedule.dailyCapacity)+' por dia. O calendário termina em '+pmpFormatDate(schedule.last,true)+'.</div>');
+    }else{
+      items.push('<div class="pmp-insight bad"><strong>PTT não informado</strong>Cadastre as pessoas e os percentuais de atuação no planejamento para calcular a capacidade em horas pessoa.</div>');
+    }
+    if(simultaneous){
+      items.push('<div class="pmp-insight good"><strong>Simultaneidade preservada</strong>'+simultaneous+' grupo(s) foram colocados no mesmo intervalo do calendário, considerando o maior tempo do grupo.</div>');
+    }
+    if(missingTime){
+      items.push('<div class="pmp-insight warn"><strong>Tempo incompleto</strong>'+missingTime+' item(ns) possuem quantidade ou tempo por unidade igual a zero.</div>');
+    }
+    if(missingPerson){
+      items.push('<div class="pmp-insight warn"><strong>Responsável pendente</strong>'+missingPerson+' item(ns) ainda não possuem responsável definido.</div>');
+    }
+    if(blocked){
+      items.push('<div class="pmp-insight bad"><strong>Produção bloqueada</strong>'+blocked+' ordem(ns) estão marcadas como bloqueadas e precisam de tratamento.</div>');
+    }
+    if(!missingTime && !missingPerson && !blocked){
+      items.push('<div class="pmp-insight good"><strong>Plano consistente</strong>Todos os itens possuem tempo, quantidade e responsável, sem bloqueios registrados.</div>');
+    }
+    box.innerHTML = items.join('');
+  }
+  function pmpRender(){
+    pmpScheduleCache = pmpBuildSchedule();
+    pmpRenderSettings();
+    pmpRenderPlanLine();
+    pmpRenderFilters();
+    pmpRenderKpis();
+    if(pmpState.view==='month') pmpRenderMonth(); else pmpRenderWeek();
+    pmpRenderSequence();
+    pmpRenderInsights();
+  }
+
+  window.openMasterProductionPlan = function(fromPlanning){
+    pmpLoadState();
+    pmpLoadPlan();
+    pmpAlignFocusToPlan();
+    var planOverlay = document.getElementById('plan-overlay');
+    if(planOverlay && planOverlay.classList.contains('open')){
+      planOverlay.classList.remove('open');
+      planOverlay.setAttribute('aria-hidden','true');
+      document.body.classList.remove('plan-open');
+    }
+    pmpPreviousOverflow = document.body.style.overflow || '';
+    var overlay = document.getElementById('pmp-overlay');
+    overlay.classList.add('open');
+    overlay.setAttribute('aria-hidden','false');
+    document.body.classList.add('pmp-open');
+    if(fromPlanning) overlay.setAttribute('data-return-planning','1');
+    else overlay.removeAttribute('data-return-planning');
+    pmpRender();
+  };
+  window.closeMasterProductionPlan = function(){
+    var overlay = document.getElementById('pmp-overlay');
+    overlay.classList.remove('open');
+    overlay.setAttribute('aria-hidden','true');
+    document.body.classList.remove('pmp-open');
+    document.body.style.overflow = pmpPreviousOverflow;
+  };
+  window.pmpBackToPlanning = function(){
+    closeMasterProductionPlan();
+    if(typeof openProcessPlanning === 'function') openProcessPlanning();
+  };
+  window.pmpRefresh = function(){
+    pmpLoadPlan();
+    pmpAlignFocusToPlan();
+    pmpRender();
+    if(typeof showToast === 'function') showToast('Plano mestre atualizado com os dados do planejamento');
+  };
+  window.pmpSetView = function(view){
+    pmpState.view = view === 'month' ? 'month' : 'week';
+    pmpSaveState();
+    pmpRender();
+  };
+  window.pmpMove = function(direction){
+    var focus = pmpDate(pmpState.focus);
+    focus = pmpState.view==='month'
+      ? new Date(focus.getFullYear(),focus.getMonth()+direction,1)
+      : pmpAddDays(focus,direction*7);
+    pmpState.focus = pmpDateKey(focus);
+    pmpSaveState();
+    pmpRender();
+  };
+  window.pmpToday = function(){
+    pmpState.focus = pmpDateKey(new Date());
+    pmpSaveState();
+    pmpRender();
+  };
+  window.pmpOpenDay = function(key){
+    pmpState.focus = key;
+    pmpState.view = 'week';
+    pmpSaveState();
+    pmpRender();
+  };
+  window.pmpUpdateSetting = function(key,value){
+    if(key==='breakMinutes') value = Math.min(240,pmpNum(value));
+    pmpState[key] = value;
+    pmpSaveState();
+    pmpRender();
+  };
+  window.pmpToggleDay = function(day){
+    day = +day;
+    var index = pmpState.workdays.indexOf(day);
+    if(index===-1) pmpState.workdays.push(day);
+    else if(pmpState.workdays.length>1) pmpState.workdays.splice(index,1);
+    else {
+      if(typeof showToast === 'function') showToast('Mantenha pelo menos um dia produtivo',true);
+      return;
+    }
+    pmpState.workdays.sort();
+    pmpSaveState();
+    pmpRender();
+  };
+  window.pmpSetFilter = function(key,value){
+    pmpState.filters[key] = value;
+    pmpSaveState();
+    if(pmpState.view==='month') pmpRenderMonth(); else pmpRenderWeek();
+    pmpRenderSequence();
+  };
+  window.pmpSetStatus = function(id,status){
+    pmpState.statuses[id] = status;
+    pmpSaveState();
+    pmpRender();
+  };
+  window.pmpCycleStatus = function(id){
+    var order = ['planned','running','done','blocked'];
+    var current = pmpState.statuses[id] || 'planned';
+    pmpState.statuses[id] = order[(order.indexOf(current)+1)%order.length];
+    pmpSaveState();
+    pmpRender();
+  };
+  window.pmpSetNote = function(id,value){
+    pmpState.notes[id] = value;
+    pmpSaveState();
+  };
+  window.pmpExportCsv = function(){
+    if(!pmpScheduleCache || !pmpScheduleCache.segments.length){
+      if(typeof showToast === 'function') showToast('Não há ordens para exportar',true);
+      return;
+    }
+    var lines = [
+      ['Plano mestre de produção',pmpPlan.name || 'Planejamento do processo'],
+      ['Responsável geral',pmpPlan.owner || ''],
+      ['PTT efetivo',pmpScheduleCache.ptt.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})],
+      ['Carga total',pmpHours(pmpScheduleCache.effort)],
+      ['Capacidade diária',pmpHours(pmpScheduleCache.dailyCapacity)],
+      ['Final previsto',pmpFormatDate(pmpScheduleCache.last,true)],
+      [],
+      ['Sequência','Ordem','Pasta','Projeto','Folhas','Responsável','Quantidade','Início','Fim','Duração','Status','Observação']
+    ];
+    pmpScheduleCache.segments.forEach(function(segment,index){
+      var first = segment.rows[0] || {};
+      lines.push([
+        index + 1,
+        segment.title,
+        first.folderName || '',
+        first.projectName || '',
+        segment.rows.map(function(row){ return row.sheetName || row.unit || 'Atividade'; }).join(' | '),
+        first.responsible || '',
+        segment.rows.reduce(function(total,row){ return total+pmpNum(row.qty); },0),
+        pmpFormatDate(segment.start,true),
+        pmpFormatDate(segment.end,true),
+        pmpClockSeconds(segment.duration),
+        pmpStatusLabel(segment.status),
+        pmpState.notes[segment.id] || ''
+      ]);
+    });
+    var csv = '\ufeff'+lines.map(function(line){ return line.map(pmpCsv).join(';'); }).join('\r\n');
+    var blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = 'plano_mestre_producao.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); },1000);
+  };
+  window.pmpPrint = function(){
+    if(!pmpScheduleCache || !pmpScheduleCache.segments.length){
+      if(typeof showToast === 'function') showToast('Não há ordens para imprimir',true);
+      return;
+    }
+    var box = document.getElementById('print-area');
+    if(!box) return;
+    var rows = pmpScheduleCache.segments.map(function(segment,index){
+      var first = segment.rows[0] || {};
+      return '<tr>'
+        +'<td style="border:1px solid #cbd5e1;padding:5px">'+(index+1)+'</td>'
+        +'<td style="border:1px solid #cbd5e1;padding:5px"><strong>'+pmpEsc(segment.title)+'</strong><br><small>'+pmpEsc(segment.rows.map(function(row){ return row.sheetName || row.unit || 'Atividade'; }).join(', '))+'</small></td>'
+        +'<td style="border:1px solid #cbd5e1;padding:5px">'+pmpEsc(first.folderName || '')+'<br><small>'+pmpEsc(first.projectName || '')+'</small></td>'
+        +'<td style="border:1px solid #cbd5e1;padding:5px">'+pmpEsc(first.responsible || 'Não atribuído')+'</td>'
+        +'<td style="border:1px solid #cbd5e1;padding:5px">'+pmpEsc(pmpFormatDate(segment.start,true))+'</td>'
+        +'<td style="border:1px solid #cbd5e1;padding:5px">'+pmpEsc(pmpFormatDate(segment.end,true))+'</td>'
+        +'<td style="border:1px solid #cbd5e1;padding:5px;text-align:right">'+pmpClockSeconds(segment.duration)+'</td>'
+        +'<td style="border:1px solid #cbd5e1;padding:5px">'+pmpEsc(pmpStatusLabel(segment.status))+'</td>'
+        +'</tr>';
+    }).join('');
+    box.innerHTML = '<div style="font-family:Arial,sans-serif;color:#0f172a">'
+      +'<div style="border-bottom:3px solid #2563eb;padding-bottom:10px;margin-bottom:14px">'
+      +'<div style="font-size:20pt;font-weight:800">Plano Mestre de Produção</div>'
+      +'<div style="font-size:10pt;color:#64748b;margin-top:4px">'+pmpEsc(pmpPlan.name || 'Planejamento do processo')+'</div></div>'
+      +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:14px">'
+      +'<div style="background:#eff6ff;padding:8px;border-radius:6px"><small>Ordens</small><br><strong>'+pmpScheduleCache.segments.length+'</strong></div>'
+      +'<div style="background:#f5f3ff;padding:8px;border-radius:6px"><small>PTT efetivo</small><br><strong>'+pmpScheduleCache.ptt.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</strong></div>'
+      +'<div style="background:#fff7ed;padding:8px;border-radius:6px"><small>Carga total</small><br><strong>'+pmpHours(pmpScheduleCache.effort)+'</strong></div>'
+      +'<div style="background:#ecfdf5;padding:8px;border-radius:6px"><small>Final previsto</small><br><strong>'+pmpFormatDate(pmpScheduleCache.last,true)+'</strong></div></div>'
+      +'<table style="width:100%;border-collapse:collapse;font-size:7.5pt"><thead><tr style="background:#1e3a8a;color:#fff">'
+      +'<th style="padding:6px">Sequência</th><th style="padding:6px">Ordem</th><th style="padding:6px">Origem</th><th style="padding:6px">Responsável</th>'
+      +'<th style="padding:6px">Início</th><th style="padding:6px">Fim</th><th style="padding:6px">Duração</th><th style="padding:6px">Status</th>'
+      +'</tr></thead><tbody>'+rows+'</tbody></table>'
+      +'<div style="margin-top:10px;font-size:8pt;color:#64748b">Calendário produtivo: '+pmpEsc(pmpState.shiftStart)+' às '+pmpEsc(pmpState.shiftEnd)+' com '+pmpEsc(pmpState.breakMinutes)+' minutos de intervalo.</div>'
+      +'</div>';
+    setTimeout(function(){ window.print(); },80);
+  };
+
+  window.addEventListener('storage',function(event){
+    if(event && event.key===PLAN_KEY_PMP){
+      var overlay = document.getElementById('pmp-overlay');
+      if(overlay && overlay.classList.contains('open')) pmpRefresh();
+    }
+  });
+  document.addEventListener('keydown',function(event){
+    if(event.key==='Escape'){
+      var overlay = document.getElementById('pmp-overlay');
+      if(overlay && overlay.classList.contains('open')) closeMasterProductionPlan();
     }
   });
 })();
