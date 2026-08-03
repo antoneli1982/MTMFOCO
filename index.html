@@ -10076,6 +10076,17 @@ function dbRenderList(){
 
   var hiddenFolders = [];
 
+  // Contagem de planejamentos salvos por pasta (espelho local — leitura instantânea)
+  var dbPlanLocalMap = {};
+  try{ dbPlanLocalMap = JSON.parse(localStorage.getItem('mtm_saved_process_plans_local_v1') || '{}') || {}; }catch(e){ dbPlanLocalMap = {}; }
+  var dbPlanCountByFolder = {};
+  Object.keys(dbPlanLocalMap).forEach(function(pid){
+    var entry = dbPlanLocalMap[pid];
+    var planFid = entry && entry.meta && entry.meta.folderId;
+    if(!planFid) return;
+    dbPlanCountByFolder[planFid] = (dbPlanCountByFolder[planFid] || 0) + 1;
+  });
+
   folderIds.forEach(function(fid){
     var f = pmData[fid];
     if(typeof window.mtmCanSeeFolder === 'function' && !window.mtmCanSeeFolder(f)) return; // pasta de outra chapa, sem permissão para ver
@@ -10126,9 +10137,12 @@ function dbRenderList(){
     var shareBtnHtml = canManageViewers
       ? '<button onclick="event.stopPropagation();dbManageFolderViewers(\'' + fid + '\')" title="Permitir que outra chapa veja esta pasta" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:4px 8px;border-radius:6px;transition:all .2s" onmouseover="this.style.color=\'var(--accent)\';this.style.background=\'var(--accentBg)\'" onmouseout="this.style.color=\'var(--text3)\';this.style.background=\'transparent\'">🔑</button>'
       : '';
+    var planCount = dbPlanCountByFolder[fid] || 0;
+    var planBtnHtml = '<button onclick="event.stopPropagation();dbOpenFolderPlanning(\'' + fid + '\')" title="Planejamento desta pasta" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:4px 8px;border-radius:6px;transition:all .2s" onmouseover="this.style.color=\'#f59e0b\';this.style.background=\'rgba(245,158,11,.15)\'" onmouseout="this.style.color=\'var(--text3)\';this.style.background=\'transparent\'">🗓️</button>';
 
     html += '<div class="db-company-card" onclick="openFolderPage(\'' + fid + '\')" style="background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:16px;cursor:pointer;transition:all .2s;position:relative" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'var(--accent)\';this.style.boxShadow=\'var(--shadow-glow)\'" onmouseout="this.style.transform=\'\';this.style.borderColor=\'var(--border2)\';this.style.boxShadow=\'\'">'
       + '<div style="position:absolute;top:10px;right:10px;display:flex;gap:2px">'
+      + planBtnHtml
       + shareBtnHtml
       + '<button onclick="event.stopPropagation();dbToggleHideFolder(\'' + fid + '\')" title="Ocultar esta pasta (clique na lâmpada de novo para trazer de volta)" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:4px 8px;border-radius:6px;transition:all .2s" onmouseover="this.style.color=\'#b45309\';this.style.background=\'rgba(255,214,10,.15)\'" onmouseout="this.style.color=\'var(--text3)\';this.style.background=\'transparent\'">💡</button>'
       + '<button onclick="event.stopPropagation();dbDelFolder(\'' + fid + '\')" title="Excluir pasta e tudo dentro" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:4px 8px;border-radius:6px;transition:all .2s" onmouseover="this.style.color=\'var(--red)\';this.style.background=\'var(--redBg)\'" onmouseout="this.style.color=\'var(--text3)\';this.style.background=\'transparent\'">🗑</button>'
@@ -10144,6 +10158,10 @@ function dbRenderList(){
       + '<div style="background:var(--surface3);border-radius:8px;padding:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:var(--accent)">' + projects.length + '</div><div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:600">Projetos</div></div>'
       + '<div style="background:var(--surface3);border-radius:8px;padding:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:var(--purple)">' + totalSheets + '</div><div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:600">Folhas</div></div>'
       + '<div style="background:var(--surface3);border-radius:8px;padding:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:' + ttpColor + '">' + ttpDisplay + '</div><div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:600" title="TTP = 100 − Allowance Total médio ponderado (TV + TER)">TTP</div></div>'
+      + '</div>'
+      + '<div onclick="event.stopPropagation();dbOpenFolderPlanning(\'' + fid + '\')" style="display:flex;align-items:center;justify-content:space-between;padding:8px 2px;border-top:1px solid var(--border);cursor:pointer" title="Ver planejamentos salvos desta pasta">'
+      + '<span style="font-size:11px;color:var(--text2);font-weight:600">🗓️ ' + planCount + (planCount === 1 ? ' planejamento salvo' : ' planejamentos salvos') + '</span>'
+      + '<span style="color:#f59e0b;font-size:13px;font-weight:800">→</span>'
       + '</div>'
       + '<div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border)">'
       + '<span style="font-size:11px;color:var(--text2);font-weight:600">Abrir pasta</span>'
@@ -10253,6 +10271,14 @@ function dbNewProjectInFolder(fid){
     window.scrollTo({top:0, behavior:'smooth'});
   }, 80);
 }
+
+// ─── Abrir o Planejamento do Processo já navegado para esta pasta ──
+// (chamado pelo botão 🗓️ e pela linha "planejamentos salvos" do card da pasta)
+window.dbOpenFolderPlanning = function(fid){
+  if(typeof openProcessPlanning === 'function') openProcessPlanning();
+  if(typeof planLibOpen === 'function') planLibOpen();
+  if(typeof planLibNavigate === 'function') planLibNavigate(fid,'');
+};
 
 // ─── Excluir pasta inteira (via card do dashboard) ──────────────
 function dbDelFolder(fid){if(typeof __reqDel==='function' && !__reqDel(fid))return;
