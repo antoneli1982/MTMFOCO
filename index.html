@@ -20795,6 +20795,13 @@ body.plan-open{overflow:hidden!important}
   font:600 12px 'Inter',sans-serif;outline:none;
 }
 .plan-lib-save-row input:focus{border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.11)}
+.plan-lib-select{
+  flex:1;min-width:150px;height:38px;padding:0 11px;background:var(--surface);
+  border:1px solid var(--border2);border-radius:8px;color:var(--text);
+  font:600 12px 'Inter',sans-serif;outline:none;
+}
+.plan-lib-select:focus{border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.11)}
+.plan-lib-select option{background:var(--surface);color:var(--text)}
 .plan-lib-btn{
   height:38px;border:none;border-radius:8px;padding:0 14px;color:#fff;
   background:linear-gradient(135deg,#f59e0b,#ea580c);
@@ -20806,13 +20813,43 @@ body.plan-open{overflow:hidden!important}
   border:1px solid rgba(79,142,247,.22);color:var(--text2);font-size:10px;line-height:1.5;
   display:flex;align-items:center;gap:8px;flex-wrap:wrap;
 }
-.plan-lib-list-head{display:flex;align-items:center;gap:8px}
-.plan-lib-list-title{font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--text3)}
+.plan-lib-list-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.plan-lib-breadcrumb{display:flex;align-items:center;gap:4px;flex-wrap:wrap;flex:1;min-width:0}
+.plan-lib-crumb{
+  border:none;background:none;color:var(--text3);cursor:pointer;
+  font:800 10px 'Inter',sans-serif;letter-spacing:.4px;text-transform:uppercase;
+  padding:4px 5px;border-radius:6px;white-space:nowrap;
+}
+.plan-lib-crumb:hover{color:var(--accent);background:var(--surface2)}
+.plan-lib-crumb.current{color:var(--text);cursor:default}
+.plan-lib-crumb.current:hover{background:none}
+.plan-lib-crumb-sep{color:var(--text3);font-size:10px}
 .plan-lib-refresh{
-  margin-left:auto;width:28px;height:28px;border-radius:7px;border:1px solid var(--border2);
+  width:28px;height:28px;border-radius:7px;border:1px solid var(--border2);flex-shrink:0;
   background:var(--surface2);color:var(--text2);cursor:pointer;font-size:12px;
 }
 .plan-lib-refresh:hover{color:var(--accent);border-color:var(--accent)}
+.plan-lib-folder-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:10px}
+.plan-lib-folder-card{
+  position:relative;padding:12px;border:1px solid var(--border2);border-radius:10px;
+  background:var(--surface);cursor:pointer;text-align:left;
+}
+.plan-lib-folder-card:hover{background:var(--row-hover);border-color:#f59e0b}
+.plan-lib-folder-icon{font-size:19px;margin-bottom:6px}
+.plan-lib-folder-name{font-size:11px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plan-lib-folder-count{font-size:9px;color:var(--text3);margin-top:2px}
+.plan-lib-folder-tools{position:absolute;top:6px;right:6px;display:flex;gap:3px}
+.plan-lib-folder-tool{
+  width:20px;height:20px;border-radius:5px;border:1px solid var(--border2);
+  background:var(--surface2);color:var(--text3);cursor:pointer;font-size:9px;line-height:1;
+}
+.plan-lib-folder-tool:hover{color:var(--accent);border-color:var(--accent)}
+.plan-lib-new-folder{
+  padding:12px;border:1px dashed var(--border3);border-radius:10px;background:none;
+  color:var(--text3);cursor:pointer;font:700 11px 'Inter',sans-serif;text-align:center;
+}
+.plan-lib-new-folder:hover{color:var(--accent);border-color:var(--accent);background:var(--accentBg)}
+.plan-lib-section-label{font-size:9px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin:14px 0 6px}
 .plan-lib-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
 .plan-lib-item{
   display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--border2);
@@ -20836,9 +20873,15 @@ body.plan-open{overflow:hidden!important}
   margin-top:10px;padding:9px 11px;border-radius:8px;background:var(--orangeBg);
   border:1px solid rgba(255,149,0,.22);color:var(--orange);font-size:10px;line-height:1.5;
 }
+.plan-lib-move-banner{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 11px;margin-bottom:10px;
+  border-radius:8px;background:var(--purpleBg);border:1px solid rgba(167,139,250,.28);
+  color:var(--text2);font-size:11px;
+}
+.plan-lib-move-banner .plan-lib-btn{height:28px;padding:0 10px;font-size:10px}
 @media(max-width:520px){
   .plan-lib-save-row{flex-direction:column}
-  .plan-lib-save-row input{width:100%}
+  .plan-lib-save-row input,.plan-lib-save-row select{width:100%}
   .plan-lib-btn{width:100%}
 }
 </style>
@@ -20849,13 +20892,17 @@ body.plan-open{overflow:hidden!important}
       <div class="plan-lib-mark">☁️</div>
       <div>
         <div class="plan-lib-title">Planejamentos salvos</div>
-        <div class="plan-lib-subtitle">Guarde e acesse seus planejamentos de qualquer navegador ou computador</div>
+        <div class="plan-lib-subtitle">Organizados por pasta — crie subpastas para agrupar seus planejamentos</div>
       </div>
       <button class="plan-lib-close" onclick="planLibClose()" title="Fechar">✕</button>
     </div>
     <div class="plan-lib-body">
       <div class="plan-lib-save">
-        <div class="plan-lib-save-label">Salvar o planejamento atual na nuvem</div>
+        <div class="plan-lib-save-label">Salvar o planejamento atual</div>
+        <div class="plan-lib-save-row">
+          <select class="plan-lib-select" id="plan-lib-folder-select" onchange="planLibNavigate(this.value,'')"></select>
+          <select class="plan-lib-select" id="plan-lib-subfolder-select" onchange="planLibNavigate(null,this.value)"></select>
+        </div>
         <div class="plan-lib-save-row">
           <input type="text" id="plan-lib-name-input" placeholder="Nome para identificar este planejamento">
           <button class="plan-lib-btn" onclick="planLibSaveAsNew()">💾 Salvar como novo</button>
@@ -20865,7 +20912,7 @@ body.plan-open{overflow:hidden!important}
       </div>
       <div>
         <div class="plan-lib-list-head">
-          <span class="plan-lib-list-title">Planejamentos disponíveis</span>
+          <div class="plan-lib-breadcrumb" id="plan-lib-breadcrumb"></div>
           <button class="plan-lib-refresh" onclick="planLibSyncPending()" title="Sincronizar pendentes com a nuvem">🔁</button>
           <button class="plan-lib-refresh" onclick="planLibRefresh()" title="Atualizar lista">⟳</button>
         </div>
@@ -21092,10 +21139,20 @@ body.plan-open{overflow:hidden!important}
   var PLAN_LIB_DATA_NODE  = 'mtm_saved_process_plans_data_v1';
   var PLAN_LIB_LOCAL_KEY  = 'mtm_saved_process_plans_local_v1';
   var PLAN_LIB_LINK_KEY   = 'mtm_process_planning_linked_v1';
-  var planLibCurrentId    = null;
-  var planLibCurrentName  = '';
+  var PLAN_SUBFOLDER_META_NODE = 'mtm_plan_subfolders_v1';
+  var PLAN_SUBFOLDER_LOCAL_KEY = 'mtm_plan_subfolders_local_v1';
+  var PLAN_LIB_NAV_KEY    = 'mtm_plan_lib_nav_v1';
+  var planLibCurrentId          = null;
+  var planLibCurrentName        = '';
+  var planLibCurrentFolderId    = '';
+  var planLibCurrentSubfolderId = '';
   var planLibListCache    = [];
+  var planLibSubfolderListCache = [];
+  var planLibNavFolderId    = '';
+  var planLibNavSubfolderId = '';
+  var planLibMovingId       = '';
   planLibLoadLink();
+  planLibLoadNav();
 
   function planId(){
     return 'pl_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
@@ -21753,7 +21810,9 @@ body.plan-open{overflow:hidden!important}
     planRender();
     planLibCurrentId = null;
     planLibCurrentName = '';
-    planLibSaveLink(null,'');
+    planLibCurrentFolderId = '';
+    planLibCurrentSubfolderId = '';
+    planLibSaveLink(null,'','','');
     planLibRenderCurrentInfo();
   };
   window.openProcessPlanning = function(){
@@ -21912,7 +21971,7 @@ body.plan-open{overflow:hidden!important}
   });
 
   // ══════════════════════════════════════════════════════════════
-  // BIBLIOTECA DE PLANEJAMENTOS SALVOS
+  // BIBLIOTECA DE PLANEJAMENTOS SALVOS — organizada por Pasta > Subpasta
   // Estratégia "local-first": ao salvar, grava IMEDIATAMENTE neste
   // navegador (isso nunca falha) e, em paralelo, tenta sincronizar
   // com o Firebase Realtime Database (mesmo window.FIREBASE_CONFIG
@@ -21920,9 +21979,12 @@ body.plan-open{overflow:hidden!important}
   // navegador/computador. Se a nuvem falhar (rede, permissão etc.)
   // o planejamento continua salvo e pode ser sincronizado depois
   // com "🔁 Sincronizar agora".
-  //   • PLAN_LIB_META_NODE → lista leve (nome, responsável, datas)
+  //   • Pasta     → reaproveita as mesmas pastas/empresas do app (pmData)
+  //   • Subpasta  → criada livremente dentro de cada pasta, só para
+  //                 organizar planejamentos (PLAN_SUBFOLDER_META_NODE)
+  //   • PLAN_LIB_META_NODE → lista leve dos planejamentos (nome, pasta, datas)
   //   • PLAN_LIB_DATA_NODE → conteúdo completo (pessoas e linhas)
-  //   • PLAN_LIB_LOCAL_KEY → espelho local completo (garantia)
+  //   • *_LOCAL_KEY   → espelhos locais completos (garantia contra falha de rede)
   // ══════════════════════════════════════════════════════════════
   function planLibCloudBase(){
     try{
@@ -21946,6 +22008,9 @@ body.plan-open{overflow:hidden!important}
   function planLibId(){
     return 'splan_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
   }
+  function planLibSubfolderId(){
+    return 'pfold_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+  }
   function planLibGet(url,label){
     if(!url){ console.warn('[Planejamentos salvos] Firebase não configurado — sem URL para '+(label||'leitura')+'.'); return Promise.resolve(null); }
     if(typeof fetch !== 'function') return Promise.resolve(null);
@@ -21961,7 +22026,7 @@ body.plan-open{overflow:hidden!important}
     if(typeof fetch !== 'function') return Promise.resolve(false);
     return fetch(url,{method:'PUT',cache:'no-store',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)})
       .then(function(r){
-        if(!r.ok){ console.warn('[Planejamentos salvos] Falha ao gravar '+(label||'')+' — HTTP '+r.status+'. Se persistir, confira as regras do Firebase Realtime Database para os nós "'+PLAN_LIB_META_NODE+'" e "'+PLAN_LIB_DATA_NODE+'".', url); return false; }
+        if(!r.ok){ console.warn('[Planejamentos salvos] Falha ao gravar '+(label||'')+' — HTTP '+r.status+'. Se persistir, confira as regras do Firebase Realtime Database.', url); return false; }
         return true;
       })
       .catch(function(err){ console.warn('[Planejamentos salvos] Erro de rede ao gravar '+(label||''), err); return false; });
@@ -22001,20 +22066,88 @@ body.plan-open{overflow:hidden!important}
       if(typeof showToast === 'function') showToast('⚠️ Não foi possível salvar neste navegador — o armazenamento local pode estar cheio.',true);
     }
   }
+
+  // ── Subpastas de planejamento (dentro de cada pasta) ─────────────
+  function planLibFetchSubfoldersCloud(){ return planLibGet(planLibNodeUrl(PLAN_SUBFOLDER_META_NODE,null,false),'subpastas'); }
+  function planLibWriteSubfolder(id,meta){ return planLibPut(planLibNodeUrl(PLAN_SUBFOLDER_META_NODE,id,true),meta,'subpasta'); }
+  function planLibDeleteSubfolderCloud(id){ return planLibDel(planLibNodeUrl(PLAN_SUBFOLDER_META_NODE,id,true),'subpasta'); }
+  function planLibLoadSubfoldersLocal(){
+    try{
+      var raw = localStorage.getItem(PLAN_SUBFOLDER_LOCAL_KEY);
+      var obj = raw ? JSON.parse(raw) : {};
+      return obj && typeof obj === 'object' ? obj : {};
+    }catch(e){ return {}; }
+  }
+  function planLibSaveSubfoldersLocal(map){
+    try{ localStorage.setItem(PLAN_SUBFOLDER_LOCAL_KEY, JSON.stringify(map || {})); }catch(e){}
+  }
+
+  // ── Navegação (pasta/subpasta atualmente aberta no modal) ────────
+  function planLibLoadNav(){
+    try{
+      var raw = localStorage.getItem(PLAN_LIB_NAV_KEY);
+      if(!raw) return;
+      var obj = JSON.parse(raw);
+      if(obj){ planLibNavFolderId = obj.folderId || ''; planLibNavSubfolderId = obj.subfolderId || ''; }
+    }catch(e){}
+  }
+  function planLibSaveNav(){
+    try{ localStorage.setItem(PLAN_LIB_NAV_KEY, JSON.stringify({folderId:planLibNavFolderId,subfolderId:planLibNavSubfolderId})); }catch(e){}
+  }
+
   function planLibLoadLink(){
     try{
       var raw = localStorage.getItem(PLAN_LIB_LINK_KEY);
       if(!raw) return;
       var obj = JSON.parse(raw);
-      if(obj && obj.id){ planLibCurrentId = obj.id; planLibCurrentName = obj.name || ''; }
+      if(obj && obj.id){
+        planLibCurrentId = obj.id;
+        planLibCurrentName = obj.name || '';
+        planLibCurrentFolderId = obj.folderId || '';
+        planLibCurrentSubfolderId = obj.subfolderId || '';
+      }
     }catch(e){}
   }
-  function planLibSaveLink(id,name){
+  function planLibSaveLink(id,name,folderId,subfolderId){
     try{
-      if(id) localStorage.setItem(PLAN_LIB_LINK_KEY, JSON.stringify({id:id,name:name||''}));
+      if(id) localStorage.setItem(PLAN_LIB_LINK_KEY, JSON.stringify({id:id,name:name||'',folderId:folderId||'',subfolderId:subfolderId||''}));
       else localStorage.removeItem(PLAN_LIB_LINK_KEY);
     }catch(e){}
   }
+
+  // Detecta automaticamente a pasta do planejamento atual a partir das folhas adicionadas
+  function planDetectFolderId(){
+    if(!planState.rows || !planState.rows.length) return '';
+    var counts = {};
+    planState.rows.forEach(function(row){
+      var fid = row.folderId || '';
+      if(!fid) return;
+      counts[fid] = (counts[fid] || 0) + 1;
+    });
+    var best = '', bestCount = 0;
+    Object.keys(counts).forEach(function(fid){
+      if(counts[fid] > bestCount){ best = fid; bestCount = counts[fid]; }
+    });
+    return best;
+  }
+  function planLibPastasList(){
+    return typeof planFolders === 'function' ? planFolders() : [];
+  }
+  function planLibFolderName(fid){
+    var folder = typeof planFolderById === 'function' ? planFolderById(fid) : null;
+    return (folder && folder.name) || 'Pasta';
+  }
+  function planLibSubfolderName(id){
+    if(!id) return '';
+    var cached = (planLibSubfolderListCache || []).find(function(s){ return s.id === id; });
+    if(cached) return cached.name;
+    var local = planLibLoadSubfoldersLocal();
+    return (local[id] && local[id].meta && local[id].meta.name) || 'Subpasta';
+  }
+  function planLibFindPlan(id){
+    return (planLibListCache || []).find(function(p){ return p.id === id; }) || null;
+  }
+
   function planLibRenderCurrentInfo(){
     var badge = document.getElementById('plan-linked-badge');
     if(badge){
@@ -22031,25 +22164,57 @@ body.plan-open{overflow:hidden!important}
     if(!box || !updateBtn) return;
     if(planLibCurrentId){
       box.style.display = 'flex';
-      box.innerHTML = '📌 Este planejamento está vinculado a <strong>"' + planEsc(planLibCurrentName || 'planejamento salvo') + '"</strong>. Use "Atualizar o vinculado" para gravar as alterações nesse mesmo registro, ou "Salvar como novo" para criar uma cópia separada.';
+      var loc = planLibCurrentFolderId
+        ? ' Guardado em <strong>' + planEsc(planLibFolderName(planLibCurrentFolderId)) + (planLibCurrentSubfolderId ? ' / ' + planEsc(planLibSubfolderName(planLibCurrentSubfolderId)) : '') + '</strong>.'
+        : '';
+      box.innerHTML = '📌 Este planejamento está vinculado a <strong>"' + planEsc(planLibCurrentName || 'planejamento salvo') + '"</strong>.' + loc + ' Use "Atualizar o vinculado" para gravar as alterações nesse mesmo registro, ou "Salvar como novo" para criar uma cópia separada.';
       updateBtn.style.display = '';
     }else{
       box.style.display = 'none';
       updateBtn.style.display = 'none';
     }
   }
-  function planLibRenderList(isOffline){
-    var body = document.getElementById('plan-lib-list-body');
-    if(!body) return;
-    var list = planLibListCache || [];
-    if(!list.length){
-      body.innerHTML = '<div class="plan-lib-empty"><div class="plan-lib-empty-icon">☁️</div><div>Nenhum planejamento salvo ainda.</div></div>';
-      return;
+
+  function planLibSyncSelectsAndBreadcrumb(){
+    var folderSel = document.getElementById('plan-lib-folder-select');
+    var subSel = document.getElementById('plan-lib-subfolder-select');
+    if(folderSel){
+      var pastas = planLibPastasList();
+      folderSel.innerHTML = '<option value="">— Escolha uma pasta —</option>' + pastas.map(function(item){
+        return '<option value="' + planEsc(item.id) + '">' + planEsc(item.folder.name || 'Pasta sem nome') + '</option>';
+      }).join('');
+      folderSel.value = planLibNavFolderId || '';
     }
-    var offlineNote = isOffline
-      ? '<div class="plan-lib-offline">⚠️ Sem conexão com a nuvem agora. Mostrando os planejamentos salvos neste navegador — use "🔁 Sincronizar agora" quando a conexão voltar.</div>'
-      : '';
-    body.innerHTML = offlineNote + '<div class="plan-lib-list">' + list.map(function(item,index){
+    if(subSel){
+      var subs = (planLibSubfolderListCache || []).filter(function(s){ return s.folderId === planLibNavFolderId; });
+      subSel.disabled = !planLibNavFolderId;
+      subSel.innerHTML = '<option value="">— Raiz da pasta —</option>' + subs.map(function(s){
+        return '<option value="' + planEsc(s.id) + '">' + planEsc(s.name) + '</option>';
+      }).join('');
+      subSel.value = planLibNavSubfolderId || '';
+    }
+    planLibRenderBreadcrumb();
+  }
+  function planLibRenderBreadcrumb(){
+    var el = document.getElementById('plan-lib-breadcrumb');
+    if(!el) return;
+    var parts = ['<button class="plan-lib-crumb' + (!planLibNavFolderId ? ' current' : '') + '" onclick="planLibNavigate(\'\',\'\')">🏠 Pastas</button>'];
+    if(planLibNavFolderId){
+      parts.push('<span class="plan-lib-crumb-sep">›</span>');
+      parts.push('<button class="plan-lib-crumb' + (!planLibNavSubfolderId ? ' current' : '') + '" onclick="planLibNavigate(\'' + planLibNavFolderId + '\',\'\')">' + planEsc(planLibFolderName(planLibNavFolderId)) + '</button>');
+    }
+    if(planLibNavSubfolderId){
+      parts.push('<span class="plan-lib-crumb-sep">›</span>');
+      parts.push('<button class="plan-lib-crumb current">' + planEsc(planLibSubfolderName(planLibNavSubfolderId)) + '</button>');
+    }
+    el.innerHTML = parts.join('');
+  }
+
+  function planLibPlansHtml(list){
+    if(!list.length){
+      return '<div class="plan-lib-empty"><div class="plan-lib-empty-icon">☁️</div><div>Nenhum planejamento salvo aqui ainda.</div></div>';
+    }
+    return '<div class="plan-lib-list">' + list.map(function(item){
       var badge = item.synced
         ? '<span title="Sincronizado com a nuvem — acessível em qualquer navegador">☁️</span>'
         : '<span title="Salvo apenas neste navegador — ainda não sincronizado">💻</span>';
@@ -22059,20 +22224,86 @@ body.plan-open{overflow:hidden!important}
         + '<div class="plan-lib-item-meta">' + (item.owner ? planEsc(item.owner) + ' · ' : '') + planLibFormatDate(item.updatedAt) + '</div>'
         + '</div>'
         + '<div class="plan-lib-item-actions">'
-        + '<button class="plan-lib-item-btn" title="Abrir este planejamento" onclick="planLibOpenEntry(' + index + ')">📂</button>'
-        + '<button class="plan-lib-item-btn" title="Imprimir este planejamento" onclick="planLibPrintEntry(' + index + ')">🖨️</button>'
-        + '<button class="plan-lib-item-btn remove" title="Excluir" onclick="planLibDeletePrompt(' + index + ')">🗑️</button>'
+        + '<button class="plan-lib-item-btn" title="Abrir este planejamento" onclick="planLibOpenEntry(\'' + item.id + '\')">📂</button>'
+        + '<button class="plan-lib-item-btn" title="Imprimir este planejamento" onclick="planLibPrintEntry(\'' + item.id + '\')">🖨️</button>'
+        + '<button class="plan-lib-item-btn" title="Mover para outra pasta/subpasta" onclick="planLibMovePrompt(\'' + item.id + '\')">📁</button>'
+        + '<button class="plan-lib-item-btn remove" title="Excluir" onclick="planLibDeletePrompt(\'' + item.id + '\')">🗑️</button>'
         + '</div>'
         + '</div>';
     }).join('') + '</div>';
   }
-  function planLibPersist(id,name,isNew){
+
+  function planLibRenderBrowser(offline){
+    planLibRenderBreadcrumb();
+    var body = document.getElementById('plan-lib-list-body');
+    if(!body) return;
+    var html = offline
+      ? '<div class="plan-lib-offline">⚠️ Sem conexão com a nuvem agora. Mostrando o que está salvo neste navegador — use "🔁 Sincronizar agora" quando a conexão voltar.</div>'
+      : '';
+    if(planLibMovingId){
+      var movingItem = planLibFindPlan(planLibMovingId);
+      html += '<div class="plan-lib-move-banner">📁 Movendo <strong>"' + planEsc(movingItem ? movingItem.name : '') + '"</strong> — navegue até o destino.'
+        + (planLibNavFolderId ? ' <button class="plan-lib-btn" onclick="planLibMoveHere()">📥 Mover para cá</button>' : ' <span style="opacity:.8">Escolha ao menos uma pasta.</span>')
+        + ' <button class="plan-lib-btn secondary" onclick="planLibCancelMove()">✕ Cancelar</button></div>';
+    }
+
+    if(!planLibNavFolderId){
+      var pastas = planLibPastasList();
+      if(!pastas.length){
+        html += '<div class="plan-lib-empty"><div class="plan-lib-empty-icon">📁</div><div>Nenhuma pasta disponível. Crie uma pasta/empresa na tela principal primeiro.</div></div>';
+      }else{
+        html += '<div class="plan-lib-section-label">Pastas</div><div class="plan-lib-folder-grid">' + pastas.map(function(item){
+          var count = (planLibListCache || []).filter(function(p){ return p.folderId === item.id; }).length;
+          return '<div class="plan-lib-folder-card" onclick="planLibNavigate(\'' + item.id + '\',\'\')">'
+            + '<div class="plan-lib-folder-icon">📁</div>'
+            + '<div class="plan-lib-folder-name">' + planEsc(item.folder.name || 'Pasta sem nome') + '</div>'
+            + '<div class="plan-lib-folder-count">' + count + (count === 1 ? ' planejamento' : ' planejamentos') + '</div>'
+            + '</div>';
+        }).join('') + '</div>';
+      }
+      body.innerHTML = html;
+      return;
+    }
+
+    if(!planLibNavSubfolderId){
+      var subs = (planLibSubfolderListCache || []).filter(function(s){ return s.folderId === planLibNavFolderId; });
+      html += '<div class="plan-lib-section-label">Subpastas</div><div class="plan-lib-folder-grid">'
+        + subs.map(function(sub){
+            var count = (planLibListCache || []).filter(function(p){ return p.folderId === planLibNavFolderId && p.subfolderId === sub.id; }).length;
+            return '<div class="plan-lib-folder-card" onclick="planLibNavigate(null,\'' + sub.id + '\')">'
+              + '<div class="plan-lib-folder-tools">'
+              + '<button class="plan-lib-folder-tool" title="Renomear" onclick="event.stopPropagation();planLibRenameSubfolder(\'' + sub.id + '\')">✏️</button>'
+              + '<button class="plan-lib-folder-tool" title="Excluir" onclick="event.stopPropagation();planLibDeleteSubfolder(\'' + sub.id + '\')">🗑️</button>'
+              + '</div>'
+              + '<div class="plan-lib-folder-icon">📂</div>'
+              + '<div class="plan-lib-folder-name">' + planEsc(sub.name) + '</div>'
+              + '<div class="plan-lib-folder-count">' + count + (count === 1 ? ' planejamento' : ' planejamentos') + '</div>'
+              + '</div>';
+          }).join('')
+        + '<div class="plan-lib-new-folder" onclick="planLibCreateSubfolder()">➕<br>Nova subpasta</div>'
+        + '</div>';
+      var rootPlans = (planLibListCache || []).filter(function(p){ return p.folderId === planLibNavFolderId && !p.subfolderId; })
+        .sort(function(a,b){ return b.updatedAt - a.updatedAt; });
+      html += '<div class="plan-lib-section-label">Planejamentos nesta pasta</div>' + planLibPlansHtml(rootPlans);
+      body.innerHTML = html;
+      return;
+    }
+
+    var subPlans = (planLibListCache || []).filter(function(p){ return p.folderId === planLibNavFolderId && p.subfolderId === planLibNavSubfolderId; })
+      .sort(function(a,b){ return b.updatedAt - a.updatedAt; });
+    html += planLibPlansHtml(subPlans);
+    body.innerHTML = html;
+  }
+
+  function planLibPersist(id,name,isNew,folderId,subfolderId){
     var now = Date.now();
     var dataClone = JSON.parse(JSON.stringify(planState));
     var local = planLibLoadLocal();
     var existing = local[id];
     var savedAt = (!isNew && existing && existing.meta && existing.meta.savedAt) || now;
-    var meta = { name:name, owner:planState.owner || '', ownerChapa:planLibOwnerChapa(), savedAt:savedAt, updatedAt:now };
+    var fid = folderId != null ? folderId : ((existing && existing.meta && existing.meta.folderId) || '');
+    var sfid = subfolderId != null ? subfolderId : ((existing && existing.meta && existing.meta.subfolderId) || '');
+    var meta = { name:name, owner:planState.owner || '', ownerChapa:planLibOwnerChapa(), folderId:fid, subfolderId:sfid, savedAt:savedAt, updatedAt:now };
 
     // 1) Grava neste navegador imediatamente — garante que nada se perde,
     //    mesmo se a nuvem estiver indisponível ou bloqueada por regras do Firebase.
@@ -22080,7 +22311,9 @@ body.plan-open{overflow:hidden!important}
     planLibSaveLocal(local);
     planLibCurrentId = id;
     planLibCurrentName = name;
-    planLibSaveLink(id,name);
+    planLibCurrentFolderId = fid;
+    planLibCurrentSubfolderId = sfid;
+    planLibSaveLink(id,name,fid,sfid);
     planLibRenderCurrentInfo();
     planLibListCache = null; // força recarregar após salvar
     if(typeof showToast === 'function') showToast('💾 "' + name + '" salvo neste navegador. Sincronizando com a nuvem…');
@@ -22097,27 +22330,42 @@ body.plan-open{overflow:hidden!important}
       planLibRefresh();
     });
   }
-  function planLibSyncPending(silent){
-    var local = planLibLoadLocal();
-    var ids = Object.keys(local).filter(function(id){ return local[id] && !local[id].cloudSynced; });
-    if(!ids.length){
+  function planLibSyncPendingImpl(silent){
+    var localPlans = planLibLoadLocal();
+    var planIds = Object.keys(localPlans).filter(function(id){ return localPlans[id] && !localPlans[id].cloudSynced; });
+    var localSubs = planLibLoadSubfoldersLocal();
+    var subIds = Object.keys(localSubs).filter(function(id){ return localSubs[id] && !localSubs[id].cloudSynced; });
+    var total = planIds.length + subIds.length;
+    if(!total){
       if(!silent && typeof showToast === 'function') showToast('Tudo já está sincronizado com a nuvem');
       return;
     }
-    if(!silent && typeof showToast === 'function') showToast('Sincronizando ' + ids.length + ' planejamento(s) pendente(s)…');
-    Promise.all(ids.map(function(id){
-      var entry = local[id];
-      return planLibPushToCloud(id,entry.meta,entry.data).then(function(ok){ return { id:id, ok:ok }; });
-    })).then(function(results){
-      var map = planLibLoadLocal();
+    if(!silent && typeof showToast === 'function') showToast('Sincronizando ' + total + ' item(ns) pendente(s)…');
+    var tasks = planIds.map(function(id){
+      var entry = localPlans[id];
+      return planLibPushToCloud(id,entry.meta,entry.data).then(function(ok){ return { kind:'plan', id:id, ok:ok }; });
+    }).concat(subIds.map(function(id){
+      var entry = localSubs[id];
+      return planLibWriteSubfolder(id,entry.meta).then(function(ok){ return { kind:'sub', id:id, ok:ok }; });
+    }));
+    Promise.all(tasks).then(function(results){
+      var mapPlans = planLibLoadLocal();
+      var mapSubs = planLibLoadSubfoldersLocal();
       var okCount = 0;
-      results.forEach(function(r){ if(r.ok && map[r.id]){ map[r.id].cloudSynced = true; okCount++; } });
-      planLibSaveLocal(map);
+      results.forEach(function(r){
+        if(r.ok){
+          okCount++;
+          if(r.kind === 'plan' && mapPlans[r.id]) mapPlans[r.id].cloudSynced = true;
+          if(r.kind === 'sub' && mapSubs[r.id]) mapSubs[r.id].cloudSynced = true;
+        }
+      });
+      planLibSaveLocal(mapPlans);
+      planLibSaveSubfoldersLocal(mapSubs);
       if(!silent || okCount > 0){
         if(typeof showToast === 'function'){
-          if(okCount === results.length) showToast('☁️ ' + okCount + ' planejamento(s) sincronizado(s) com sucesso');
+          if(okCount === results.length) showToast('☁️ ' + okCount + ' item(ns) sincronizado(s) com sucesso');
           else if(okCount > 0) showToast('☁️ ' + okCount + ' de ' + results.length + ' sincronizado(s). Os demais continuam salvos neste navegador.');
-          else if(!silent) showToast('⚠️ Ainda sem conexão com a nuvem. Os planejamentos continuam salvos neste navegador.',true);
+          else if(!silent) showToast('⚠️ Ainda sem conexão com a nuvem. Continua tudo salvo neste navegador.',true);
         }
       }
       planLibRefresh();
@@ -22136,12 +22384,14 @@ body.plan-open{overflow:hidden!important}
     planRender();
     planLibCurrentId = item.id;
     planLibCurrentName = item.name;
-    planLibSaveLink(item.id,item.name);
+    planLibCurrentFolderId = item.folderId || '';
+    planLibCurrentSubfolderId = item.subfolderId || '';
+    planLibSaveLink(item.id,item.name,planLibCurrentFolderId,planLibCurrentSubfolderId);
     if(fromCloud){
       var local = planLibLoadLocal();
       var prevSaved = local[item.id] && local[item.id].meta && local[item.id].meta.savedAt;
       local[item.id] = {
-        meta:{ name:item.name, owner:data.owner || '', ownerChapa:planLibOwnerChapa(), savedAt:prevSaved || item.updatedAt || Date.now(), updatedAt:item.updatedAt || Date.now() },
+        meta:{ name:item.name, owner:data.owner || '', ownerChapa:planLibOwnerChapa(), folderId:item.folderId || '', subfolderId:item.subfolderId || '', savedAt:prevSaved || item.updatedAt || Date.now(), updatedAt:item.updatedAt || Date.now() },
         data:data, cloudSynced:true
       };
       planLibSaveLocal(local);
@@ -22150,60 +22400,138 @@ body.plan-open{overflow:hidden!important}
     if(nameInput) nameInput.value = item.name;
     planLibRenderCurrentInfo();
   }
+  function planLibMovePlan(id,newFolderId,newSubfolderId,silent){
+    var local = planLibLoadLocal();
+    var now = Date.now();
+    var entry = local[id];
+    var meta;
+    if(entry && entry.meta){
+      entry.meta.folderId = newFolderId || '';
+      entry.meta.subfolderId = newSubfolderId || '';
+      entry.meta.updatedAt = now;
+      entry.cloudSynced = false;
+      meta = entry.meta;
+    }else{
+      var cached = planLibFindPlan(id);
+      meta = { name:(cached && cached.name) || 'Planejamento', owner:(cached && cached.owner) || '', ownerChapa:planLibOwnerChapa(), folderId:newFolderId || '', subfolderId:newSubfolderId || '', savedAt:now, updatedAt:now };
+      local[id] = { meta:meta, data:null, cloudSynced:false };
+    }
+    planLibSaveLocal(local);
+    var cachedItem = planLibFindPlan(id);
+    if(cachedItem){ cachedItem.folderId = newFolderId || ''; cachedItem.subfolderId = newSubfolderId || ''; cachedItem.synced = false; }
+    if(planLibCurrentId === id){
+      planLibCurrentFolderId = newFolderId || '';
+      planLibCurrentSubfolderId = newSubfolderId || '';
+      planLibSaveLink(planLibCurrentId,planLibCurrentName,planLibCurrentFolderId,planLibCurrentSubfolderId);
+      planLibRenderCurrentInfo();
+    }
+    planLibWriteMeta(id,meta).then(function(ok){
+      var l = planLibLoadLocal();
+      if(ok && l[id]){ l[id].cloudSynced = true; planLibSaveLocal(l); }
+      if(!silent){
+        if(typeof showToast === 'function') showToast(ok ? '📁 Planejamento movido' : '⚠️ Movido neste navegador; não sincronizou com a nuvem agora.', !ok);
+        planLibRefresh();
+      }
+    });
+    if(!silent) planLibRenderBrowser();
+  }
   window.planLibOpen = function(){
     var nameInput = document.getElementById('plan-lib-name-input');
     if(nameInput) nameInput.value = planLibCurrentName || planState.name || '';
+    if(planLibCurrentFolderId){
+      planLibNavFolderId = planLibCurrentFolderId;
+      planLibNavSubfolderId = planLibCurrentSubfolderId || '';
+    }else if(!planLibNavFolderId){
+      var detected = planDetectFolderId();
+      if(detected) planLibNavFolderId = detected;
+    }
+    planLibSaveNav();
     planLibRenderCurrentInfo();
     var overlay = document.getElementById('plan-lib-overlay');
     overlay.classList.add('open');
     overlay.setAttribute('aria-hidden','false');
     planLibRefresh();
-    planLibSyncPending(true);
+    planLibSyncPendingImpl(true);
   };
   window.planLibClose = function(){
     var overlay = document.getElementById('plan-lib-overlay');
     overlay.classList.remove('open');
     overlay.setAttribute('aria-hidden','true');
   };
+  window.planLibNavigate = function(folderId,subfolderId){
+    if(folderId !== null && folderId !== undefined) planLibNavFolderId = folderId;
+    if(subfolderId !== null && subfolderId !== undefined) planLibNavSubfolderId = subfolderId;
+    planLibSaveNav();
+    planLibSyncSelectsAndBreadcrumb();
+    planLibRenderBrowser();
+  };
   window.planLibRefresh = function(){
     var body = document.getElementById('plan-lib-list-body');
     if(body) body.innerHTML = '<div class="plan-lib-loading">Carregando…</div>';
-    planLibFetchMetaList().then(function(cloudMeta){
-      var local = planLibLoadLocal();
-      var map = {};
-      Object.keys(cloudMeta || {}).forEach(function(id){
-        var entry = cloudMeta[id] || {};
-        map[id] = {
-          id:id,
-          name:entry.name || 'Planejamento sem nome',
-          owner:entry.owner || '',
-          updatedAt:Number(entry.updatedAt || entry.savedAt || 0),
-          synced:true
+    Promise.all([ planLibFetchMetaList(), planLibFetchSubfoldersCloud() ]).then(function(results){
+      var cloudPlans = results[0];
+      var cloudSubfolders = results[1];
+      var offline = (cloudPlans === null && cloudSubfolders === null);
+
+      var localPlans = planLibLoadLocal();
+      var planMap = {};
+      Object.keys(cloudPlans || {}).forEach(function(id){
+        var entry = cloudPlans[id] || {};
+        planMap[id] = {
+          id:id, name:entry.name || 'Planejamento sem nome', owner:entry.owner || '',
+          folderId:entry.folderId || '', subfolderId:entry.subfolderId || '',
+          updatedAt:Number(entry.updatedAt || entry.savedAt || 0), synced:true
         };
       });
-      Object.keys(local).forEach(function(id){
-        var entry = local[id];
+      Object.keys(localPlans).forEach(function(id){
+        var entry = localPlans[id];
         if(!entry || !entry.meta) return;
-        if(map[id]){
-          if(!entry.cloudSynced && Number(entry.meta.updatedAt||0) > map[id].updatedAt){
-            map[id].name = entry.meta.name;
-            map[id].owner = entry.meta.owner;
-            map[id].updatedAt = entry.meta.updatedAt;
-            map[id].synced = false;
+        if(planMap[id]){
+          if(!entry.cloudSynced && Number(entry.meta.updatedAt || 0) > planMap[id].updatedAt){
+            planMap[id].name = entry.meta.name;
+            planMap[id].owner = entry.meta.owner;
+            planMap[id].folderId = entry.meta.folderId || '';
+            planMap[id].subfolderId = entry.meta.subfolderId || '';
+            planMap[id].updatedAt = entry.meta.updatedAt;
+            planMap[id].synced = false;
           }
         }else{
-          map[id] = {
+          planMap[id] = {
             id:id, name:entry.meta.name || 'Planejamento sem nome', owner:entry.meta.owner || '',
+            folderId:entry.meta.folderId || '', subfolderId:entry.meta.subfolderId || '',
             updatedAt:Number(entry.meta.updatedAt || entry.meta.savedAt || 0), synced:!!entry.cloudSynced
           };
         }
       });
-      var list = Object.keys(map).map(function(id){ return map[id]; }).sort(function(a,b){ return b.updatedAt - a.updatedAt; });
-      planLibListCache = list;
-      planLibRenderList(cloudMeta === null);
+      planLibListCache = Object.keys(planMap).map(function(id){ return planMap[id]; });
+
+      var localSub = planLibLoadSubfoldersLocal();
+      var subMap = {};
+      Object.keys(cloudSubfolders || {}).forEach(function(id){
+        var entry = cloudSubfolders[id] || {};
+        subMap[id] = { id:id, name:entry.name || 'Subpasta', folderId:entry.folderId || '', updatedAt:Number(entry.updatedAt || entry.createdAt || 0), synced:true };
+      });
+      Object.keys(localSub).forEach(function(id){
+        var entry = localSub[id];
+        if(!entry || !entry.meta) return;
+        if(subMap[id]){
+          if(!entry.cloudSynced && Number(entry.meta.updatedAt || 0) > subMap[id].updatedAt){
+            subMap[id].name = entry.meta.name;
+            subMap[id].folderId = entry.meta.folderId || '';
+            subMap[id].updatedAt = entry.meta.updatedAt;
+            subMap[id].synced = false;
+          }
+        }else{
+          subMap[id] = { id:id, name:entry.meta.name || 'Subpasta', folderId:entry.meta.folderId || '', updatedAt:Number(entry.meta.updatedAt || entry.meta.createdAt || 0), synced:!!entry.cloudSynced };
+        }
+      });
+      planLibSubfolderListCache = Object.keys(subMap).map(function(id){ return subMap[id]; });
+
+      planLibSyncSelectsAndBreadcrumb();
+      planLibRenderBrowser(offline);
     });
   };
-  window.planLibSyncPending = function(){ planLibSyncPending(false); };
+  window.planLibSyncPending = function(){ planLibSyncPendingImpl(false); };
   window.planLibSaveAsNew = function(){
     var nameInput = document.getElementById('plan-lib-name-input');
     var name = String((nameInput && nameInput.value) || planState.name || '').trim();
@@ -22212,23 +22540,32 @@ body.plan-open{overflow:hidden!important}
       if(nameInput) nameInput.focus();
       return;
     }
-    planLibPersist(planLibId(),name,true);
+    var folderId = planLibNavFolderId || planDetectFolderId();
+    if(!folderId){
+      if(typeof showToast === 'function') showToast('Escolha a pasta onde salvar (seletor acima da lista)',true);
+      return;
+    }
+    planLibPersist(planLibId(),name,true,folderId,planLibNavSubfolderId || '');
   };
   window.planLibUpdateCurrent = function(){
     if(!planLibCurrentId) return;
     var nameInput = document.getElementById('plan-lib-name-input');
     var name = String((nameInput && nameInput.value) || planLibCurrentName || planState.name || '').trim() || planLibCurrentName;
-    planLibPersist(planLibCurrentId,name,false);
+    planLibPersist(planLibCurrentId,name,false,planLibCurrentFolderId,planLibCurrentSubfolderId);
   };
-  // Atalho do ícone 💾 na barra superior: salva sem precisar abrir a lista completa.
-  // Se já existe um planejamento vinculado, atualiza direto; senão, pede só o nome.
   window.planLibQuickSave = function(){
-    if(!planState.rows.length && !planState.people.length && !String(planState.name||'').trim()){
+    if(!planState.rows.length && !planState.people.length && !String(planState.name || '').trim()){
       if(typeof showToast === 'function') showToast('Adicione ao menos uma folha ou dê um nome ao planejamento antes de salvar',true);
       return;
     }
     if(planLibCurrentId){
-      planLibPersist(planLibCurrentId, planLibCurrentName || planState.name || 'Planejamento sem nome', false);
+      planLibPersist(planLibCurrentId, planLibCurrentName || planState.name || 'Planejamento sem nome', false, planLibCurrentFolderId, planLibCurrentSubfolderId);
+      return;
+    }
+    var folderId = planDetectFolderId();
+    if(!folderId){
+      if(typeof showToast === 'function') showToast('Não identifiquei a pasta automaticamente — abra "☁️ Planejamentos salvos" para escolher a pasta.',true);
+      planLibOpen();
       return;
     }
     var name = prompt('Salvar planejamento — nome para identificá-lo:', planState.name || '');
@@ -22238,10 +22575,10 @@ body.plan-open{overflow:hidden!important}
       if(typeof showToast === 'function') showToast('Informe um nome para salvar',true);
       return;
     }
-    planLibPersist(planLibId(),name,true);
+    planLibPersist(planLibId(),name,true,folderId,'');
   };
-  window.planLibOpenEntry = function(index){
-    var item = planLibListCache[index];
+  window.planLibOpenEntry = function(id){
+    var item = planLibFindPlan(id);
     if(!item) return;
     if(planState.rows.length || planState.people.length || planState.name){
       if(!confirm('Abrir "' + item.name + '" vai substituir o planejamento exibido nesta tela (o que já está salvo continua guardado). Deseja continuar?')) return;
@@ -22276,8 +22613,8 @@ body.plan-open{overflow:hidden!important}
     };
     try{ planPrint(); } finally { planState = backup; }
   }
-  window.planLibPrintEntry = function(index){
-    var item = planLibListCache[index];
+  window.planLibPrintEntry = function(id){
+    var item = planLibFindPlan(id);
     if(!item) return;
     var local = planLibLoadLocal();
     var localEntry = local[item.id];
@@ -22291,8 +22628,94 @@ body.plan-open{overflow:hidden!important}
       planLibDoPrint(item,data);
     });
   };
-  window.planLibDeletePrompt = function(index){
-    var item = planLibListCache[index];
+  window.planLibMovePrompt = function(id){
+    var item = planLibFindPlan(id);
+    if(!item) return;
+    planLibMovingId = id;
+    planLibRenderBrowser();
+    if(typeof showToast === 'function') showToast('Navegue até a pasta/subpasta de destino e clique em "📥 Mover para cá"');
+  };
+  window.planLibCancelMove = function(){
+    planLibMovingId = '';
+    planLibRenderBrowser();
+  };
+  window.planLibMoveHere = function(){
+    if(!planLibMovingId) return;
+    if(!planLibNavFolderId){
+      if(typeof showToast === 'function') showToast('Escolha uma pasta de destino primeiro',true);
+      return;
+    }
+    planLibMovePlan(planLibMovingId,planLibNavFolderId,planLibNavSubfolderId,false);
+    planLibMovingId = '';
+  };
+  window.planLibCreateSubfolder = function(){
+    if(!planLibNavFolderId){
+      if(typeof showToast === 'function') showToast('Escolha uma pasta primeiro',true);
+      return;
+    }
+    var name = prompt('Nome da nova subpasta:');
+    if(name === null) return;
+    name = String(name).trim();
+    if(!name){
+      if(typeof showToast === 'function') showToast('Informe um nome',true);
+      return;
+    }
+    var id = planLibSubfolderId();
+    var now = Date.now();
+    var meta = { name:name, folderId:planLibNavFolderId, createdAt:now, updatedAt:now };
+    var local = planLibLoadSubfoldersLocal();
+    local[id] = { meta:meta, cloudSynced:false };
+    planLibSaveSubfoldersLocal(local);
+    planLibSubfolderListCache.push({ id:id, name:name, folderId:planLibNavFolderId, updatedAt:now, synced:false });
+    planLibSyncSelectsAndBreadcrumb();
+    planLibRenderBrowser();
+    planLibWriteSubfolder(id,meta).then(function(ok){
+      var l = planLibLoadSubfoldersLocal();
+      if(ok && l[id]){ l[id].cloudSynced = true; planLibSaveSubfoldersLocal(l); }
+      if(!ok && typeof showToast === 'function') showToast('⚠️ Subpasta salva neste navegador, mas não sincronizou com a nuvem agora.',true);
+      planLibRefresh();
+    });
+  };
+  window.planLibRenameSubfolder = function(id){
+    var sub = planLibSubfolderListCache.find(function(s){ return s.id === id; });
+    var name = prompt('Novo nome da subpasta:', sub ? sub.name : '');
+    if(name === null) return;
+    name = String(name).trim();
+    if(!name) return;
+    var now = Date.now();
+    var local = planLibLoadSubfoldersLocal();
+    var folderId = (sub && sub.folderId) || (local[id] && local[id].meta && local[id].meta.folderId) || planLibNavFolderId;
+    var meta = { name:name, folderId:folderId, createdAt:(local[id] && local[id].meta && local[id].meta.createdAt) || now, updatedAt:now };
+    local[id] = { meta:meta, cloudSynced:false };
+    planLibSaveSubfoldersLocal(local);
+    if(sub) sub.name = name;
+    planLibSyncSelectsAndBreadcrumb();
+    planLibRenderBrowser();
+    planLibWriteSubfolder(id,meta).then(function(ok){
+      var l = planLibLoadSubfoldersLocal();
+      if(ok && l[id]){ l[id].cloudSynced = true; planLibSaveSubfoldersLocal(l); }
+      planLibRefresh();
+    });
+  };
+  window.planLibDeleteSubfolder = function(id){
+    var sub = planLibSubfolderListCache.find(function(s){ return s.id === id; });
+    var name = sub ? sub.name : 'esta subpasta';
+    var affected = (planLibListCache || []).filter(function(p){ return p.subfolderId === id; });
+    var msg = 'Excluir a subpasta "' + name + '"?' + (affected.length ? ' Os ' + affected.length + ' planejamento(s) dentro dela voltam para a raiz da pasta.' : '');
+    if(!confirm(msg)) return;
+    affected.forEach(function(p){ planLibMovePlan(p.id,p.folderId,'',true); });
+    var local = planLibLoadSubfoldersLocal();
+    delete local[id];
+    planLibSaveSubfoldersLocal(local);
+    planLibSubfolderListCache = planLibSubfolderListCache.filter(function(s){ return s.id !== id; });
+    if(planLibNavSubfolderId === id) planLibNavSubfolderId = '';
+    planLibSaveNav();
+    planLibSyncSelectsAndBreadcrumb();
+    planLibRenderBrowser();
+    planLibDeleteSubfolderCloud(id);
+  };
+  window.planLibDeletePrompt = function(id){
+    var item = planLibFindPlan(id);
     if(!item) return;
     if(!confirm('Excluir definitivamente o planejamento "' + item.name + '"? Isso remove a cópia deste navegador e da nuvem e não pode ser desfeito.')) return;
     var local = planLibLoadLocal();
@@ -22301,10 +22724,13 @@ body.plan-open{overflow:hidden!important}
     if(planLibCurrentId === item.id){
       planLibCurrentId = null;
       planLibCurrentName = '';
-      planLibSaveLink(null,'');
+      planLibCurrentFolderId = '';
+      planLibCurrentSubfolderId = '';
+      planLibSaveLink(null,'','','');
       planLibRenderCurrentInfo();
     }
-    planLibRefresh();
+    planLibListCache = (planLibListCache || []).filter(function(p){ return p.id !== item.id; });
+    planLibRenderBrowser();
     planLibDeleteEntry(item.id).then(function(ok){
       if(!ok){
         if(typeof showToast === 'function') showToast('Removido deste navegador; não foi possível confirmar a exclusão na nuvem agora.',true);
