@@ -20854,6 +20854,7 @@ body.plan-open{overflow:hidden!important}
       <div>
         <div class="plan-lib-list-head">
           <span class="plan-lib-list-title">Planejamentos disponíveis</span>
+          <button class="plan-lib-refresh" onclick="planLibSyncPending()" title="Sincronizar pendentes com a nuvem">🔁</button>
           <button class="plan-lib-refresh" onclick="planLibRefresh()" title="Atualizar lista">⟳</button>
         </div>
         <div id="plan-lib-list-body">
@@ -21072,14 +21073,14 @@ body.plan-open{overflow:hidden!important}
   var planState = { name:'', owner:'', start:'', people:[], rows:[] };
   var planPreviousOverflow = '';
 
-  // ── Biblioteca de planejamentos salvos (nuvem) ──────────────────
-  var PLAN_LIB_META_NODE = 'mtm_saved_process_plans_v1';
-  var PLAN_LIB_DATA_NODE = 'mtm_saved_process_plans_data_v1';
-  var PLAN_LIB_CACHE_KEY = 'mtm_saved_process_plans_cache_v1';
-  var PLAN_LIB_LINK_KEY  = 'mtm_process_planning_linked_v1';
-  var planLibCurrentId   = null;
-  var planLibCurrentName = '';
-  var planLibListCache   = [];
+  // ── Biblioteca de planejamentos salvos (local + nuvem) ──────────
+  var PLAN_LIB_META_NODE  = 'mtm_saved_process_plans_v1';
+  var PLAN_LIB_DATA_NODE  = 'mtm_saved_process_plans_data_v1';
+  var PLAN_LIB_LOCAL_KEY  = 'mtm_saved_process_plans_local_v1';
+  var PLAN_LIB_LINK_KEY   = 'mtm_process_planning_linked_v1';
+  var planLibCurrentId    = null;
+  var planLibCurrentName  = '';
+  var planLibListCache    = [];
   planLibLoadLink();
 
   function planId(){
@@ -21895,13 +21896,17 @@ body.plan-open{overflow:hidden!important}
   });
 
   // ══════════════════════════════════════════════════════════════
-  // BIBLIOTECA DE PLANEJAMENTOS SALVOS (nuvem)
-  // Reaproveita o mesmo Firebase Realtime Database (window.FIREBASE_CONFIG)
-  // já usado pelo restante do app para sincronizar imagens/dados,
-  // guardando os planejamentos em dois nós:
+  // BIBLIOTECA DE PLANEJAMENTOS SALVOS
+  // Estratégia "local-first": ao salvar, grava IMEDIATAMENTE neste
+  // navegador (isso nunca falha) e, em paralelo, tenta sincronizar
+  // com o Firebase Realtime Database (mesmo window.FIREBASE_CONFIG
+  // já usado pelo resto do app) para ficar acessível em qualquer
+  // navegador/computador. Se a nuvem falhar (rede, permissão etc.)
+  // o planejamento continua salvo e pode ser sincronizado depois
+  // com "🔁 Sincronizar agora".
   //   • PLAN_LIB_META_NODE → lista leve (nome, responsável, datas)
   //   • PLAN_LIB_DATA_NODE → conteúdo completo (pessoas e linhas)
-  // Assim a lista carrega rápido e o conteúdo só é baixado ao abrir.
+  //   • PLAN_LIB_LOCAL_KEY → espelho local completo (garantia)
   // ══════════════════════════════════════════════════════════════
   function planLibCloudBase(){
     try{
@@ -21925,42 +21930,60 @@ body.plan-open{overflow:hidden!important}
   function planLibId(){
     return 'splan_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
   }
-  function planLibGet(url){
-    if(!url || typeof fetch !== 'function') return Promise.resolve(null);
+  function planLibGet(url,label){
+    if(!url){ console.warn('[Planejamentos salvos] Firebase não configurado — sem URL para '+(label||'leitura')+'.'); return Promise.resolve(null); }
+    if(typeof fetch !== 'function') return Promise.resolve(null);
     return fetch(url,{method:'GET',cache:'no-store',credentials:'omit'})
-      .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
-      .catch(function(){ return null; });
+      .then(function(r){
+        if(!r.ok){ console.warn('[Planejamentos salvos] Falha ao ler '+(label||'')+' — HTTP '+r.status, url); return null; }
+        return r.json();
+      })
+      .catch(function(err){ console.warn('[Planejamentos salvos] Erro de rede ao ler '+(label||''), err); return null; });
   }
-  function planLibPut(url,value){
-    if(!url || typeof fetch !== 'function') return Promise.resolve(false);
+  function planLibPut(url,value,label){
+    if(!url){ console.warn('[Planejamentos salvos] Firebase não configurado — sem URL para '+(label||'gravação')+'.'); return Promise.resolve(false); }
+    if(typeof fetch !== 'function') return Promise.resolve(false);
     return fetch(url,{method:'PUT',cache:'no-store',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)})
-      .then(function(r){ return !!r.ok; }).catch(function(){ return false; });
+      .then(function(r){
+        if(!r.ok){ console.warn('[Planejamentos salvos] Falha ao gravar '+(label||'')+' — HTTP '+r.status+'. Se persistir, confira as regras do Firebase Realtime Database para os nós "'+PLAN_LIB_META_NODE+'" e "'+PLAN_LIB_DATA_NODE+'".', url); return false; }
+        return true;
+      })
+      .catch(function(err){ console.warn('[Planejamentos salvos] Erro de rede ao gravar '+(label||''), err); return false; });
   }
-  function planLibDel(url){
+  function planLibDel(url,label){
     if(!url || typeof fetch !== 'function') return Promise.resolve(false);
     return fetch(url,{method:'DELETE',cache:'no-store',credentials:'omit'})
-      .then(function(r){ return !!r.ok; }).catch(function(){ return false; });
+      .then(function(r){
+        if(!r.ok) console.warn('[Planejamentos salvos] Falha ao excluir '+(label||'')+' — HTTP '+r.status, url);
+        return !!r.ok;
+      })
+      .catch(function(err){ console.warn('[Planejamentos salvos] Erro de rede ao excluir '+(label||''), err); return false; });
   }
-  function planLibFetchMetaList(){ return planLibGet(planLibNodeUrl(PLAN_LIB_META_NODE,null,false)); }
-  function planLibFetchOneMeta(id){ return planLibGet(planLibNodeUrl(PLAN_LIB_META_NODE,id,false)); }
-  function planLibFetchData(id){ return planLibGet(planLibNodeUrl(PLAN_LIB_DATA_NODE,id,false)); }
-  function planLibWriteMeta(id,meta){ return planLibPut(planLibNodeUrl(PLAN_LIB_META_NODE,id,true),meta); }
-  function planLibWriteData(id,data){ return planLibPut(planLibNodeUrl(PLAN_LIB_DATA_NODE,id,true),data); }
+  function planLibFetchMetaList(){ return planLibGet(planLibNodeUrl(PLAN_LIB_META_NODE,null,false),'lista de planejamentos'); }
+  function planLibFetchData(id){ return planLibGet(planLibNodeUrl(PLAN_LIB_DATA_NODE,id,false),'conteúdo do planejamento'); }
+  function planLibWriteMeta(id,meta){ return planLibPut(planLibNodeUrl(PLAN_LIB_META_NODE,id,true),meta,'metadados'); }
+  function planLibWriteData(id,data){ return planLibPut(planLibNodeUrl(PLAN_LIB_DATA_NODE,id,true),data,'conteúdo'); }
   function planLibDeleteEntry(id){
     return Promise.all([
-      planLibDel(planLibNodeUrl(PLAN_LIB_META_NODE,id,true)),
-      planLibDel(planLibNodeUrl(PLAN_LIB_DATA_NODE,id,true))
+      planLibDel(planLibNodeUrl(PLAN_LIB_META_NODE,id,true),'metadados'),
+      planLibDel(planLibNodeUrl(PLAN_LIB_DATA_NODE,id,true),'conteúdo')
     ]).then(function(r){ return r[0] && r[1]; });
   }
-  function planLibLoadCache(){
-    try{
-      var raw = localStorage.getItem(PLAN_LIB_CACHE_KEY);
-      var arr = raw ? JSON.parse(raw) : [];
-      return Array.isArray(arr) ? arr : [];
-    }catch(e){ return []; }
+  function planLibPushToCloud(id,meta,data){
+    return Promise.all([ planLibWriteMeta(id,meta), planLibWriteData(id,data) ]).then(function(r){ return !!(r[0] && r[1]); });
   }
-  function planLibSaveCache(list){
-    try{ localStorage.setItem(PLAN_LIB_CACHE_KEY, JSON.stringify(list || [])); }catch(e){}
+  function planLibLoadLocal(){
+    try{
+      var raw = localStorage.getItem(PLAN_LIB_LOCAL_KEY);
+      var obj = raw ? JSON.parse(raw) : {};
+      return obj && typeof obj === 'object' ? obj : {};
+    }catch(e){ return {}; }
+  }
+  function planLibSaveLocal(map){
+    try{ localStorage.setItem(PLAN_LIB_LOCAL_KEY, JSON.stringify(map || {})); }catch(e){
+      console.warn('[Planejamentos salvos] Não foi possível gravar neste navegador (localStorage indisponível/cheio).', e);
+      if(typeof showToast === 'function') showToast('⚠️ Não foi possível salvar neste navegador — o armazenamento local pode estar cheio.',true);
+    }
   }
   function planLibLoadLink(){
     try{
@@ -21994,22 +22017,25 @@ body.plan-open{overflow:hidden!important}
     if(!body) return;
     var list = planLibListCache || [];
     if(!list.length){
-      body.innerHTML = '<div class="plan-lib-empty"><div class="plan-lib-empty-icon">☁️</div><div>Nenhum planejamento salvo ainda'
-        + (isOffline ? ' (sem conexão com a nuvem agora)' : '') + '.</div></div>';
+      body.innerHTML = '<div class="plan-lib-empty"><div class="plan-lib-empty-icon">☁️</div><div>Nenhum planejamento salvo ainda.</div></div>';
       return;
     }
     var offlineNote = isOffline
-      ? '<div class="plan-lib-offline">⚠️ Não foi possível conectar à nuvem agora. Mostrando a última lista conhecida neste navegador.</div>'
+      ? '<div class="plan-lib-offline">⚠️ Sem conexão com a nuvem agora. Mostrando os planejamentos salvos neste navegador — use "🔁 Sincronizar agora" quando a conexão voltar.</div>'
       : '';
     body.innerHTML = offlineNote + '<div class="plan-lib-list">' + list.map(function(item,index){
+      var badge = item.synced
+        ? '<span title="Sincronizado com a nuvem — acessível em qualquer navegador">☁️</span>'
+        : '<span title="Salvo apenas neste navegador — ainda não sincronizado">💻</span>';
       return '<div class="plan-lib-item">'
         + '<div class="plan-lib-item-info">'
-        + '<div class="plan-lib-item-name">' + planEsc(item.name) + '</div>'
+        + '<div class="plan-lib-item-name">' + badge + ' ' + planEsc(item.name) + '</div>'
         + '<div class="plan-lib-item-meta">' + (item.owner ? planEsc(item.owner) + ' · ' : '') + planLibFormatDate(item.updatedAt) + '</div>'
         + '</div>'
         + '<div class="plan-lib-item-actions">'
         + '<button class="plan-lib-item-btn" title="Abrir este planejamento" onclick="planLibOpenEntry(' + index + ')">📂</button>'
-        + '<button class="plan-lib-item-btn remove" title="Excluir da nuvem" onclick="planLibDeletePrompt(' + index + ')">🗑️</button>'
+        + '<button class="plan-lib-item-btn" title="Imprimir este planejamento" onclick="planLibPrintEntry(' + index + ')">🖨️</button>'
+        + '<button class="plan-lib-item-btn remove" title="Excluir" onclick="planLibDeletePrompt(' + index + ')">🗑️</button>'
         + '</div>'
         + '</div>';
     }).join('') + '</div>';
@@ -22017,26 +22043,86 @@ body.plan-open{overflow:hidden!important}
   function planLibPersist(id,name,isNew){
     var now = Date.now();
     var dataClone = JSON.parse(JSON.stringify(planState));
-    if(typeof showToast === 'function') showToast(isNew ? 'Salvando novo planejamento na nuvem…' : 'Atualizando planejamento na nuvem…');
-    var metaWrite = isNew
-      ? planLibWriteMeta(id,{ name:name, owner:planState.owner || '', ownerChapa:planLibOwnerChapa(), savedAt:now, updatedAt:now })
-      : planLibFetchOneMeta(id).then(function(existing){
-          var savedAt = (existing && existing.savedAt) || now;
-          return planLibWriteMeta(id,{ name:name, owner:planState.owner || '', ownerChapa:planLibOwnerChapa(), savedAt:savedAt, updatedAt:now });
-        });
-    Promise.all([ metaWrite, planLibWriteData(id,dataClone) ]).then(function(results){
-      var ok = results[0] && results[1];
+    var local = planLibLoadLocal();
+    var existing = local[id];
+    var savedAt = (!isNew && existing && existing.meta && existing.meta.savedAt) || now;
+    var meta = { name:name, owner:planState.owner || '', ownerChapa:planLibOwnerChapa(), savedAt:savedAt, updatedAt:now };
+
+    // 1) Grava neste navegador imediatamente — garante que nada se perde,
+    //    mesmo se a nuvem estiver indisponível ou bloqueada por regras do Firebase.
+    local[id] = { meta:meta, data:dataClone, cloudSynced:false };
+    planLibSaveLocal(local);
+    planLibCurrentId = id;
+    planLibCurrentName = name;
+    planLibSaveLink(id,name);
+    planLibRenderCurrentInfo();
+    planLibListCache = null; // força recarregar após salvar
+    if(typeof showToast === 'function') showToast('💾 "' + name + '" salvo neste navegador. Sincronizando com a nuvem…');
+
+    // 2) Tenta sincronizar em paralelo (best effort).
+    planLibPushToCloud(id,meta,dataClone).then(function(ok){
       if(ok){
-        planLibCurrentId = id;
-        planLibCurrentName = name;
-        planLibSaveLink(id,name);
-        planLibRenderCurrentInfo();
-        planLibRefresh();
-        if(typeof showToast === 'function') showToast('✅ Planejamento "' + name + '" salvo na nuvem');
+        var l = planLibLoadLocal();
+        if(l[id]){ l[id].cloudSynced = true; planLibSaveLocal(l); }
+        if(typeof showToast === 'function') showToast('☁️ "' + name + '" sincronizado com a nuvem — acessível em qualquer navegador');
       }else{
-        if(typeof showToast === 'function') showToast('⚠️ Não foi possível salvar na nuvem agora. Verifique a conexão.',true);
+        if(typeof showToast === 'function') showToast('⚠️ Salvo neste navegador, mas não sincronizou com a nuvem agora. Abra o console (F12) para ver o motivo, ou tente "🔁 Sincronizar agora".',true);
       }
+      planLibRefresh();
     });
+  }
+  function planLibSyncPending(silent){
+    var local = planLibLoadLocal();
+    var ids = Object.keys(local).filter(function(id){ return local[id] && !local[id].cloudSynced; });
+    if(!ids.length){
+      if(!silent && typeof showToast === 'function') showToast('Tudo já está sincronizado com a nuvem');
+      return;
+    }
+    if(!silent && typeof showToast === 'function') showToast('Sincronizando ' + ids.length + ' planejamento(s) pendente(s)…');
+    Promise.all(ids.map(function(id){
+      var entry = local[id];
+      return planLibPushToCloud(id,entry.meta,entry.data).then(function(ok){ return { id:id, ok:ok }; });
+    })).then(function(results){
+      var map = planLibLoadLocal();
+      var okCount = 0;
+      results.forEach(function(r){ if(r.ok && map[r.id]){ map[r.id].cloudSynced = true; okCount++; } });
+      planLibSaveLocal(map);
+      if(!silent || okCount > 0){
+        if(typeof showToast === 'function'){
+          if(okCount === results.length) showToast('☁️ ' + okCount + ' planejamento(s) sincronizado(s) com sucesso');
+          else if(okCount > 0) showToast('☁️ ' + okCount + ' de ' + results.length + ' sincronizado(s). Os demais continuam salvos neste navegador.');
+          else if(!silent) showToast('⚠️ Ainda sem conexão com a nuvem. Os planejamentos continuam salvos neste navegador.',true);
+        }
+      }
+      planLibRefresh();
+    });
+  }
+  function planLibApplyEntry(item,data,fromCloud){
+    planState = {
+      name: data.name || item.name || '',
+      owner: data.owner || '',
+      start: data.start || '',
+      people: Array.isArray(data.people) ? data.people : [],
+      rows: Array.isArray(data.rows) ? data.rows : []
+    };
+    planSave();
+    planFillFolders();
+    planRender();
+    planLibCurrentId = item.id;
+    planLibCurrentName = item.name;
+    planLibSaveLink(item.id,item.name);
+    if(fromCloud){
+      var local = planLibLoadLocal();
+      var prevSaved = local[item.id] && local[item.id].meta && local[item.id].meta.savedAt;
+      local[item.id] = {
+        meta:{ name:item.name, owner:data.owner || '', ownerChapa:planLibOwnerChapa(), savedAt:prevSaved || item.updatedAt || Date.now(), updatedAt:item.updatedAt || Date.now() },
+        data:data, cloudSynced:true
+      };
+      planLibSaveLocal(local);
+    }
+    var nameInput = document.getElementById('plan-lib-name-input');
+    if(nameInput) nameInput.value = item.name;
+    planLibRenderCurrentInfo();
   }
   window.planLibOpen = function(){
     var nameInput = document.getElementById('plan-lib-name-input');
@@ -22046,6 +22132,7 @@ body.plan-open{overflow:hidden!important}
     overlay.classList.add('open');
     overlay.setAttribute('aria-hidden','false');
     planLibRefresh();
+    planLibSyncPending(true);
   };
   window.planLibClose = function(){
     var overlay = document.getElementById('plan-lib-overlay');
@@ -22055,26 +22142,42 @@ body.plan-open{overflow:hidden!important}
   window.planLibRefresh = function(){
     var body = document.getElementById('plan-lib-list-body');
     if(body) body.innerHTML = '<div class="plan-lib-loading">Carregando…</div>';
-    planLibFetchMetaList().then(function(meta){
-      if(meta === null){
-        planLibListCache = planLibLoadCache();
-        planLibRenderList(true);
-        return;
-      }
-      var list = Object.keys(meta || {}).map(function(id){
-        var entry = meta[id] || {};
-        return {
+    planLibFetchMetaList().then(function(cloudMeta){
+      var local = planLibLoadLocal();
+      var map = {};
+      Object.keys(cloudMeta || {}).forEach(function(id){
+        var entry = cloudMeta[id] || {};
+        map[id] = {
           id:id,
           name:entry.name || 'Planejamento sem nome',
           owner:entry.owner || '',
-          updatedAt:Number(entry.updatedAt || entry.savedAt || 0)
+          updatedAt:Number(entry.updatedAt || entry.savedAt || 0),
+          synced:true
         };
-      }).sort(function(a,b){ return b.updatedAt - a.updatedAt; });
+      });
+      Object.keys(local).forEach(function(id){
+        var entry = local[id];
+        if(!entry || !entry.meta) return;
+        if(map[id]){
+          if(!entry.cloudSynced && Number(entry.meta.updatedAt||0) > map[id].updatedAt){
+            map[id].name = entry.meta.name;
+            map[id].owner = entry.meta.owner;
+            map[id].updatedAt = entry.meta.updatedAt;
+            map[id].synced = false;
+          }
+        }else{
+          map[id] = {
+            id:id, name:entry.meta.name || 'Planejamento sem nome', owner:entry.meta.owner || '',
+            updatedAt:Number(entry.meta.updatedAt || entry.meta.savedAt || 0), synced:!!entry.cloudSynced
+          };
+        }
+      });
+      var list = Object.keys(map).map(function(id){ return map[id]; }).sort(function(a,b){ return b.updatedAt - a.updatedAt; });
       planLibListCache = list;
-      planLibSaveCache(list);
-      planLibRenderList(false);
+      planLibRenderList(cloudMeta === null);
     });
   };
+  window.planLibSyncPending = function(){ planLibSyncPending(false); };
   window.planLibSaveAsNew = function(){
     var nameInput = document.getElementById('plan-lib-name-input');
     var name = String((nameInput && nameInput.value) || planState.name || '').trim();
@@ -22095,50 +22198,72 @@ body.plan-open{overflow:hidden!important}
     var item = planLibListCache[index];
     if(!item) return;
     if(planState.rows.length || planState.people.length || planState.name){
-      if(!confirm('Abrir "' + item.name + '" vai substituir o planejamento exibido nesta tela (o que já está salvo na nuvem permanece guardado). Deseja continuar?')) return;
+      if(!confirm('Abrir "' + item.name + '" vai substituir o planejamento exibido nesta tela (o que já está salvo continua guardado). Deseja continuar?')) return;
     }
-    if(typeof showToast === 'function') showToast('Carregando planejamento…');
+    var local = planLibLoadLocal();
+    var localEntry = local[item.id];
+    if(localEntry && localEntry.data){
+      planLibApplyEntry(item,localEntry.data,false);
+      planLibClose();
+      if(typeof showToast === 'function') showToast('✅ Planejamento "' + item.name + '" carregado');
+      return;
+    }
+    if(typeof showToast === 'function') showToast('Carregando planejamento da nuvem…');
     planLibFetchData(item.id).then(function(data){
       if(!data){
         if(typeof showToast === 'function') showToast('⚠️ Não foi possível carregar este planejamento agora.',true);
         return;
       }
-      planState = {
-        name: data.name || item.name || '',
-        owner: data.owner || '',
-        start: data.start || '',
-        people: Array.isArray(data.people) ? data.people : [],
-        rows: Array.isArray(data.rows) ? data.rows : []
-      };
-      planSave();
-      planFillFolders();
-      planRender();
-      planLibCurrentId = item.id;
-      planLibCurrentName = item.name;
-      planLibSaveLink(item.id,item.name);
-      var nameInput = document.getElementById('plan-lib-name-input');
-      if(nameInput) nameInput.value = item.name;
-      planLibRenderCurrentInfo();
+      planLibApplyEntry(item,data,true);
       planLibClose();
       if(typeof showToast === 'function') showToast('✅ Planejamento "' + item.name + '" carregado');
+    });
+  };
+  function planLibDoPrint(item,data){
+    var backup = planState;
+    planState = {
+      name: data.name || item.name || '',
+      owner: data.owner || '',
+      start: data.start || '',
+      people: Array.isArray(data.people) ? data.people : [],
+      rows: Array.isArray(data.rows) ? data.rows : []
+    };
+    try{ planPrint(); } finally { planState = backup; }
+  }
+  window.planLibPrintEntry = function(index){
+    var item = planLibListCache[index];
+    if(!item) return;
+    var local = planLibLoadLocal();
+    var localEntry = local[item.id];
+    if(localEntry && localEntry.data){ planLibDoPrint(item,localEntry.data); return; }
+    if(typeof showToast === 'function') showToast('Carregando planejamento para impressão…');
+    planLibFetchData(item.id).then(function(data){
+      if(!data){
+        if(typeof showToast === 'function') showToast('⚠️ Não foi possível carregar este planejamento para impressão.',true);
+        return;
+      }
+      planLibDoPrint(item,data);
     });
   };
   window.planLibDeletePrompt = function(index){
     var item = planLibListCache[index];
     if(!item) return;
-    if(!confirm('Excluir definitivamente o planejamento "' + item.name + '" da nuvem? Esta ação não pode ser desfeita.')) return;
+    if(!confirm('Excluir definitivamente o planejamento "' + item.name + '"? Isso remove a cópia deste navegador e da nuvem e não pode ser desfeito.')) return;
+    var local = planLibLoadLocal();
+    delete local[item.id];
+    planLibSaveLocal(local);
+    if(planLibCurrentId === item.id){
+      planLibCurrentId = null;
+      planLibCurrentName = '';
+      planLibSaveLink(null,'');
+      planLibRenderCurrentInfo();
+    }
+    planLibRefresh();
     planLibDeleteEntry(item.id).then(function(ok){
-      if(ok){
-        if(planLibCurrentId === item.id){
-          planLibCurrentId = null;
-          planLibCurrentName = '';
-          planLibSaveLink(null,'');
-          planLibRenderCurrentInfo();
-        }
-        if(typeof showToast === 'function') showToast('🗑️ Planejamento excluído');
-        planLibRefresh();
+      if(!ok){
+        if(typeof showToast === 'function') showToast('Removido deste navegador; não foi possível confirmar a exclusão na nuvem agora.',true);
       }else{
-        if(typeof showToast === 'function') showToast('⚠️ Não foi possível excluir agora. Verifique a conexão.',true);
+        if(typeof showToast === 'function') showToast('🗑️ Planejamento excluído');
       }
     });
   };
