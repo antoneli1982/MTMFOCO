@@ -20893,7 +20893,22 @@ body.plan-open{overflow:hidden!important}
   border-radius:10px;background:var(--surface);
 }
 .plan-lib-item:hover{background:var(--row-hover)}
-.plan-lib-item-info{flex:1;min-width:0}
+.plan-lib-item-info{flex:1;min-width:0;cursor:pointer;border-radius:6px;padding:2px 4px;margin:-2px -4px;transition:background .15s}
+.plan-lib-item-info:hover{background:rgba(245,158,11,.08)}
+.plan-lib-detail{
+  padding:16px;border-radius:10px;background:var(--surface2);
+  border:1px solid rgba(245,158,11,.35);box-shadow:0 0 0 1px rgba(245,158,11,.06);
+  animation:planLibDetailIn .2s ease;
+}
+@keyframes planLibDetailIn{ from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:none} }
+.plan-lib-detail-name{font-size:19px;font-weight:800;color:#f59e0b;letter-spacing:-.2px;margin-bottom:8px;line-height:1.3;word-break:break-word}
+.plan-lib-detail-meta{font-size:10px;color:var(--text3);margin-bottom:12px;line-height:1.7}
+.plan-lib-detail-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px;margin-bottom:12px}
+.plan-lib-detail-stat{padding:9px;border-radius:8px;background:var(--surface3);text-align:center}
+.plan-lib-detail-stat strong{display:block;font:800 15px 'JetBrains Mono',monospace;color:var(--text)}
+.plan-lib-detail-stat span{display:block;font-size:8px;color:var(--text3);text-transform:uppercase;font-weight:700;margin-top:3px}
+.plan-lib-detail-actions{display:flex;gap:6px;flex-wrap:wrap}
+.plan-lib-detail-loading{padding:10px 0;text-align:center;color:var(--text3);font-size:10px}
 .plan-lib-item-name{font-size:12px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .plan-lib-item-meta{font-size:9px;color:var(--text3);margin-top:3px}
 .plan-lib-item-actions{display:flex;gap:6px;flex-shrink:0}
@@ -21177,6 +21192,8 @@ body.plan-open{overflow:hidden!important}
   var planLibNavFolderId    = '';
   var planLibNavSubfolderId = '';
   var planLibMovingId       = '';
+  var planLibExpandedId     = '';
+  var planLibDetailCache    = {};
   planLibLoadLink();
   planLibLoadNav();
 
@@ -22297,6 +22314,70 @@ body.plan-open{overflow:hidden!important}
     el.innerHTML = parts.join('');
   }
 
+  function planLibDetailHtml(item){
+    var stats = planLibDetailCache[item.id];
+    var body = stats
+      ? ('<div class="plan-lib-detail-stats">'
+          + '<div class="plan-lib-detail-stat"><strong>' + stats.rowCount + '</strong><span>Linhas</span></div>'
+          + '<div class="plan-lib-detail-stat"><strong>' + stats.peopleCount + '</strong><span>' + (stats.resourceType === 'equipamento' ? 'Equipamentos' : 'Pessoas') + '</span></div>'
+          + '<div class="plan-lib-detail-stat"><strong>' + planClock(stats.gross) + '</strong><span>Tempo bruto</span></div>'
+          + '<div class="plan-lib-detail-stat"><strong>' + planClock(stats.real) + '</strong><span>Tempo real</span></div>'
+        + '</div>')
+      : '<div class="plan-lib-detail-loading">Carregando dados…</div>';
+    return '<div class="plan-lib-detail">'
+      + '<div class="plan-lib-detail-name">' + planEsc(item.name) + '</div>'
+      + '<div class="plan-lib-detail-meta">' + (item.owner ? '👤 ' + planEsc(item.owner) + ' · ' : '') + '📁 ' + planEsc(planLibFolderName(item.folderId)) + (item.subfolderId ? ' / ' + planEsc(planLibSubfolderName(item.subfolderId)) : '') + ' · 🕒 Atualizado em ' + planLibFormatDate(item.updatedAt) + '</div>'
+      + body
+      + '<div class="plan-lib-detail-actions">'
+      + '<button class="plan-lib-btn" onclick="planLibOpenEntry(\'' + item.id + '\')">📂 Abrir</button>'
+      + '<button class="plan-lib-btn secondary" onclick="planLibPrintEntry(\'' + item.id + '\')">🖨️ Imprimir</button>'
+      + '</div>'
+      + '</div>';
+  }
+  function planLibComputeStats(data){
+    var rows = Array.isArray(data.rows) ? data.rows : [];
+    var people = Array.isArray(data.people) ? data.people : [];
+    var gross = 0, real = 0;
+    try{
+      var backup = planState;
+      planState = { name:'', owner:'', start:'', resourceType:data.resourceType, people:people, rows:rows };
+      var calc = planCalc();
+      gross = calc.gross;
+      real = calc.real;
+      planState = backup;
+    }catch(e){
+      rows.forEach(function(r){ gross += (Number(r.qty) || 0) * (Number(r.unitSec) || 0); });
+      real = gross;
+    }
+    return {
+      rowCount: rows.length,
+      peopleCount: people.length,
+      gross: gross,
+      real: real,
+      resourceType: data.resourceType === 'equipamento' ? 'equipamento' : 'pessoa'
+    };
+  }
+  function planLibLoadDetailStats(id){
+    var local = planLibLoadLocal();
+    var entry = local[id];
+    if(entry && entry.data){
+      planLibDetailCache[id] = planLibComputeStats(entry.data);
+      if(planLibExpandedId === id) planLibRenderBrowser();
+      return;
+    }
+    planLibFetchData(id).then(function(data){
+      if(!data) return;
+      planLibDetailCache[id] = planLibComputeStats(data);
+      var l = planLibLoadLocal();
+      if(l[id] && !l[id].data){ l[id].data = data; planLibSaveLocal(l); }
+      if(planLibExpandedId === id) planLibRenderBrowser();
+    });
+  }
+  window.planLibToggleDetail = function(id){
+    planLibExpandedId = (planLibExpandedId === id) ? '' : id;
+    planLibRenderBrowser();
+    if(planLibExpandedId && !planLibDetailCache[planLibExpandedId]) planLibLoadDetailStats(planLibExpandedId);
+  };
   function planLibPlansHtml(list){
     if(!list.length){
       return '<div class="plan-lib-empty"><div class="plan-lib-empty-icon">☁️</div><div>Nenhum planejamento salvo aqui ainda.</div></div>';
@@ -22305,8 +22386,8 @@ body.plan-open{overflow:hidden!important}
       var badge = item.synced
         ? '<span title="Sincronizado com a nuvem — acessível em qualquer navegador">☁️</span>'
         : '<span title="Salvo apenas neste navegador — ainda não sincronizado">💻</span>';
-      return '<div class="plan-lib-item">'
-        + '<div class="plan-lib-item-info">'
+      var row = '<div class="plan-lib-item">'
+        + '<div class="plan-lib-item-info" onclick="planLibToggleDetail(\'' + item.id + '\')" title="Ver dados deste planejamento">'
         + '<div class="plan-lib-item-name">' + badge + ' ' + planEsc(item.name) + '</div>'
         + '<div class="plan-lib-item-meta">' + (item.owner ? planEsc(item.owner) + ' · ' : '') + planLibFormatDate(item.updatedAt) + '</div>'
         + '</div>'
@@ -22317,6 +22398,8 @@ body.plan-open{overflow:hidden!important}
         + '<button class="plan-lib-item-btn remove" title="Excluir" onclick="planLibDeletePrompt(\'' + item.id + '\')">🗑️</button>'
         + '</div>'
         + '</div>';
+      if(planLibExpandedId === item.id) row += planLibDetailHtml(item);
+      return row;
     }).join('') + '</div>';
   }
 
@@ -22392,6 +22475,7 @@ body.plan-open{overflow:hidden!important}
     var fid = folderId != null ? folderId : ((existing && existing.meta && existing.meta.folderId) || '');
     var sfid = subfolderId != null ? subfolderId : ((existing && existing.meta && existing.meta.subfolderId) || '');
     var meta = { name:name, owner:planState.owner || '', ownerChapa:planLibOwnerChapa(), folderId:fid, subfolderId:sfid, savedAt:savedAt, updatedAt:now };
+    delete planLibDetailCache[id];
 
     // 1) Grava neste navegador imediatamente — garante que nada se perde,
     //    mesmo se a nuvem estiver indisponível ou bloqueada por regras do Firebase.
@@ -22534,6 +22618,7 @@ body.plan-open{overflow:hidden!important}
       var detected = planDetectFolderId();
       if(detected) planLibNavFolderId = detected;
     }
+    planLibExpandedId = '';
     planLibSaveNav();
     planLibRenderCurrentInfo();
     var overlay = document.getElementById('plan-lib-overlay');
@@ -22550,6 +22635,7 @@ body.plan-open{overflow:hidden!important}
   window.planLibNavigate = function(folderId,subfolderId){
     if(folderId !== null && folderId !== undefined) planLibNavFolderId = folderId;
     if(subfolderId !== null && subfolderId !== undefined) planLibNavSubfolderId = subfolderId;
+    planLibExpandedId = '';
     planLibSaveNav();
     planLibSyncSelectsAndBreadcrumb();
     planLibRenderBrowser();
@@ -22879,6 +22965,8 @@ body.plan-open{overflow:hidden!important}
       planLibRenderCurrentInfo();
     }
     planLibListCache = (planLibListCache || []).filter(function(p){ return p.id !== item.id; });
+    delete planLibDetailCache[item.id];
+    if(planLibExpandedId === item.id) planLibExpandedId = '';
     planLibRenderBrowser();
     planLibDeleteEntry(item.id).then(function(ok){
       if(!ok){
