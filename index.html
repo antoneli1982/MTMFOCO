@@ -22298,6 +22298,7 @@ body.plan-open{overflow:hidden!important}
             var count = (planLibListCache || []).filter(function(p){ return p.folderId === planLibNavFolderId && p.subfolderId === sub.id; }).length;
             return '<div class="plan-lib-folder-card" onclick="planLibNavigate(null,\'' + sub.id + '\')">'
               + '<div class="plan-lib-folder-tools">'
+              + '<button class="plan-lib-folder-tool" title="Duplicar" onclick="event.stopPropagation();planLibDuplicateSubfolder(\'' + sub.id + '\')">⧉</button>'
               + '<button class="plan-lib-folder-tool" title="Renomear" onclick="event.stopPropagation();planLibRenameSubfolder(\'' + sub.id + '\')">✏️</button>'
               + '<button class="plan-lib-folder-tool" title="Excluir" onclick="event.stopPropagation();planLibDeleteSubfolder(\'' + sub.id + '\')">🗑️</button>'
               + '</div>'
@@ -22739,6 +22740,65 @@ body.plan-open{overflow:hidden!important}
     planLibSyncSelectsAndBreadcrumb();
     planLibRenderBrowser();
     planLibDeleteSubfolderCloud(id);
+  };
+  window.planLibDuplicateSubfolder = function(id){
+    var sub = planLibSubfolderListCache.find(function(s){ return s.id === id; });
+    if(!sub) return;
+    var name = prompt('Nome da subpasta duplicada:', sub.name + ' (cópia)');
+    if(name === null) return;
+    name = String(name).trim();
+    if(!name){
+      if(typeof showToast === 'function') showToast('Informe um nome',true);
+      return;
+    }
+    var plansToClone = (planLibListCache || []).filter(function(p){ return p.subfolderId === id; });
+    if(typeof showToast === 'function') showToast('Duplicando subpasta' + (plansToClone.length ? ' e ' + plansToClone.length + ' planejamento(s)' : '') + '…');
+
+    // 1) Cria a nova subpasta imediatamente (local + tenta nuvem)
+    var newSubId = planLibSubfolderId();
+    var now = Date.now();
+    var subMeta = { name:name, folderId:sub.folderId, createdAt:now, updatedAt:now };
+    var localSub = planLibLoadSubfoldersLocal();
+    localSub[newSubId] = { meta:subMeta, cloudSynced:false };
+    planLibSaveSubfoldersLocal(localSub);
+    planLibSubfolderListCache.push({ id:newSubId, name:name, folderId:sub.folderId, updatedAt:now, synced:false });
+    planLibSyncSelectsAndBreadcrumb();
+    planLibRenderBrowser();
+    planLibWriteSubfolder(newSubId,subMeta).then(function(ok){
+      var l = planLibLoadSubfoldersLocal();
+      if(ok && l[newSubId]){ l[newSubId].cloudSynced = true; planLibSaveSubfoldersLocal(l); }
+    });
+
+    // 2) Clona cada planejamento da subpasta original para dentro da nova
+    if(!plansToClone.length){
+      if(typeof showToast === 'function') showToast('✅ Subpasta "' + name + '" criada');
+      return;
+    }
+    var local = planLibLoadLocal();
+    Promise.all(plansToClone.map(function(p){
+      var entry = local[p.id];
+      if(entry && entry.data) return Promise.resolve({ item:p, data:entry.data });
+      return planLibFetchData(p.id).then(function(data){ return { item:p, data:data }; });
+    })).then(function(results){
+      var okCount = 0;
+      results.forEach(function(r){
+        if(!r.data) return;
+        okCount++;
+        var newPlanId = planLibId();
+        var nowP = Date.now();
+        var meta = { name:r.item.name, owner:r.data.owner || '', ownerChapa:planLibOwnerChapa(), folderId:sub.folderId, subfolderId:newSubId, savedAt:nowP, updatedAt:nowP };
+        var lp = planLibLoadLocal();
+        lp[newPlanId] = { meta:meta, data:r.data, cloudSynced:false };
+        planLibSaveLocal(lp);
+        planLibPushToCloud(newPlanId,meta,r.data);
+      });
+      planLibRefresh();
+      var failed = results.length - okCount;
+      if(typeof showToast === 'function'){
+        if(failed) showToast('✅ Subpasta duplicada com ' + okCount + ' planejamento(s) · ⚠️ ' + failed + ' não pôde(puderam) ser copiado(s) agora',true);
+        else showToast('✅ Subpasta "' + name + '" duplicada com ' + okCount + ' planejamento(s)');
+      }
+    });
   };
   window.planLibDeletePrompt = function(id){
     var item = planLibFindPlan(id);
