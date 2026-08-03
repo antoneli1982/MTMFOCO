@@ -20596,6 +20596,10 @@ body.plan-open{overflow:hidden!important}
 .plan-sequence-input:focus{
   border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.12);
 }
+.plan-seq-tag{
+  margin-top:4px;font-size:8px;font-weight:800;letter-spacing:.02em;
+  color:var(--purple);white-space:nowrap;
+}
 .plan-group-tag{
   display:inline-flex;align-items:center;gap:4px;background:var(--purpleBg);
   color:var(--purple);border:1px solid rgba(167,139,250,.24);
@@ -20876,7 +20880,7 @@ body.plan-open{overflow:hidden!important}
           <span>📋</span>
           <span class="plan-card-title">Itens do planejamento</span>
           <span class="plan-card-help" id="plan-row-count">0 itens</span>
-          <span class="plan-card-help">Altere a sequência para movimentar uma linha</span>
+          <span class="plan-card-help">Altere a sequência para movimentar uma linha · linhas simultâneas do mesmo grupo compartilham o mesmo número</span>
           <div class="plan-table-tools">
             <input class="plan-input plan-search" id="plan-search" placeholder="Buscar pasta, projeto, folha ou responsável" oninput="planFilterRows(this.value)">
           </div>
@@ -21179,6 +21183,26 @@ body.plan-open{overflow:hidden!important}
       missing:missing
     };
   }
+  function planSequenceInfo(rows){
+    rows = rows || planState.rows;
+    var steps = [];
+    var groupStep = {};
+    var groupCount = {};
+    var total = 0;
+    rows.forEach(function(row,index){
+      var group = String(row.group || '').trim();
+      var sim = row.execution === 'sim' && group;
+      if(sim && groupStep[group]){
+        steps[index] = groupStep[group];
+        groupCount[group]++;
+        return;
+      }
+      total++;
+      steps[index] = total;
+      if(sim){ groupStep[group] = total; groupCount[group] = 1; }
+    });
+    return { steps:steps, total:total, groupStep:groupStep, groupCount:groupCount };
+  }
   function planEndText(real){
     if(!planState.start) return 'Defina o início';
     var start = new Date(planState.start);
@@ -21197,12 +21221,20 @@ body.plan-open{overflow:hidden!important}
       return;
     }
     empty.style.display = 'none';
+    var seqInfo = planSequenceInfo();
     tbody.innerHTML = planState.rows.map(function(row,index){
       var duration = planNumber(row.qty) * planNumber(row.unitSec);
       var search = [row.folderName,row.projectName,row.sheetName,row.unit,row.responsible,row.group].join(' ').toLowerCase();
       var sim = row.execution === 'sim';
+      var step = seqInfo.steps[index];
+      var groupKey = String(row.group || '').trim();
+      var shared = sim && groupKey && seqInfo.groupCount[groupKey] > 1;
+      var seqHint = shared
+        ? 'Executada em paralelo na sequência ' + step + ' com as demais linhas do grupo ' + groupKey
+        : 'Sequência de execução';
       return '<tr data-plan-search="' + planEsc(search) + '">'
-        + '<td style="text-align:center"><input class="plan-cell-input plan-sequence-input plan-num" type="number" min="1" max="' + planState.rows.length + '" step="1" value="' + (index + 1) + '" aria-label="Sequência da linha ' + (index + 1) + '" onchange="planMoveRow(\'' + row.id + '\',this.value,this)" onkeydown="if(event.key===\'Enter\')this.blur()"></td>'
+        + '<td style="text-align:center"><input class="plan-cell-input plan-sequence-input plan-num" type="number" min="1" max="' + seqInfo.total + '" step="1" value="' + step + '" title="' + planEsc(seqHint) + '" aria-label="Sequência da linha ' + (index + 1) + '" onchange="planMoveRow(\'' + row.id + '\',this.value,this)" onkeydown="if(event.key===\'Enter\')this.blur()">'
+        + (shared ? '<div class="plan-seq-tag">⇄ grupo ' + planEsc(groupKey) + '</div>' : '') + '</td>'
         + '<td><input class="plan-cell-input" value="' + planEsc(row.unit) + '" oninput="planUpdateRow(\'' + row.id + '\',\'unit\',this.value)"></td>'
         + '<td><div class="plan-context-main">' + planEsc(row.folderName) + '</div><div class="plan-context-sub">' + planEsc(row.projectName) + '</div></td>'
         + '<td><div class="plan-context-main">' + planEsc(row.sheetName) + '</div><div class="plan-context-sub">' + planEsc(row.unitType || 'unidade') + ' · origem ' + planClock(row.sourceStdSec || 0) + '</div></td>'
@@ -21408,17 +21440,35 @@ body.plan-open{overflow:hidden!important}
   window.planMoveRow = function(id,value,source){
     var from = planState.rows.findIndex(function(item){ return item.id === id; });
     if(from < 0) return;
-    var total = planState.rows.length;
+    var info = planSequenceInfo();
+    var current = info.steps[from];
     var requested = Math.round(planNumber(value));
-    if(!(requested > 0)) requested = from + 1;
-    var target = Math.max(1,Math.min(total,requested)) - 1;
-    if(source) source.value = target + 1;
-    if(target === from) return;
-    var moved = planState.rows.splice(from,1)[0];
-    planState.rows.splice(target,0,moved);
+    if(!(requested > 0)) requested = current;
+    var target = Math.max(1,Math.min(info.total,requested));
+    if(source) source.value = target;
+    if(target === current) return;
+    var row = planState.rows[from];
+    var group = String(row.group || '').trim();
+    var sim = row.execution === 'sim' && group;
+    var block = sim
+      ? planState.rows.filter(function(item){
+          return item.execution === 'sim' && String(item.group || '').trim() === group;
+        })
+      : [row];
+    var rest = planState.rows.filter(function(item){ return block.indexOf(item) === -1; });
+    var restInfo = planSequenceInfo(rest);
+    var insertAt = rest.length;
+    for(var i=0;i<rest.length;i++){
+      if(restInfo.steps[i] >= target){ insertAt = i; break; }
+    }
+    planState.rows = rest.slice(0,insertAt).concat(block,rest.slice(insertAt));
     planSave();
     planRender();
-    if(typeof showToast === 'function') showToast('Linha movida para a sequência ' + (target + 1));
+    if(typeof showToast === 'function'){
+      showToast(block.length > 1
+        ? 'Grupo simultâneo ' + group + ' movido para a sequência ' + target
+        : 'Linha movida para a sequência ' + target);
+    }
   };
   window.planDeleteRow = function(id){
     planState.rows = planState.rows.filter(function(item){ return item.id !== id; });
@@ -21490,9 +21540,10 @@ body.plan-open{overflow:hidden!important}
       [],
       ['Sequência','Unidade','Pasta','Projeto','Folha','Responsável','Quantidade','Tempo por unidade em segundos','Execução','Grupo','Duração']
     );
+    var csvSeq = planSequenceInfo();
     planState.rows.forEach(function(row,index){
       lines.push([
-        index + 1,row.unit,row.folderName,row.projectName,row.sheetName,row.responsible,
+        csvSeq.steps[index],row.unit,row.folderName,row.projectName,row.sheetName,row.responsible,
         row.qty,row.unitSec,row.execution === 'sim' ? 'Simultânea' : 'Sequencial',
         row.group || '',planClock(planNumber(row.qty) * planNumber(row.unitSec))
       ]);
@@ -21516,9 +21567,10 @@ body.plan-open{overflow:hidden!important}
     var calc = planCalc();
     var box = document.getElementById('print-area');
     if(!box) return;
+    var printSeq = planSequenceInfo();
     var rows = planState.rows.map(function(row,index){
       return '<tr>'
-        + '<td style="border:1px solid #cbd5e1;padding:5px">' + (index + 1) + '</td>'
+        + '<td style="border:1px solid #cbd5e1;padding:5px">' + printSeq.steps[index] + '</td>'
         + '<td style="border:1px solid #cbd5e1;padding:5px">' + planEsc(row.unit) + '</td>'
         + '<td style="border:1px solid #cbd5e1;padding:5px">' + planEsc(row.folderName) + '<br><small>' + planEsc(row.projectName) + '</small></td>'
         + '<td style="border:1px solid #cbd5e1;padding:5px">' + planEsc(row.sheetName) + '</td>'
