@@ -20635,8 +20635,11 @@ body.plan-open{overflow:hidden!important}
 .plan-group-id{
   min-width:28px;height:28px;border-radius:8px;background:var(--purpleBg);
   color:var(--purple);display:flex;align-items:center;justify-content:center;
-  font-size:11px;font-weight:800;
+  font-size:10px;font-weight:800;padding:0 8px;white-space:nowrap;
 }
+.plan-sim-cell{ display:flex;flex-direction:column;gap:4px; }
+.plan-sim-mode{ font-size:9px;padding:3px 4px; }
+.plan-sim-warn{ font-size:8px;font-weight:800;color:#ef4444;white-space:nowrap; }
 .plan-group-info{flex:1;min-width:0}
 .plan-group-name{font-size:10px;font-weight:700;color:var(--text)}
 .plan-group-desc{font-size:9px;color:var(--text3);margin-top:2px}
@@ -20833,7 +20836,7 @@ body.plan-open{overflow:hidden!important}
           </div>
         </div>
         <div class="plan-note">
-          <strong>Como funciona a simultaneidade:</strong> marque como simultâneas as atividades executadas ao mesmo tempo e informe o mesmo grupo. O total real do grupo será a maior duração, evitando somar tempos que acontecem juntos.
+          <strong>Como funciona a simultaneidade:</strong> marque a atividade como simultânea e escolha o vínculo. <strong>Por grupo</strong> une todas as linhas que compartilham a mesma letra. <strong>Por sequência</strong> aponta o número da sequência com a qual a linha ocorre em paralelo. Nos dois casos vale apenas a maior duração da etapa, e as demais deixam de somar no tempo total.
         </div>
       </section>
 
@@ -20897,7 +20900,7 @@ body.plan-open{overflow:hidden!important}
                 <th style="width:78px;text-align:right">Quantidade</th>
                 <th style="width:105px;text-align:right">Tempo por unidade</th>
                 <th style="width:118px">Execução</th>
-                <th style="width:80px">Grupo</th>
+                <th style="width:104px">Vínculo simultâneo</th>
                 <th style="width:105px;text-align:right">Duração</th>
                 <th style="width:74px">Ações</th>
               </tr>
@@ -21088,6 +21091,8 @@ body.plan-open{overflow:hidden!important}
       unitSec:+(stdSec / cycleQty).toFixed(4),
       execution:'seq',
       group:'',
+      simMode:'group',
+      simSeq:'',
       sourceStdSec:stdSec,
       sourceCycleQty:cycleQty
     };
@@ -21139,14 +21144,15 @@ body.plan-open{overflow:hidden!important}
   };
   function planCalc(){
     var gross = 0;
-    var sequential = 0;
     var qty = 0;
     var groups = {};
     var people = {};
     var folders = {};
     var projects = {};
     var missing = 0;
-    planState.rows.forEach(function(row){
+    var info = planSequenceInfo();
+    var steps = {};
+    planState.rows.forEach(function(row,index){
       var rowQty = planNumber(row.qty);
       var unitSec = planNumber(row.unitSec);
       var duration = rowQty * unitSec;
@@ -21157,19 +21163,18 @@ body.plan-open{overflow:hidden!important}
       var person = String(row.responsible || '').trim() || 'Não atribuído';
       people[person] = (people[person] || 0) + duration;
       if(!(rowQty > 0) || !(unitSec > 0)) missing++;
-      var group = String(row.group || '').trim();
-      if(row.execution === 'sim' && group){
-        if(!groups[group]) groups[group] = { max:0, gross:0, count:0, rows:[] };
-        groups[group].max = Math.max(groups[group].max,duration);
-        groups[group].gross += duration;
-        groups[group].count++;
-        groups[group].rows.push(row.sheetName || 'Folha');
-      }else{
-        sequential += duration;
-      }
+      var step = info.steps[index];
+      if(!steps[step]) steps[step] = { max:0, gross:0, count:0, rows:[] };
+      steps[step].max = Math.max(steps[step].max,duration);
+      steps[step].gross += duration;
+      steps[step].count++;
+      steps[step].rows.push(row.sheetName || 'Folha');
     });
-    var groupReal = Object.keys(groups).reduce(function(total,key){ return total + groups[key].max; },0);
-    var real = sequential + groupReal;
+    var real = 0;
+    Object.keys(steps).forEach(function(key){
+      real += steps[key].max;
+      if(steps[key].count > 1) groups[planStepLabel(info,+key)] = steps[key];
+    });
     var peopleCount = planState.people.length;
     var pttNominal = peopleCount;
     var pttEffective = planState.people.reduce(function(total,person){
@@ -21183,25 +21188,56 @@ body.plan-open{overflow:hidden!important}
       missing:missing
     };
   }
+  function planSimMode(row){ return row && row.simMode === 'seq' ? 'seq' : 'group'; }
   function planSequenceInfo(rows){
     rows = rows || planState.rows;
     var steps = [];
     var groupStep = {};
-    var groupCount = {};
+    var stepGroup = {};
+    var stepCount = {};
+    var invalid = {};
     var total = 0;
     rows.forEach(function(row,index){
-      var group = String(row.group || '').trim();
-      var sim = row.execution === 'sim' && group;
-      if(sim && groupStep[group]){
-        steps[index] = groupStep[group];
-        groupCount[group]++;
+      var sim = row.execution === 'sim';
+      var mode = planSimMode(row);
+      if(sim && mode === 'seq'){
+        var ref = Math.round(planNumber(row.simSeq));
+        if(ref > 0 && ref <= total){
+          steps[index] = ref;
+          stepCount[ref] = (stepCount[ref] || 0) + 1;
+          return;
+        }
+        total++;
+        steps[index] = total;
+        stepCount[total] = 1;
+        invalid[index] = true;
+        return;
+      }
+      if(sim && mode === 'group'){
+        var group = String(row.group || '').trim();
+        if(group && groupStep[group]){
+          steps[index] = groupStep[group];
+          stepCount[groupStep[group]]++;
+          return;
+        }
+        total++;
+        steps[index] = total;
+        stepCount[total] = 1;
+        if(group){ groupStep[group] = total; stepGroup[total] = group; }
+        else invalid[index] = true;
         return;
       }
       total++;
       steps[index] = total;
-      if(sim){ groupStep[group] = total; groupCount[group] = 1; }
+      stepCount[total] = 1;
     });
-    return { steps:steps, total:total, groupStep:groupStep, groupCount:groupCount };
+    return {
+      steps:steps, total:total, groupStep:groupStep,
+      stepGroup:stepGroup, stepCount:stepCount, invalid:invalid
+    };
+  }
+  function planStepLabel(info,step){
+    return info.stepGroup[step] ? 'Grupo ' + info.stepGroup[step] : 'Sequência ' + step;
   }
   function planEndText(real){
     if(!planState.start) return 'Defina o início';
@@ -21226,15 +21262,17 @@ body.plan-open{overflow:hidden!important}
       var duration = planNumber(row.qty) * planNumber(row.unitSec);
       var search = [row.folderName,row.projectName,row.sheetName,row.unit,row.responsible,row.group].join(' ').toLowerCase();
       var sim = row.execution === 'sim';
+      var mode = planSimMode(row);
       var step = seqInfo.steps[index];
       var groupKey = String(row.group || '').trim();
-      var shared = sim && groupKey && seqInfo.groupCount[groupKey] > 1;
+      var shared = sim && seqInfo.stepCount[step] > 1;
+      var badRef = sim && !!seqInfo.invalid[index];
       var seqHint = shared
-        ? 'Executada em paralelo na sequência ' + step + ' com as demais linhas do grupo ' + groupKey
+        ? 'Executada em paralelo na sequência ' + step + ' · ' + planStepLabel(seqInfo,step)
         : 'Sequência de execução';
       return '<tr data-plan-search="' + planEsc(search) + '">'
         + '<td style="text-align:center"><input class="plan-cell-input plan-sequence-input plan-num" type="number" min="1" max="' + seqInfo.total + '" step="1" value="' + step + '" title="' + planEsc(seqHint) + '" aria-label="Sequência da linha ' + (index + 1) + '" onchange="planMoveRow(\'' + row.id + '\',this.value,this)" onkeydown="if(event.key===\'Enter\')this.blur()">'
-        + (shared ? '<div class="plan-seq-tag">⇄ grupo ' + planEsc(groupKey) + '</div>' : '') + '</td>'
+        + (shared ? '<div class="plan-seq-tag">⇄ ' + planEsc(planStepLabel(seqInfo,step)) + '</div>' : '') + '</td>'
         + '<td><input class="plan-cell-input" value="' + planEsc(row.unit) + '" oninput="planUpdateRow(\'' + row.id + '\',\'unit\',this.value)"></td>'
         + '<td><div class="plan-context-main">' + planEsc(row.folderName) + '</div><div class="plan-context-sub">' + planEsc(row.projectName) + '</div></td>'
         + '<td><div class="plan-context-main">' + planEsc(row.sheetName) + '</div><div class="plan-context-sub">' + planEsc(row.unitType || 'unidade') + ' · origem ' + planClock(row.sourceStdSec || 0) + '</div></td>'
@@ -21246,7 +21284,16 @@ body.plan-open{overflow:hidden!important}
         + '<option value="sim"' + (sim ? ' selected' : '') + '>Simultânea</option>'
         + '</select></td>'
         + '<td>' + (sim
-          ? '<input class="plan-cell-input" maxlength="12" placeholder="A" value="' + planEsc(row.group || 'A') + '" oninput="planUpdateRow(\'' + row.id + '\',\'group\',this.value)">'
+          ? '<div class="plan-sim-cell">'
+            + '<select class="plan-cell-select plan-sim-mode" title="Como esta linha se liga à execução paralela" onchange="planUpdateSimMode(\'' + row.id + '\',this.value)">'
+            + '<option value="group"' + (mode === 'group' ? ' selected' : '') + '>Por grupo</option>'
+            + '<option value="seq"' + (mode === 'seq' ? ' selected' : '') + '>Por sequência</option>'
+            + '</select>'
+            + (mode === 'seq'
+              ? '<input class="plan-cell-input plan-num" type="number" min="1" max="' + seqInfo.total + '" step="1" placeholder="1" title="Número da sequência com a qual esta linha ocorre em paralelo" value="' + planEsc(row.simSeq || '') + '" onchange="planUpdateLink(\'' + row.id + '\',\'simSeq\',this.value)">'
+              : '<input class="plan-cell-input" maxlength="12" placeholder="A" title="Letra ou nome do grupo simultâneo" value="' + planEsc(row.group || 'A') + '" onchange="planUpdateLink(\'' + row.id + '\',\'group\',this.value)">')
+            + (badRef ? '<div class="plan-sim-warn">⚠ ' + (mode === 'seq' ? 'sequência inválida' : 'informe o grupo') + '</div>' : '')
+            + '</div>'
           : '<span style="color:var(--text3)">Não se aplica</span>') + '</td>'
         + '<td style="text-align:right"><span class="plan-duration" id="plan-duration-' + row.id + '">' + planClock(duration) + '</span></td>'
         + '<td style="white-space:nowrap"><button class="plan-row-action" onclick="planDuplicateRow(\'' + row.id + '\')" title="Duplicar">⧉</button>'
@@ -21418,12 +21465,75 @@ body.plan-open{overflow:hidden!important}
     }
     planRenderSummary();
   };
+  function planCaptureRefs(){
+    var info = planSequenceInfo();
+    var map = {};
+    planState.rows.forEach(function(row){
+      if(row.execution !== 'sim' || planSimMode(row) !== 'seq') return;
+      var ref = Math.round(planNumber(row.simSeq));
+      if(!(ref > 0)) return;
+      for(var i=0;i<planState.rows.length;i++){
+        if(info.steps[i] === ref && planState.rows[i].id !== row.id){ map[row.id] = planState.rows[i].id; break; }
+      }
+    });
+    return map;
+  }
+  function planApplyRefs(map){
+    if(!map) return;
+    var info = planSequenceInfo();
+    var position = {};
+    planState.rows.forEach(function(row,index){ position[row.id] = index; });
+    planState.rows.forEach(function(row){
+      var anchor = map[row.id];
+      if(anchor == null || position[anchor] == null) return;
+      if(row.execution !== 'sim' || planSimMode(row) !== 'seq') return;
+      row.simSeq = info.steps[position[anchor]];
+    });
+  }
   window.planUpdateExecution = function(id,value){
     var row = planState.rows.find(function(item){ return item.id === id; });
     if(!row) return;
+    var refs = planCaptureRefs();
     row.execution = value;
-    if(value === 'sim' && !String(row.group || '').trim()) row.group = 'A';
-    if(value !== 'sim') row.group = '';
+    if(value === 'sim'){
+      if(!row.simMode) row.simMode = 'group';
+      if(planSimMode(row) === 'group' && !String(row.group || '').trim()) row.group = 'A';
+    }else{
+      row.group = '';
+      row.simMode = 'group';
+      row.simSeq = '';
+    }
+    planApplyRefs(refs);
+    planSave();
+    planRender();
+  };
+  window.planUpdateSimMode = function(id,value){
+    var index = planState.rows.findIndex(function(item){ return item.id === id; });
+    if(index < 0) return;
+    var row = planState.rows[index];
+    var refs = planCaptureRefs();
+    row.simMode = value === 'seq' ? 'seq' : 'group';
+    if(row.simMode === 'seq'){
+      row.group = '';
+      if(!(planNumber(row.simSeq) > 0)){
+        var info = planSequenceInfo();
+        row.simSeq = Math.max(1,(info.steps[index] || 1) - 1);
+      }
+    }else{
+      row.simSeq = '';
+      if(!String(row.group || '').trim()) row.group = 'A';
+    }
+    planApplyRefs(refs);
+    planSave();
+    planRender();
+  };
+  window.planUpdateLink = function(id,field,value){
+    var row = planState.rows.find(function(item){ return item.id === id; });
+    if(!row) return;
+    var refs = planCaptureRefs();
+    row[field] = field === 'simSeq' ? Math.max(0,Math.round(planNumber(value))) : value;
+    if(field === 'simSeq') delete refs[id];
+    planApplyRefs(refs);
     planSave();
     planRender();
   };
@@ -21433,7 +21543,9 @@ body.plan-open{overflow:hidden!important}
     var copy = JSON.parse(JSON.stringify(planState.rows[index]));
     copy.id = planId();
     copy.unit = (copy.unit || 'Unidade') + ' cópia';
+    var refs = planCaptureRefs();
     planState.rows.splice(index + 1,0,copy);
+    planApplyRefs(refs);
     planSave();
     planRender();
   };
@@ -21447,14 +21559,8 @@ body.plan-open{overflow:hidden!important}
     var target = Math.max(1,Math.min(info.total,requested));
     if(source) source.value = target;
     if(target === current) return;
-    var row = planState.rows[from];
-    var group = String(row.group || '').trim();
-    var sim = row.execution === 'sim' && group;
-    var block = sim
-      ? planState.rows.filter(function(item){
-          return item.execution === 'sim' && String(item.group || '').trim() === group;
-        })
-      : [row];
+    var refs = planCaptureRefs();
+    var block = planState.rows.filter(function(item,i){ return info.steps[i] === current; });
     var rest = planState.rows.filter(function(item){ return block.indexOf(item) === -1; });
     var restInfo = planSequenceInfo(rest);
     var insertAt = rest.length;
@@ -21462,16 +21568,19 @@ body.plan-open{overflow:hidden!important}
       if(restInfo.steps[i] >= target){ insertAt = i; break; }
     }
     planState.rows = rest.slice(0,insertAt).concat(block,rest.slice(insertAt));
+    planApplyRefs(refs);
     planSave();
     planRender();
     if(typeof showToast === 'function'){
       showToast(block.length > 1
-        ? 'Grupo simultâneo ' + group + ' movido para a sequência ' + target
+        ? planStepLabel(info,current) + ' movido para a sequência ' + target
         : 'Linha movida para a sequência ' + target);
     }
   };
   window.planDeleteRow = function(id){
+    var refs = planCaptureRefs();
     planState.rows = planState.rows.filter(function(item){ return item.id !== id; });
+    planApplyRefs(refs);
     planSave();
     planRender();
   };
@@ -21538,14 +21647,20 @@ body.plan-open{overflow:hidden!important}
     });
     lines.push(
       [],
-      ['Sequência','Unidade','Pasta','Projeto','Folha','Responsável','Quantidade','Tempo por unidade em segundos','Execução','Grupo','Duração']
+      ['Sequência','Unidade','Pasta','Projeto','Folha','Responsável','Quantidade','Tempo por unidade em segundos','Execução','Vínculo','Soma no tempo','Duração']
     );
     var csvSeq = planSequenceInfo();
     planState.rows.forEach(function(row,index){
+      var step = csvSeq.steps[index];
+      var shared = csvSeq.stepCount[step] > 1;
+      var link = row.execution !== 'sim' ? ''
+        : (planSimMode(row) === 'seq' ? 'Sequência ' + (row.simSeq || '-') : 'Grupo ' + (row.group || '-'));
+      var duration = planNumber(row.qty) * planNumber(row.unitSec);
       lines.push([
-        csvSeq.steps[index],row.unit,row.folderName,row.projectName,row.sheetName,row.responsible,
+        step,row.unit,row.folderName,row.projectName,row.sheetName,row.responsible,
         row.qty,row.unitSec,row.execution === 'sim' ? 'Simultânea' : 'Sequencial',
-        row.group || '',planClock(planNumber(row.qty) * planNumber(row.unitSec))
+        link,shared ? 'Somente o maior tempo da sequência ' + step : 'Sim',
+        planClock(duration)
       ]);
     });
     var csv = '\ufeff' + lines.map(function(line){ return line.map(planCsv).join(';'); }).join('\r\n');
@@ -21577,7 +21692,10 @@ body.plan-open{overflow:hidden!important}
         + '<td style="border:1px solid #cbd5e1;padding:5px">' + planEsc(row.responsible || 'Não atribuído') + '</td>'
         + '<td style="border:1px solid #cbd5e1;padding:5px;text-align:right">' + planEsc(row.qty) + '</td>'
         + '<td style="border:1px solid #cbd5e1;padding:5px;text-align:right">' + planNumber(row.unitSec).toFixed(2) + ' s</td>'
-        + '<td style="border:1px solid #cbd5e1;padding:5px">' + (row.execution === 'sim' ? 'Simultânea · ' + planEsc(row.group || 'A') : 'Sequencial') + '</td>'
+        + '<td style="border:1px solid #cbd5e1;padding:5px">' + (row.execution === 'sim'
+          ? 'Simultânea · ' + planEsc(planSimMode(row) === 'seq' ? 'Sequência ' + (row.simSeq || '-') : 'Grupo ' + (row.group || 'A'))
+            + (printSeq.stepCount[printSeq.steps[index]] > 1 ? '<br><small>não soma no tempo total</small>' : '')
+          : 'Sequencial') + '</td>'
         + '<td style="border:1px solid #cbd5e1;padding:5px;text-align:right;font-weight:700">' + planClock(planNumber(row.qty) * planNumber(row.unitSec)) + '</td>'
         + '</tr>';
     }).join('');
@@ -22255,29 +22373,52 @@ body.pmp-open{overflow:hidden!important}
     return {start:start,end:new Date(cursor.getTime()),pieces:pieces};
   }
   function pmpRowDuration(row){ return pmpNum(row && row.qty)*pmpNum(row && row.unitSec); }
+  function pmpSequenceInfo(rows){
+    rows = rows || [];
+    var steps = [];
+    var groupStep = {};
+    var stepGroup = {};
+    var total = 0;
+    rows.forEach(function(row,index){
+      var sim = row.execution === 'sim';
+      var mode = row.simMode === 'seq' ? 'seq' : 'group';
+      if(sim && mode === 'seq'){
+        var ref = Math.round(pmpNum(row.simSeq));
+        if(ref > 0 && ref <= total){ steps[index] = ref; return; }
+        total++; steps[index] = total; return;
+      }
+      if(sim && mode === 'group'){
+        var group = String(row.group || '').trim();
+        if(group && groupStep[group]){ steps[index] = groupStep[group]; return; }
+        total++; steps[index] = total;
+        if(group){ groupStep[group] = total; stepGroup[total] = group; }
+        return;
+      }
+      total++; steps[index] = total;
+    });
+    return { steps:steps, total:total, stepGroup:stepGroup };
+  }
   function pmpBuildSchedule(){
     var rows = pmpPlan.rows || [];
     var start = pmpPlan.start ? new Date(pmpPlan.start) : pmpAtMinutes(new Date(),pmpMinutes(pmpState.shiftStart));
     if(isNaN(start.getTime())) start = pmpAtMinutes(new Date(),pmpMinutes(pmpState.shiftStart));
     var cursor = pmpNextWork(start);
-    var usedGroups = {};
+    var info = pmpSequenceInfo(rows);
+    var usedSteps = {};
     var segments = [];
     rows.forEach(function(row,index){
-      var group = String(row.group || '').trim();
-      var simultaneous = row.execution === 'sim' && group;
-      if(simultaneous && usedGroups[group]) return;
-      var segmentRows;
+      var step = info.steps[index];
+      if(usedSteps[step]) return;
+      usedSteps[step] = true;
+      var segmentRows = rows.filter(function(item,i){ return info.steps[i] === step; });
+      var simultaneous = segmentRows.length > 1;
+      var group = String(info.stepGroup[step] || '').trim();
       var segmentId;
       var title;
       if(simultaneous){
-        usedGroups[group] = true;
-        segmentRows = rows.filter(function(item){
-          return item.execution === 'sim' && String(item.group || '').trim() === group;
-        });
-        segmentId = 'group:'+group;
-        title = 'Grupo simultâneo '+group;
+        segmentId = group ? 'group:'+group : 'step:'+step;
+        title = group ? 'Grupo simultâneo '+group : 'Sequência simultânea '+step;
       }else{
-        segmentRows = [row];
         segmentId = 'row:'+(row.id || index);
         title = row.sheetName || row.unit || 'Ordem de produção';
       }
