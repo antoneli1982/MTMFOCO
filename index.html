@@ -6918,6 +6918,8 @@ window.addEventListener('beforeprint', function(){
       prepararPrintBiblioteca();
     } else if((window._mtmPrintMode === 'relatorio' || repOpen) && typeof prepararPrintRelatorio === 'function'){
       prepararPrintRelatorio();
+    } else if(window._mtmPrintMode === 'planejamento' || window._mtmPrintMode === 'plano_mestre'){
+      // Conteúdo já foi montado por planPrint()/pmpPrint() — não sobrescrever com a folha individual.
     } else {
       prepararPrint();
     }
@@ -20491,7 +20493,16 @@ body.plan-open{overflow:hidden!important}
 }
 .plan-top-btn:hover{background:var(--surface3);color:var(--text);transform:translateY(-1px)}
 .plan-top-btn.primary{background:linear-gradient(135deg,#f59e0b,#ea580c);border:none;color:#fff}
+.plan-top-btn.save{background:linear-gradient(135deg,#00e5a0,#059669);border:none;color:#fff}
+.plan-top-btn.save:hover{filter:brightness(1.06);transform:translateY(-1px)}
 .plan-top-btn.danger:hover{background:var(--redBg);border-color:var(--red);color:var(--red)}
+.plan-linked-badge{
+  display:none;align-items:center;gap:6px;padding:6px 13px;border-radius:20px;
+  background:var(--blueBg);border:1px solid rgba(79,142,247,.28);color:var(--text);
+  font:700 11px 'Inter',sans-serif;white-space:nowrap;cursor:pointer;
+  max-width:280px;overflow:hidden;text-overflow:ellipsis;transition:background .15s;
+}
+.plan-linked-badge:hover{background:rgba(79,142,247,.20)}
 .plan-scroll{flex:1;overflow:auto;padding:22px}
 .plan-shell{width:min(1460px,100%);margin:0 auto;display:flex;flex-direction:column;gap:15px}
 .plan-card{
@@ -20714,6 +20725,7 @@ body.plan-open{overflow:hidden!important}
 @media(max-width:720px){
   .plan-top{padding:10px 12px}
   .plan-subtitle{display:none}
+  .plan-linked-badge{max-width:150px;order:1}
   .plan-scroll{padding:12px}
   .plan-meta-grid,.plan-source,.plan-bottom-grid{grid-template-columns:1fr}
   .plan-add-stack{grid-column:auto}
@@ -20872,7 +20884,9 @@ body.plan-open{overflow:hidden!important}
       <div class="plan-title">Planejamento do Processo</div>
       <div class="plan-subtitle">Consolidação por pasta, projeto, folha e unidade com tempo real de simultaneidade</div>
     </div>
+    <div class="plan-linked-badge" id="plan-linked-badge" style="display:none" onclick="planLibOpen()" title="Este é o planejamento salvo vinculado — clique para ver todos os salvos"></div>
     <div class="plan-top-spacer"></div>
+    <button class="plan-top-btn save" onclick="planLibQuickSave()" title="Salvar agora (atualiza o vinculado, ou pede um nome se ainda não houver vínculo)">💾 <span>Salvar</span></button>
     <button class="plan-top-btn" onclick="planLibOpen()">☁️ <span>Planejamentos salvos</span></button>
     <button class="plan-top-btn" onclick="openMasterProductionPlan(true)">🏭 <span>Plano Mestre</span></button>
     <button class="plan-top-btn" onclick="planExportCsv()">📤 <span>Exportar CSV</span></button>
@@ -21748,6 +21762,7 @@ body.plan-open{overflow:hidden!important}
     planLoad();
     planFillFolders();
     planRender();
+    planLibRenderCurrentInfo();
     var overlay = document.getElementById('plan-overlay');
     planPreviousOverflow = document.body.style.overflow || '';
     overlay.classList.add('open');
@@ -21884,6 +21899,7 @@ body.plan-open{overflow:hidden!important}
       + '</tr></thead><tbody>' + rows + '</tbody></table>'
       + '<div style="margin-top:10px;font-size:8pt;color:#64748b">Nos grupos simultâneos foi considerado somente o maior tempo do grupo, representando a duração real transcorrida.</div>'
       + '</div>';
+    window._mtmPrintMode = 'planejamento';
     setTimeout(function(){ window.print(); },80);
   };
   document.addEventListener('keydown',function(event){
@@ -22000,6 +22016,16 @@ body.plan-open{overflow:hidden!important}
     }catch(e){}
   }
   function planLibRenderCurrentInfo(){
+    var badge = document.getElementById('plan-linked-badge');
+    if(badge){
+      if(planLibCurrentId){
+        badge.style.display = 'inline-flex';
+        badge.innerHTML = '📌 ' + planEsc(planLibCurrentName || 'planejamento salvo');
+      }else{
+        badge.style.display = 'none';
+        badge.innerHTML = '';
+      }
+    }
     var box = document.getElementById('plan-lib-current-info');
     var updateBtn = document.getElementById('plan-lib-update-btn');
     if(!box || !updateBtn) return;
@@ -22193,6 +22219,26 @@ body.plan-open{overflow:hidden!important}
     var nameInput = document.getElementById('plan-lib-name-input');
     var name = String((nameInput && nameInput.value) || planLibCurrentName || planState.name || '').trim() || planLibCurrentName;
     planLibPersist(planLibCurrentId,name,false);
+  };
+  // Atalho do ícone 💾 na barra superior: salva sem precisar abrir a lista completa.
+  // Se já existe um planejamento vinculado, atualiza direto; senão, pede só o nome.
+  window.planLibQuickSave = function(){
+    if(!planState.rows.length && !planState.people.length && !String(planState.name||'').trim()){
+      if(typeof showToast === 'function') showToast('Adicione ao menos uma folha ou dê um nome ao planejamento antes de salvar',true);
+      return;
+    }
+    if(planLibCurrentId){
+      planLibPersist(planLibCurrentId, planLibCurrentName || planState.name || 'Planejamento sem nome', false);
+      return;
+    }
+    var name = prompt('Salvar planejamento — nome para identificá-lo:', planState.name || '');
+    if(name === null) return;
+    name = String(name).trim();
+    if(!name){
+      if(typeof showToast === 'function') showToast('Informe um nome para salvar',true);
+      return;
+    }
+    planLibPersist(planLibId(),name,true);
   };
   window.planLibOpenEntry = function(index){
     var item = planLibListCache[index];
@@ -23408,6 +23454,7 @@ body.pmp-open{overflow:hidden!important}
       +'</tr></thead><tbody>'+rows+'</tbody></table>'
       +'<div style="margin-top:10px;font-size:8pt;color:#64748b">Calendário produtivo: '+pmpEsc(pmpState.shiftStart)+' às '+pmpEsc(pmpState.shiftEnd)+' com '+pmpEsc(pmpState.breakMinutes)+' minutos de intervalo.</div>'
       +'</div>';
+    window._mtmPrintMode = 'plano_mestre';
     setTimeout(function(){ window.print(); },80);
   };
 
