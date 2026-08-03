@@ -20541,6 +20541,17 @@ body.plan-open{overflow:hidden!important}
 }
 .plan-card-title{font-size:12px;font-weight:800;color:var(--text)}
 .plan-card-help{font-size:10px;color:var(--text3)}
+.plan-resource-toggle{
+  margin-left:auto;display:flex;gap:3px;padding:3px;background:var(--surface3);
+  border-radius:9px;border:1px solid var(--border2);
+}
+.plan-resource-btn{
+  border:none;background:transparent;color:var(--text2);cursor:pointer;
+  font:700 10px 'Inter',sans-serif;padding:6px 11px;border-radius:6px;transition:all .15s;
+  white-space:nowrap;
+}
+.plan-resource-btn:hover{color:var(--text)}
+.plan-resource-btn.active{background:var(--accentGrad);color:#fff}
 .plan-meta-grid{
   padding:15px 16px;display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:12px;
 }
@@ -20995,33 +21006,37 @@ body.plan-open{overflow:hidden!important}
       <section class="plan-card">
         <div class="plan-card-head">
           <span>👥</span>
-          <span class="plan-card-title">Equipe, participação e PTT</span>
-          <span class="plan-card-help">Cadastre as pessoas e informe quanto cada uma atuará no processo</span>
+          <span class="plan-card-title" id="plan-people-card-title">Equipe, participação e PTT</span>
+          <span class="plan-card-help">Cadastre e informe quanto cada um atuará no processo</span>
+          <div class="plan-resource-toggle" id="plan-resource-toggle">
+            <button class="plan-resource-btn" data-type="pessoa" onclick="planSetResourceType('pessoa')">👤 Pessoas</button>
+            <button class="plan-resource-btn" data-type="equipamento" onclick="planSetResourceType('equipamento')">🛠️ Equipamentos</button>
+          </div>
         </div>
         <div class="plan-people-body">
           <div class="plan-people-toolbar">
             <div class="plan-field">
-              <label for="plan-people-count">Quantidade de pessoas</label>
+              <label for="plan-people-count" id="plan-people-count-label">Quantidade de pessoas</label>
               <div class="plan-people-count-row">
                 <input class="plan-input" id="plan-people-count" type="number" min="0" max="50" step="1" value="0" onchange="planSetPeopleCount(this.value)">
-                <button class="plan-add-btn secondary" onclick="planAddPerson()">＋ Pessoa</button>
+                <button class="plan-add-btn secondary" id="plan-add-person-btn" onclick="planAddPerson()">＋ Pessoa</button>
               </div>
             </div>
-            <div class="plan-people-rule">
-              <strong>Regra de cálculo:</strong> a quantidade de pessoas representa o PTT nominal. O PTT efetivo é a soma dos percentuais de atuação dividida por 100. O esforço do processo é o tempo real multiplicado pelo PTT efetivo.
+            <div class="plan-people-rule" id="plan-people-rule-text">
+              <strong>Regra de cálculo:</strong> a quantidade de pessoas representa o total nominal. O total efetivo é a soma dos percentuais de dedicação dividida por 100 — ex.: 1 pessoa a 100% = 1,00 · duas pessoas, uma a 100% e outra a 50% = 1,50.
             </div>
           </div>
           <div class="plan-people-overview">
-            <div class="plan-people-metric"><span>Pessoas</span><strong id="plan-people-total">0</strong></div>
+            <div class="plan-people-metric"><span id="plan-people-total-label">Pessoas</span><strong id="plan-people-total">0</strong></div>
             <div class="plan-people-metric"><span>PTT nominal</span><strong id="plan-ptt-nominal">0,00</strong></div>
             <div class="plan-people-metric"><span>PTT efetivo</span><strong id="plan-ptt-effective">0,00</strong></div>
             <div class="plan-people-metric"><span>Esforço do processo</span><strong id="plan-people-effort">00:00:00</strong></div>
           </div>
           <div class="plan-people-head">
             <span>Nº</span>
-            <span>Pessoa</span>
-            <span>Atuação no processo</span>
-            <span>PTT efetivo</span>
+            <span id="plan-people-head-label">Pessoa</span>
+            <span>Dedicação no processo</span>
+            <span>Efetivo</span>
             <span></span>
           </div>
           <div id="plan-people-list"></div>
@@ -21064,16 +21079,6 @@ body.plan-open{overflow:hidden!important}
           <div class="plan-kpi-value" id="plan-kpi-rows">0</div>
           <div class="plan-kpi-foot" id="plan-kpi-scope">Nenhuma folha adicionada</div>
         </article>
-        <article class="plan-kpi" style="--kpi-color:var(--blue)">
-          <div class="plan-kpi-label">Quantidade total</div>
-          <div class="plan-kpi-value" id="plan-kpi-qty">0</div>
-          <div class="plan-kpi-foot">Soma das quantidades informadas</div>
-        </article>
-        <article class="plan-kpi" style="--kpi-color:var(--purple)">
-          <div class="plan-kpi-label">Equipe planejada</div>
-          <div class="plan-kpi-value" id="plan-kpi-team">0 pessoas</div>
-          <div class="plan-kpi-foot" id="plan-kpi-ptt">PTT efetivo: 0,00 de 0,00</div>
-        </article>
         <article class="plan-kpi" style="--kpi-color:var(--orange)">
           <div class="plan-kpi-label">Tempo bruto</div>
           <div class="plan-kpi-value" id="plan-kpi-gross">00:00:00</div>
@@ -21084,15 +21089,10 @@ body.plan-open{overflow:hidden!important}
           <div class="plan-kpi-value" id="plan-kpi-real">00:00:00</div>
           <div class="plan-kpi-foot">Duração usada no planejamento</div>
         </article>
-        <article class="plan-kpi" style="--kpi-color:var(--accent)">
-          <div class="plan-kpi-label">Esforço do processo</div>
-          <div class="plan-kpi-value" id="plan-kpi-effort">00:00:00</div>
-          <div class="plan-kpi-foot">Tempo real multiplicado pelo PTT efetivo</div>
-        </article>
         <article class="plan-kpi" style="--kpi-color:var(--purple)">
-          <div class="plan-kpi-label">Final previsto</div>
-          <div class="plan-kpi-value" id="plan-kpi-end" style="font-size:15px">Defina o início</div>
-          <div class="plan-kpi-foot" id="plan-kpi-gain">Ganho por simultaneidade: 00:00:00</div>
+          <div class="plan-kpi-label" id="plan-kpi-team-label">Total de pessoas/equipamentos</div>
+          <div class="plan-kpi-value" id="plan-kpi-team">0 pessoas</div>
+          <div class="plan-kpi-foot" id="plan-kpi-ptt">Dedicação total: 0% (equivalente a 0,00)</div>
         </article>
       </section>
 
@@ -21234,6 +21234,7 @@ body.plan-open{overflow:hidden!important}
     planState.name = planState.name || '';
     planState.owner = planState.owner || '';
     planState.start = planState.start || '';
+    planState.resourceType = planState.resourceType === 'equipamento' ? 'equipamento' : 'pessoa';
     planState.people = Array.isArray(planState.people) ? planState.people.map(function(person,index){
       return {
         id:person && person.id ? person.id : planId(),
@@ -21539,6 +21540,61 @@ body.plan-open{overflow:hidden!important}
       + '</tr>';
     }).join('');
   }
+  function planResourceLabels(){
+    var isEquip = planState.resourceType === 'equipamento';
+    return {
+      isEquip: isEquip,
+      singular: isEquip ? 'equipamento' : 'pessoa',
+      singularCap: isEquip ? 'Equipamento' : 'Pessoa',
+      plural: isEquip ? 'equipamentos' : 'pessoas',
+      pluralCap: isEquip ? 'Equipamentos' : 'Pessoas',
+      article: isEquip ? 'o' : 'a'
+    };
+  }
+  function planApplyResourceLabels(){
+    var L = planResourceLabels();
+    var toggle = document.getElementById('plan-resource-toggle');
+    if(toggle){
+      var btns = toggle.querySelectorAll('.plan-resource-btn');
+      for(var i=0;i<btns.length;i++){
+        var isActive = btns[i].getAttribute('data-type') === (planState.resourceType || 'pessoa');
+        btns[i].classList.toggle('active',isActive);
+      }
+    }
+    var countLabel = document.getElementById('plan-people-count-label');
+    if(countLabel) countLabel.textContent = 'Quantidade de ' + L.plural;
+    var addBtn = document.getElementById('plan-add-person-btn');
+    if(addBtn) addBtn.textContent = '＋ ' + L.singularCap;
+    var totalLabel = document.getElementById('plan-people-total-label');
+    if(totalLabel) totalLabel.textContent = L.pluralCap;
+    var headLabel = document.getElementById('plan-people-head-label');
+    if(headLabel) headLabel.textContent = L.singularCap;
+    var ruleEl = document.getElementById('plan-people-rule-text');
+    if(ruleEl){
+      ruleEl.innerHTML = '<strong>Regra de cálculo:</strong> a quantidade de ' + L.plural + ' representa o total nominal. O total efetivo é a soma dos percentuais de dedicação dividida por 100 — ex.: 1 ' + L.singular + ' a 100% = 1,00 · dois ' + L.plural + ', um a 100% e outro a 50% = 1,50.';
+    }
+    var kpiLabel = document.getElementById('plan-kpi-team-label');
+    if(kpiLabel) kpiLabel.textContent = 'Total de ' + L.plural;
+    var nameInputs = document.querySelectorAll('.plan-person-name');
+    for(var j=0;j<nameInputs.length;j++){
+      nameInputs[j].placeholder = 'Nome / identificação d' + L.article + ' ' + L.singular;
+    }
+  }
+  window.planSetResourceType = function(type){
+    type = type === 'equipamento' ? 'equipamento' : 'pessoa';
+    if(planState.resourceType === type) return;
+    var previous = planState.resourceType === 'equipamento' ? 'equipamento' : 'pessoa';
+    var previousCap = previous === 'equipamento' ? 'Equipamento' : 'Pessoa';
+    var nextCap = type === 'equipamento' ? 'Equipamento' : 'Pessoa';
+    planState.resourceType = type;
+    // Renomeia automaticamente os itens que ainda estavam com o nome padrão anterior
+    planState.people.forEach(function(person,index){
+      var defaultPrev = previousCap + ' ' + (index + 1);
+      if(!person.name || person.name === defaultPrev) person.name = nextCap + ' ' + (index + 1);
+    });
+    planSave();
+    planRenderSummary();
+  };
   function planRenderPeopleMetrics(calc){
     var count = document.getElementById('plan-people-count');
     if(count) count.value = calc.peopleCount;
@@ -21552,20 +21608,23 @@ body.plan-open{overflow:hidden!important}
     planRenderPeopleMetrics(calc);
     var list = document.getElementById('plan-people-list');
     if(!list) return;
+    var L = planResourceLabels();
     if(!planState.people.length){
-      list.innerHTML = '<div class="plan-people-empty">Informe a quantidade de pessoas ou use o botão Pessoa para montar a equipe.</div>';
+      list.innerHTML = '<div class="plan-people-empty">Informe a quantidade ou use o botão "＋ ' + L.singularCap + '" para montar ' + (L.isEquip ? 'os equipamentos' : 'a equipe') + '.</div>';
+      planApplyResourceLabels();
       return;
     }
     list.innerHTML = planState.people.map(function(person,index){
       var pct = planPercent(person.allocationPct);
       return '<div class="plan-person-row">'
         + '<div class="plan-person-index">' + (index + 1) + '</div>'
-        + '<input class="plan-cell-input plan-person-name" placeholder="Nome da pessoa" value="' + planEsc(person.name) + '" oninput="planUpdatePerson(\'' + person.id + '\',\'name\',this.value)">'
-        + '<div class="plan-person-percent"><input class="plan-cell-input plan-num" type="number" min="0" max="100" step="1" value="' + planEsc(pct) + '" title="Percentual de atuação no processo" oninput="planUpdatePerson(\'' + person.id + '\',\'allocationPct\',this.value,this)"></div>'
-        + '<span class="plan-person-ptt" id="plan-person-ptt-' + person.id + '">' + planDecimal(pct / 100,2) + ' PTT</span>'
-        + '<button class="plan-row-action remove plan-person-remove" onclick="planDeletePerson(\'' + person.id + '\')" title="Remover pessoa">✕</button>'
+        + '<input class="plan-cell-input plan-person-name" placeholder="Nome / identificação d' + L.article + ' ' + L.singular + '" value="' + planEsc(person.name) + '" oninput="planUpdatePerson(\'' + person.id + '\',\'name\',this.value)">'
+        + '<div class="plan-person-percent"><input class="plan-cell-input plan-num" type="number" min="0" max="100" step="1" value="' + planEsc(pct) + '" title="Percentual de dedicação no processo" oninput="planUpdatePerson(\'' + person.id + '\',\'allocationPct\',this.value,this)"></div>'
+        + '<span class="plan-person-ptt" id="plan-person-ptt-' + person.id + '">' + planDecimal(pct / 100,2) + '</span>'
+        + '<button class="plan-row-action remove plan-person-remove" onclick="planDeletePerson(\'' + person.id + '\')" title="Remover">✕</button>'
         + '</div>';
     }).join('');
+    planApplyResourceLabels();
   }
   function planRenderTeam(calc){
     var el = document.getElementById('plan-team-summary');
@@ -21611,19 +21670,18 @@ body.plan-open{overflow:hidden!important}
   }
   function planRenderSummary(keepPeopleInputs){
     var calc = planCalc();
+    var L = planResourceLabels();
     document.getElementById('plan-kpi-rows').textContent = planState.rows.length;
-    document.getElementById('plan-kpi-qty').textContent = calc.qty.toLocaleString('pt-BR',{maximumFractionDigits:2});
-    document.getElementById('plan-kpi-team').textContent = calc.peopleCount + (calc.peopleCount === 1 ? ' pessoa' : ' pessoas');
-    document.getElementById('plan-kpi-ptt').textContent = 'PTT efetivo: ' + planDecimal(calc.pttEffective,2) + ' de ' + planDecimal(calc.pttNominal,2);
+    document.getElementById('plan-kpi-team-label').textContent = 'Total de ' + L.plural;
+    document.getElementById('plan-kpi-team').textContent = calc.peopleCount + ' ' + (calc.peopleCount === 1 ? L.singular : L.plural);
+    document.getElementById('plan-kpi-ptt').textContent = 'Dedicação total: ' + planDecimal(calc.pttEffective * 100,0) + '% (equivalente a ' + planDecimal(calc.pttEffective,2) + ')';
     document.getElementById('plan-kpi-gross').textContent = planClock(calc.gross);
     document.getElementById('plan-kpi-real').textContent = planClock(calc.real);
-    document.getElementById('plan-kpi-effort').textContent = planClock(calc.effort);
-    document.getElementById('plan-kpi-end').textContent = planEndText(calc.real);
-    document.getElementById('plan-kpi-gain').textContent = 'Ganho por simultaneidade: ' + planClock(calc.gross - calc.real);
     document.getElementById('plan-kpi-scope').textContent = calc.folderCount + ' pasta(s) · ' + calc.projectCount + ' projeto(s)';
     document.getElementById('plan-row-count').textContent = planState.rows.length + (planState.rows.length === 1 ? ' item' : ' itens');
     if(keepPeopleInputs) planRenderPeopleMetrics(calc);
     else planRenderPeople(calc);
+    planApplyResourceLabels();
     planRenderTeam(calc);
     planRenderGroups(calc);
   }
@@ -21638,10 +21696,11 @@ body.plan-open{overflow:hidden!important}
   }
   window.planSetPeopleCount = function(value){
     var target = Math.min(50,Math.max(0,Math.floor(planNumber(value))));
+    var L = planResourceLabels();
     while(planState.people.length < target){
       planState.people.push({
         id:planId(),
-        name:'Pessoa ' + (planState.people.length + 1),
+        name:L.singularCap + ' ' + (planState.people.length + 1),
         allocationPct:100
       });
     }
@@ -21650,13 +21709,14 @@ body.plan-open{overflow:hidden!important}
     planRenderSummary();
   };
   window.planAddPerson = function(){
+    var L = planResourceLabels();
     if(planState.people.length >= 50){
-      if(typeof showToast === 'function') showToast('O limite é de 50 pessoas',true);
+      if(typeof showToast === 'function') showToast('O limite é de 50 ' + L.plural,true);
       return;
     }
     planState.people.push({
       id:planId(),
-      name:'Pessoa ' + (planState.people.length + 1),
+      name:L.singularCap + ' ' + (planState.people.length + 1),
       allocationPct:100
     });
     planSave();
@@ -21831,7 +21891,7 @@ body.plan-open{overflow:hidden!important}
   window.planClear = function(){
     if(!planState.rows.length && !planState.people.length && !planState.name && !planState.owner && !planState.start) return;
     if(!confirm('Limpar todo o planejamento atual?')) return;
-    planState = { name:'', owner:'', start:'', people:[], rows:[] };
+    planState = { name:'', owner:'', start:'', resourceType:'pessoa', people:[], rows:[] };
     planSave();
     planRender();
     planLibCurrentId = null;
@@ -21944,11 +22004,12 @@ body.plan-open{overflow:hidden!important}
         + '<td style="border:1px solid #cbd5e1;padding:5px;text-align:right;font-weight:700">' + planClock(planNumber(row.qty) * planNumber(row.unitSec)) + '</td>'
         + '</tr>';
     }).join('');
+    var printL = planResourceLabels();
     var peopleRows = planState.people.map(function(person,index){
       var pct = planPercent(person.allocationPct);
       return '<tr>'
         + '<td style="border:1px solid #cbd5e1;padding:5px">' + (index + 1) + '</td>'
-        + '<td style="border:1px solid #cbd5e1;padding:5px">' + planEsc(person.name || 'Pessoa ' + (index + 1)) + '</td>'
+        + '<td style="border:1px solid #cbd5e1;padding:5px">' + planEsc(person.name || printL.singularCap + ' ' + (index + 1)) + '</td>'
         + '<td style="border:1px solid #cbd5e1;padding:5px;text-align:right">' + planDecimal(pct,2) + ' %</td>'
         + '<td style="border:1px solid #cbd5e1;padding:5px;text-align:right">' + planDecimal(pct / 100,2) + '</td>'
         + '<td style="border:1px solid #cbd5e1;padding:5px;text-align:right;font-weight:700">' + planClock(calc.real * pct / 100) + '</td>'
@@ -21964,19 +22025,19 @@ body.plan-open{overflow:hidden!important}
       + '<div><strong>Final previsto:</strong><br>' + planEsc(planEndText(calc.real)) + '</div></div>'
       + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:14px">'
       + '<div style="background:#eff6ff;padding:8px;border-radius:6px"><small>Quantidade</small><br><strong>' + calc.qty.toLocaleString('pt-BR') + '</strong></div>'
-      + '<div style="background:#eff6ff;padding:8px;border-radius:6px"><small>Pessoas</small><br><strong>' + calc.peopleCount + '</strong></div>'
-      + '<div style="background:#f5f3ff;padding:8px;border-radius:6px"><small>PTT nominal</small><br><strong>' + planDecimal(calc.pttNominal,2) + '</strong></div>'
-      + '<div style="background:#f5f3ff;padding:8px;border-radius:6px"><small>PTT efetivo</small><br><strong>' + planDecimal(calc.pttEffective,2) + '</strong></div>'
+      + '<div style="background:#eff6ff;padding:8px;border-radius:6px"><small>' + printL.pluralCap + '</small><br><strong>' + calc.peopleCount + '</strong></div>'
+      + '<div style="background:#f5f3ff;padding:8px;border-radius:6px"><small>Total nominal</small><br><strong>' + planDecimal(calc.pttNominal,2) + '</strong></div>'
+      + '<div style="background:#f5f3ff;padding:8px;border-radius:6px"><small>Total efetivo</small><br><strong>' + planDecimal(calc.pttEffective,2) + '</strong></div>'
       + '<div style="background:#fff7ed;padding:8px;border-radius:6px"><small>Tempo bruto</small><br><strong>' + planClock(calc.gross) + '</strong></div>'
       + '<div style="background:#ecfdf5;padding:8px;border-radius:6px"><small>Tempo real</small><br><strong>' + planClock(calc.real) + '</strong></div>'
       + '<div style="background:#ecfeff;padding:8px;border-radius:6px"><small>Esforço do processo</small><br><strong>' + planClock(calc.effort) + '</strong></div>'
       + '<div style="background:#f5f3ff;padding:8px;border-radius:6px"><small>Ganho simultâneo</small><br><strong>' + planClock(calc.gross - calc.real) + '</strong></div></div>'
-      + '<div style="font-size:10pt;font-weight:800;margin:0 0 6px">Equipe e participação</div>'
+      + '<div style="font-size:10pt;font-weight:800;margin:0 0 6px">' + printL.pluralCap + ' e dedicação</div>'
       + (peopleRows
         ? '<table style="width:100%;border-collapse:collapse;font-size:8pt;margin-bottom:14px"><thead><tr style="background:#334155;color:#fff">'
-          + '<th style="padding:6px">Nº</th><th style="padding:6px">Pessoa</th><th style="padding:6px">Atuação</th><th style="padding:6px">PTT efetivo</th><th style="padding:6px">Esforço individual</th>'
+          + '<th style="padding:6px">Nº</th><th style="padding:6px">' + printL.singularCap + '</th><th style="padding:6px">Dedicação</th><th style="padding:6px">Efetivo</th><th style="padding:6px">Esforço individual</th>'
           + '</tr></thead><tbody>' + peopleRows + '</tbody></table>'
-        : '<div style="padding:7px;border:1px solid #cbd5e1;margin-bottom:14px;font-size:8pt">Nenhuma pessoa cadastrada.</div>')
+        : '<div style="padding:7px;border:1px solid #cbd5e1;margin-bottom:14px;font-size:8pt">Nenhum(a) ' + printL.singular + ' cadastrado(a).</div>')
       + '<div style="font-size:10pt;font-weight:800;margin:0 0 6px">Itens do planejamento</div>'
       + '<table style="width:100%;border-collapse:collapse;font-size:7.5pt"><thead><tr style="background:#172033;color:#fff">'
           + '<th style="padding:6px">Sequência</th><th style="padding:6px">Unidade</th><th style="padding:6px">Origem</th><th style="padding:6px">Folha</th>'
@@ -22403,6 +22464,7 @@ body.plan-open{overflow:hidden!important}
       name: data.name || item.name || '',
       owner: data.owner || '',
       start: data.start || '',
+      resourceType: data.resourceType === 'equipamento' ? 'equipamento' : 'pessoa',
       people: Array.isArray(data.people) ? data.people : [],
       rows: Array.isArray(data.rows) ? data.rows : []
     };
@@ -22635,6 +22697,7 @@ body.plan-open{overflow:hidden!important}
       name: data.name || item.name || '',
       owner: data.owner || '',
       start: data.start || '',
+      resourceType: data.resourceType === 'equipamento' ? 'equipamento' : 'pessoa',
       people: Array.isArray(data.people) ? data.people : [],
       rows: Array.isArray(data.rows) ? data.rows : []
     };
