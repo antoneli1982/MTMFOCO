@@ -21922,6 +21922,7 @@ body.plan-open{overflow:hidden!important}
     try{ if(typeof pmLoad === 'function') pmLoad(); }catch(e){}
     try{ if(typeof bootSheetsOnce === 'function') bootSheetsOnce(); }catch(e){}
     planLoad();
+    planLibSyncNameFromLinkedSubfolder();
     planFillFolders();
     planRender();
     planLibRenderCurrentInfo();
@@ -22250,6 +22251,36 @@ body.plan-open{overflow:hidden!important}
   }
   function planLibFindPlan(id){
     return (planLibListCache || []).find(function(p){ return p.id === id; }) || null;
+  }
+  function planLibApplyLinkedName(subName){
+    if(!subName || planState.name === subName) return;
+    planState.name = subName;
+    planLibCurrentName = subName;
+    planSave();
+    planLibSaveLink(planLibCurrentId,subName,planLibCurrentFolderId,planLibCurrentSubfolderId);
+    var nameField = document.getElementById('plan-name');
+    if(nameField) nameField.value = subName;
+    var badge = document.getElementById('plan-linked-badge');
+    if(badge && planLibCurrentId) badge.innerHTML = '📌 ' + planEsc(subName);
+    var libNameInput = document.getElementById('plan-lib-name-input');
+    if(libNameInput) libNameInput.value = subName;
+  }
+  // Garante que o nome do planejamento sempre reflita o nome da subpasta vinculada,
+  // mesmo neste navegador ainda não conhecer o nome dela (busca na nuvem em segundo plano).
+  function planLibSyncNameFromLinkedSubfolder(){
+    if(!planLibCurrentSubfolderId) return;
+    var cached = (planLibSubfolderListCache || []).find(function(s){ return s.id === planLibCurrentSubfolderId; });
+    var local = planLibLoadSubfoldersLocal();
+    var localEntry = local[planLibCurrentSubfolderId];
+    var subName = (cached && cached.name) || (localEntry && localEntry.meta && localEntry.meta.name) || '';
+    if(subName){
+      planLibApplyLinkedName(subName);
+      return;
+    }
+    planLibFetchSubfoldersCloud().then(function(all){
+      var remote = all && all[planLibCurrentSubfolderId];
+      if(remote && remote.name) planLibApplyLinkedName(remote.name);
+    });
   }
 
   function planLibRenderCurrentInfo(){
