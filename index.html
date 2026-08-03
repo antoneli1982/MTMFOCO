@@ -22544,8 +22544,11 @@ body.plan-open{overflow:hidden!important}
     });
   }
   function planLibApplyEntry(item,data,fromCloud){
+    // Regra: quando o planejamento está guardado dentro de uma subpasta,
+    // o nome do planejamento sempre acompanha o nome da subpasta.
+    var resolvedName = item.subfolderId ? planLibSubfolderName(item.subfolderId) : (data.name || item.name || '');
     planState = {
-      name: data.name || item.name || '',
+      name: resolvedName,
       owner: data.owner || '',
       start: data.start || '',
       resourceType: data.resourceType === 'equipamento' ? 'equipamento' : 'pessoa',
@@ -22556,21 +22559,21 @@ body.plan-open{overflow:hidden!important}
     planFillFolders();
     planRender();
     planLibCurrentId = item.id;
-    planLibCurrentName = item.name;
+    planLibCurrentName = resolvedName;
     planLibCurrentFolderId = item.folderId || '';
     planLibCurrentSubfolderId = item.subfolderId || '';
-    planLibSaveLink(item.id,item.name,planLibCurrentFolderId,planLibCurrentSubfolderId);
+    planLibSaveLink(item.id,resolvedName,planLibCurrentFolderId,planLibCurrentSubfolderId);
     if(fromCloud){
       var local = planLibLoadLocal();
       var prevSaved = local[item.id] && local[item.id].meta && local[item.id].meta.savedAt;
       local[item.id] = {
-        meta:{ name:item.name, owner:data.owner || '', ownerChapa:planLibOwnerChapa(), folderId:item.folderId || '', subfolderId:item.subfolderId || '', savedAt:prevSaved || item.updatedAt || Date.now(), updatedAt:item.updatedAt || Date.now() },
+        meta:{ name:resolvedName, owner:data.owner || '', ownerChapa:planLibOwnerChapa(), folderId:item.folderId || '', subfolderId:item.subfolderId || '', savedAt:prevSaved || item.updatedAt || Date.now(), updatedAt:item.updatedAt || Date.now() },
         data:data, cloudSynced:true
       };
       planLibSaveLocal(local);
     }
     var nameInput = document.getElementById('plan-lib-name-input');
-    if(nameInput) nameInput.value = item.name;
+    if(nameInput) nameInput.value = resolvedName;
     planLibRenderCurrentInfo();
   }
   function planLibMovePlan(id,newFolderId,newSubfolderId,silent){
@@ -22578,23 +22581,40 @@ body.plan-open{overflow:hidden!important}
     var now = Date.now();
     var entry = local[id];
     var meta;
+    // Regra: ao mover para dentro de uma subpasta, o nome do planejamento passa a ser o nome dessa subpasta
+    var newName = newSubfolderId ? planLibSubfolderName(newSubfolderId) : null;
     if(entry && entry.meta){
       entry.meta.folderId = newFolderId || '';
       entry.meta.subfolderId = newSubfolderId || '';
+      if(newName) entry.meta.name = newName;
       entry.meta.updatedAt = now;
       entry.cloudSynced = false;
       meta = entry.meta;
     }else{
       var cached = planLibFindPlan(id);
-      meta = { name:(cached && cached.name) || 'Planejamento', owner:(cached && cached.owner) || '', ownerChapa:planLibOwnerChapa(), folderId:newFolderId || '', subfolderId:newSubfolderId || '', savedAt:now, updatedAt:now };
+      meta = { name:newName || (cached && cached.name) || 'Planejamento', owner:(cached && cached.owner) || '', ownerChapa:planLibOwnerChapa(), folderId:newFolderId || '', subfolderId:newSubfolderId || '', savedAt:now, updatedAt:now };
       local[id] = { meta:meta, data:null, cloudSynced:false };
     }
     planLibSaveLocal(local);
     var cachedItem = planLibFindPlan(id);
-    if(cachedItem){ cachedItem.folderId = newFolderId || ''; cachedItem.subfolderId = newSubfolderId || ''; cachedItem.synced = false; }
+    if(cachedItem){
+      cachedItem.folderId = newFolderId || '';
+      cachedItem.subfolderId = newSubfolderId || '';
+      if(newName) cachedItem.name = newName;
+      cachedItem.synced = false;
+    }
     if(planLibCurrentId === id){
       planLibCurrentFolderId = newFolderId || '';
       planLibCurrentSubfolderId = newSubfolderId || '';
+      if(newName){
+        planLibCurrentName = newName;
+        planState.name = newName;
+        planSave();
+        var nameField = document.getElementById('plan-name');
+        if(nameField) nameField.value = newName;
+        var libNameInput = document.getElementById('plan-lib-name-input');
+        if(libNameInput) libNameInput.value = newName;
+      }
       planLibSaveLink(planLibCurrentId,planLibCurrentName,planLibCurrentFolderId,planLibCurrentSubfolderId);
       planLibRenderCurrentInfo();
     }
@@ -22639,6 +22659,9 @@ body.plan-open{overflow:hidden!important}
     planLibSaveNav();
     planLibSyncSelectsAndBreadcrumb();
     planLibRenderBrowser();
+    // Regra: o nome sugerido para salvar acompanha a subpasta selecionada
+    var nameInput = document.getElementById('plan-lib-name-input');
+    if(nameInput && planLibNavSubfolderId) nameInput.value = planLibSubfolderName(planLibNavSubfolderId);
   };
   window.planLibRefresh = function(){
     var body = document.getElementById('plan-lib-list-body');
@@ -22709,7 +22732,11 @@ body.plan-open{overflow:hidden!important}
   window.planLibSyncPending = function(){ planLibSyncPendingImpl(false); };
   window.planLibSaveAsNew = function(){
     var nameInput = document.getElementById('plan-lib-name-input');
-    var name = String((nameInput && nameInput.value) || planState.name || '').trim();
+    var subfolderId = planLibNavSubfolderId || '';
+    // Regra: dentro de uma subpasta, o nome do planejamento é sempre o nome da subpasta
+    var name = subfolderId
+      ? planLibSubfolderName(subfolderId)
+      : String((nameInput && nameInput.value) || planState.name || '').trim();
     if(!name){
       if(typeof showToast === 'function') showToast('Informe um nome para salvar o planejamento',true);
       if(nameInput) nameInput.focus();
@@ -22720,12 +22747,23 @@ body.plan-open{overflow:hidden!important}
       if(typeof showToast === 'function') showToast('Escolha a pasta onde salvar (seletor acima da lista)',true);
       return;
     }
-    planLibPersist(planLibId(),name,true,folderId,planLibNavSubfolderId || '');
+    planState.name = name;
+    planSave();
+    var nameField = document.getElementById('plan-name');
+    if(nameField) nameField.value = name;
+    planLibPersist(planLibId(),name,true,folderId,subfolderId);
   };
   window.planLibUpdateCurrent = function(){
     if(!planLibCurrentId) return;
     var nameInput = document.getElementById('plan-lib-name-input');
-    var name = String((nameInput && nameInput.value) || planLibCurrentName || planState.name || '').trim() || planLibCurrentName;
+    // Regra: dentro de uma subpasta, o nome do planejamento é sempre o nome da subpasta
+    var name = planLibCurrentSubfolderId
+      ? planLibSubfolderName(planLibCurrentSubfolderId)
+      : (String((nameInput && nameInput.value) || planLibCurrentName || planState.name || '').trim() || planLibCurrentName);
+    planState.name = name;
+    planSave();
+    var nameField = document.getElementById('plan-name');
+    if(nameField) nameField.value = name;
     planLibPersist(planLibCurrentId,name,false,planLibCurrentFolderId,planLibCurrentSubfolderId);
   };
   window.planLibQuickSave = function(){
@@ -22843,8 +22881,7 @@ body.plan-open{overflow:hidden!important}
     local[id] = { meta:meta, cloudSynced:false };
     planLibSaveSubfoldersLocal(local);
     planLibSubfolderListCache.push({ id:id, name:name, folderId:planLibNavFolderId, updatedAt:now, synced:false });
-    planLibSyncSelectsAndBreadcrumb();
-    planLibRenderBrowser();
+    planLibNavigate(null,id);
     planLibWriteSubfolder(id,meta).then(function(ok){
       var l = planLibLoadSubfoldersLocal();
       if(ok && l[id]){ l[id].cloudSynced = true; planLibSaveSubfoldersLocal(l); }
@@ -22852,6 +22889,39 @@ body.plan-open{overflow:hidden!important}
       planLibRefresh();
     });
   };
+  function planLibRenamePlansInSubfolder(subfolderId,newName){
+    var affected = (planLibListCache || []).filter(function(p){ return p.subfolderId === subfolderId; });
+    if(!affected.length) return;
+    var local = planLibLoadLocal();
+    affected.forEach(function(p){
+      p.name = newName;
+      var entry = local[p.id];
+      if(entry && entry.meta){
+        entry.meta.name = newName;
+        entry.meta.updatedAt = Date.now();
+        entry.cloudSynced = false;
+      }else{
+        local[p.id] = { meta:{ name:newName, owner:p.owner || '', ownerChapa:planLibOwnerChapa(), folderId:p.folderId || '', subfolderId:p.subfolderId || '', savedAt:Date.now(), updatedAt:Date.now() }, data:null, cloudSynced:false };
+        entry = local[p.id];
+      }
+      planLibWriteMeta(p.id,entry.meta).then(function(ok){
+        var l = planLibLoadLocal();
+        if(ok && l[p.id]){ l[p.id].cloudSynced = true; planLibSaveLocal(l); }
+      });
+      if(planLibCurrentId === p.id){
+        planLibCurrentName = newName;
+        planState.name = newName;
+        planSave();
+        var nameField = document.getElementById('plan-name');
+        if(nameField) nameField.value = newName;
+        var libNameInput = document.getElementById('plan-lib-name-input');
+        if(libNameInput) libNameInput.value = newName;
+        planLibSaveLink(planLibCurrentId,newName,planLibCurrentFolderId,planLibCurrentSubfolderId);
+        planLibRenderCurrentInfo();
+      }
+    });
+    planLibSaveLocal(local);
+  }
   window.planLibRenameSubfolder = function(id){
     var sub = planLibSubfolderListCache.find(function(s){ return s.id === id; });
     var name = prompt('Novo nome da subpasta:', sub ? sub.name : '');
@@ -22865,6 +22935,7 @@ body.plan-open{overflow:hidden!important}
     local[id] = { meta:meta, cloudSynced:false };
     planLibSaveSubfoldersLocal(local);
     if(sub) sub.name = name;
+    planLibRenamePlansInSubfolder(id,name);
     planLibSyncSelectsAndBreadcrumb();
     planLibRenderBrowser();
     planLibWriteSubfolder(id,meta).then(function(ok){
@@ -22935,7 +23006,7 @@ body.plan-open{overflow:hidden!important}
         okCount++;
         var newPlanId = planLibId();
         var nowP = Date.now();
-        var meta = { name:r.item.name, owner:r.data.owner || '', ownerChapa:planLibOwnerChapa(), folderId:sub.folderId, subfolderId:newSubId, savedAt:nowP, updatedAt:nowP };
+        var meta = { name:name, owner:r.data.owner || '', ownerChapa:planLibOwnerChapa(), folderId:sub.folderId, subfolderId:newSubId, savedAt:nowP, updatedAt:nowP };
         var lp = planLibLoadLocal();
         lp[newPlanId] = { meta:meta, data:r.data, cloudSynced:false };
         planLibSaveLocal(lp);
