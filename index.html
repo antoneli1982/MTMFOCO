@@ -10893,6 +10893,7 @@ function openFolderPage(fid){
         + '<div style="position:absolute;top:6px;right:6px;display:flex;gap:4px">'
         + '<button onclick="event.stopPropagation();dbToggleHideProjectInFolder(\'' + fid + '\',' + pi + ')" title="Ocultar este projeto (clique na lâmpada de novo para trazer de volta)" style="background:transparent;border:1px solid transparent;color:var(--text3);cursor:pointer;font-size:11px;border-radius:5px;padding:3px 7px;font-weight:700" onmouseover="this.style.background=\'rgba(255,214,10,.15)\';this.style.color=\'#b45309\'" onmouseout="this.style.background=\'transparent\';this.style.color=\'var(--text3)\'">💡</button>'
         + '<button onclick="event.stopPropagation();dbSalvarProjetoIndividual(\'' + fid + '\',' + pi + ')" title="Salvar este projeto como arquivo .mtm.json" style="background:linear-gradient(135deg,#f5a623,#e07b00);color:#000;border:none;cursor:pointer;font-size:11px;border-radius:5px;padding:3px 8px;font-weight:800" onmouseover="this.style.filter=\'brightness(1.15)\'" onmouseout="this.style.filter=\'\'">💾</button>'
+        + '<button onclick="event.stopPropagation();dbDuplicateProjectInFolder(\'' + fid + '\',' + pi + ')" title="Duplicar projeto (com todas as folhas)" style="background:var(--blueBg);border:1px solid rgba(79,142,247,.4);color:var(--blue);cursor:pointer;font-size:11px;border-radius:5px;padding:3px 7px;font-weight:700" onmouseover="this.style.background=\'var(--blue)\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'var(--blueBg)\';this.style.color=\'var(--blue)\'">⧉</button>'
         +   '<button onclick="event.stopPropagation();dbRenameProjectInFolder(\'' + fid + '\',' + pi + ')" title="Renomear projeto" style="background:var(--orangeBg);border:1px solid rgba(255,149,0,.4);color:var(--orange);cursor:pointer;font-size:11px;border-radius:5px;padding:3px 7px;font-weight:700" onmouseover="this.style.background=\'var(--orange)\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'var(--orangeBg)\';this.style.color=\'var(--orange)\'">✏️</button>'
         +   '<button onclick="event.stopPropagation();dbDelProjectInFolder(\'' + fid + '\',' + pi + ')" title="Excluir projeto" style="background:var(--redBg);border:1px solid rgba(255,77,109,.4);color:var(--red);cursor:pointer;font-size:11px;border-radius:5px;padding:3px 7px;font-weight:700" onmouseover="this.style.background=\'var(--red)\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'var(--redBg)\';this.style.color=\'var(--red)\'">✕</button>'
         + '</div>'
@@ -11326,6 +11327,50 @@ function dbRenameProjectInFolder(fid, pi){if(typeof __reqEdit==='function' && !_
   // Re-renderizar a página da empresa
   openFolderPage(fid);
   if(typeof showToast === 'function') showToast('✏️ Projeto renomeado para "' + trim + '"');
+}
+
+// ── Duplicar projeto (clona também as folhas, de forma independente do original) ──
+function dbDuplicateProjectInFolder(fid, pi){if(typeof __reqEdit==='function' && !__reqEdit(window.__projId(fid,pi)))return;
+  pmLoad();
+  if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
+  var p = pmData[fid] && pmData[fid].projects && pmData[fid].projects[pi];
+  if(!p) return;
+  var sugestao = (p.name || 'Projeto') + ' (cópia)';
+  var novo = prompt('Nome do projeto duplicado:\n\nSerão copiadas todas as ' + (p.sheets||[]).length + ' folha(s) deste projeto.', sugestao);
+  if(novo === null) return;
+  var nome = novo.trim();
+  if(!nome){ alert('O nome não pode ficar vazio.'); return; }
+
+  // Clona cada folha do projeto original com um novo id, independente do original
+  var novasFolhasIds = (p.sheets || []).map(function(sid){
+    var original = (typeof sheets !== 'undefined') ? sheets.find(function(s){ return s.id === sid; }) : null;
+    var newId = (typeof gid === 'function') ? gid() : ('sh_' + Date.now() + '_' + Math.random().toString(36).slice(2,7));
+    if(original){
+      var clone = JSON.parse(JSON.stringify(original));
+      clone.id = newId;
+      clone.header = clone.header || {};
+      clone.header.projeto = nome;
+      sheets.push(clone);
+    }else{
+      sheets.push({ id:newId, label:'Folha', rows:[], header:{ projeto:nome }, book:'', fadiga:null });
+    }
+    return newId;
+  });
+
+  var novoProjeto = {
+    id: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+    client: pmData[fid].name,
+    name: nome,
+    logo: p.logo || null,
+    date: new Date().toLocaleDateString('pt-BR'),
+    sheets: novasFolhasIds,
+    notes: JSON.parse(JSON.stringify(p.notes || []))
+  };
+  pmData[fid].projects.splice(pi + 1, 0, novoProjeto);
+  pmSave();
+  if(typeof saveSheets === 'function') saveSheets();
+  openFolderPage(fid);
+  if(typeof showToast === 'function') showToast('⧉ Projeto duplicado com ' + novasFolhasIds.length + ' folha(s)');
 }
 
 // ============================================================
