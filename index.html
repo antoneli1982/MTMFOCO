@@ -20799,6 +20799,14 @@ body.plan-open{overflow:hidden!important}
 }
 .plan-table tbody tr:nth-child(even){background:var(--row-odd)}
 .plan-table tbody tr:hover{background:var(--row-hover)}
+.plan-table th:last-child,
+.plan-table td:last-child{
+  position:sticky;right:0;background:var(--surface);
+  box-shadow:-6px 0 8px -6px rgba(0,0,0,.35);
+}
+.plan-table th:last-child{z-index:3;background:var(--header-bg)}
+.plan-table tbody tr:nth-child(even) td:last-child{background:var(--row-odd)}
+.plan-table tbody tr:hover td:last-child{background:var(--row-hover)}
 .plan-context-main{font-size:11px;font-weight:700;color:var(--text);margin-bottom:2px}
 .plan-context-sub{font-size:9px;color:var(--text3);white-space:nowrap}
 .plan-cell-input,.plan-cell-select{
@@ -21324,7 +21332,7 @@ body.plan-open{overflow:hidden!important}
                 <th style="width:118px">Execução</th>
                 <th style="width:104px">Vínculo simultâneo</th>
                 <th style="width:105px;text-align:right">Duração</th>
-                <th style="width:74px">Ações</th>
+                <th style="width:84px">Ações</th>
               </tr>
             </thead>
             <tbody id="plan-rows"></tbody>
