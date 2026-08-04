@@ -21053,6 +21053,8 @@ body.plan-open{overflow:hidden!important}
       <div>
         <div class="plan-lib-list-head">
           <div class="plan-lib-breadcrumb" id="plan-lib-breadcrumb"></div>
+          <button class="plan-lib-refresh" onclick="planLibExportBackup()" title="Baixar backup de tudo que está salvo neste navegador (arquivo .json)">⬇️</button>
+          <button class="plan-lib-refresh" onclick="planLibImportBackup()" title="Importar um arquivo de backup (.json)">⬆️</button>
           <button class="plan-lib-refresh" onclick="planLibDiagnose()" title="Testar conexão com a nuvem (diagnóstico)">🩺</button>
           <button class="plan-lib-refresh" onclick="planLibSyncPending()" title="Sincronizar pendentes com a nuvem">🔁</button>
           <button class="plan-lib-refresh" onclick="planLibRefresh()" title="Atualizar lista">⟳</button>
@@ -22889,6 +22891,94 @@ body.plan-open{overflow:hidden!important}
       box.className = 'plan-lib-diag ' + (result.ok ? 'ok' : 'fail');
       box.innerHTML = '<span>' + (result.ok ? '✅' : '⚠️') + '</span><span>' + planEsc(result.message) + '</span><button class="plan-lib-diag-close" onclick="document.getElementById(\'plan-lib-diagnostic\').style.display=\'none\'">✕</button>';
     });
+  };
+  // ── Backup manual (rede de segurança que NÃO depende da nuvem) ──
+  // Baixa/importa um arquivo .json com tudo que está salvo neste navegador
+  // (planejamentos + subpastas). Serve para levar de um computador a outro
+  // por e-mail/pendrive/nuvem própria, mesmo que a sincronização automática falhe.
+  window.planLibExportBackup = function(){
+    var plans = planLibLoadLocal();
+    var subs = planLibLoadSubfoldersLocal();
+    var planCount = Object.keys(plans).length;
+    var subCount = Object.keys(subs).length;
+    if(!planCount && !subCount){
+      if(typeof showToast === 'function') showToast('Nenhum planejamento salvo neste navegador ainda para exportar.',true);
+      return;
+    }
+    var payload = {
+      type:'mtm-planejamentos-backup',
+      version:1,
+      exportedAt:new Date().toISOString(),
+      plans:plans,
+      subfolders:subs
+    };
+    try{
+      var blob = new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      var stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+      a.href = url;
+      a.download = 'planejamentos-backup-' + stamp + '.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function(){ URL.revokeObjectURL(url); },2000);
+      if(typeof showToast === 'function') showToast('⬇️ Backup baixado — ' + planCount + ' planejamento(s) e ' + subCount + ' subpasta(s)');
+    }catch(e){
+      if(typeof showToast === 'function') showToast('⚠️ Não foi possível gerar o arquivo de backup.',true);
+    }
+  };
+  window.planLibImportBackup = function(){
+    var inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'application/json,.json';
+    inp.style.display = 'none';
+    inp.onchange = function(){
+      var file = inp.files && inp.files[0];
+      inp.remove();
+      if(!file) return;
+      var reader = new FileReader();
+      reader.onload = function(e){
+        var payload;
+        try{ payload = JSON.parse(e.target.result); }
+        catch(err){
+          if(typeof showToast === 'function') showToast('⚠️ Arquivo inválido — não é um backup de planejamentos.',true);
+          return;
+        }
+        if(!payload || (!payload.plans && !payload.subfolders)){
+          if(typeof showToast === 'function') showToast('⚠️ Este arquivo não parece ser um backup de planejamentos.',true);
+          return;
+        }
+        var localPlans = planLibLoadLocal();
+        var importedPlans = payload.plans || {};
+        var planCount = 0;
+        Object.keys(importedPlans).forEach(function(id){
+          var entry = importedPlans[id];
+          if(!entry || !entry.meta) return;
+          localPlans[id] = { meta:entry.meta, data:entry.data || null, cloudSynced:false };
+          planCount++;
+        });
+        planLibSaveLocal(localPlans);
+
+        var localSubs = planLibLoadSubfoldersLocal();
+        var importedSubs = payload.subfolders || {};
+        var subCount = 0;
+        Object.keys(importedSubs).forEach(function(id){
+          var entry = importedSubs[id];
+          if(!entry || !entry.meta) return;
+          localSubs[id] = { meta:entry.meta, cloudSynced:false };
+          subCount++;
+        });
+        planLibSaveSubfoldersLocal(localSubs);
+
+        if(typeof showToast === 'function') showToast('⬆️ Importado: ' + planCount + ' planejamento(s) e ' + subCount + ' subpasta(s). Sincronizando com a nuvem…');
+        planLibRefresh();
+        planLibSyncPendingImpl(false);
+      };
+      reader.readAsText(file);
+    };
+    document.body.appendChild(inp);
+    inp.click();
   };
   window.planLibSaveAsNew = function(){
     var nameInput = document.getElementById('plan-lib-name-input');
