@@ -6568,6 +6568,7 @@ function exportPDF(){
   try{
     window._mtmPrintMode = 'folhas';
     prepararPrint();
+    if(typeof mtmApplyPdfTitle === 'function') mtmApplyPdfTitle('Relatório');
     // Pequeno delay para o DOM renderizar antes do print
     setTimeout(function(){ window.print(); }, 80);
   }catch(e){
@@ -12462,6 +12463,25 @@ function exportBalanceamentoPDF(){
   box.innerHTML = buildBalanceamentoPrintHTML(p, bal);
   var prev = _mtmPrintMode;
   _mtmPrintMode = 'balanceamento';
+  // Nome do PDF: Processo - Relatório - Pasta - Projeto (pasta/projeto do gerenciador)
+  if(typeof mtmApplyPdfTitle === 'function'){
+    var _fold = (typeof pmGetFolder==='function') ? pmGetFolder() : null;
+    var _proc = '';
+    try{
+      (p.sheets||[]).some(function(sid){
+        var s = sheets.find(function(x){ return x.id===sid; });
+        if(s && s.header && s.header.processo && String(s.header.processo).trim()){
+          _proc = String(s.header.processo).trim(); return true;
+        }
+        return false;
+      });
+    }catch(e){}
+    mtmApplyPdfTitle('Relatório', {
+      processo: _proc,
+      pasta:   _fold ? (_fold.name||'') : '',
+      projeto: p.name || ''
+    });
+  }
   setTimeout(function(){
     window.print();
     setTimeout(function(){ _mtmPrintMode = prev; box.innerHTML=''; }, 400);
@@ -15242,15 +15262,102 @@ function mtmGetProjectNameForReport(){
   }catch(e){}
   return document.title || 'Relatorio MTM';
 }
+
+/* ══════════════════════════════════════════════════════════════
+   NOME DO ARQUIVO PDF — padrão único de todo o app
+   Formato:  Processo - Tipo - Pasta - Projeto
+     Processo → campo "Processo" do cabeçalho da folha
+     Tipo     → "Relatório" ou "Planejamento"
+     Pasta    → nome da pasta ativa
+     Projeto  → nome do projeto ativo
+   O navegador usa o document.title como nome sugerido do PDF, então
+   o título é trocado antes do print() e devolvido logo depois.
+   Partes vazias são omitidas para não sobrar " -  - " no nome.
+   ══════════════════════════════════════════════════════════════ */
+function mtmPdfPart(v){
+  var s = String(v==null?'':v).trim();
+  if(!s) return '';
+  return s.replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,' ');
+}
+
+// Nome do processo — 1ª folha do escopo que tiver o campo preenchido
+function mtmGetProcessoForPdf(){
+  try{
+    var list = (typeof scopedSheets==='function') ? scopedSheets()
+             : (typeof sheets!=='undefined' ? sheets : []);
+    for(var i=0;i<(list?list.length:0);i++){
+      var h = list[i] && list[i].header;
+      if(h && h.processo && String(h.processo).trim()) return String(h.processo).trim();
+    }
+    if(list && list[0] && list[0].label) return list[0].label;
+  }catch(e){}
+  return '';
+}
+
+// Nome da pasta ativa (escopo do projeto → pasta aberta → pasta do gerenciador)
+function mtmGetPastaForPdf(){
+  if(typeof pmData === 'undefined') return '';
+  var ids = [];
+  try{ if(typeof activeProjectCtx!=='undefined' && activeProjectCtx) ids.push(activeProjectCtx.folderId); }catch(e){}
+  try{ if(typeof currentFolderId!=='undefined' && currentFolderId) ids.push(currentFolderId); }catch(e){}
+  try{ if(typeof pmFolderId!=='undefined' && pmFolderId) ids.push(pmFolderId); }catch(e){}
+  for(var i=0;i<ids.length;i++){
+    try{
+      var f = pmData[ids[i]];
+      if(f && f.name && String(f.name).trim()) return String(f.name).trim();
+    }catch(e){}
+  }
+  return '';
+}
+
+// Nome do projeto ativo (sem cair no document.title, que aqui já foi trocado)
+function mtmGetProjetoForPdf(){
+  try{
+    var p = (typeof getActiveProject==='function') ? getActiveProject() : null;
+    if(p && p.name && String(p.name).trim()) return String(p.name).trim();
+  }catch(e){}
+  try{
+    var list = (typeof scopedSheets==='function') ? scopedSheets()
+             : (typeof sheets!=='undefined' ? sheets : []);
+    for(var i=0;i<(list?list.length:0);i++){
+      var h = list[i] && list[i].header;
+      if(h && h.projeto && String(h.projeto).trim()) return String(h.projeto).trim();
+    }
+  }catch(e){}
+  return '';
+}
+
+// Monta o nome final. opts = { processo, pasta, projeto } para sobrescrever.
+function mtmBuildPdfFilename(tipo, opts){
+  opts = opts || {};
+  var processo = mtmPdfPart(opts.processo != null ? opts.processo : mtmGetProcessoForPdf());
+  var tipoTxt  = mtmPdfPart(tipo || 'Relatório');
+  var pasta    = mtmPdfPart(opts.pasta    != null ? opts.pasta    : mtmGetPastaForPdf());
+  var projeto  = mtmPdfPart(opts.projeto  != null ? opts.projeto  : mtmGetProjetoForPdf());
+  var parts = [processo, tipoTxt, pasta, projeto].filter(function(x){ return !!x; });
+  return parts.join(' - ').slice(0,150) || 'Relatorio MTM';
+}
+
+// Troca o document.title e devolve a função que restaura o original.
+function mtmApplyPdfTitle(tipo, opts){
+  var prev = document.title, done = false;
+  function restore(){ if(done) return; done = true; document.title = prev; }
+  try{
+    document.title = mtmBuildPdfFilename(tipo, opts);
+    window.addEventListener('afterprint', restore, {once:true});
+    setTimeout(restore, 8000); // salvaguarda caso 'afterprint' não dispare
+  }catch(e){ restore(); }
+  return restore;
+}
+window.mtmBuildPdfFilename = mtmBuildPdfFilename;
+window.mtmApplyPdfTitle    = mtmApplyPdfTitle;
 function exportRelatorioPDF(){
   var _prevTitle = document.title;
-  function _restoreTitle(){ document.title = _prevTitle; }
+  var _restoreTitle = function(){ document.title = _prevTitle; };
   try{
     _mtmPrintMode = 'relatorio';
     prepararPrintRelatorio();
-    document.title = mtmSanitizeFilename(mtmGetProjectNameForReport());
-    window.addEventListener('afterprint', _restoreTitle, {once:true});
-    setTimeout(_restoreTitle, 8000); // salvaguarda caso 'afterprint' não dispare
+    _restoreTitle = mtmApplyPdfTitle('Relatório');
     setTimeout(function(){ window.print(); }, 150);
   }catch(e){
     console.error('Erro ao preparar PDF do relatório:', e);
@@ -22261,6 +22368,21 @@ body.plan-open{overflow:hidden!important}
       + '<div style="margin-top:10px;font-size:8pt;color:#64748b">Nos grupos simultâneos foi considerado somente o maior tempo do grupo, representando a duração real transcorrida.</div>'
       + '</div>';
     window._mtmPrintMode = 'planejamento';
+    // Nome do PDF: Processo - Planejamento - Pasta - Projeto (1ª linha do plano)
+    if(typeof window.mtmApplyPdfTitle === 'function'){
+      var first = planState.rows[0] || {};
+      var proc = '';
+      try{
+        var s = (typeof sheets!=='undefined') ? sheets.find(function(x){ return x.id===first.sid; }) : null;
+        proc = (s && s.header && s.header.processo) ? String(s.header.processo).trim() : '';
+      }catch(e){}
+      if(!proc) proc = first.sheetName || planState.name || '';
+      window.mtmApplyPdfTitle('Planejamento', {
+        processo: proc,
+        pasta:    first.folderName || '',
+        projeto:  first.projectName || ''
+      });
+    }
     setTimeout(function(){ window.print(); },80);
   };
   document.addEventListener('keydown',function(event){
@@ -24544,6 +24666,22 @@ body.pmp-open{overflow:hidden!important}
       +'<div style="margin-top:10px;font-size:8pt;color:#64748b">Calendário produtivo: '+pmpEsc(pmpState.shiftStart)+' às '+pmpEsc(pmpState.shiftEnd)+' com '+pmpEsc(pmpState.breakMinutes)+' minutos de intervalo.</div>'
       +'</div>';
     window._mtmPrintMode = 'plano_mestre';
+    // Nome do PDF: Processo - Planejamento - Pasta - Projeto (1ª ordem do plano)
+    if(typeof window.mtmApplyPdfTitle === 'function'){
+      var seg0  = pmpScheduleCache.segments[0] || {};
+      var row0  = (seg0.rows && seg0.rows[0]) || {};
+      var proc0 = '';
+      try{
+        var sh = (typeof sheets!=='undefined') ? sheets.find(function(x){ return x.id===row0.sid; }) : null;
+        proc0 = (sh && sh.header && sh.header.processo) ? String(sh.header.processo).trim() : '';
+      }catch(e){}
+      if(!proc0) proc0 = row0.sheetName || pmpPlan.name || '';
+      window.mtmApplyPdfTitle('Planejamento', {
+        processo: proc0,
+        pasta:    row0.folderName || '',
+        projeto:  row0.projectName || ''
+      });
+    }
     setTimeout(function(){ window.print(); },80);
   };
 
