@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
-<title>Ferramenta MTM — Folha Padrão de Processo</title>
+<title>Ferramenta MTM — Folha Padrão de Processo · Auditoria V12</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 
@@ -2587,8 +2587,34 @@ html[data-theme="light"] #dashboard{
 }
 </style>
 
+
+<style id="mtm-row-delete-v5">
+.row-del.mtm-delete-row{
+  width:34px !important;
+  height:34px !important;
+  min-width:34px !important;
+  min-height:34px !important;
+  font-size:17px !important;
+  font-weight:900 !important;
+  color:var(--red) !important;
+  border:1px solid rgba(255,95,122,.34) !important;
+  background:rgba(255,95,122,.08) !important;
+  cursor:pointer !important;
+  position:relative;
+  z-index:3;
+  pointer-events:auto !important;
+}
+.row-del.mtm-delete-row:hover{
+  background:var(--redBg) !important;
+  color:var(--red) !important;
+  border-color:var(--red) !important;
+  transform:scale(1.06);
+}
+</style>
 </head>
 <body>
+<!-- MTM TTP disponibilidade corrigido: Tempo Padrão = Total Bruto / (TTP/100) -->
+
 <!-- ══════════════════════════════════════════════════════════════
      🔒 SENHA PARA EDITAR/EXCLUIR — mas PROJETO/FOLHA NOVO é LIVRE até o F5
      - Ao carregar / dar F5: o que JÁ EXISTIA fica travado (editar/excluir pede senha 2017).
@@ -5306,8 +5332,8 @@ function saveSheets(){
         fadiga: s.fadiga || null,
         rows: (s.rows||[]).map(r=>({
           id:r.id, desc:r.desc||'', agrega:r.agrega||'', code:r.code||'',
-          tmu:r.tmu||'', q:r.q||'', f:r.f||'',
-          ttmu:r.ttmu||0, tsec:r.tsec||0
+          tmu:(r.tmu==null?'':r.tmu), q:(r.q==null?'':r.q), f:(r.f==null?'':r.f),
+          ttmu:(r.ttmu==null?0:r.ttmu), tsec:(r.tsec==null?0:r.tsec)
         }))
       }));
       localStorage.setItem(SHEETS_KEY, JSON.stringify(payload));
@@ -5326,8 +5352,8 @@ function salvarAgora(){
       fadiga: s.fadiga || null,
       rows: (s.rows||[]).map(r=>({
         id:r.id, desc:r.desc||'', agrega:r.agrega||'', code:r.code||'',
-        tmu:r.tmu||'', q:r.q||'', f:r.f||'',
-        ttmu:r.ttmu||0, tsec:r.tsec||0
+        tmu:(r.tmu==null?'':r.tmu), q:(r.q==null?'':r.q), f:(r.f==null?'':r.f),
+        ttmu:(r.ttmu==null?0:r.ttmu), tsec:(r.tsec==null?0:r.tsec)
       }))
     }));
     localStorage.setItem(SHEETS_KEY, JSON.stringify(payload));
@@ -5452,6 +5478,28 @@ function confirmRename(){
 }
 function closeModal(id){document.getElementById(id).classList.add('hidden')}
 function get(id){return sheets.find(s=>s.id===id)}
+
+
+function ensureSheetRowIds(s){
+  if(!s || !Array.isArray(s.rows)) return;
+  var seen=Object.create(null);
+  for(var i=0;i<s.rows.length;i++){
+    var r=s.rows[i];
+    if(!r || typeof r!=='object'){
+      r=s.rows[i]={id:'',desc:'',agrega:'',code:'',tmu:'',q:'',f:'',ttmu:0,tsec:0};
+    }
+    var rid=(r.id==null?'':String(r.id).trim());
+    var prefix='r_'+String(s.id||'sheet')+'_';
+    // Todo ID de linha pertence explicitamente à sua folha. Isso elimina
+    // colisões entre folhas antigas, projetos duplicados e backups legados.
+    if(!rid || seen[rid] || rid.indexOf(prefix)!==0){
+      rid=prefix+Date.now()+'_'+i+'_'+Math.floor(Math.random()*1000000);
+      while(seen[rid]) rid=rid+'x';
+      r.id=rid;
+    }
+    seen[rid]=1;
+  }
+}
 
 function renderTabs(){
   const bar=document.getElementById('tabs-bar');
@@ -5623,6 +5671,7 @@ function setActive(id){
 
 function renderContent(id){
   const s=get(id);
+  if(s) ensureSheetRowIds(s);
   if(document.getElementById('c-'+id))return;
   const h = s.header || {};
   const div=document.createElement('div');
@@ -6016,6 +6065,8 @@ function renderRow(sid,rid,focus=false){
   const s=get(sid); const row=s.rows.find(r=>r.id===rid);
   const tr=document.createElement('tr');
   tr.id=rid;
+  tr.dataset.rowId=String(row.id||rid||'');
+  tr.__mtmRowRef=row;
   const agOpts = ['', 'Sim', 'Não', 'Necessário'];
   tr.innerHTML=`
     <td class="col-n" data-n></td>
@@ -6027,12 +6078,12 @@ function renderRow(sid,rid,focus=false){
       <input class="ci ci-code" placeholder="CÓDIGO" data-f="code" autocomplete="off" spellcheck="false" value="${esc(row.code||'')}">
       <div class="ac-list" id="ac-${rid}"></div>
     </div></td>
-    <td><input class="ci ci-tmu" placeholder="0" data-f="tmu" value="${esc(row.tmu||'')}"></td>
-    <td><input class="ci ci-num" placeholder="1" data-f="q" value="${esc(row.q||'')}"></td>
-    <td><input class="ci ci-num" placeholder="1" data-f="f" value="${esc(row.f||'')}"></td>
+    <td><input class="ci ci-tmu" inputmode="decimal" min="0" placeholder="0" data-f="tmu" value="${esc(row.tmu==null?'':row.tmu)}"></td>
+    <td><input class="ci ci-num" inputmode="decimal" min="0" placeholder="1" data-f="q" value="${esc(row.q==null?'':row.q)}"></td>
+    <td><input class="ci ci-num" inputmode="decimal" min="0" placeholder="1" data-f="f" value="${esc(row.f==null?'':row.f)}"></td>
     <td><input class="ci ci-res" readonly data-f="ttmu" value="${row.ttmu||''}"></td>
     <td><input class="ci ci-sec" readonly data-f="tsec" value="${row.tsec||''}"></td>
-    <td style="white-space:nowrap"><button class="row-drag" title="Arrastar para reordenar">⠿</button><button class="row-ins" onclick="insertRowAbove('${sid}','${rid}')" title="Inserir uma linha acima desta">＋</button><button class="row-del" onclick="delRow('${sid}','${rid}')" title="Excluir esta linha">✕</button></td>`;
+    <td style="white-space:nowrap"><button class="row-drag" title="Arrastar para reordenar">⠿</button><button class="row-ins" onclick="insertRowAbove('${sid}','${rid}')" title="Inserir uma linha acima desta">＋</button><button type="button" class="row-del mtm-delete-row" onclick="event.stopPropagation();delRowFromButton(this,'${sid}')" title="Excluir esta linha" aria-label="Excluir esta linha">✕</button></td>`;
   tr.draggable = false;          // ativa só ao pressionar o handle ⠿
   tbody.appendChild(tr);
 
@@ -6211,19 +6262,41 @@ function showAC(val,list,onSel){
   list.classList.add('show');
 }
 
+// Conversão numérica central MTM: aceita número, ponto decimal e vírgula decimal.
+// Também entende milhar no padrão brasileiro, como 1.234,56.
+function mtmParseNumber(v, fallback){
+  if(typeof v === 'number') return isFinite(v) ? v : (fallback==null?0:fallback);
+  var raw = String(v==null?'':v).trim().replace(/\s+/g,'');
+  if(raw==='') return fallback==null?0:fallback;
+  var hasComma = raw.indexOf(',') !== -1;
+  var hasDot   = raw.indexOf('.') !== -1;
+  if(hasComma && hasDot){
+    if(raw.lastIndexOf(',') > raw.lastIndexOf('.')) raw = raw.replace(/\./g,'').replace(',','.');
+    else raw = raw.replace(/,/g,'');
+  }else if(hasComma){
+    raw = raw.replace(',','.');
+  }
+  raw = raw.replace(/[^0-9+\-.eE]/g,'');
+  var n = Number(raw);
+  return isFinite(n) ? n : (fallback==null?0:fallback);
+}
+function mtmFactor(v){
+  return (v==null || String(v).trim()==='') ? 1 : mtmParseNumber(v,1);
+}
+
 function calcRow(sid,rid){
   const s=get(sid), row=s.rows.find(r=>r.id===rid);
   if(!row) return;
-  const tmu=parseFloat(row.tmu)||0;
-  // Q e F vazios valem 1 (igual ao placeholder), nunca 0 — senão TMU×0×0 zera o total.
-  const q=(row.q==null||String(row.q).trim()===''||isNaN(parseFloat(row.q)))?1:parseFloat(row.q);
-  const f=(row.f==null||String(row.f).trim()===''||isNaN(parseFloat(row.f)))?1:parseFloat(row.f);
+  const tmu=Math.max(0,mtmParseNumber(row.tmu,0));
+  // Q e F vazios valem 1. Zero informado continua sendo zero; negativos são inválidos e viram zero.
+  const q=Math.max(0,mtmFactor(row.q));
+  const f=Math.max(0,mtmFactor(row.f));
   row.ttmu=+(tmu*q*f).toFixed(4);
   row.tsec=+(row.ttmu*0.036).toFixed(4);
   const tr=document.getElementById(rid);
   if(tr){
-    tr.querySelector('[data-f="ttmu"]').value=row.ttmu||'';
-    tr.querySelector('[data-f="tsec"]').value=row.tsec||'';
+    tr.querySelector('[data-f="ttmu"]').value=(row.ttmu==null?'':row.ttmu);
+    tr.querySelector('[data-f="tsec"]').value=(row.tsec==null?'':row.tsec);
   }
   updateTotals(sid);
 }
@@ -6234,43 +6307,97 @@ function calcRow(sid,rid){
 function recalcSheet(sid){
   const s = (typeof get === 'function') ? get(sid) : null;
   if(!s || !s.rows) return;
+  ensureSheetRowIds(s);
   s.rows.forEach(r=>{ try{ calcRow(sid, r.id); }catch(e){} });
   try{ updateTotals(sid); }catch(e){}
 }
 
-function delRow(sid,rid){
-  if(typeof __reqDel==='function' && !__reqDel(sid)) return;
+function delRowFromButton(btn,sid){
   const s=get(sid);
   if(!s || !Array.isArray(s.rows)) return;
+  ensureSheetRowIds(s);
 
-  // Exclui somente a linha solicitada do modelo.
-  s.rows=s.rows.filter(function(r){ return r && r.id!==rid; });
+  const tr=btn && btn.closest ? btn.closest('tr') : null;
+  let idx=-1;
+  if(tr && tr.__mtmRowRef) idx=s.rows.indexOf(tr.__mtmRowRef);
+  if(idx<0 && tr){
+    const key=String(tr.dataset.rowId || tr.id || '');
+    if(key) idx=s.rows.findIndex(function(r){ return r && String(r.id)===key; });
+  }
+  if(idx<0){
+    try{ if(typeof showToast==='function') showToast('Não foi possível localizar esta linha nos dados. Reabra a folha e tente novamente.', true); }catch(e){}
+    return;
+  }
+  if(typeof __reqDel==='function' && !__reqDel(sid)) return;
 
-  // Exclui a mesma linha da interface.
-  const tr=document.getElementById(rid);
+  const before=computeSheetMetrics(s).totalTmu;
+  const removed=s.rows[idx];
+  const rtmu=Math.max(0,mtmParseNumber(removed && removed.tmu,0));
+  const rq=Math.max(0,mtmFactor(removed && removed.q));
+  const rf=Math.max(0,mtmFactor(removed && removed.f));
+  const removedTmu=+(rtmu*rq*rf).toFixed(4);
+
+  s.rows.splice(idx,1);
   if(tr && tr.parentNode) tr.parentNode.removeChild(tr);
 
-  // Recalcula imediatamente a folha a partir das linhas que permaneceram.
-  // Não usa o DOM para apagar ou reconstruir outras linhas, preservando os dados existentes.
-  if(typeof updateNums==='function') updateNums(sid);
-  if(typeof recalcSheet==='function') recalcSheet(sid);
-  else if(typeof updateTotals==='function') updateTotals(sid);
+  // Depois da exclusão, sincroniza o modelo com todas as linhas que ainda estão
+  // efetivamente renderizadas na tabela. Isto elimina resíduos de linhas antigas
+  // que tinham ID ausente ou duplicado.
+  try{
+    const tb=document.getElementById('tb-'+sid);
+    if(tb){
+      const domRows=Array.from(tb.querySelectorAll('tr'));
+      const refs=[];
+      domRows.forEach(function(domTr){
+        let rr=domTr.__mtmRowRef || null;
+        if(!rr){
+          const key=String(domTr.dataset.rowId || domTr.id || '');
+          rr=s.rows.find(function(x){ return x && String(x.id)===key; }) || null;
+        }
+        if(rr && refs.indexOf(rr)===-1) refs.push(rr);
+      });
+      if(refs.length===domRows.length) s.rows=refs;
+    }
+  }catch(e){}
 
-  // Atualiza também o painel TTP no mesmo clique.
+  updateNums(sid);
+  updateTotals(sid);
   try{ if(typeof ttpCalc==='function') ttpCalc(sid); }catch(e){}
-
-  // Persiste a exclusão imediatamente.
   try{ if(typeof persistNow==='function') persistNow(); }catch(e){}
   try{ if(typeof saveSheets==='function') saveSheets(); }catch(e){}
 
-  // Segunda atualização no próximo frame para garantir que o rodapé reflita
-  // a remoção depois que o navegador concluir a atualização da tabela.
+  let after=computeSheetMetrics(s).totalTmu;
+  const expected=+(before-removedTmu).toFixed(4);
+  if(Math.abs(after-expected)>0.001){
+    recalcSheet(sid);
+    updateTotals(sid);
+    try{ if(typeof ttpCalc==='function') ttpCalc(sid); }catch(e){}
+    after=computeSheetMetrics(s).totalTmu;
+  }
+
   try{
-    requestAnimationFrame(function(){
-      if(typeof updateTotals==='function') updateTotals(sid);
-      try{ if(typeof ttpCalc==='function') ttpCalc(sid); }catch(e){}
-    });
+    if(typeof showToast==='function') showToast('Linha excluída. TOTAL BRUTO: '+before.toFixed(2)+' → '+after.toFixed(2)+' TMU');
   }catch(e){}
+}
+
+function delRow(sid,rid){
+  const tr=document.getElementById(String(rid));
+  if(tr){
+    const btn=tr.querySelector('.row-del');
+    if(btn) return delRowFromButton(btn,sid);
+  }
+  const s=get(sid);
+  if(!s || !Array.isArray(s.rows)) return;
+  ensureSheetRowIds(s);
+  const idx=s.rows.findIndex(function(r){ return r && String(r.id)===String(rid); });
+  if(idx<0) return;
+  if(typeof __reqDel==='function' && !__reqDel(sid)) return;
+  s.rows.splice(idx,1);
+  updateNums(sid);
+  updateTotals(sid);
+  try{ if(typeof ttpCalc==='function') ttpCalc(sid); }catch(e){}
+  try{ if(typeof persistNow==='function') persistNow(); }catch(e){}
+  try{ if(typeof saveSheets==='function') saveSheets(); }catch(e){}
 }
 
 function updateNums(sid){
@@ -6281,6 +6408,7 @@ function updateNums(sid){
 // Helper: calcula métricas consolidadas de uma folha
 function computeSheetMetrics(s){
   if(!s) return null;
+  ensureSheetRowIds(s);
   const h = s.header || {};
   const rows = s.rows || [];
 
@@ -6290,11 +6418,9 @@ function computeSheetMetrics(s){
   // mesmo após importação, restauração, sincronização ou correção automática do DOM.
   let totalTmu = 0;
   rows.forEach(function(r){
-    const tmu = parseFloat(r && r.tmu) || 0;
-    const q = (r && r.q != null && String(r.q).trim() !== '' && isFinite(parseFloat(r.q)))
-      ? parseFloat(r.q) : 1;
-    const f = (r && r.f != null && String(r.f).trim() !== '' && isFinite(parseFloat(r.f)))
-      ? parseFloat(r.f) : 1;
+    const tmu = Math.max(0,mtmParseNumber(r && r.tmu,0));
+    const q = Math.max(0,mtmFactor(r && r.q));
+    const f = Math.max(0,mtmFactor(r && r.f));
 
     const calcTmu = +(tmu * q * f).toFixed(4);
     const calcSec = +(calcTmu * 0.036).toFixed(4);
@@ -6309,29 +6435,30 @@ function computeSheetMetrics(s){
   totalTmu = +totalTmu.toFixed(4);
   const totalSec = +(totalTmu * 0.036).toFixed(4);
 
-  const aP = parseFloat(h.allowPersonal)||0;
-  const aF = parseFloat(h.allowFatigue)||0;
-  const aC = parseFloat(h.allowContingency)||0;
+  const aP = mtmParseNumber(h.allowPersonal,0);
+  const aF = mtmParseNumber(h.allowFatigue,0);
+  const aC = mtmParseNumber(h.allowContingency,0);
   const allowPct = aP + aF + aC;
 
-  // TTP Manual = percentual de ocupação aplicado DIRETAMENTE no TOTAL BRUTO.
-  // 0 ou vazio = TOTAL BRUTO
-  // 100% = TOTAL BRUTO
-  // 90% = 90% do TOTAL BRUTO
-  // 85% = 85% do TOTAL BRUTO
-  const manualTTP = Math.min(100, Math.max(0, parseFloat(h.manualTTP)||0));
-  const fatorOcupacao = manualTTP > 0 ? (manualTTP / 100) : 1;
+  // TTP Manual = disponibilidade produtiva do período.
+  // O TEMPO PADRÃO incorpora a indisponibilidade: TP = TOTAL BRUTO ÷ (TTP/100).
+  // 0 ou vazio = TTP não definido, portanto usa o TOTAL BRUTO.
+  // 100% = TOTAL BRUTO.
+  // 90% = TOTAL BRUTO ÷ 0,90.
+  // 85% = TOTAL BRUTO ÷ 0,85.
+  const manualTTP = Math.min(100, Math.max(0, mtmParseNumber(h.manualTTP,0)));
+  const fatorDisponibilidade = manualTTP > 0 ? (manualTTP / 100) : 1;
 
   // Em 0 e 100, força igualdade exata com o TOTAL BRUTO.
   const stdSec = (manualTTP === 0 || manualTTP === 100)
     ? totalSec
-    : +(totalSec * fatorOcupacao).toFixed(4);
+    : +(totalSec / fatorDisponibilidade).toFixed(4);
 
   const stdTmu = (manualTTP === 0 || manualTTP === 100)
     ? +totalTmu.toFixed(2)
-    : +(totalTmu * fatorOcupacao).toFixed(2);
+    : +(totalTmu / fatorDisponibilidade).toFixed(2);
 
-  const takt = parseFloat(h.takt)||0;
+  const takt = mtmParseNumber(h.takt,0);
   const saturation = takt > 0 ? +(stdSec / takt * 100).toFixed(1) : 0;
 
   let va=0, nva=0, nnva=0, unc=0;
@@ -6347,9 +6474,9 @@ function computeSheetMetrics(s){
   return {
     totalTmu, totalSec, allowPct, manualTTP, stdSec, stdTmu, takt, saturation,
     va, nva, nnva, unc,
-    pcsCiclo: (function(){ var v = parseFloat(h.pcsCiclo); return (isFinite(v) && v > 0) ? v : 1; })(),
-    demand: parseFloat(h.demand)||0,
-    rowCount: rows.filter(function(r){ return (parseFloat(r && r.ttmu)||0)>0; }).length
+    pcsCiclo: (function(){ var v = mtmParseNumber(h.pcsCiclo,1); return (isFinite(v) && v > 0) ? v : 1; })(),
+    demand: mtmParseNumber(h.demand,0),
+    rowCount: rows.filter(function(r){ return mtmParseNumber(r && r.ttmu,0)>0; }).length
   };
 }
 
@@ -6369,7 +6496,7 @@ function updateTotals(sid){
   const tstdLbl = document.getElementById('tstd-lbl-'+sid);
   if(tstdLbl){
     if(m.manualTTP > 0){
-      tstdLbl.innerHTML = `⏱ TEMPO PADRÃO = ${m.manualTTP.toFixed(1)}% DO TOTAL BRUTO`;
+      tstdLbl.innerHTML = `⏱ TEMPO PADRÃO = TOTAL BRUTO ÷ TTP ${m.manualTTP.toFixed(1)}%`;
     } else {
       tstdLbl.innerHTML = `⏱ TEMPO PADRÃO = TOTAL BRUTO <span style="font-size:9px;color:var(--text3)">(TTP não definido)</span>`;
     }
@@ -6388,7 +6515,7 @@ function updateTotals(sid){
       else if(impliedAllow >= 18){  color='var(--orange)'; icon='🟠'; hint='(posto pesado)'; }
       else if(impliedAllow >= 13){  color='var(--yellow)'; icon='🟡'; hint='(normal industrial)'; }
       else if(impliedAllow >=  8){  color='var(--green)';  icon='🟢'; hint='(ótimo — trabalho leve)'; }
-      else                        { color='var(--blue)';   icon='🔵'; hint='(allowance implícito muito baixo)'; }
+      else                        { color='var(--blue)';   icon='🔵'; hint='(perda de disponibilidade muito baixa)'; }
       satLbl.innerHTML = `⏱ TTP Manual ${hint}`;
       satVal.innerHTML = `<span style="color:${color}">${icon} ${manualTTP}%</span>`;
     } else {
@@ -6419,8 +6546,8 @@ function demandToPerPeriod(raw, unit, h){
     case 'segundo': return d * h * 3600;
     case 'dia':
     case 'hoje':    return d * (h / 8);
-    case 'semana':  return d / (5 * (24 / h));
-    case 'mes':     return d / (22 * (24 / h));
+    case 'semana':  return d / (5 * (8 / h));
+    case 'mes':     return d / (22 * (8 / h));
     case 'ciclo':
     case 'carga':
     case 'turno':
@@ -6458,8 +6585,12 @@ function ttpCalc(sid){
   if(!dem || dem <= 0){ if(res) res.style.display='none'; return; }
   if(res) res.style.display = 'block';
 
-  var takt  = tprod / dem;
-  var capUm = Math.floor(tprod / takt);
+  // O TTP já está incorporado no Tempo Padrão (TS = bruto ÷ TTP).
+  // Takt e capacidade usam o tempo calendário disponível para não aplicar o TTP duas vezes.
+  var pcsCiclo = (m.pcsCiclo && m.pcsCiclo > 0) ? m.pcsCiclo : 1;
+  var demCiclos = pcsCiclo > 1 ? (dem / pcsCiclo) : dem;
+  var takt  = demCiclos > 0 ? tdis / demCiclos : 0;
+  var capUm = ts > 0 ? Math.floor(tdis / ts) * pcsCiclo : 0;
 
   var kTdis  = document.getElementById('ttp-kpi-tdis-'+sid);
   var kTprod = document.getElementById('ttp-kpi-tprod-'+sid);
@@ -6481,7 +6612,7 @@ function ttpCalc(sid){
     colabNeed = Math.ceil(ts / takt);
     if(needEl) needEl.textContent = colabNeed;
     if(needHint){
-      var capTotal = Math.floor(tprod * colabNeed / ts);
+      var capTotal = Math.floor(tdis * colabNeed / ts) * pcsCiclo;
       needHint.innerHTML = 'TS='+ts.toFixed(2)+'s ÷ Takt='+takt.toFixed(2)+'s'
         +'<br>Capacidade com '+colabNeed+' colab.: <b style="color:var(--purple)">'+capTotal+' itens</b>';
     }
@@ -6502,7 +6633,7 @@ function ttpCalc(sid){
     var nColab = parseInt(colabInp.value) || 0;
     if(nColab > 0 && ts > 0){
       // Capacidade com N colaboradores nas horas definidas
-      var capSim = Math.floor(tprod * nColab / ts);
+      var capSim = Math.floor(tdis * nColab / ts) * pcsCiclo;
       var satSim = +((ts / (takt * nColab)) * 100).toFixed(1);
       simCapEl.textContent = capSim.toLocaleString('pt-BR');
       var corSat = satSim > 100 ? 'var(--red)' : satSim >= 80 ? 'var(--green)' : 'var(--orange)';
@@ -6510,11 +6641,10 @@ function ttpCalc(sid){
       simSatEl.style.color = corSat;
 
       // ── HORAS NECESSÁRIAS para fazer a demanda com N colaboradores ──
-      // Fórmula: H_necessario = (dem × ts) / (nColab × (ttp/100) × 3600)
-      // Derivado de: capSim = tprod_x × nColab / ts  →  tprod_x = dem×ts/nColab  →  H = tprod_x / (ttp/100) / 3600
-      var tprodNecessario = (dem * ts) / nColab;           // s de trabalho produtivo necessário por colaborador
-      var ttpFactor = ttpManual > 0 ? ttpManual / 100 : 1;
-      var horasNec = tprodNecessario / ttpFactor / 3600;   // horas brutas (com TTP)
+      // Como TS já incorpora o TTP, calcula-se diretamente o tempo calendário requerido.
+      var ciclosNecessarios = pcsCiclo > 1 ? (dem / pcsCiclo) : dem;
+      var tempoCalendarioNecessario = (ciclosNecessarios * ts) / nColab;
+      var horasNec = tempoCalendarioNecessario / 3600;
       var horasNecInt = Math.ceil(horasNec * 100) / 100;   // arredondado p/ cima em centésimos
       var horasH   = Math.floor(horasNec);
       var horasM   = Math.round((horasNec - horasH) * 60);
@@ -6527,8 +6657,8 @@ function ttpCalc(sid){
       if(horasHintEl){
         var dentroJornada = horasNec <= h;
         horasHintEl.innerHTML =
-          'Com <b>'+nColab+' colab.</b>: TS='+ts.toFixed(2)+'s ÷ TTP='+(ttpManual > 0 ? ttpManual.toFixed(1)+'%' : 'bruto')+'<br>'
-          + 'T. produtivo necessário: <b>'+(tprodNecessario/3600).toFixed(2)+'h</b> por colaborador<br>'
+          'Com <b>'+nColab+' colab.</b>: TS='+ts.toFixed(2)+'s (TTP já incorporado no TS)<br>'
+          + 'Tempo calendário necessário: <b>'+horasNec.toFixed(2)+'h</b> por colaborador<br>'
           + (dentroJornada
               ? '✅ Dentro da jornada de <b>'+h+'h</b> definida (sobra '+(h-horasNec).toFixed(2)+'h)'
               : '⚠️ Excede a jornada de <b>'+h+'h</b> — necessário '+(horasNec-h).toFixed(2)+'h extra ou mais colaboradores');
@@ -6561,8 +6691,8 @@ function ttpCalc(sid){
       var frac   = Math.min(i, h);
       var fracH  = Math.min(1, h-(i-1));
       var tpAcum = Math.round(frac  * 3600 * (ttpManual > 0 ? ttpManual/100 : 1));
-      var itH    = Math.round(fracH * 3600 * (ttpManual > 0 ? ttpManual/100 : 1) / takt);
-      var itAcum = Math.floor(frac  * 3600 * (ttpManual > 0 ? ttpManual/100 : 1) / takt);
+      var itH    = ts > 0 ? Math.floor((fracH * 3600 / ts) * pcsCiclo) : 0;
+      var itAcum = ts > 0 ? Math.floor((frac * 3600 / ts) * pcsCiclo) : 0;
       var bg = i%2===0 ? 'var(--row-even)' : 'var(--row-odd)';
       rows += '<tr style="background:'+bg+';">'
         +'<td style="padding:6px 12px;color:var(--text);">Hora '+i+'</td>'
@@ -6584,7 +6714,7 @@ function ttpCalc(sid){
       '<b style="color:var(--text)">TTP Manual</b> = <b style="color:var(--accent)">'+(ttpManual > 0 ? ttpManual.toFixed(2)+'%' : 'não definido (bruto)')+'</b> &nbsp;|&nbsp; '
       +'<b>Disponível</b> = '+h+'h×3.600 = <b>'+tdis.toLocaleString('pt-BR')+'s</b> &nbsp;|&nbsp; '
       +'<b>Produtivo</b> = <b style="color:var(--green)">'+Math.round(tprod).toLocaleString('pt-BR')+'s</b><br>'
-      +'<b>Takt</b> = '+Math.round(tprod).toLocaleString('pt-BR')+'÷'+dem+' = <b style="color:var(--accent)">'+takt.toFixed(2)+'s/item</b>'
+      +'<b>Takt calendário</b> = '+tdis.toLocaleString('pt-BR')+'÷'+(demCiclos>0?demCiclos.toFixed(2):dem)+' = <b style="color:var(--accent)">'+takt.toFixed(2)+'s/ciclo</b>'
       +memColab;
   }
 
@@ -7041,7 +7171,7 @@ function showResults(sid){
   // Util. Takt mantida como auxiliar separada
   const utilTakt   = m.takt > 0 ? +(m.stdSec / m.takt * 100).toFixed(1) : 0;
   const ociosidade = m.takt > 0 ? +(100 - utilTakt).toFixed(1) : 0;
-  // Cores baseadas no allowance implícito (100 − TTP)
+  // Cores baseadas na perda de disponibilidade (100 − TTP)
   const ttpColor = impliedAllow >= 22 ? '#ff4d6d' : impliedAllow >= 18 ? '#ff9500' : impliedAllow >= 13 ? '#ffd60a' : impliedAllow >= 8 ? '#00e5a0' : manualTTP > 0 ? '#4f8ef7' : '#3d4d68';
   const ttpBg    = impliedAllow >= 22 ? 'var(--redBg)' : impliedAllow >= 18 ? 'var(--orangeBg)' : impliedAllow >= 13 ? 'rgba(255,214,10,0.10)' : impliedAllow >= 8 ? 'var(--greenBg)' : manualTTP > 0 ? 'var(--blueBg)' : 'var(--surface3)';
   const ttpIcon  = impliedAllow >= 22 ? '🔴' : impliedAllow >= 18 ? '🟠' : impliedAllow >= 13 ? '🟡' : impliedAllow >= 8 ? '🟢' : manualTTP > 0 ? '🔵' : '⚪';
@@ -7072,7 +7202,7 @@ function showResults(sid){
       <div class="res-kpi" style="border-color:${ttpColor};background:${ttpBg}">
         <div class="res-kpi-val" style="color:${ttpColor}">${ttpIcon} ${ttp}%</div>
         <div class="res-kpi-lbl" style="color:${ttpColor}">⏱ TTP Manual</div>
-        <div style="font-size:9px;color:var(--text3);margin-top:2px">Allow. implícito ${impliedAllow.toFixed(1)}%${m.takt > 0 ? ' · Util. Takt: '+utilTakt+'%' : ''}</div>
+        <div style="font-size:9px;color:var(--text3);margin-top:2px">Perda disponibilidade ${impliedAllow.toFixed(1)}%${m.takt > 0 ? ' · Util. Takt: '+utilTakt+'%' : ''}</div>
       </div>`;
   }
 
@@ -7123,7 +7253,7 @@ function showResults(sid){
           <div style="font-size:28px;font-weight:900;color:${ttpColor};font-family:'JetBrains Mono',monospace">${ttpIcon} ${ttp}%</div>
         </div>
         <div style="font-size:10px;color:var(--text3);margin-bottom:8px">
-          <code>TTP Manual: <strong style="color:${ttpColor}">${ttp}%</strong> · Allow. implícito: <strong style="color:${ttpColor}">${impliedAllow.toFixed(2)}%</strong></code>
+          <code>TTP Manual: <strong style="color:${ttpColor}">${ttp}%</strong> · Perda de disponibilidade: <strong style="color:${ttpColor}">${impliedAllow.toFixed(2)}%</strong></code>
         </div>
         <!-- trilho -->
         <div style="height:22px;background:var(--surface3);border-radius:6px;overflow:hidden;border:1px solid var(--border2);position:relative;margin-bottom:10px">
@@ -7133,7 +7263,7 @@ function showResults(sid){
           <div style="height:100%;width:${ttpBarW}%;background:${ttpColor};border-radius:6px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;transition:width .5s ease">
             ${ttpBarW > 12 ? `<span style="color:#fff;font-size:10px;font-weight:800">${ttp}%</span>` : ''}
           </div>
-          ${impliedAllow >= 22 ? `<div style="position:absolute;top:0;right:0;background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:3px 8px;border-radius:0 6px 6px 0">ALLOWANCE IMPLÍCITO CRÍTICO</div>` : ''}
+          ${impliedAllow >= 22 ? `<div style="position:absolute;top:0;right:0;background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:3px 8px;border-radius:0 6px 6px 0">PERDA DE DISPONIBILIDADE CRÍTICA</div>` : ''}
         </div>
         <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:12px">
           <span>0%</span>
@@ -7149,7 +7279,7 @@ function showResults(sid){
             <div style="font-size:16px;font-weight:800;color:var(--green);font-family:'JetBrains Mono',monospace">${m.stdSec.toFixed(2)}s</div>
           </div>
           <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px;text-align:center">
-            <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:700">Allow. Implícito</div>
+            <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:700">Perda Disponibilidade</div>
             <div style="font-size:16px;font-weight:800;color:${ttpColor};font-family:'JetBrains Mono',monospace">${impliedAllow.toFixed(2)}%</div>
           </div>
           <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px;text-align:center">
@@ -7162,13 +7292,13 @@ function showResults(sid){
           </div>
         </div>
         <div style="margin-top:12px;font-size:10px;color:var(--text3);line-height:1.6">
-          <strong style="color:${ttpColor}">Diagnóstico (allow. implícito):</strong>
-          ${impliedAllow >= 22 ? '🔴 TTP <strong>baixo</strong> (≤ 78%) — Allow. implícito crítico ('+impliedAllow.toFixed(1)+'%). Revisar ergonomia.' :
-            impliedAllow >= 18 ? '🟠 TTP <strong>reduzido</strong> (78–82%) — Allow. implícito elevado ('+impliedAllow.toFixed(1)+'%). Posto pesado.' :
-            impliedAllow >= 13 ? '🟡 TTP na <strong>faixa normal industrial</strong> (82–87%) — Allow. implícito ('+impliedAllow.toFixed(1)+'%).' :
-            impliedAllow >=  8 ? '🟢 TTP <strong>ótimo</strong> (87–92%) — Allow. implícito baixo ('+impliedAllow.toFixed(1)+'%), trabalho leve.' :
-            impliedAllow >   0 ? '🔵 TTP <strong>muito alto</strong> (> 92%) — Allow. implícito suspeito ('+impliedAllow.toFixed(1)+'%). Verificar tolerâncias.' :
-                                 '⚪ TTP = 100% (nenhum allowance implícito). Confirmar se é correto.'}
+          <strong style="color:${ttpColor}">Diagnóstico (perda de disponibilidade):</strong>
+          ${impliedAllow >= 22 ? '🔴 TTP <strong>baixo</strong> (≤ 78%) — perda de disponibilidade crítica ('+impliedAllow.toFixed(1)+'%). Revisar ergonomia.' :
+            impliedAllow >= 18 ? '🟠 TTP <strong>reduzido</strong> (78–82%) — perda de disponibilidade elevada ('+impliedAllow.toFixed(1)+'%). Posto pesado.' :
+            impliedAllow >= 13 ? '🟡 TTP na <strong>faixa normal industrial</strong> (82–87%) — perda de disponibilidade ('+impliedAllow.toFixed(1)+'%).' :
+            impliedAllow >=  8 ? '🟢 TTP <strong>ótimo</strong> (87–92%) — perda de disponibilidade baixa ('+impliedAllow.toFixed(1)+'%), trabalho leve.' :
+            impliedAllow >   0 ? '🔵 TTP <strong>muito alto</strong> (> 92%) — perda de disponibilidade suspeita ('+impliedAllow.toFixed(1)+'%). Verificar tolerâncias.' :
+                                 '⚪ TTP = 100% (nenhuma perda de disponibilidade). Confirmar se é correto.'}
           ${m.takt > 0 ? '<br><span style="color:var(--text2)">Métricas auxiliares (vs Takt): Util. Takt <strong>'+utilTakt+'%</strong> · Ociosidade <strong>'+ociosidade+'%</strong></span>' : ''}
         </div>
       </div>` : `
@@ -7195,7 +7325,7 @@ function showResults(sid){
         </table>
         <div style="padding:8px 12px;background:var(--surface2);border-top:1px solid var(--border);font-size:10px;color:var(--text3)">
           Base: Tempo Padrão = <strong style="color:var(--green)">${m.stdSec.toFixed(3)}s</strong>
-          ${manualTTP > 0 ? ` · TTP Manual = <strong style="color:${ttpColor}">${ttp}%</strong> (allow. implícito ${impliedAllow.toFixed(2)}%)` : ' · TTP não definido — usando tempo bruto'}
+          ${manualTTP > 0 ? ` · TTP Manual = <strong style="color:${ttpColor}">${ttp}%</strong> (perda de disponibilidade ${impliedAllow.toFixed(2)}%)` : ' · TTP não definido — usando tempo bruto'}
         </div>
       </div>` : '';
 
@@ -8869,6 +8999,11 @@ function pmDuplicateProject(i){if(typeof __reqEdit==='function' && !__reqEdit(wi
     if(original){
       const clone = JSON.parse(JSON.stringify(original));
       clone.id = newId;
+      clone.rows = (clone.rows||[]).map(function(r,ri){
+        var nr = JSON.parse(JSON.stringify(r||{}));
+        nr.id = 'r_'+newId+'_'+Date.now()+'_'+ri+'_'+Math.floor(Math.random()*1000000);
+        return nr;
+      });
       sheets.push(clone);
     }else{
       sheets.push({ id:newId, label:'Folha', rows:[], header:{}, book:'', fadiga:null });
@@ -9108,7 +9243,9 @@ function pmDetachSheet(sid){
     if(idx!==-1){
       sheets.splice(idx,1);
       document.getElementById('c-'+sid)?.remove();
-      if(sheets.length > 0 && typeof renderTabs === 'function') renderTabs();
+      if(typeof renderTabs === 'function') renderTabs();
+      if(typeof saveSheets === 'function') saveSheets();
+      if(typeof persistNow === 'function') persistNow();
     }
   }
 }
@@ -10226,11 +10363,9 @@ function dbRenderList(){
       });
     });
 
-    // TTP empresa = 100 − Allowance Total médio ponderado pelo TN
-    var empresaAllow = totalNormalSec > 0 && sheetsWithAllow > 0
-      ? (sumAllowWeighted / totalNormalSec)
-      : null;
-    var empresaTTP = empresaAllow === null ? null : (100 - empresaAllow);
+    // TTP empresa = ocupação efetiva ponderada: Σ Tempo Padrão ÷ Σ Bruto.
+    var empresaTTP = totalNormalSec > 0 ? (totalStdSec / totalNormalSec * 100) : null;
+    var empresaAllow = empresaTTP === null ? null : (100 - empresaTTP);
     var ttpColor = empresaAllow === null ? 'var(--text3)'
       : empresaAllow >= 22 ? 'var(--red)'
       : empresaAllow >= 18 ? 'var(--orange)'
@@ -10668,11 +10803,8 @@ function openCompanyPage(clientName){
       var sh = typeof get === 'function' ? get(sid) : null;
       if(sh){
         var m = computeSheetMetrics(sh);
-        var _fadD = (sh.fadiga && typeof sh.fadiga==='object') ? mtmCalcFadiga(sh.fadiga) : null;
-        var _allowD = _fadD ? _fadD.allowTotal : m.allowPct;
-        var _stdD = +(m.totalSec * (1 + _allowD/100)).toFixed(4);
         totalSecBruto += m.totalSec;
-        totalStdSec += _stdD;
+        totalStdSec += m.stdSec;
         totalVA += m.va; totalNVA += m.nva; totalNNVA += m.nnva; totalUnc += m.unc;
         allSheets.push({ sheet: sh, projectName: p.name, metrics: m });
         (sh.rows||[]).forEach(function(r){
@@ -10783,8 +10915,8 @@ function openCompanyPage(clientName){
         if(m.allowPct > 0) pSumAllow += m.allowPct * m.totalSec;
       }
     });
-    var pAllow = pNormSec > 0 && pSumAllow > 0 ? (pSumAllow / pNormSec) : null;
-    var pTTP   = pAllow === null ? null : (100 - pAllow);
+    var pTTP   = pNormSec > 0 ? (pStdSec / pNormSec * 100) : null;
+    var pAllow = pTTP === null ? null : (100 - pTTP);
     var pTTPColor = pAllow === null ? 'var(--text3)'
       : pAllow >= 22 ? 'var(--red)'
       : pAllow >= 18 ? 'var(--orange)'
@@ -10853,11 +10985,8 @@ function openFolderPage(fid){
       var sh = typeof get === 'function' ? get(sid) : null;
       if(sh){
         var m = computeSheetMetrics(sh);
-        var _fadD = (sh.fadiga && typeof sh.fadiga==='object') ? mtmCalcFadiga(sh.fadiga) : null;
-        var _allowD = _fadD ? _fadD.allowTotal : m.allowPct;
-        var _stdD = +(m.totalSec * (1 + _allowD/100)).toFixed(4);
         totalSecBruto += m.totalSec;
-        totalStdSec += _stdD;
+        totalStdSec += m.stdSec;
         totalVA += m.va; totalNVA += m.nva; totalNNVA += m.nnva; totalUnc += m.unc;
         (sh.rows||[]).forEach(function(r){
           var c = (r.code||'').toUpperCase().trim();
@@ -10941,8 +11070,8 @@ function openFolderPage(fid){
           if(m.allowPct > 0) pSumAllow += m.allowPct * m.totalSec;
         }
       });
-      var pAllow = pNormSec > 0 && pSumAllow > 0 ? (pSumAllow / pNormSec) : null;
-      var pTTP   = pAllow === null ? null : (100 - pAllow);
+      var pTTP   = pNormSec > 0 ? (pStdSec / pNormSec * 100) : null;
+      var pAllow = pTTP === null ? null : (100 - pTTP);
       var pTTPColor = pAllow === null ? 'var(--text3)'
         : pAllow >= 22 ? 'var(--red)'
         : pAllow >= 18 ? 'var(--orange)'
@@ -11414,6 +11543,11 @@ function dbDuplicateProjectInFolder(fid, pi){if(typeof __reqEdit==='function' &&
       clone.id = newId;
       clone.header = clone.header || {};
       clone.header.projeto = nome;
+      clone.rows = (clone.rows||[]).map(function(r,ri){
+        var nr = JSON.parse(JSON.stringify(r||{}));
+        nr.id = 'r_'+newId+'_'+Date.now()+'_'+ri+'_'+Math.floor(Math.random()*1000000);
+        return nr;
+      });
       sheets.push(clone);
     }else{
       sheets.push({ id:newId, label:'Folha', rows:[], header:{ projeto:nome }, book:'', fadiga:null });
@@ -11477,11 +11611,18 @@ function dbImportBackup(input){
       }
       if(Array.isArray(data.sheets)){
         sheets = data.sheets;
-        saveSheets();
-        // Forçar re-render das folhas abertas
+        // Força IDs válidos em backups antigos e reconstrói somente a folha ativa.
+        try{ sheets.forEach(function(sh){ if(typeof ensureSheetRowIds==='function') ensureSheetRowIds(sh); }); }catch(_e){}
         document.querySelectorAll('.folha-content').forEach(function(el){ el.remove(); });
-        sheets.forEach(function(s){ renderContent(s.id); });
+        activeId = null;
         if(typeof renderTabs === 'function') renderTabs();
+        if(sheets.length){
+          if(typeof setActive === 'function') setActive(sheets[0].id);
+          else if(typeof renderContent === 'function') renderContent(sheets[0].id);
+          try{ sheets.forEach(function(sh){ recalcSheet(sh.id); }); }catch(_e){}
+        }
+        if(typeof saveSheets === 'function') saveSheets();
+        if(typeof persistNow === 'function') persistNow();
       }
       alert('Backup restaurado com sucesso!');
       dbRenderList();
@@ -11706,10 +11847,10 @@ function balCalcProjeto(proj, params){
     if(!sh) return;
     var m = computeSheetMetrics(sh);
     var fad = (sh.fadiga && typeof sh.fadiga === 'object') ? mtmCalcFadiga(sh.fadiga) : null;
-    // Quando TTP manual está definido, usa o percentual como ocupação direta; quando = 0, usa o bruto.
+    // Quando TTP manual está definido, ele representa disponibilidade produtiva; quando = 0, usa o bruto.
     var manualTTP = parseFloat((sh.header && sh.header.manualTTP) || 0) || 0;
     var allowUsed = manualTTP > 0 ? +(100 - manualTTP).toFixed(4) : 0;
-    // m.stdSec usa ocupação direta: Bruto × (TTP/100)
+    // m.stdSec incorpora a indisponibilidade: Bruto ÷ (TTP/100)
     var stdSec = m.stdSec;
     if(stdSec <= 0) return;
     posts.push({
@@ -12776,7 +12917,7 @@ function buildSheetDetailSection(){
       + '<div style="flex:1;min-width:140px;background:var(--surface2);border:1px solid var(--green);border-radius:8px;padding:8px 12px">'
       +   '<div style="font-size:9px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Tempo de Ciclo Final (TS)</div>'
       +   '<div id="frp-ts-'+s.id+'" style="font-size:16px;font-weight:800;color:var(--green);font-family:\'JetBrains Mono\',monospace">'+(x.stdSec ? x.stdSec.toFixed(2).replace('.',',') : '—')+' s</div>'
-      +   '<div style="font-size:9px;color:var(--text3);margin-top:2px">TN × (1 + Allowance/100)'+(function(){ var _u=getPcsCicloUnit(s.header); return x.pcsCiclo&&x.pcsCiclo>1?' · '+x.pcsCiclo+' '+_u.abbr+'/ciclo':''; })()+'</div>'
+      +   '<div style="font-size:9px;color:var(--text3);margin-top:2px">TOTAL BRUTO ÷ (TTP/100)'+(function(){ var _u=getPcsCicloUnit(s.header); return x.pcsCiclo&&x.pcsCiclo>1?' · '+x.pcsCiclo+' '+_u.abbr+'/ciclo':''; })()+'</div>'
       + '</div>'
       + '<div style="flex:1;min-width:130px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:8px 12px">'
       +   '<div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Quantidade de '+(getPcsCicloUnit(s.header).label)+'</div>'
@@ -12811,10 +12952,10 @@ function buildSheetDetailSection(){
       + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">'
       + box('Tempo Produtivo', 'frp-tprod-'+s.id, 'Tdisp × TTP', 'var(--green)')
       + box('Takt Time', 'frp-takt-'+s.id,
-          (function(){ var _u=getPcsCicloUnit(s.header); return x.pcsCiclo&&x.pcsCiclo>1?'Tprod ÷ (Qtd ÷ '+x.pcsCiclo+' '+_u.abbr+'/ciclo)':'Tprod ÷ Quantidade'; })(),
+          (function(){ var _u=getPcsCicloUnit(s.header); return x.pcsCiclo&&x.pcsCiclo>1?'Tdisp ÷ (Qtd ÷ '+x.pcsCiclo+' '+_u.abbr+'/ciclo)':'Tdisp ÷ Quantidade'; })(),
           'var(--accent)')
       + box('Capacidade (1 colab.)', 'frp-cap-'+s.id,
-          (function(){ var _u=getPcsCicloUnit(s.header); return x.pcsCiclo&&x.pcsCiclo>1?'⌊Tprod÷TS⌋ × '+x.pcsCiclo+' '+_u.abbr+'/ciclo':'⌊Tprod ÷ TS⌋'; })(),
+          (function(){ var _u=getPcsCicloUnit(s.header); return x.pcsCiclo&&x.pcsCiclo>1?'⌊Tdisp÷TS⌋ × '+x.pcsCiclo+' '+_u.abbr+'/ciclo':'⌊Tdisp ÷ TS⌋'; })(),
           'var(--purple)')
       + box('Colab. Necessários', 'frp-colab-'+s.id, '⌈TS ÷ Takt⌉', 'var(--orange)')
       + '</div>'
@@ -12905,7 +13046,7 @@ function frpAggregate(sid){
     raw += x.tnSec;
     parts.push({ id:id, label:(x.sheet.label||'Folha'), stdSec:x.stdSec, allow:x.allowUsed });
   });
-  var allow = raw > 0 ? +(100 - ((ts / raw) * 100)).toFixed(2) : (parts[0] ? parts[0].allow : 0);
+  var allow = (raw > 0 && ts > 0) ? +(100 - ((raw / ts) * 100)).toFixed(2) : (parts[0] ? parts[0].allow : 0);
   return { ts:+ts.toFixed(4), raw:+raw.toFixed(4), allow:allow, parts:parts, combined: parts.length > 1, ids:sel };
 }
 // Renderiza os chips de seleção de folhas para a folha `sid`
@@ -13011,7 +13152,7 @@ function saveTTPManual(sid){
   var s = (typeof get === 'function') ? get(sid) : null; if(!s) return;
   if(!s.header) s.header = {};
   var inp = document.getElementById('ttp-manual-'+sid);
-  var val = parseFloat(inp && inp.value);
+  var val = mtmParseNumber(inp && inp.value,0);
   var norm = (isFinite(val) && val > 0) ? Math.min(100, Math.max(0, val)) : 0;
   s.header.manualTTP = norm;
   if(inp && isFinite(val) && val !== norm) inp.value = norm;
@@ -13023,8 +13164,8 @@ function saveTTPManual(sid){
 // Recalcula a Análise Final de uma folha no Relatório (Horas/Demanda editáveis).
 // Usa exatamente a fórmula do painel por folha (anexo), porém com o Tempo
 // Padrão = SOMA das folhas selecionadas (ver frpAggregate):
-//   TTP = 100 − Allowance · Tdisp = h×3600 · Tprod = Tdisp×TTP/100
-//   Takt = Tprod ÷ Demanda · Capacidade = ⌊Tprod ÷ Takt⌋ · Colab = ⌈TS ÷ Takt⌉
+//   TTP = 100 − perda de disponibilidade · Tdisp = h×3600 · Tprod = Tdisp×TTP/100
+//   TS = bruto ÷ (TTP/100) · Takt = Tdisp ÷ Demanda · Capacidade = ⌊Tdisp ÷ TS⌋ · Colab = ⌈TS ÷ Takt⌉
 function frpAnalise(sid){
   try{
     var s = (typeof get==='function') ? get(sid) : null; if(!s) return;
@@ -13068,9 +13209,9 @@ function frpAnalise(sid){
     // dem_ciclos = dem ÷ pcsCiclo (ciclos necessários para produzir as peças)
     var dem_ciclos = (pcsCic > 1 && dem > 0) ? dem / pcsCic : dem;
     // Takt por ciclo: Tprod ÷ ciclos necessários
-    var takt  = dem_ciclos > 0 ? tprod / dem_ciclos : 0;
-    // Cap. 1 colab. = ⌊Tprod ÷ TS⌋ × pçs/ciclo
-    var capUm = (ts > 0 && tprod > 0) ? Math.floor(tprod / ts) * pcsCic : 0;
+    var takt  = dem_ciclos > 0 ? tdis / dem_ciclos : 0;
+    // Cap. 1 colab. = ⌊Tdisp ÷ TS⌋ × pçs/ciclo
+    var capUm = (ts > 0 && tdis > 0) ? Math.floor(tdis / ts) * pcsCic : 0;
     // Colab. = ⌈TS ÷ Takt⌉  (takt já é por ciclo)
     var colab = (ts > 0 && takt > 0) ? Math.ceil(ts / takt) : 0;
     // ── Verificar se é folha de Processo de Máquina ──
@@ -13398,18 +13539,19 @@ function frpAggregateAll(premissa, manualPct){
   // Allowance e Tempo Padrão combinados conforme a premissa escolhida
   var allow, ts;
   if(premissa === 'sese'){
-    allow = 10;
-    ts = raw * 1.10;
+    allow = 10;          // perda de disponibilidade 10% → TTP 90%
+    ts = raw / 0.90;
   } else if(premissa === 'global'){
-    allow = 15;          // Padrão Global: TTP de 85% → allowance de 15%
-    ts = raw * 1.15;
+    allow = 15;          // perda de disponibilidade 15% → TTP 85%
+    ts = raw / 0.85;
   } else if(premissa === 'manual'){
     var mp = parseFloat(manualPct);
-    allow = (isNaN(mp) || mp < 0) ? 0 : mp;
-    ts = raw * (1 + allow/100);
+    allow = (isNaN(mp) || mp < 0) ? 0 : Math.min(99.99, mp);
+    var ttpManualEq = 100 - allow;
+    ts = ttpManualEq > 0 ? raw / (ttpManualEq/100) : raw;
   } else { // 'real'
     ts = tsReal;
-    allow = raw > 0 ? 100 - ((tsReal / raw) * 100) : 0;
+    allow = (raw > 0 && tsReal > 0) ? 100 - ((raw / tsReal) * 100) : 0;
   }
   return {
     premissa: premissa,
@@ -13481,8 +13623,8 @@ function buildCombinedAnalysisSection(){
     + '</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">'
     + box('Tempo Produtivo', 'frp-tprod-__ALL__', 'Tdisp × TTP', 'var(--green)')
-    + box('Takt Time', 'frp-takt-__ALL__', 'Tprod ÷ Demanda', 'var(--accent)')
-    + box('Capacidade (1 colab.)', 'frp-cap-__ALL__', 'Tprod ÷ Takt', 'var(--purple)')
+    + box('Takt Time', 'frp-takt-__ALL__', 'Tdisp ÷ Demanda', 'var(--accent)')
+    + box('Capacidade (1 colab.)', 'frp-cap-__ALL__', 'Tdisp ÷ TS', 'var(--purple)')
     + box('Colab. Necessários', 'frp-colab-__ALL__', '⌈Σ TS ÷ Takt⌉', 'var(--orange)')
     + '</div>'
     + '<div id="frp-sim-__ALL__" style="margin-top:10px"></div>'
@@ -13533,8 +13675,8 @@ function frpAnaliseAll(){
 
     // dem_ciclos: ciclos necessários para produzir a demanda
     var dem_ciclos = (pcsCic > 1 && dem > 0) ? dem / pcsCic : dem;
-    var takt  = dem_ciclos > 0 ? tprod / dem_ciclos : 0;
-    var capUm = (ts > 0 && tprod > 0) ? Math.floor(tprod / ts) * pcsCic : 0;
+    var takt  = dem_ciclos > 0 ? tdis / dem_ciclos : 0;
+    var capUm = (ts > 0 && tdis > 0) ? Math.floor(tdis / ts) * pcsCic : 0;
     var colab = (ts > 0 && takt > 0) ? Math.ceil(ts / takt) : 0;
 
     var _uAll = frpCombinedUnit(); // caixa/carreta/truck (se todas as folhas iguais) ou "itens"
@@ -13548,7 +13690,7 @@ function frpAnaliseAll(){
     var simEl = document.getElementById('frp-sim-__ALL__');
     if(simEl){
       var ciclo   = people > 0 ? ts / people : ts;
-      var capN    = (ciclo > 0) ? Math.floor(tprod / ciclo) * pcsCic : 0;
+      var capN    = (ciclo > 0) ? Math.floor(tdis / ciclo) * pcsCic : 0;
       var pphN    = (h > 0) ? capN / h : 0;
       var satN    = (takt > 0) ? (ciclo / takt * 100) : null;
       var atende  = (dem > 0) ? (capN >= dem) : null;
@@ -13573,7 +13715,7 @@ function frpAnaliseAll(){
         + (dem > 0
             ? '<div style="margin-top:8px;font-size:11px;color:var(--text3)">Com <b style="color:var(--purple)">'+people+'</b> pessoa(s), capacidade de <b>'+capN.toLocaleString('pt-BR')+'</b> '+_uAll.abbr+' '+(atende?'<b style="color:var(--green)">atende</b>':'<b style="color:var(--red)">NÃO atende</b>')+' a demanda de '+dem+' '+_uAll.abbr+' em '+h+'h.</div>'
             : '<div style="margin-top:8px;font-size:11px;color:var(--text3)">Informe a <b>Demanda</b> para avaliar se '+people+' pessoa(s) atende(m) o volume.</div>')
-        + (pcsCic > 1 ? '<div style="margin-top:4px;font-size:9px;color:var(--accent);font-style:italic">'+pcsCic+' '+_uAll.abbr+'/ciclo aplicado — capacidade multiplicada: ⌊Tprod÷ciclo⌋ × '+pcsCic+'</div>' : '')
+        + (pcsCic > 1 ? '<div style="margin-top:4px;font-size:9px;color:var(--accent);font-style:italic">'+pcsCic+' '+_uAll.abbr+'/ciclo aplicado — capacidade multiplicada: ⌊Tdisp÷ciclo⌋ × '+pcsCic+'</div>' : '')
         + (simulTs > 0 ? '<div style="margin-top:6px;font-size:9px;color:var(--text3);font-style:italic">TS efetivo = '+ts.toFixed(2)+'s ('+simulTs.toFixed(2)+'s em simultâneas excluídas)</div>' : '')
         + '<div style="margin-top:4px;font-size:9px;color:var(--text3);font-style:italic">Modelo: postos balanceados em paralelo (ciclo ≈ Σ TS ÷ nº de pessoas). Confirme se reflete o arranjo real da sua linha.</div>';
     }
@@ -13581,7 +13723,7 @@ function frpAnaliseAll(){
     // ── Σ Tempo Padrão com toggles SEQ/SIMUL. ──
     var sumEl = document.getElementById('frp-sum-__ALL__');
     if(sumEl){
-      var premLbl = premise==='sese' ? 'Padrão SESÉ 10%' : (premise==='global' ? 'Padrão Global 85% (allow 15%)' : (premise==='manual' ? 'Manual '+allow.toFixed(1)+'%' : 'Real por folha'));
+      var premLbl = premise==='sese' ? 'Padrão SESÉ 10%' : (premise==='global' ? 'Padrão Global TTP 85% (perda 15%)' : (premise==='manual' ? 'Manual '+allow.toFixed(1)+'%' : 'Real por folha'));
       var linesAll = agg.parts.map(function(p){
         var isSimul = !!simulMapAll[p.id];
         var btnBg  = isSimul ? 'rgba(234,179,8,.18)' : 'rgba(0,229,160,.12)';
@@ -13655,12 +13797,12 @@ function buildTTPSection(){
     var _uttp   = (typeof getPcsCicloUnit==='function') ? getPcsCicloUnit(s.header) : {abbr:'unidade', label:'Unidade'};
     // dem = "Quantidade de Peças"; dem_ciclos = ciclos necessários (dem ÷ pcsCiclo)
     var dem_ciclos = (pcsCic > 1 && dem > 0) ? dem / pcsCic : dem;
-    var takt    = dem_ciclos > 0 ? tprod / dem_ciclos : 0;   // takt por CICLO
-    // Cap. 1 colab. = ⌊Tprod ÷ TS⌋ × unidade/ciclo
-    var capUm   = (ts > 0 && tprod > 0) ? Math.floor(tprod / ts) * pcsCic : 0;
+    var takt    = dem_ciclos > 0 ? tdis / dem_ciclos : 0;   // takt calendário por CICLO; TTP já está no TS
+    // Cap. 1 colab. = ⌊Tdisp ÷ TS⌋ × unidade/ciclo
+    var capUm   = (ts > 0 && tdis > 0) ? Math.floor(tdis / ts) * pcsCic : 0;
     // Colab. = ⌈TS ÷ Takt⌉  (takt já é por ciclo, não multiplica pcsCiclo)
     var colabNeed = (ts > 0 && takt > 0) ? Math.ceil(ts / takt) : 0;
-    var capColab  = (colabNeed > 0 && ts > 0) ? Math.floor(tprod * colabNeed / ts) * pcsCic : 0;
+    var capColab  = (colabNeed > 0 && ts > 0) ? Math.floor(tdis * colabNeed / ts) * pcsCic : 0;
     var ocio    = m.takt > 0 ? Math.max(0, m.takt - ts) : 0;
     var ocioRel = m.takt > 0 ? ((m.takt - ts) / m.takt * 100) : null;
 
@@ -13673,7 +13815,7 @@ function buildTTPSection(){
     var isMaquina = !!(s.header && s.header.maquina);
     var manualTTPVal = parseFloat((s.header && s.header.manualTTP) || 0) || 0;
     var ttpLabel = manualTTPVal > 0 ? 'TTP Manual (%)' : 'TTP (bruto)';
-    var allowLabel = manualTTPVal > 0 ? 'Allow. Implícito' : 'Allowance';
+    var allowLabel = manualTTPVal > 0 ? 'Perda Disponibilidade' : 'Allowance';
 
     html += '<div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;margin-bottom:14px;position:relative;overflow:hidden">'
       + '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--accentGrad)"></div>'
@@ -13711,10 +13853,10 @@ function buildTTPSection(){
         + '<br>'
         + (pcsCic > 1
             ? 'Ciclos = ' + dem.toLocaleString('pt-BR') + ' ' + _uttp.abbr + ' ÷ ' + pcsCic + ' ' + _uttp.abbr + '/ciclo = ' + Math.round(dem_ciclos).toLocaleString('pt-BR') + ' ciclos  |  '
-              + 'Takt = ' + Math.round(tprod).toLocaleString('pt-BR') + ' ÷ ' + Math.round(dem_ciclos).toLocaleString('pt-BR') + ' = ' + takt.toFixed(2) + ' s/ciclo'
-            : 'Takt = ' + Math.round(tprod).toLocaleString('pt-BR') + ' ÷ ' + dem.toLocaleString('pt-BR') + ' = ' + takt.toFixed(2) + ' s')
+              + 'Takt = ' + tdis.toLocaleString('pt-BR') + ' ÷ ' + Math.round(dem_ciclos).toLocaleString('pt-BR') + ' = ' + takt.toFixed(2) + ' s/ciclo'
+            : 'Takt = ' + tdis.toLocaleString('pt-BR') + ' ÷ ' + dem.toLocaleString('pt-BR') + ' = ' + takt.toFixed(2) + ' s')
         + ' | '
-        + 'Cap. = ⌊' + Math.round(tprod).toLocaleString('pt-BR') + ' ÷ ' + ts.toFixed(2) + '⌋'
+        + 'Cap. = ⌊' + tdis.toLocaleString('pt-BR') + ' ÷ ' + ts.toFixed(2) + '⌋'
         + (pcsCic > 1 ? ' × ' + pcsCic + ' ' + _uttp.abbr + '/ciclo' : '')
         + ' = ' + capUm.toLocaleString('pt-BR') + ' ' + _uttp.abbr
         + ' | '
@@ -14238,6 +14380,7 @@ function bootSheetsOnce(){
         })
       };
     });
+    sheets.forEach(function(s){ ensureSheetRowIds(s); });
     // Ajustar contador para não colidir IDs
     sheets.forEach(function(s){
       var mm = /sh(\d+)_/.exec(s.id);
@@ -15205,11 +15348,11 @@ function mtmCollectFinalReport(){
   var allMetrics = (typeof scopedSheets==='function'?scopedSheets():(sheets||[])).map(function(s){
     var m   = computeSheetMetrics(s);
     var fad = (s.fadiga && typeof s.fadiga === 'object') ? mtmCalcFadiga(s.fadiga) : null;
-    // Quando TTP manual está definido: ele representa a ocupação direta do TOTAL bruto.
-    // O complemento 100 − TTP fica apenas como referência; quando TTP = 0, stdSec = bruto.
-    var manualTTP  = parseFloat((s.header && s.header.manualTTP) || 0) || 0;
+    // Quando TTP manual está definido: ele representa a disponibilidade produtiva do período.
+    // O complemento 100 − TTP é a perda de disponibilidade; quando TTP = 0, stdSec = bruto.
+    var manualTTP  = mtmParseNumber((s.header && s.header.manualTTP) || 0,0);
     var allowUsed  = manualTTP > 0 ? +(100 - manualTTP).toFixed(4) : 0;
-    // m.stdSec já reflete a ocupação direta: Bruto × (TTP/100)
+    // m.stdSec já incorpora a disponibilidade: Bruto ÷ (TTP/100)
     var stdSec     = m.stdSec;
     var tnSec      = m.totalSec;
     var pcsCiclo   = (m.pcsCiclo && m.pcsCiclo > 0) ? m.pcsCiclo : 1;
@@ -16623,27 +16766,30 @@ window.MTM_XLSX_SMART = window.MTM_XLSX_SMART || (function(){
 })();
 
 function _xlCalcSheetMetrics(s){
-  var h = s.header || {};
-  var rows = s.rows || [];
-  var tmu = 0;
-  rows.forEach(function(r){
-    var q = parseFloat(r.q)||1, f = parseFloat(r.f)||1, t = parseFloat(r.tmu)||0;
-    tmu += t * q * f;
-  });
-  var aP = parseFloat(h.allowPersonal)||0;
-  var aF = parseFloat(h.allowFatigue)||0;
-  var aC = parseFloat(h.allowContingency)||0;
-  var allowHeader = aP+aF+aC;
-  // Tempo Padrão usa a premissa de fadiga (TV+TER / SESÉ 10% / Global 15%) quando há
-  // Análise de Fadiga na folha; só cai no allowance do cabeçalho se não houver análise.
-  var _fad = (s.fadiga && typeof s.fadiga==='object' && typeof mtmCalcFadiga==='function') ? mtmCalcFadiga(s.fadiga) : null;
-  var allowTotal = _fad ? _fad.allowTotal : allowHeader;
-  var stdSec = (tmu * 0.036) * (1 + allowTotal/100);
-  var pcsCiclo = (function(){ var v = parseFloat(h.pcsCiclo); return (isFinite(v) && v > 0) ? v : 1; })();
-  var pph = stdSec > 0 ? Math.floor((3600/stdSec) * pcsCiclo) : 0;
-  return {tmu:tmu, stdSec:stdSec, pph:pph, allow:allowTotal, pcsCiclo:pcsCiclo};
+  // Exportação usa a MESMA fonte de verdade da folha para impedir divergência Tela × Excel.
+  if(typeof computeSheetMetrics === 'function'){
+    var cm = computeSheetMetrics(s);
+    var pcs = cm.pcsCiclo || 1;
+    var pphCentral = cm.stdSec > 0 ? Math.floor((3600/cm.stdSec) * pcs) : 0;
+    return {
+      tmu:cm.totalTmu,
+      grossSec:cm.totalSec,
+      stdSec:cm.stdSec,
+      pph:pphCentral,
+      allow:(cm.manualTTP>0 ? +(100-cm.manualTTP).toFixed(2) : 0),
+      ttp:cm.manualTTP||0,
+      pcsCiclo:pcs
+    };
+  }
+  var h = s.header || {}, rows = s.rows || [], tmu = 0;
+  rows.forEach(function(r){ tmu += mtmParseNumber(r.tmu,0) * mtmFactor(r.q) * mtmFactor(r.f); });
+  var grossSec = tmu * 0.036;
+  var manualTTP = Math.min(100,Math.max(0,mtmParseNumber(h.manualTTP,0)));
+  var stdSec = manualTTP>0 ? grossSec/(manualTTP/100) : grossSec;
+  var pcsCiclo = (function(){ var v=mtmParseNumber(h.pcsCiclo,1); return v>0?v:1; })();
+  var pph = stdSec > 0 ? Math.floor((3600/stdSec)*pcsCiclo) : 0;
+  return {tmu:tmu,grossSec:grossSec,stdSec:stdSec,pph:pph,allow:manualTTP>0?100-manualTTP:0,ttp:manualTTP,pcsCiclo:pcsCiclo};
 }
-
 function _xlSafeSheetName(name, taken){
   // Excel: max 31 chars, no \ / ? * [ ]
   var clean = String(name||'Folha').replace(/[\\\/\?\*\[\]\:]/g,'_').trim().substring(0,28) || 'Folha';
@@ -16757,7 +16903,7 @@ function exportExcel(only){
       ['Total de folhas', _xs.length],
       [],
       ['Folha','Empresa','Projeto','Processo','Código','Data','Planta','Engenheiro','Operador/Posto',
-       'TMU Total','Tempo Padrão (s)','Peças/h','Takt (s)','Allow Total (%)','Linhas']
+       'TMU Total','Tempo Padrão (s)','Peças/h','Takt (s)','Perda Disponib. (%)','TTP Manual (%)','Linhas']
     ];
     var grandTmu = 0, grandStd = 0;
     _xs.forEach(function(s){
@@ -16768,16 +16914,16 @@ function exportExcel(only){
         s.label, h.empresa||'', h.projeto||'', h.processo||'', h.codigo||'', h.data||'',
         h.planta||'', h.eng||'', h.operator||'',
         +m.tmu.toFixed(2), +m.stdSec.toFixed(3), m.pph,
-        parseFloat(h.takt)||'', m.allow, (s.rows||[]).length
+        mtmParseNumber(h.takt,0)||'', m.allow, m.ttp||'', (s.rows||[]).length
       ]);
     });
     resumoAoa.push([]);
     var grandPph = grandStd > 0 ? Math.floor(3600/grandStd) : 0;
-    resumoAoa.push(['SOMA / TOTAL','','','','','','','','', +grandTmu.toFixed(2), +grandStd.toFixed(3), grandPph,'','','']);
+    resumoAoa.push(['SOMA / TOTAL','','','','','','','','', +grandTmu.toFixed(2), +grandStd.toFixed(3), grandPph,'','','','']);
     var wsResumo = XLSX.utils.aoa_to_sheet(resumoAoa);
     wsResumo['!cols'] = [
       {wch:22},{wch:22},{wch:22},{wch:24},{wch:14},{wch:11},{wch:14},{wch:18},{wch:18},
-      {wch:12},{wch:14},{wch:9},{wch:9},{wch:13},{wch:8}
+      {wch:12},{wch:14},{wch:9},{wch:9},{wch:13},{wch:12},{wch:8}
     ];
     // Configurar impressão da aba Resumo
     wsResumo['!pageSetup'] = {orientation:'landscape', paperSize:9, fitToWidth:1, fitToHeight:0};
@@ -16812,6 +16958,9 @@ function exportExcel(only){
       aoaG.push(['Takt (s)',        parseFloat(h.takt)||'']);
       aoaG.push(['Demanda (peças)', parseFloat(h.demand)||'']);
       aoaG.push(['Peças por ciclo', m.pcsCiclo]);
+      aoaG.push(['TTP Manual / Ocupação (%)', m.ttp || '']);
+      aoaG.push(['Unidade da demanda', h.demandUnit || 'turno']);
+      aoaG.push(['Unidade por ciclo', h.pcsCicloUnit || 'unidade']);
       aoaG.push([]);
 
       aoaG.push(['╔ ALLOWANCES APLICADAS ╗']);
@@ -16937,7 +17086,7 @@ function exportExcel(only){
       aoaG.push(['Tempo Padrão (s)',    +m.stdSec.toFixed(3)]);
       aoaG.push(['Peças/hora',          m.pph]);
       aoaG.push(['Peças por ciclo',     m.pcsCiclo]);
-      aoaG.push(['Allowance Total (%)', m.allow]);
+      aoaG.push(['Perda Disponibilidade (%)', m.allow]);
       aoaG.push(['Linhas da análise',   (s.rows||[]).length]);
       aoaG.push([]);
 
@@ -16970,7 +17119,8 @@ function exportExcel(only){
       aoaM.push(['ANÁLISE MTM', s.label]);
       aoaM.push(['Empresa',     h.empresa||'',    'Projeto',  h.projeto||'']);
       aoaM.push(['Processo',    h.processo||'',   'Operador', h.operator||'']);
-      aoaM.push(['Takt (s)',    parseFloat(h.takt)||'', 'Tempo Padrão (s)', +m.stdSec.toFixed(3)]);
+      aoaM.push(['Takt (s)',    mtmParseNumber(h.takt,0)||'', 'Tempo Padrão (s)', +m.stdSec.toFixed(3)]);
+      aoaM.push(['TTP Manual / Ocupação (%)', m.ttp || '', 'Tempo Bruto (s)', +(m.grossSec||0).toFixed(3)]);
       // Linha extra com info da planilha de fadiga (se preenchida)
       if(s.fadiga && (s.fadiga.tipo || s.fadiga.secao || s.fadiga.operacao || s.fadiga.descLinha)){
         aoaM.push(['Nº Tipo', s.fadiga.tipo||'', 'Seção', s.fadiga.secao||'', 'Operação', s.fadiga.operacao||'']);
@@ -16994,15 +17144,15 @@ function exportExcel(only){
           desc,
           r.agrega||'',
           code,
-          r.tmu===''||r.tmu==null ? '' : (parseFloat(r.tmu)||0),
-          r.q  ===''||r.q  ==null ? '' : (parseFloat(r.q)  ||0),
-          r.f  ===''||r.f  ==null ? '' : (parseFloat(r.f)  ||0),
+          r.tmu===''||r.tmu==null ? '' : mtmParseNumber(r.tmu,0),
+          r.q  ===''||r.q  ==null ? '' : mtmParseNumber(r.q,0),
+          r.f  ===''||r.f  ==null ? '' : mtmParseNumber(r.f,0),
           parseFloat(r.ttmu)||0,
           parseFloat(r.tsec)||0
         ]);
       });
       aoaM.push([]);
-      aoaM.push(['','','','','','TOTAL', +m.tmu.toFixed(2), +m.stdSec.toFixed(3)]);
+      aoaM.push(['','','','','','TOTAL BRUTO', +m.tmu.toFixed(2), +(m.grossSec||0).toFixed(3)]);
 
       // Fadiga resumida ao final da aba MTM (se foi preenchida)
       if(fad && s.fadiga.modoAllow !== 'none'){
@@ -17032,7 +17182,34 @@ function exportExcel(only){
       XLSX.utils.book_append_sheet(wb, wsM, nomeAba(s.label, ' · MTM'));
     });
 
-    /* ─── 3) Salvar ─── */
+    /* ─── 3) Metadados internos para reimportação sem perdas ─── */
+    try{
+      var metaSheets = _xs.map(function(ms){
+        return {
+          label:String(ms.label||'Folha'),
+          header:JSON.parse(JSON.stringify(ms.header||{})),
+          book:String(ms.book||''),
+          fadiga:(ms.fadiga && typeof ms.fadiga==='object') ? JSON.parse(JSON.stringify(ms.fadiga)) : null,
+          rows:(ms.rows||[]).map(function(r){ return {
+            desc:String(r.desc||''), agrega:String(r.agrega||''), code:String(r.code||''),
+            tmu:(r.tmu==null?'':r.tmu), q:(r.q==null?'':r.q), f:(r.f==null?'':r.f),
+            ttmu:(r.ttmu==null?0:r.ttmu), tsec:(r.tsec==null?0:r.tsec)
+          }; })
+        };
+      });
+      var metaObj = {format:'MTM_EXCEL_META_V2',version:2,createdAt:new Date().toISOString(),sheets:metaSheets};
+      var metaWs = XLSX.utils.aoa_to_sheet([['MTM_EXCEL_META_V2'],['JSON',JSON.stringify(metaObj)]]);
+      XLSX.utils.book_append_sheet(wb, metaWs, '__MTM_META');
+      try{
+        wb.Workbook = wb.Workbook || {};
+        wb.Workbook.Sheets = wb.Workbook.Sheets || [];
+        while(wb.Workbook.Sheets.length < wb.SheetNames.length) wb.Workbook.Sheets.push({});
+        var metaIdx = wb.SheetNames.indexOf('__MTM_META');
+        if(metaIdx >= 0) wb.Workbook.Sheets[metaIdx].Hidden = 2;
+      }catch(_metaHideErr){}
+    }catch(_metaErr){ console.warn('Metadados de reimportação não puderam ser gravados:', _metaErr); }
+
+    /* ─── 4) Salvar ─── */
     var stamp = new Date().toISOString().slice(0,10);
     var _solo = (_xs.length === 1) ? _xs[0] : null;
     var _fnbase = _solo
@@ -17077,6 +17254,47 @@ function importExcelHandle(input){
       var data = new Uint8Array(e.target.result);
       var wb = XLSX.read(data, {type:'array'});
 
+      // Excel exportado pela própria ferramenta: restauração exata pela aba interna oculta.
+      try{
+        var _metaWs = wb.Sheets && wb.Sheets['__MTM_META'];
+        if(_metaWs){
+          var _metaAoa = XLSX.utils.sheet_to_json(_metaWs,{header:1,defval:'',raw:true});
+          if(String(((_metaAoa[0]||[])[0])||'').trim()==='MTM_EXCEL_META_V2'){
+            var _metaObj = JSON.parse(String(((_metaAoa[1]||[])[1])||''));
+            if(_metaObj && _metaObj.format==='MTM_EXCEL_META_V2' && Array.isArray(_metaObj.sheets) && _metaObj.sheets.length){
+              var _exactSheets = _metaObj.sheets.map(function(ms,si){
+                var sid = gid();
+                return {
+                  id:sid,
+                  label:String(ms.label||('FOLHA '+(si+1))),
+                  header:(ms.header && typeof ms.header==='object') ? JSON.parse(JSON.stringify(ms.header)) : {},
+                  book:String(ms.book||''),
+                  fadiga:(ms.fadiga && typeof ms.fadiga==='object') ? JSON.parse(JSON.stringify(ms.fadiga)) : null,
+                  rows:Array.isArray(ms.rows) ? ms.rows.map(function(r,ri){ return {
+                    id:'r_'+sid+'_'+Date.now()+'_'+si+'_'+ri+'_'+Math.floor(Math.random()*1000000),
+                    desc:String(r.desc||''), agrega:String(r.agrega||''), code:String(r.code||''),
+                    tmu:(r.tmu==null?'':r.tmu), q:(r.q==null?'':r.q), f:(r.f==null?'':r.f),
+                    ttmu:(r.ttmu==null?0:r.ttmu), tsec:(r.tsec==null?0:r.tsec)
+                  }; }) : []
+                };
+              });
+              if(mode === 'replace'){
+                document.querySelectorAll('.folha-content').forEach(function(el){ el.remove(); });
+                sheets = _exactSheets;
+              }else sheets = (sheets||[]).concat(_exactSheets);
+              activeId = null;
+              renderTabs(); setActive(_exactSheets[0].id);
+              _exactSheets.forEach(function(es){ try{ recalcSheet(es.id); updateTotals(es.id); }catch(_e){} });
+              if(typeof saveSheets==='function') saveSheets();
+              if(typeof persistNow==='function') persistNow();
+              showToast('✅ Excel reimportado sem perdas: '+_exactSheets.length+' folha(s) de "'+file.name+'"');
+              input.value='';
+              return;
+            }
+          }
+        }
+      }catch(_metaReadErr){ console.warn('Falha ao ler metadados internos do Excel; usando parser normal.', _metaReadErr); }
+
       var headerKeyMap = {
         'processo':'processo',
         'codigo':'codigo','código':'codigo',
@@ -17093,6 +17311,10 @@ function importExcelHandle(input){
         'fadiga':'allowFatigue','fadiga (%)':'allowFatigue',
         'contingência':'allowContingency','contingencia':'allowContingency',
         'contingência (%)':'allowContingency','contingencia (%)':'allowContingency',
+        'ttp manual (%)':'manualTTP','ttp manual / ocupação (%)':'manualTTP','ocupação (%)':'manualTTP','ocupacao (%)':'manualTTP',
+        'unidade da demanda':'demandUnit','unidade por ciclo':'pcsCicloUnit',
+        'ttp manual (%)':'manualTTP','ttp manual / ocupação (%)':'manualTTP','ocupação (%)':'manualTTP','ocupacao (%)':'manualTTP',
+        'unidade da demanda':'demandUnit','unidade por ciclo':'pcsCicloUnit',
         'allow pessoal':'allowPersonal','allow pessoal (%)':'allowPersonal','allowance pessoal':'allowPersonal',
         'allow fadiga':'allowFatigue','allow fadiga (%)':'allowFatigue','allowance fadiga':'allowFatigue',
         'allow contingencia':'allowContingency','allow contingência':'allowContingency',
@@ -17869,8 +18091,13 @@ function openFadiga(){
   if(sub) sub.textContent = '— Folha: ' + (s.label || '');
   // Aplica estado salvo (ou defaults se primeira vez)
   fadAplicarEstado(s.fadiga || FAD_DEFAULTS);
-  // Mostra modal
-  document.getElementById('fad-overlay').classList.remove('hidden');
+  // Mostra modal somente se a interface deste módulo existir nesta compilação.
+  var fadOverlay = document.getElementById('fad-overlay');
+  if(!fadOverlay){
+    if(typeof showToast==='function') showToast('Módulo de Fadiga não está habilitado nesta versão da interface.', true);
+    return;
+  }
+  fadOverlay.classList.remove('hidden');
   // Aba inicial = TV
   fadShowTab('tv');
   // Recalcula
@@ -17901,7 +18128,7 @@ function closeFadiga(){
       if(typeof saveSheets === 'function') saveSheets();
     }
   }
-  document.getElementById('fad-overlay').classList.add('hidden');
+  var fadOverlay=document.getElementById('fad-overlay'); if(fadOverlay) fadOverlay.classList.add('hidden');
 }
 
 function fadCloseOnBg(e){
@@ -18106,11 +18333,11 @@ function _serializeSheet(s){
         desc:  r.desc    || '',
         agrega:r.agrega  || '',
         code:  r.code    || '',
-        tmu:   r.tmu     || '',
-        q:     r.q       || '',
-        f:     r.f       || '',
-        ttmu:  r.ttmu    || 0,
-        tsec:  r.tsec    || 0
+        tmu:   (r.tmu==null?'':r.tmu),
+        q:     (r.q==null?'':r.q),
+        f:     (r.f==null?'':r.f),
+        ttmu:  (r.ttmu==null?0:r.ttmu),
+        tsec:  (r.tsec==null?0:r.tsec)
       };
     })
   };
@@ -18983,12 +19210,8 @@ function balImportFromSheets(){
     if(!s || !s.rows) return;
     var m = (typeof computeSheetMetrics === 'function') ? computeSheetMetrics(s) : null;
     if(!m) return;
-    var fad = (s.fadiga && typeof mtmCalcFadiga === 'function') ? mtmCalcFadiga(s.fadiga) : null;
-    // m.stdSec já usa TTP manual como ocupação direta; fallback para fadiga se não houver TTP manual
-    var manualTTPBal = parseFloat((s.header && s.header.manualTTP) || 0) || 0;
-    var stdSec = manualTTPBal > 0 ? m.stdSec
-               : fad ? +(m.totalSec * (1 + fad.allowTotal/100)).toFixed(4)
-               : m.totalSec;
+    // Usa sempre o mesmo Tempo Padrão exibido na folha.
+    var stdSec = m.stdSec;
     if(stdSec <= 0) return;
     // Procurar se já existe linha com mesmo label
     var existing = balRows.find(function(r){
@@ -19151,9 +19374,9 @@ function balEsc(s){
 <script>
 (function(){
   function num(v){
-    if(v==null) return null;
-    var n = parseFloat(String(v).replace(',', '.'));
-    return isNaN(n) ? null : n;
+    if(v==null || String(v).trim()==='') return null;
+    var n = (typeof mtmParseNumber==='function') ? mtmParseNumber(v,NaN) : parseFloat(String(v).replace(',', '.'));
+    return isFinite(n) ? Math.max(0,n) : null;
   }
   function fmt(n){
     // remove zeros à direita desnecessários (40, 1.44, 0.9 ...)
@@ -19272,8 +19495,8 @@ function balEsc(s){
           rows: (s.rows||[]).map(function(r){
             return {
               id:r.id, desc:r.desc||'', agrega:r.agrega||'', code:r.code||'',
-              tmu:r.tmu||'', q:r.q||'', f:r.f||'',
-              ttmu:r.ttmu||0, tsec:r.tsec||0
+              tmu:(r.tmu==null?'':r.tmu), q:(r.q==null?'':r.q), f:(r.f==null?'':r.f),
+              ttmu:(r.ttmu==null?0:r.ttmu), tsec:(r.tsec==null?0:r.tsec)
             };
           })
         };
@@ -19288,8 +19511,8 @@ function balEsc(s){
     try{
       var key = (typeof SHEETS_KEY !== 'undefined') ? SHEETS_KEY : 'mtm_sheets_v1';
       var payload = _serialize();
-      // Só grava se houver algo a gravar (evita apagar dado por engano)
-      if(payload && payload.length){ localStorage.setItem(key, JSON.stringify(payload)); }
+      // Grava também o estado vazio. Se a última folha foi excluída, o vazio precisa persistir.
+      if(payload){ localStorage.setItem(key, JSON.stringify(payload)); }
       // Salva também o gerenciador de projetos (vínculo folha↔projeto), se existir
       try{ if(typeof pmData !== 'undefined' && pmData){ localStorage.setItem('pmgr_v3', JSON.stringify(pmData)); } }catch(e){}
     }catch(e){ /* localStorage cheio/indisponível: ignora silenciosamente */ }
@@ -19513,6 +19736,24 @@ function balEsc(s){
   function _parseFolhaFromWorkbook(wb){
     if(!wb || !wb.SheetNames || !wb.SheetNames.length) return null;
 
+    try{
+      var mws = wb.Sheets && wb.Sheets['__MTM_META'];
+      if(mws){
+        var ma = XLSX.utils.sheet_to_json(mws,{header:1,defval:'',raw:true});
+        if(String(((ma[0]||[])[0])||'').trim()==='MTM_EXCEL_META_V2'){
+          var mo = JSON.parse(String(((ma[1]||[])[1])||''));
+          if(mo && Array.isArray(mo.sheets) && mo.sheets.length){
+            var ms = mo.sheets[0];
+            return {label:String(ms.label||'Folha'),
+              header:(ms.header&&typeof ms.header==='object')?JSON.parse(JSON.stringify(ms.header)):{},
+              book:String(ms.book||''),
+              fadiga:(ms.fadiga&&typeof ms.fadiga==='object')?JSON.parse(JSON.stringify(ms.fadiga)):null,
+              rows:Array.isArray(ms.rows)?JSON.parse(JSON.stringify(ms.rows)):[]};
+          }
+        }
+      }
+    }catch(_merr){}
+
     var headerKeyMap = {
       'processo':'processo','codigo':'codigo','código':'codigo','data':'data',
       'inicio':'inicio','início':'inicio','fim':'fim','planta':'planta',
@@ -19520,7 +19761,9 @@ function balEsc(s){
       'empresa':'empresa','empresa / cliente':'empresa','cliente':'empresa','projeto':'projeto',
       'takt':'takt','takt (s)':'takt','demanda':'demand','demanda (peças)':'demand','demanda (pecas)':'demand',
       'pessoal (%)':'allowPersonal','fadiga (%)':'allowFatigue',
-      'contingência (%)':'allowContingency','contingencia (%)':'allowContingency'
+      'contingência (%)':'allowContingency','contingencia (%)':'allowContingency',
+      'ttp manual (%)':'manualTTP','ttp manual / ocupação (%)':'manualTTP','ocupação (%)':'manualTTP','ocupacao (%)':'manualTTP',
+      'unidade da demanda':'demandUnit','unidade por ciclo':'pcsCicloUnit'
     };
     var out = { header:{}, book:'', rows:[], label:'' };
     var _lastSmartParse = null;
@@ -19628,6 +19871,7 @@ function balEsc(s){
         for(hk in (src.header||{})) novoHeader[hk]=src.header[hk];
         dest.header = novoHeader;
         if(src.book) dest.book = src.book;
+        if(src.fadiga && typeof src.fadiga==='object') dest.fadiga = JSON.parse(JSON.stringify(src.fadiga));
         dest.rows = src.rows.map(function(r,i){
           return {
             id:'r_imp_'+Date.now()+'_'+i,
@@ -24778,5 +25022,19 @@ body.pmp-open{overflow:hidden!important}
 })();
 </script>
 
+<script id="mtm-optional-module-fallbacks">
+(function(){
+  var optionalFirebaseFns=['fbSwitchTab','fbLogin','fbLoginGoogle','fbRegister','fbCreateWorkspace','fbJoinWorkspace'];
+  optionalFirebaseFns.forEach(function(name){
+    if(typeof window[name] !== 'function'){
+      window[name]=function(){
+        var msg='Integração Firebase indisponível: verifique o arquivo firebase-mtm.js e a conexão.';
+        if(typeof showToast==='function') showToast(msg,true); else try{ alert(msg); }catch(e){}
+        return false;
+      };
+    }
+  });
+})();
+</script>
 </body>
 </html>
