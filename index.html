@@ -5807,11 +5807,11 @@ function renderContent(id){
             <div style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">TTP Manual (%)</div>
             <input id="ttp-manual-${id}" type="number" min="0" max="100" step="0.01"
               value="${esc(s.header.manualTTP||'')}"
-              placeholder="0 = bruto"
+              placeholder="100 = bruto"
               onchange="saveTTPManual('${id}')" oninput="saveTTPManual('${id}')"
               style="width:100%;padding:8px 10px;background:var(--surface3);border:1px solid rgba(0,212,255,.2);
                 border-radius:var(--radius-sm);color:var(--accent);font-size:15px;font-weight:700;font-family:inherit;">
-            <div style="font-size:9px;color:var(--text2);margin-top:3px;">0 ou vazio → usa tempo bruto</div>
+            <div style="font-size:9px;color:var(--text2);margin-top:3px;">100% = TOTAL bruto · 85% = 85% do bruto · 0 ou vazio = bruto</div>
           </div>
 
         </div>
@@ -6262,17 +6262,15 @@ function computeSheetMetrics(s){
   const aF = parseFloat(h.allowFatigue)||0;
   const aC = parseFloat(h.allowContingency)||0;
   const allowPct = aP + aF + aC;
-  // TTP Manual: quando > 0 → Allowance implícito = (100 − TTP), exibido apenas como referência de status/cor
-  // Fórmula divisora (taxa de utilização/produtividade): TP = Bruto / (TTP/100)
-  // Ex.: TTP 85% → TP = Bruto / 0,85 (o tempo padrão é MAIOR que o bruto, pois só 85% do tempo é produtivo)
-  // Quando TTP = 0 → usar Total Bruto diretamente (TTP não definido)
-  const manualTTP = parseFloat(h.manualTTP)||0;
-  const impliedAllow = manualTTP > 0 ? (100 - manualTTP) : 0;
+  // TTP Manual representa o percentual de ocupação aplicado diretamente sobre o TOTAL bruto.
+  // 100% = TOTAL bruto · 85% = 85% do bruto · 90% = 90% do bruto.
+  // Quando TTP = 0 ou vazio, usa o Total Bruto diretamente (TTP não definido).
+  const manualTTP = Math.min(100, Math.max(0, parseFloat(h.manualTTP)||0));
   const stdSec = manualTTP > 0
-    ? +(totalSec / (manualTTP / 100)).toFixed(4)
+    ? +(totalSec * (manualTTP / 100)).toFixed(4)
     : +(totalSec).toFixed(4);
   const stdTmu = manualTTP > 0
-    ? +(totalTmu / (manualTTP / 100)).toFixed(2)
+    ? +(totalTmu * (manualTTP / 100)).toFixed(2)
     : +(totalTmu).toFixed(2);
   const takt = parseFloat(h.takt)||0;
   const saturation = takt > 0 ? +(stdSec / takt * 100).toFixed(1) : 0;
@@ -6311,7 +6309,7 @@ function updateTotals(sid){
   const tstdLbl = document.getElementById('tstd-lbl-'+sid);
   if(tstdLbl){
     if(m.manualTTP > 0){
-      tstdLbl.innerHTML = `⏱ TEMPO PADRÃO (TTP ${m.manualTTP.toFixed(1)}%)`;
+      tstdLbl.innerHTML = `⏱ TEMPO PADRÃO = ${m.manualTTP.toFixed(1)}% DO TOTAL BRUTO`;
     } else {
       tstdLbl.innerHTML = `⏱ TEMPO PADRÃO = TOTAL BRUTO <span style="font-size:9px;color:var(--text3)">(TTP não definido)</span>`;
     }
@@ -6386,7 +6384,7 @@ function ttpCalc(sid){
   if(typeof persistAnaliseInputs === 'function'){
     persistAnaliseInputs(sid, (hEl_ ? hEl_.value : undefined), (dEl_ ? dEl_.value : undefined));
   }
-  // TTP Manual: lê do campo de input; 0/vazio = usar tempo disponível inteiro (bruto)
+  // TTP Manual: percentual de ocupação; 0 ou vazio = usar tempo disponível inteiro (bruto)
   var ttpInp   = document.getElementById('ttp-manual-'+sid);
   var ttpManual = parseFloat(ttpInp && ttpInp.value) || 0;
   var tdis  = h * 3600;
@@ -11648,10 +11646,10 @@ function balCalcProjeto(proj, params){
     if(!sh) return;
     var m = computeSheetMetrics(sh);
     var fad = (sh.fadiga && typeof sh.fadiga === 'object') ? mtmCalcFadiga(sh.fadiga) : null;
-    // Quando TTP manual está definido, usa allowance implícito; quando = 0, bruto (allow = 0)
+    // Quando TTP manual está definido, usa o percentual como ocupação direta; quando = 0, usa o bruto.
     var manualTTP = parseFloat((sh.header && sh.header.manualTTP) || 0) || 0;
     var allowUsed = manualTTP > 0 ? +(100 - manualTTP).toFixed(4) : 0;
-    // m.stdSec usa fórmula divisora: Bruto / (TTP/100)
+    // m.stdSec usa ocupação direta: Bruto × (TTP/100)
     var stdSec = m.stdSec;
     if(stdSec <= 0) return;
     posts.push({
@@ -12835,7 +12833,7 @@ function frpScopeReset(sid){
   frpSetScope(sid, [sid]);
   frpAnalise(sid);
 }
-// Soma as métricas (TS e tempo bruto) das folhas selecionadas → allowance combinado
+// Soma as métricas (TS e tempo bruto) das folhas selecionadas → complemento de ocupação combinado
 function frpAggregate(sid){
   var map = {};
   try{ mtmCollectFinalReport().allMetrics.forEach(function(x){ map[x.sheet.id] = x; }); }catch(e){}
@@ -12847,7 +12845,7 @@ function frpAggregate(sid){
     raw += x.tnSec;
     parts.push({ id:id, label:(x.sheet.label||'Folha'), stdSec:x.stdSec, allow:x.allowUsed });
   });
-  var allow = raw > 0 ? +(((ts/raw) - 1) * 100).toFixed(2) : (parts[0] ? parts[0].allow : 0);
+  var allow = raw > 0 ? +(100 - ((ts / raw) * 100)).toFixed(2) : (parts[0] ? parts[0].allow : 0);
   return { ts:+ts.toFixed(4), raw:+raw.toFixed(4), allow:allow, parts:parts, combined: parts.length > 1, ids:sel };
 }
 // Renderiza os chips de seleção de folhas para a folha `sid`
@@ -12954,7 +12952,9 @@ function saveTTPManual(sid){
   if(!s.header) s.header = {};
   var inp = document.getElementById('ttp-manual-'+sid);
   var val = parseFloat(inp && inp.value);
-  s.header.manualTTP = (isFinite(val) && val > 0) ? val : 0;
+  var norm = (isFinite(val) && val > 0) ? Math.min(100, Math.max(0, val)) : 0;
+  s.header.manualTTP = norm;
+  if(inp && isFinite(val) && val !== norm) inp.value = norm;
   if(typeof saveSheets === 'function') saveSheets();
   if(typeof updateTotals === 'function') updateTotals(sid);
   if(typeof ttpCalc === 'function') ttpCalc(sid);
@@ -13349,7 +13349,7 @@ function frpAggregateAll(premissa, manualPct){
     ts = raw * (1 + allow/100);
   } else { // 'real'
     ts = tsReal;
-    allow = raw > 0 ? ((tsReal/raw) - 1) * 100 : 0;
+    allow = raw > 0 ? 100 - ((tsReal / raw) * 100) : 0;
   }
   return {
     premissa: premissa,
@@ -15145,11 +15145,11 @@ function mtmCollectFinalReport(){
   var allMetrics = (typeof scopedSheets==='function'?scopedSheets():(sheets||[])).map(function(s){
     var m   = computeSheetMetrics(s);
     var fad = (s.fadiga && typeof s.fadiga === 'object') ? mtmCalcFadiga(s.fadiga) : null;
-    // Quando TTP manual está definido: allowance implícito = 100 − TTP (apenas referência de status/cor).
-    // Quando TTP = 0: allowance = 0 e stdSec = bruto.
+    // Quando TTP manual está definido: ele representa a ocupação direta do TOTAL bruto.
+    // O complemento 100 − TTP fica apenas como referência; quando TTP = 0, stdSec = bruto.
     var manualTTP  = parseFloat((s.header && s.header.manualTTP) || 0) || 0;
     var allowUsed  = manualTTP > 0 ? +(100 - manualTTP).toFixed(4) : 0;
-    // m.stdSec já reflete a fórmula divisora: Bruto / (TTP/100)
+    // m.stdSec já reflete a ocupação direta: Bruto × (TTP/100)
     var stdSec     = m.stdSec;
     var tnSec      = m.totalSec;
     var pcsCiclo   = (m.pcsCiclo && m.pcsCiclo > 0) ? m.pcsCiclo : 1;
@@ -18924,7 +18924,7 @@ function balImportFromSheets(){
     var m = (typeof computeSheetMetrics === 'function') ? computeSheetMetrics(s) : null;
     if(!m) return;
     var fad = (s.fadiga && typeof mtmCalcFadiga === 'function') ? mtmCalcFadiga(s.fadiga) : null;
-    // m.stdSec já usa TTP manual (fórmula divisora); fallback para fadiga se não houver TTP manual
+    // m.stdSec já usa TTP manual como ocupação direta; fallback para fadiga se não houver TTP manual
     var manualTTPBal = parseFloat((s.header && s.header.manualTTP) || 0) || 0;
     var stdSec = manualTTPBal > 0 ? m.stdSec
                : fad ? +(m.totalSec * (1 + fad.allowTotal/100)).toFixed(4)
