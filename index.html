@@ -6256,40 +6256,73 @@ function computeSheetMetrics(s){
   if(!s) return null;
   const h = s.header || {};
   const rows = s.rows || [];
-  const totalTmu = rows.reduce((a,r)=>a+(parseFloat(r.ttmu)||0),0);
+
+  // FONTE ÚNICA DA VERDADE:
+  // recalcula cada linha diretamente de TMU × Q × F.
+  // Assim TOTAL BRUTO e TEMPO PADRÃO nunca usam bases diferentes,
+  // mesmo após importação, restauração, sincronização ou correção automática do DOM.
+  let totalTmu = 0;
+  rows.forEach(function(r){
+    const tmu = parseFloat(r && r.tmu) || 0;
+    const q = (r && r.q != null && String(r.q).trim() !== '' && isFinite(parseFloat(r.q)))
+      ? parseFloat(r.q) : 1;
+    const f = (r && r.f != null && String(r.f).trim() !== '' && isFinite(parseFloat(r.f)))
+      ? parseFloat(r.f) : 1;
+
+    const calcTmu = +(tmu * q * f).toFixed(4);
+    const calcSec = +(calcTmu * 0.036).toFixed(4);
+
+    if(r){
+      r.ttmu = calcTmu;
+      r.tsec = calcSec;
+    }
+    totalTmu += calcTmu;
+  });
+
+  totalTmu = +totalTmu.toFixed(4);
   const totalSec = +(totalTmu * 0.036).toFixed(4);
+
   const aP = parseFloat(h.allowPersonal)||0;
   const aF = parseFloat(h.allowFatigue)||0;
   const aC = parseFloat(h.allowContingency)||0;
   const allowPct = aP + aF + aC;
-  // TTP Manual representa o percentual de ocupação aplicado diretamente sobre o TOTAL bruto.
-  // 100% = TOTAL bruto · 85% = 85% do bruto · 90% = 90% do bruto.
-  // Quando TTP = 0 ou vazio, usa o Total Bruto diretamente (TTP não definido).
+
+  // TTP Manual = percentual de ocupação aplicado DIRETAMENTE no TOTAL BRUTO.
+  // 0 ou vazio = TOTAL BRUTO
+  // 100% = TOTAL BRUTO
+  // 90% = 90% do TOTAL BRUTO
+  // 85% = 85% do TOTAL BRUTO
   const manualTTP = Math.min(100, Math.max(0, parseFloat(h.manualTTP)||0));
-  const stdSec = manualTTP > 0
-    ? +(totalSec * (manualTTP / 100)).toFixed(4)
-    : +(totalSec).toFixed(4);
-  const stdTmu = manualTTP > 0
-    ? +(totalTmu * (manualTTP / 100)).toFixed(2)
-    : +(totalTmu).toFixed(2);
+  const fatorOcupacao = manualTTP > 0 ? (manualTTP / 100) : 1;
+
+  // Em 0 e 100, força igualdade exata com o TOTAL BRUTO.
+  const stdSec = (manualTTP === 0 || manualTTP === 100)
+    ? totalSec
+    : +(totalSec * fatorOcupacao).toFixed(4);
+
+  const stdTmu = (manualTTP === 0 || manualTTP === 100)
+    ? +totalTmu.toFixed(2)
+    : +(totalTmu * fatorOcupacao).toFixed(2);
+
   const takt = parseFloat(h.takt)||0;
   const saturation = takt > 0 ? +(stdSec / takt * 100).toFixed(1) : 0;
-  // VA / NVA / NNVA
+
   let va=0, nva=0, nnva=0, unc=0;
-  rows.forEach(r=>{
-    const t = parseFloat(r.ttmu)||0;
+  rows.forEach(function(r){
+    const t = parseFloat(r && r.ttmu)||0;
     if(!t) return;
     if(r.agrega==='Sim') va += t;
     else if(r.agrega==='Não') nva += t;
     else if(r.agrega==='Necessário') nnva += t;
     else unc += t;
   });
+
   return {
     totalTmu, totalSec, allowPct, manualTTP, stdSec, stdTmu, takt, saturation,
     va, nva, nnva, unc,
     pcsCiclo: (function(){ var v = parseFloat(h.pcsCiclo); return (isFinite(v) && v > 0) ? v : 1; })(),
     demand: parseFloat(h.demand)||0,
-    rowCount: rows.filter(r=>(parseFloat(r.ttmu)||0)>0).length
+    rowCount: rows.filter(function(r){ return (parseFloat(r && r.ttmu)||0)>0; }).length
   };
 }
 
@@ -19104,38 +19137,56 @@ function balEsc(s){
       var bodies = document.querySelectorAll('tbody[id^="tb-"]');
       for(var b=0; b<bodies.length; b++){
         var tb  = bodies[b];
-        var sid = tb.id.slice(3); // tira "tb-"
+        var sid = tb.id.slice(3);
+        var sheet = (typeof get === 'function') ? get(sid) : null;
         var rows = tb.querySelectorAll('tr');
-        var somaTmu = 0;
+
         for(var i=0; i<rows.length; i++){
           var tr = rows[i];
           var tmuEl  = tr.querySelector('[data-f="tmu"]');
           var ttmuEl = tr.querySelector('[data-f="ttmu"]');
           var tsecEl = tr.querySelector('[data-f="tsec"]');
           if(!tmuEl || !ttmuEl || !tsecEl) continue;
+
           var tmu = num(tmuEl.value);
-          if(tmu===null || tmu===0){
-            if(ttmuEl.value !== '') ttmuEl.value = '';
-            if(tsecEl.value !== '') tsecEl.value = '';
-            continue;
-          }
           var qEl = tr.querySelector('[data-f="q"]');
           var fEl = tr.querySelector('[data-f="f"]');
           var q = num(qEl && qEl.value); if(q===null) q = 1;
           var f = num(fEl && fEl.value); if(f===null) f = 1;
-          var ttmu = Math.round(tmu*q*f*10000)/10000;
-          var tsec = Math.round(ttmu*0.036*10000)/10000;
-          var ttmuStr = fmt(ttmu), tsecStr = fmt(tsec);
-          if(ttmuEl.value !== ttmuStr) ttmuEl.value = ttmuStr;
-          if(tsecEl.value !== tsecStr) tsecEl.value = tsecStr;
-          somaTmu += ttmu;
+
+          var ttmu = 0;
+          var tsec = 0;
+
+          if(tmu===null || tmu===0){
+            if(ttmuEl.value !== '') ttmuEl.value = '';
+            if(tsecEl.value !== '') tsecEl.value = '';
+          }else{
+            ttmu = Math.round(tmu*q*f*10000)/10000;
+            tsec = Math.round(ttmu*0.036*10000)/10000;
+            var ttmuStr = fmt(ttmu), tsecStr = fmt(tsec);
+            if(ttmuEl.value !== ttmuStr) ttmuEl.value = ttmuStr;
+            if(tsecEl.value !== tsecStr) tsecEl.value = tsecStr;
+          }
+
+          // Sincroniza também o MODELO. Antes esta rotina corrigia somente
+          // o TOTAL BRUTO na tela e deixava o Tempo Padrão usando dados antigos.
+          if(sheet && Array.isArray(sheet.rows)){
+            var dataRow = sheet.rows.find(function(r){ return r && r.id === tr.id; });
+            if(dataRow){
+              dataRow.tmu = tmuEl.value || '';
+              dataRow.q = qEl ? qEl.value : '';
+              dataRow.f = fEl ? fEl.value : '';
+              dataRow.ttmu = ttmu;
+              dataRow.tsec = tsec;
+            }
+          }
         }
-        var fTmu = document.getElementById('ttmu-'+sid);
-        var fSec = document.getElementById('tsec-'+sid);
-        var vTmu = somaTmu ? somaTmu.toFixed(2)  : '0';
-        var vSec = somaTmu ? (somaTmu*0.036).toFixed(4) : '0';
-        if(fTmu && fTmu.textContent !== vTmu) fTmu.textContent = vTmu;
-        if(fSec && fSec.textContent !== vSec) fSec.textContent = vSec;
+
+        // Uma única rotina calcula TOTAL BRUTO e TEMPO PADRÃO a partir
+        // da mesma base interna sincronizada.
+        if(typeof updateTotals === 'function'){
+          updateTotals(sid);
+        }
       }
     }catch(e){}
   }
