@@ -6238,12 +6238,61 @@ function recalcSheet(sid){
   try{ updateTotals(sid); }catch(e){}
 }
 
-function delRow(sid,rid){if(typeof __reqDel==='function' && !__reqDel(sid))return;
-  const s=get(sid);
-  s.rows=s.rows.filter(r=>r.id!==rid);
-  document.getElementById(rid)?.remove();
-  updateNums(sid); updateTotals(sid);
-  saveSheets();
+function delRow(sid,rid){
+  if(typeof __reqDel==='function' && !__reqDel(sid)) return;
+  const s = get(sid);
+  if(!s || !Array.isArray(s.rows)) return;
+
+  // Remove primeiro do modelo de dados.
+  s.rows = s.rows.filter(function(r){ return r && r.id !== rid; });
+
+  // Remove da tabela visível.
+  const tr = document.getElementById(rid);
+  if(tr && tr.parentNode) tr.parentNode.removeChild(tr);
+
+  // Sincroniza as linhas restantes diretamente com o DOM para impedir que
+  // qualquer registro antigo continue entrando no TOTAL BRUTO.
+  const tbody = document.getElementById('tb-'+sid);
+  if(tbody){
+    const domRows = Array.from(tbody.querySelectorAll('tr'));
+    const domIds = new Set(domRows.map(function(el){ return el.id; }).filter(Boolean));
+    s.rows = s.rows.filter(function(r){ return r && domIds.has(r.id); });
+
+    domRows.forEach(function(el){
+      const r = s.rows.find(function(x){ return x && x.id === el.id; });
+      if(!r) return;
+      const read = function(f){
+        const n = el.querySelector('[data-f="'+f+'"]');
+        return n ? n.value : '';
+      };
+      r.desc   = read('desc');
+      r.agrega = read('agrega');
+      r.code   = read('code');
+      r.tmu    = read('tmu');
+      r.q      = read('q');
+      r.f      = read('f');
+
+      const tmu = parseFloat(r.tmu) || 0;
+      const q = (r.q==null || String(r.q).trim()==='' || isNaN(parseFloat(r.q))) ? 1 : parseFloat(r.q);
+      const f = (r.f==null || String(r.f).trim()==='' || isNaN(parseFloat(r.f))) ? 1 : parseFloat(r.f);
+      r.ttmu = +(tmu*q*f).toFixed(4);
+      r.tsec = +(r.ttmu*0.036).toFixed(4);
+    });
+  }
+
+  // Recalcula imediatamente tudo que depende das linhas.
+  if(typeof updateNums === 'function') updateNums(sid);
+  if(typeof updateTotals === 'function') updateTotals(sid);
+  if(typeof ttpCalc === 'function'){
+    try{ ttpCalc(sid); }catch(e){}
+  }
+  if(typeof fadRecalc === 'function' && typeof activeId !== 'undefined' && activeId === sid){
+    try{ fadRecalc(); }catch(e){}
+  }
+
+  // Persistência imediata para a linha excluída não reaparecer por estado antigo.
+  if(typeof saveSheets === 'function') saveSheets();
+  if(typeof persistNow === 'function') persistNow();
 }
 
 function updateNums(sid){
@@ -16219,7 +16268,11 @@ function bookExportHtml(){
     + (headerInfo ? '<div class="hdr-info">' + headerInfo + '</div>' : '')
     + '<hr>' + (s.book || '<p><i>Sem conteúdo.</i></p>')
     + '<hr><p style="font-size:11px;color:#888;margin-top:30px">Gerado pela Ferramenta MTM em ' + new Date().toLocaleString('pt-BR') + '</p>'
-    + '</body></html>';
+    + '
+<script id="mtm-fix-delete-row-v3">
+window.MTM_FIX_DELETE_ROW_VERSION = '3';
+</script>
+</body></html>';
   var blob = new Blob([doc], {type:'text/html;charset=utf-8'});
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -19180,6 +19233,13 @@ function balEsc(s){
               dataRow.tsec = tsec;
             }
           }
+        }
+
+        // Se uma linha foi excluída da tabela, elimina também qualquer cópia
+        // residual no modelo antes de recalcular os totais.
+        if(sheet && Array.isArray(sheet.rows)){
+          var liveIds = new Set(Array.from(rows).map(function(el){ return el.id; }).filter(Boolean));
+          sheet.rows = sheet.rows.filter(function(r){ return r && liveIds.has(r.id); });
         }
 
         // Uma única rotina calcula TOTAL BRUTO e TEMPO PADRÃO a partir
