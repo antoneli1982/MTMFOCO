@@ -3703,26 +3703,15 @@ body.home-clean .db-company-card::after{
   border-radius:5px;padding:1px 6px;font-size:9px;font-weight:800;vertical-align:middle;
 }
 .plj-busca{ margin-top:16px;padding-top:14px;border-top:1px dashed var(--border2); }
-.plj-q{
+.plj-cascata{ display:flex;flex-direction:column;gap:8px; }
+.plj-sel{
   width:100%;box-sizing:border-box;background:var(--surface2);
   border:1px solid var(--border2);border-radius:9px;padding:10px 13px;
-  color:var(--text);font-family:inherit;font-size:12.5px;
+  color:var(--text);font-family:inherit;font-size:12.5px;cursor:pointer;
 }
-.plj-q:focus{ outline:none;border-color:var(--accent);background:var(--surface3); }
-.plj-res{ margin-top:8px;display:flex;flex-direction:column;gap:5px;max-height:220px;overflow-y:auto; }
-.plj-res-item{
-  display:flex;align-items:center;gap:9px;cursor:pointer;
-  background:var(--surface2);border:1px solid var(--border);border-radius:8px;
-  padding:8px 10px;transition:all .14s;
-}
-.plj-res-item:hover{ border-color:var(--green);background:var(--surface); }
-.plj-res-mais{ color:var(--green);font-size:13px;font-weight:800;flex-shrink:0; }
-.plj-res-txt{ min-width:0;flex:1; }
-.plj-res-txt b{ display:block;font-size:11.5px;font-weight:700;color:var(--text);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-.plj-res-txt em{ display:block;font-style:normal;font-size:9.5px;color:var(--text3);margin-top:1px; }
-.plj-res-t{ font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--text2);flex-shrink:0; }
-.plj-res-dica{ font-size:10.5px;color:var(--text3);padding:8px 4px; }
+.plj-sel:focus{ outline:none;border-color:var(--accent);background:var(--surface3); }
+.plj-sel:disabled{ opacity:.5;cursor:not-allowed; }
+.plj-sel-dica{ font-size:10.5px;color:var(--text3);padding:4px 2px 0; }
 
 /* ── painel do planejamento ── */
 .plj-overlay{
@@ -19303,59 +19292,101 @@ function indiceFolhas(){
 }
 window.indiceFolhas = indiceFolhas;
 
-function normTxt(v){
-  return String(v == null ? '' : v).toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+var buscaFid = '';
+var buscaPidx = '';
+
+function planOpcoesPastas(){
+  var d = (typeof pmData !== 'undefined' && pmData) ? pmData : {};
+  return Object.keys(d).filter(function(fid){ return fid !== '__flat__' && d[fid]; })
+    .map(function(fid){ return { fid: fid, nome: d[fid].name || '(sem nome)' }; })
+    .sort(function(a, b){ return a.nome.localeCompare(b.nome, 'pt-BR'); });
 }
 
-var buscaQ = '';
+function planOpcoesProjetos(fid){
+  var d = (typeof pmData !== 'undefined' && pmData) ? pmData : {};
+  var f = d[fid];
+  if(!f) return [];
+  return (f.projects || []).map(function(pr, pidx){
+    return { pidx: pidx, nome: pr.name || '(sem nome)' };
+  }).sort(function(a, b){ return a.nome.localeCompare(b.nome, 'pt-BR'); });
+}
 
-function planBuscar(q){
-  buscaQ = q || '';
-  var host = document.getElementById('plj-res');
-  if(!host) return;
-  var termo = normTxt(buscaQ.trim());
-  if(termo.length < 2){
-    host.innerHTML = termo.length
-      ? '<div class="plj-res-dica">Digite ao menos 2 letras.</div>' : '';
-    return;
-  }
+function planOpcoesFolhas(fid, pidx){
+  var d = (typeof pmData !== 'undefined' && pmData) ? pmData : {};
+  var f = d[fid];
+  var pr = f && f.projects && f.projects[pidx];
+  if(!pr) return [];
   var a = planAtual();
-  if(!a) return;
-  var idx = indiceFolhas();
-  var jaTem = a.pl.sheets || [];
-  var proprias = a.p.sheets || [];
-  var achados = [];
-
-  (typeof sheets !== 'undefined' ? sheets : []).forEach(function(sh){
-    if(!sh || jaTem.indexOf(sh.id) !== -1) return;
-    if(proprias.indexOf(sh.id) !== -1) return;          // ja aparece na tabela acima
-    var o = idx[sh.id] || { empresa:'', projeto:'' };
+  var jaTem = (a && a.pl.sheets) || [];
+  var proprias = (a && a.p.sheets) || [];
+  var lista = (typeof sheets !== 'undefined' ? sheets : []);
+  return (pr.sheets || []).map(function(sid){
+    return lista.filter(function(sh){ return sh && sh.id === sid; })[0];
+  }).filter(function(sh){
+    return sh && jaTem.indexOf(sh.id) === -1 && proprias.indexOf(sh.id) === -1;
+  }).map(function(sh){
     var proc = (sh.header && sh.header.processo) || '';
-    var alvo = normTxt(sh.label + ' ' + proc + ' ' + o.empresa + ' ' + o.projeto);
-    if(alvo.indexOf(termo) === -1) return;
-    var m = (typeof computeSheetMetrics === 'function') ? computeSheetMetrics(sh) : null;
-    achados.push({
-      sid: sh.id, label: sh.label, proc: proc,
-      origem: o.empresa ? (o.empresa + ' \u203A ' + o.projeto) : 'Folha sem projeto',
-      t: m ? tempoPadrao(sh, m) : 0
-    });
+    return { sid: sh.id, nome: sh.label + (proc ? ' \u2014 ' + proc : '') };
   });
-
-  if(!achados.length){
-    host.innerHTML = '<div class="plj-res-dica">Nenhuma atividade encontrada para "'
-                   + esc(buscaQ) + '".</div>';
-    return;
-  }
-  host.innerHTML = achados.slice(0, 20).map(function(x){
-    return '<div class="plj-res-item" onclick="planToggleFolha(\'' + x.sid + '\')">'
-      + '<span class="plj-res-mais">\uFF0B</span>'
-      + '<span class="plj-res-txt"><b>' + esc(x.label) + (x.proc ? ' \u2014 ' + esc(x.proc) : '') + '</b>'
-      +   '<em>\uD83C\uDFE2 ' + esc(x.origem) + '</em></span>'
-      + '<span class="plj-res-t">' + seg(x.t) + ' s</span></div>';
-  }).join('');
 }
-window.planBuscar = planBuscar;
+
+function planBuscaHTML(){
+  var pastas = planOpcoesPastas();
+  var html = '<select id="plj-sel-pasta" class="plj-sel" onchange="planSelPasta(this.value)">'
+           +   '<option value="">\uD83C\uDFE2 Selecione a pasta...</option>'
+           +   pastas.map(function(p){
+                 return '<option value="' + esc(p.fid) + '"' + (p.fid === buscaFid ? ' selected' : '') + '>'
+                      + esc(p.nome) + '</option>';
+               }).join('')
+           + '</select>';
+
+  var temPasta = !!buscaFid;
+  var projetos = temPasta ? planOpcoesProjetos(buscaFid) : [];
+  html += '<select id="plj-sel-projeto" class="plj-sel" onchange="planSelProjeto(this.value)"'
+        +   (temPasta ? '' : ' disabled') + '>'
+        +   '<option value="">\uD83D\uDCC1 Selecione o projeto...</option>'
+        +   projetos.map(function(p){
+              return '<option value="' + p.pidx + '"' + (String(p.pidx) === String(buscaPidx) ? ' selected' : '') + '>'
+                   + esc(p.nome) + '</option>';
+            }).join('')
+        + '</select>';
+
+  var temProjeto = temPasta && buscaPidx !== '';
+  var folhas = temProjeto ? planOpcoesFolhas(buscaFid, buscaPidx) : [];
+  html += '<select id="plj-sel-folha" class="plj-sel" onchange="planSelFolha(this.value)"'
+        +   (temProjeto ? '' : ' disabled') + '>'
+        +   '<option value="">\u2795 Selecione a folha para adicionar...</option>'
+        +   folhas.map(function(f){
+              return '<option value="' + esc(f.sid) + '">' + esc(f.nome) + '</option>';
+            }).join('')
+        + '</select>';
+
+  if(temProjeto && !folhas.length){
+    html += '<div class="plj-sel-dica">Nenhuma folha dispon\u00edvel para adicionar deste projeto.</div>';
+  }
+  return html;
+}
+
+function planSelPasta(fid){
+  buscaFid = fid;
+  buscaPidx = '';
+  var host = document.getElementById('plj-cascata');
+  if(host) host.innerHTML = planBuscaHTML();
+}
+window.planSelPasta = planSelPasta;
+
+function planSelProjeto(pidx){
+  buscaPidx = pidx;
+  var host = document.getElementById('plj-cascata');
+  if(host) host.innerHTML = planBuscaHTML();
+}
+window.planSelProjeto = planSelProjeto;
+
+function planSelFolha(sid){
+  if(!sid) return;
+  planToggleFolha(sid);   // ja chama planRender(), que preserva buscaFid/buscaPidx
+}
+window.planSelFolha = planSelFolha;
 
 /* ───────────────────────────────────────────────────────────────
    PAINEL DO PLANEJAMENTO
@@ -19366,7 +19397,8 @@ function planAbrir(fid, pi, k){
   if(typeof pmLoad === 'function') pmLoad();
   if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
   PL = { fid:fid, pi:pi, k:k };
-  buscaQ = '';
+  buscaFid = '';
+  buscaPidx = '';
   var ov = document.getElementById('plj-overlay');
   if(ov) ov.classList.remove('hidden');
   planRender();
@@ -19540,17 +19572,12 @@ function planRender(){
   }
   html += '<div class="plj-busca">'
        +   '<label class="plj-lbl">Buscar atividade em outras pastas, projetos e folhas</label>'
-       +   '<input id="plj-q" class="plj-q" autocomplete="off" '
-       +     'placeholder="\uD83D\uDD0E  nome da folha, do processo, da empresa ou do projeto..." '
-       +     'oninput="planBuscar(this.value)">'
-       +   '<div id="plj-res" class="plj-res"></div>'
+       +   '<div id="plj-cascata" class="plj-cascata">' + planBuscaHTML() + '</div>'
        + '</div>';
   html += '</div>';
 
   box.innerHTML = html;
   planRenderResumo();
-  var q = document.getElementById('plj-q');
-  if(q && buscaQ){ q.value = buscaQ; planBuscar(buscaQ); }
 }
 window.planRender = planRender;
 
