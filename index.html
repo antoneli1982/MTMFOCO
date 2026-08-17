@@ -3592,6 +3592,11 @@ body.home-clean .db-company-card::after{
 .plan-cta-new:hover{ box-shadow:var(--shadow-glow);border-color:var(--accent); }
 .plan-cta-open .pc-ico{ background:var(--orangeBg);color:var(--orange); }
 .plan-cta-open:hover{ border-color:var(--orange); }
+.plan-cta-independent .pc-ico{ background:var(--greenBg);color:var(--green); }
+.plan-cta-independent:hover{ border-color:var(--green); }
+.plan-cta-all .pc-ico{ background:var(--purpleBg);color:var(--purple); }
+.plan-cta-all:hover{ border-color:var(--purple); }
+.pk-plan{ background:var(--greenBg);color:var(--green); }
 
 /* ── Busca global ── */
 .plan-search-wrap{ position:relative;margin-bottom:10px; }
@@ -4073,7 +4078,7 @@ body.home-clean .db-company-card::after{
     <div id="plan-home">
       <div class="plan-hero">
         <h1>Planejamento de Processo</h1>
-        <p>Todo planejamento é guardado em <b>três níveis</b>. Você sempre sabe onde está e nada se perde:</p>
+        <p>Crie planejamentos <b>dentro de um projeto</b> ou de forma <b>independente</b>. Em ambos os casos, os cálculos e a rastreabilidade das atividades permanecem iguais:</p>
         <div class="plan-flow">
           <div class="plan-flow-step"><i>1</i><b>Empresa</b><em>— o cliente / a planta</em></div>
           <span class="plan-flow-arrow">›</span>
@@ -4088,14 +4093,22 @@ body.home-clean .db-company-card::after{
           </button>
           <button class="plan-cta plan-cta-open" onclick="planFocusSearch()">
             <span class="pc-ico">📂</span>
-            <span><b>Abrir um planejamento existente</b><em>Buscar por empresa, projeto ou folha</em></span>
+            <span><b>Abrir um planejamento existente</b><em>Buscar planejamento, empresa, projeto ou folha</em></span>
+          </button>
+          <button class="plan-cta plan-cta-independent" onclick="planNovoIndependente()">
+            <span class="pc-ico">＋</span>
+            <span><b>Novo planejamento independente</b><em>Criar fora dos projetos e selecionar qualquer atividade</em></span>
+          </button>
+          <button class="plan-cta plan-cta-all" onclick="planRenderTodos()">
+            <span class="pc-ico">▦</span>
+            <span><b>Todos os planejamentos</b><em>Visão geral dos vinculados e independentes</em></span>
           </button>
         </div>
       </div>
 
       <div class="plan-search-wrap">
         <input id="plan-search" class="plan-search" autocomplete="off"
-               placeholder="🔎  Buscar empresa, projeto ou folha já criada..."
+               placeholder="🔎  Buscar planejamento, empresa, projeto ou folha..."
                oninput="planSearch()">
         <button class="plan-search-clear" id="plan-search-clear" onclick="planClearSearch()">✕</button>
       </div>
@@ -9949,6 +9962,7 @@ function syncSheetEmpresaProjeto(sid){
 }
 
 function dbRenderList(){
+  if(typeof planTodosAtivo !== 'undefined') planTodosAtivo = false;
   pmLoad();
   if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
   var el = document.getElementById('db-proj-list');
@@ -9962,6 +9976,8 @@ function dbRenderList(){
     + '<span class="db-list-title" style="font-size:16px;font-weight:800">📁 Empresas</span>'
     + '<span class="db-list-badge" style="background:var(--accentBg);color:var(--accent);padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700">' + folderIds.length + '</span>'
     + '<span style="flex:1"></span>'
+    + '<button onclick="planNovoIndependente()" style="background:var(--greenBg);color:var(--green);border:1px solid var(--green);padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">＋ Planejamento independente</button>'
+    + '<button onclick="planRenderTodos()" style="background:var(--purpleBg);color:var(--purple);border:1px solid var(--purple);padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">▦ Todos os planejamentos</button>'
     + '<button onclick="dbNewFolder()" style="background:var(--accentGrad);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:var(--shadow-glow)">＋ Nova Pasta</button>'
     + '<button onclick="saveAllProjectsFile()" style="background:linear-gradient(135deg,#f5a623,#e07b00);color:#000;border:2px solid #f5a623;padding:7px 12px;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer">💾 Salvar Tudo</button>'
     + '<button onclick="dbExportBackup()" style="background:var(--greenBg);color:var(--green);border:1px solid var(--green);padding:7px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">💾 Backup</button>'
@@ -10998,10 +11014,11 @@ function dbExportBackup(){
     pmLoad();
     if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
     var payload = {
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       pmData: pmData || {},
-      sheets: sheets || []
+      sheets: sheets || [],
+      standalonePlans: (typeof planIndependentes === 'function') ? planIndependentes() : []
     };
     var blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
     var url = URL.createObjectURL(blob);
@@ -11035,6 +11052,9 @@ function dbImportBackup(input){
         document.querySelectorAll('.folha-content').forEach(function(el){ el.remove(); });
         sheets.forEach(function(s){ renderContent(s.id); });
         if(typeof renderTabs === 'function') renderTabs();
+      }
+      if(typeof planIndepDefinir === 'function'){
+        planIndepDefinir(Array.isArray(data.standalonePlans) ? data.standalonePlans : []);
       }
       alert('Backup restaurado com sucesso!');
       dbRenderList();
@@ -16747,7 +16767,10 @@ function saveProjectFile(){
       sheetsCount: sheetsPayload.length,
       sheets:      sheetsPayload,
       projectManager: pmPayload,
-      clientLogos:    logosPayload
+      clientLogos:    logosPayload,
+      standalonePlans: modoSalvar === 'individual'
+        ? null
+        : ((typeof planIndependentes === 'function') ? planIndependentes() : [])
     };
 
     if(!sheetsPayload.length){
@@ -17036,7 +17059,10 @@ function mergePMData(currentPM, incomingPM, sidMap){
         logo: incomingProj.logo || targetFolder.logo || null,
         date: incomingProj.date || new Date().toLocaleDateString('pt-BR'),
         sheets: mappedSheets,
-        notes: incomingProj.notes || []
+        notes: incomingProj.notes || [],
+        plans: (typeof planRemapImport === 'function')
+          ? planRemapImport(incomingProj.plans || [], sidMap, false)
+          : (incomingProj.plans || [])
       });
       stats.projetosAdicionados++;
       stats.folhasVinculadas += mappedSheets.length;
@@ -17063,11 +17089,13 @@ function openProjectFileHandle(input){
         var incomingSheets = null;
         var incomingPM     = null;
         var incomingLogos  = null;
+        var incomingStandalone = null;
 
         if(obj && obj.format === 'MTM_FILE' && Array.isArray(obj.sheets)){
           incomingSheets = obj.sheets;
           incomingPM     = obj.projectManager || null;
           incomingLogos  = obj.clientLogos    || null;
+          incomingStandalone = Array.isArray(obj.standalonePlans) ? obj.standalonePlans : null;
         } else if(Array.isArray(obj)){
           incomingSheets = obj;
         } else {
@@ -17136,8 +17164,9 @@ function openProjectFileHandle(input){
         if(incomingPM && typeof incomingPM === 'object'){
           try{
             if(mode === 'replace'){
-              localStorage.setItem('pmgr_v3', JSON.stringify(incomingPM));
-              if(typeof pmData !== 'undefined'){ pmData = incomingPM; }
+              var substituido = mergePMData({}, incomingPM, sidMap).data;
+              localStorage.setItem('pmgr_v3', JSON.stringify(substituido));
+              if(typeof pmData !== 'undefined'){ pmData = substituido; }
             } else {
               // merge inteligente
               if(typeof pmLoad === 'function') pmLoad();
@@ -17163,6 +17192,18 @@ function openProjectFileHandle(input){
               localStorage.setItem('mtm_client_logos_v1', JSON.stringify(cur));
             }
           }catch(e){ console.warn('logos restore falhou', e); }
+        }
+
+        // ---- Planejamentos independentes ----
+        if(incomingStandalone && typeof planRemapImport === 'function' && typeof planIndepDefinir === 'function'){
+          try{
+            var planosMapeados = planRemapImport(incomingStandalone, sidMap, mode !== 'replace');
+            if(mode === 'replace') planIndepDefinir(planosMapeados);
+            else planIndepDefinir(planIndependentes().concat(planosMapeados));
+          }catch(e){ console.warn('Planejamentos independentes: restauração falhou', e); }
+        } else if(mode === 'replace' && typeof planIndepDefinir === 'function'){
+          // Arquivo antigo, sem esta área: mantém a substituição coerente e limpa.
+          planIndepDefinir([]);
         }
 
         // ---- Mensagem de feedback ----
@@ -18587,6 +18628,15 @@ function planSearch(){
           act:'planOpenProject(\'' + f.fid + '\',' + pi + ')'
         });
       }
+      ((p && p.plans) || []).forEach(function(pl, k){
+        if(planNorm(pl.name).indexOf(q) !== -1){
+          hits.push({
+            kind:'plan', cls:'pk-plan', label:'Planejamento',
+            name:pl.name, path:'🏢 ' + f.name + ' › 📁 ' + p.name,
+            act:'planAbrir(\'' + f.fid + '\',' + pi + ',' + k + ')'
+          });
+        }
+      });
       (p.sheets || []).forEach(function(sid){
         var sh = (typeof get === 'function') ? get(sid) : null;
         if(!sh) return;
@@ -18602,6 +18652,18 @@ function planSearch(){
       });
     });
   });
+
+  if(typeof planIndependentes === 'function'){
+    planIndependentes().forEach(function(pl, k){
+      if(planNorm(pl.name).indexOf(q) !== -1){
+        hits.push({
+          kind:'plan', cls:'pk-plan', label:'Planejamento',
+          name:pl.name, path:'◈ Independente · fora dos projetos',
+          act:'planAbrirIndependente(' + k + ')'
+        });
+      }
+    });
+  }
 
   if(!hits.length){
     res.innerHTML = '<div class="plan-res-empty">Nada encontrado para <b>' + planEsc(box.value) + '</b>.<br>'
@@ -19242,6 +19304,53 @@ function planosDe(p){
 }
 window.planosDe = planosDe;
 
+/* Planejamentos independentes: usam o mesmo modelo dos planos de projeto,
+   mas ficam em um repositório próprio para não criar empresa/projeto fictício. */
+var PLAN_INDEP_KEY = 'mtm_process_plans_independent_v1';
+var planosIndepCache = null;
+var planTodosAtivo = false;
+
+function planIndependentes(recarregar){
+  if(!recarregar && Array.isArray(planosIndepCache)) return planosIndepCache;
+  try{
+    var raw = JSON.parse(localStorage.getItem(PLAN_INDEP_KEY) || '[]');
+    planosIndepCache = Array.isArray(raw) ? raw : [];
+  }catch(e){ planosIndepCache = []; }
+  return planosIndepCache;
+}
+function planIndepSalvar(){
+  try{ localStorage.setItem(PLAN_INDEP_KEY, JSON.stringify(planIndependentes())); }
+  catch(e){
+    alert('Não foi possível salvar o planejamento independente. Gere um backup e libere espaço no navegador.');
+    throw e;
+  }
+}
+function planIndepDefinir(lista){
+  planosIndepCache = Array.isArray(lista) ? lista : [];
+  planIndepSalvar();
+}
+function planRemapImport(lista, sidMap, novosIds){
+  return (Array.isArray(lista) ? lista : []).map(function(orig){
+    var pl;
+    try{ pl = JSON.parse(JSON.stringify(orig)); }catch(e){ pl = {}; }
+    if(novosIds || !pl.id) pl.id = 'pli_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    pl.sheets = (pl.sheets || []).map(function(id){ return sidMap[id] || id; });
+    if(pl.qtds && typeof pl.qtds === 'object'){
+      var q = {};
+      Object.keys(pl.qtds).forEach(function(id){ q[sidMap[id] || id] = pl.qtds[id]; });
+      pl.qtds = q;
+    }
+    return pl;
+  });
+}
+function planPersist(a){
+  if(a && a.independente) planIndepSalvar();
+  else if(typeof pmSave === 'function') pmSave();
+}
+window.planIndependentes = planIndependentes;
+window.planIndepDefinir = planIndepDefinir;
+window.planRemapImport = planRemapImport;
+
 function achaProjeto(fid, pi){
   var f = (typeof pmData !== 'undefined') ? pmData[fid] : null;
   return (f && f.projects && f.projects[pi]) ? { f:f, p:f.projects[pi] } : null;
@@ -19323,7 +19432,7 @@ function planRecursoAdd(tipo){
     label: '',
     dedicacao: 100
   });
-  if(typeof pmSave === 'function') pmSave();
+  planPersist(a);
   planRenderRecursos();
 }
 window.planRecursoAdd = planRecursoAdd;
@@ -19335,7 +19444,7 @@ function planRecursoRemove(id){
   var i = -1;
   arr.forEach(function(r, idx){ if(r.id === id) i = idx; });
   if(i !== -1) arr.splice(i, 1);
-  if(typeof pmSave === 'function') pmSave();
+  planPersist(a);
   planRenderRecursos();
 }
 window.planRecursoRemove = planRecursoRemove;
@@ -19353,7 +19462,7 @@ function planRecursoSetTipo(id, v){
   var r = planRecursoAch(a, id);
   if(!r) return;
   r.tipo = v === 'maquina' ? 'maquina' : 'operador';
-  if(typeof pmSave === 'function') pmSave();
+  planPersist(a);
   planRenderRecursos();
 }
 window.planRecursoSetTipo = planRecursoSetTipo;
@@ -19364,7 +19473,7 @@ function planRecursoSetLabel(id, v){
   var r = planRecursoAch(a, id);
   if(!r) return;
   r.label = v;
-  if(typeof pmSave === 'function') pmSave();
+  planPersist(a);
 }
 window.planRecursoSetLabel = planRecursoSetLabel;
 
@@ -19374,7 +19483,7 @@ function planRecursoSetDedicacao(id, v){
   var r = planRecursoAch(a, id);
   if(!r) return;
   r.dedicacao = v;
-  if(typeof pmSave === 'function') pmSave();
+  planPersist(a);
   planRenderRecursosSum(); // só os números — mantém o foco no input
 }
 window.planRecursoSetDedicacao = planRecursoSetDedicacao;
@@ -19547,6 +19656,123 @@ function dbListaPlanejamentos(fid, pi, p){
 window.dbListaPlanejamentos = dbListaPlanejamentos;
 
 /* ───────────────────────────────────────────────────────────────
+   VISÃO GERAL — reúne planejamentos vinculados e independentes
+   ─────────────────────────────────────────────────────────────── */
+function planTodosDados(){
+  if(typeof pmLoad === 'function') pmLoad();
+  if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
+  var out = [], d = (typeof pmData !== 'undefined' && pmData) ? pmData : {};
+  Object.keys(d).forEach(function(fid){
+    if(fid === '__flat__' || !d[fid]) return;
+    var f = d[fid];
+    (f.projects || []).forEach(function(p, pi){
+      planosDe(p).forEach(function(pl, k){
+        out.push({ tipo:'projeto', fid:fid, pi:pi, k:k, f:f, p:p, pl:pl,
+          origem:(f.name || 'Empresa') + ' › ' + (p.name || 'Projeto') });
+      });
+      planExistentes(p).forEach(function(fr){
+        out.push({
+          tipo:'relatorio', fid:fid, pi:pi, f:f, p:p, frp:fr,
+          pl:{ id:'frp_' + fr.base, name:'Análise combinada — ' + fr.label, date:'—', takt:'',
+               sheets:fr.itens.map(function(it){ return it.id; }) },
+          calculado:{ tp:fr.seq, takt:0, ops:0 },
+          origem:(f.name || 'Empresa') + ' › ' + (p.name || 'Projeto') + ' › Relatório Final'
+        });
+      });
+    });
+  });
+  planIndependentes().forEach(function(pl, k){
+    out.push({ tipo:'independente', k:k, f:{name:'Independente'}, p:{name:'Sem projeto',sheets:[]},
+      pl:pl, origem:'Fora dos projetos' });
+  });
+  return out;
+}
+
+function planFiltrarTodos(v){
+  var q = String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  document.querySelectorAll('[data-plan-todos-busca]').forEach(function(el){
+    var txt = (el.getAttribute('data-plan-todos-busca') || '').toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    el.style.display = !q || txt.indexOf(q) !== -1 ? '' : 'none';
+  });
+}
+window.planFiltrarTodos = planFiltrarTodos;
+
+function planRenderTodos(manterRolagem){
+  var host = document.getElementById('db-proj-list');
+  if(!host) return;
+  planTodosAtivo = true;
+  var dados = planTodosDados();
+  var vinculados = dados.filter(function(x){ return x.tipo === 'projeto'; }).length;
+  var independentes = dados.filter(function(x){ return x.tipo === 'independente'; }).length;
+  var relatorios = dados.filter(function(x){ return x.tipo === 'relatorio'; }).length;
+  var atividades = dados.reduce(function(n,x){ return n + ((x.pl.sheets || []).length); }, 0);
+  var linhas = dados.map(function(x){
+    var c = x.calculado || planCalcular(x.pl, x.p);
+    var acao = x.tipo === 'independente' ? 'planAbrirIndependente(' + x.k + ')'
+      : x.tipo === 'relatorio' ? 'planAbrirRelatorio(\'' + x.frp.base + '\')'
+      : 'planAbrir(\'' + x.fid + '\',' + x.pi + ',' + x.k + ')';
+    var tipo = x.tipo === 'independente'
+      ? '<span style="background:var(--greenBg);color:var(--green);border:1px solid rgba(0,229,160,.35);padding:3px 8px;border-radius:7px;font-size:9px;font-weight:800">INDEPENDENTE</span>'
+      : x.tipo === 'relatorio'
+      ? '<span style="background:var(--orangeBg);color:var(--orange);border:1px solid rgba(255,149,0,.35);padding:3px 8px;border-radius:7px;font-size:9px;font-weight:800">RELATÓRIO FINAL</span>'
+      : '<span style="background:var(--accentBg);color:var(--accent);border:1px solid rgba(0,212,255,.3);padding:3px 8px;border-radius:7px;font-size:9px;font-weight:800">PROJETO</span>';
+    var busca = esc((x.pl.name || '') + ' ' + x.origem);
+    return '<div data-plan-todos-busca="' + busca + '" onclick="' + acao + '" '
+      + 'style="display:grid;grid-template-columns:minmax(190px,1.6fr) minmax(170px,1.5fr) 92px 105px 92px 34px;gap:10px;align-items:center;background:var(--surface3);border:1px solid var(--border);border-radius:10px;padding:11px 13px;cursor:pointer;margin-bottom:7px">'
+      + '<div><div style="font-size:12.5px;font-weight:800;color:var(--text)">' + esc(x.pl.name || 'Planejamento') + '</div>'
+      + '<div style="font-size:10px;color:var(--text3);margin-top:3px">Criado em ' + esc(x.pl.date || '—') + '</div></div>'
+      + '<div><div style="font-size:10.5px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(x.origem) + '</div>'
+      + '<div style="margin-top:4px">' + tipo + '</div></div>'
+      + '<div style="text-align:right"><b style="color:var(--purple);font-size:13px">' + (x.pl.sheets || []).length + '</b><div style="font-size:9px;color:var(--text3)">atividades</div></div>'
+      + '<div style="text-align:right"><b style="color:var(--green);font-size:13px">' + seg(c.tp) + ' s</b><div style="font-size:9px;color:var(--text3)">' + minu(c.tp) + ' min</div></div>'
+      + '<div style="text-align:right"><b style="color:var(--blue);font-size:13px">' + (c.takt > 0 ? c.ops : '—') + '</b><div style="font-size:9px;color:var(--text3)">' + (c.takt > 0 ? 'operadores' : 'sem takt') + '</div></div>'
+      + '<div style="color:var(--accent);font-size:16px;font-weight:800">→</div></div>';
+  }).join('');
+  host.innerHTML = '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:18px">'
+    + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">'
+    + '<button onclick="planVoltarTodos()" style="background:var(--surface3);border:1px solid var(--border2);color:var(--text);padding:8px 13px;border-radius:8px;cursor:pointer;font-weight:700">← Empresas</button>'
+    + '<div><div style="font-size:18px;font-weight:800;color:var(--text)">▦ Todos os planejamentos</div><div style="font-size:10.5px;color:var(--text3)">Visão consolidada de todos os planejamentos realizados</div></div>'
+    + '<span style="flex:1"></span><button onclick="planNovoIndependente()" style="background:var(--greenBg);color:var(--green);border:1px solid var(--green);padding:9px 15px;border-radius:8px;font-weight:800;cursor:pointer">＋ Novo independente</button></div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:9px;margin-bottom:14px">'
+    + kpi('Planejamentos', dados.length, 'var(--purple)', 'total realizado')
+    + kpi('Em projetos', vinculados, 'var(--accent)', 'vinculados')
+    + kpi('Independentes', independentes, 'var(--green)', 'fora dos projetos')
+    + kpi('Relatório Final', relatorios, 'var(--orange)', 'análises combinadas')
+    + kpi('Atividades', atividades, 'var(--orange)', 'soma dos vínculos') + '</div>'
+    + '<input type="search" oninput="planFiltrarTodos(this.value)" placeholder="🔎 Buscar planejamento, empresa ou projeto..." style="width:100%;box-sizing:border-box;background:var(--surface3);border:1px solid var(--border2);border-radius:9px;padding:11px 13px;color:var(--text);font-family:inherit;margin-bottom:12px">'
+    + '<div style="overflow-x:auto">' + (linhas
+        ? '<div style="min-width:740px">' + linhas + '</div>'
+        : '<div class="plj-vazio" style="padding:30px">Nenhum planejamento criado ainda.<br><small>Crie dentro de um projeto ou use “Novo independente”.</small></div>') + '</div>'
+    + '</div>';
+  if(!manterRolagem) host.scrollIntoView({behavior:'smooth',block:'start'});
+}
+window.planRenderTodos = planRenderTodos;
+
+function planVoltarTodos(){
+  planTodosAtivo = false;
+  if(typeof dbRenderList === 'function') dbRenderList();
+}
+window.planVoltarTodos = planVoltarTodos;
+
+function planNovoIndependente(){
+  if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
+  var lista = planIndependentes();
+  var nome = prompt('Nome do planejamento independente:\n(ex.: Fluxo completo, Cenário futuro, Estudo transversal)',
+                    'PLANEJAMENTO INDEPENDENTE ' + (lista.length + 1));
+  if(nome === null) return;
+  nome = nome.trim() || ('PLANEJAMENTO INDEPENDENTE ' + (lista.length + 1));
+  lista.push({
+    id:'pli_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+    name:nome, date:new Date().toLocaleDateString('pt-BR'), createdAt:new Date().toISOString(),
+    takt:'', sheets:[], qtds:{}, recursos:[]
+  });
+  planIndepSalvar();
+  planAbrirIndependente(lista.length - 1);
+}
+window.planNovoIndependente = planNovoIndependente;
+
+/* ───────────────────────────────────────────────────────────────
    CRIAR / EXCLUIR
    ─────────────────────────────────────────────────────────────── */
 function planNovo(fid, pi){
@@ -19574,6 +19800,17 @@ function planNovo(fid, pi){
 window.planNovo = planNovo;
 
 function planExcluir(fid, pi, k){
+  if(PL && PL.independente){
+    var avulsos = planIndependentes();
+    var av = avulsos[PL.k];
+    if(!av) return;
+    if(!confirm('Excluir o planejamento independente "' + av.name + '"?\n\nAs folhas NÃO serão apagadas — apenas este agrupamento.')) return;
+    avulsos.splice(PL.k, 1);
+    planIndepSalvar();
+    planFechar();
+    if(planTodosAtivo) planRenderTodos(true); else if(typeof dbRenderList === 'function') dbRenderList();
+    return;
+  }
   var alvo = achaProjeto(fid, pi);
   if(!alvo) return;
   var planos = planosDe(alvo.p);
@@ -19589,6 +19826,19 @@ function planExcluir(fid, pi, k){
 window.planExcluir = planExcluir;
 
 function planRenomear(fid, pi, k){
+  if(PL && PL.independente){
+    var av = planIndependentes()[PL.k];
+    if(!av) return;
+    var novo = prompt('Novo nome do planejamento:', av.name);
+    if(novo === null) return;
+    novo = novo.trim();
+    if(!novo) return;
+    av.name = novo;
+    planIndepSalvar();
+    planRender();
+    planRefreshFundo();
+    return;
+  }
   var alvo = achaProjeto(fid, pi);
   var pl = alvo && planosDe(alvo.p)[k];
   if(!pl) return;
@@ -19609,6 +19859,10 @@ window.planRenomear = planRenomear;
    de rolagem para não "pular a tela" com o modal aberto. */
 function planRefreshFundo(){
   try{
+    if(PL && PL.independente && planTodosAtivo && typeof planRenderTodos === 'function'){
+      planRenderTodos(true);
+      return;
+    }
     if(typeof currentFolderId !== 'undefined' && currentFolderId && typeof openFolderPage === 'function'){
       openFolderPage(currentFolderId, true);
     }
@@ -19737,12 +19991,12 @@ window.planSelFolha = planSelFolha;
 /* ───────────────────────────────────────────────────────────────
    PAINEL DO PLANEJAMENTO
    ─────────────────────────────────────────────────────────────── */
-var PL = { fid:null, pi:null, k:null };
+var PL = { fid:null, pi:null, k:null, independente:false };
 
 function planAbrir(fid, pi, k){
   if(typeof pmLoad === 'function') pmLoad();
   if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
-  PL = { fid:fid, pi:pi, k:k };
+  PL = { fid:fid, pi:pi, k:k, independente:false };
   buscaFid = '';
   buscaPidx = '';
   var ov = document.getElementById('plj-overlay');
@@ -19751,10 +20005,23 @@ function planAbrir(fid, pi, k){
 }
 window.planAbrir = planAbrir;
 
+function planAbrirIndependente(k){
+  if(typeof pmLoad === 'function') pmLoad();
+  if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
+  if(!planIndependentes()[k]) return;
+  PL = { fid:null, pi:null, k:k, independente:true };
+  buscaFid = '';
+  buscaPidx = '';
+  var ov = document.getElementById('plj-overlay');
+  if(ov) ov.classList.remove('hidden');
+  planRender();
+}
+window.planAbrirIndependente = planAbrirIndependente;
+
 function planFechar(){
   var ov = document.getElementById('plj-overlay');
   if(ov) ov.classList.add('hidden');
-  PL = { fid:null, pi:null, k:null };
+  PL = { fid:null, pi:null, k:null, independente:false };
 }
 window.planFechar = planFechar;
 
@@ -19765,10 +20032,19 @@ window.planFecharBg = planFecharBg;
 window.PLJ_CTX = function(){ return PL; };
 
 function planAtual(){
+  if(PL && PL.independente){
+    var av = planIndependentes()[PL.k];
+    return av ? {
+      f:{name:'Planejamentos independentes'},
+      p:{name:'Sem vínculo com projeto',sheets:[]},
+      pl:av,
+      independente:true
+    } : null;
+  }
   var alvo = achaProjeto(PL.fid, PL.pi);
   if(!alvo) return null;
   var pl = planosDe(alvo.p)[PL.k];
-  return pl ? { f:alvo.f, p:alvo.p, pl:pl } : null;
+  return pl ? { f:alvo.f, p:alvo.p, pl:pl, independente:false } : null;
 }
 
 function planToggleFolha(sid){
@@ -19777,7 +20053,7 @@ function planToggleFolha(sid){
   var arr = a.pl.sheets = a.pl.sheets || [];
   var i = arr.indexOf(sid);
   if(i === -1) arr.push(sid); else arr.splice(i, 1);
-  if(typeof pmSave === 'function') pmSave();
+  planPersist(a);
   planRender();
   planRefreshFundo();
 }
@@ -19786,8 +20062,8 @@ window.planToggleFolha = planToggleFolha;
 function planTodas(marcar){
   var a = planAtual();
   if(!a) return;
-  a.pl.sheets = marcar ? (a.p.sheets || []).slice() : [];
-  if(typeof pmSave === 'function') pmSave();
+  a.pl.sheets = marcar ? (a.independente ? (a.pl.sheets || []).slice() : (a.p.sheets || []).slice()) : [];
+  planPersist(a);
   planRender();
   planRefreshFundo();
 }
@@ -19801,7 +20077,7 @@ function planSheetMoveUp(sid){
   var i = arr.indexOf(sid);
   if(i > 0){
     var tmp = arr[i - 1]; arr[i - 1] = arr[i]; arr[i] = tmp;
-    if(typeof pmSave === 'function') pmSave();
+    planPersist(a);
     planRender();
     planRefreshFundo();
   }
@@ -19815,7 +20091,7 @@ function planSheetMoveDown(sid){
   var i = arr.indexOf(sid);
   if(i !== -1 && i < arr.length - 1){
     var tmp = arr[i + 1]; arr[i + 1] = arr[i]; arr[i] = tmp;
-    if(typeof pmSave === 'function') pmSave();
+    planPersist(a);
     planRender();
     planRefreshFundo();
   }
@@ -19830,7 +20106,7 @@ function planSheetRemove(sid){
   if(i !== -1){
     arr.splice(i, 1);
     if(a.pl.qtds) delete a.pl.qtds[sid];
-    if(typeof pmSave === 'function') pmSave();
+    planPersist(a);
     planRender();
     planRefreshFundo();
   }
@@ -19846,7 +20122,7 @@ function planSheetSetQtd(sid, val){
   if(!a) return;
   if(!a.pl.qtds) a.pl.qtds = {};
   a.pl.qtds[sid] = val;
-  if(typeof pmSave === 'function') pmSave();
+  planPersist(a);
   var sh = (typeof get === 'function') ? get(sid) : null;
   var m = (sh && typeof computeSheetMetrics === 'function') ? computeSheetMetrics(sh) : null;
   if(sh && m){
@@ -19864,7 +20140,7 @@ function planSetTakt(v){
   var a = planAtual();
   if(!a) return;
   a.pl.takt = v;
-  if(typeof pmSave === 'function') pmSave();
+  planPersist(a);
   planRenderResumo();
 }
 window.planSetTakt = planSetTakt;
@@ -19939,7 +20215,9 @@ function planRender(){
   var tit = document.getElementById('plj-titulo');
   if(tit) tit.textContent = a.pl.name;
   var sub = document.getElementById('plj-sub');
-  if(sub) sub.textContent = '🏢 ' + a.f.name + '  ›  📁 ' + a.p.name;
+  if(sub) sub.textContent = a.independente
+    ? '◈ Planejamento independente · sem vínculo obrigatório com projeto'
+    : '🏢 ' + a.f.name + '  ›  📁 ' + a.p.name;
 
   var html = ''
     + '<div class="plj-secao">'
@@ -19965,7 +20243,7 @@ function planRender(){
     + '<div class="plj-secao">'
     +   '<div class="plj-secao-hdr">'
     +     '<span>Atividades que entram neste planejamento</span>'
-    +     '<button class="plj-mini" onclick="planTodas(true)">Marcar todas</button>'
+    +     (a.independente ? '' : '<button class="plj-mini" onclick="planTodas(true)">Marcar todas</button>')
     +     '<button class="plj-mini" onclick="planTodas(false)">Limpar</button>'
     +   '</div>';
 
@@ -19976,8 +20254,9 @@ function planRender(){
   var disponiveis = todas.filter(function(sh){ return escolhidas.indexOf(sh.id) === -1; });
 
   if(!selecionadas.length && !disponiveis.length){
-    html += '<div class="plj-vazio">Este projeto ainda não tem folhas MTM.<br>'
-          + '<small>Crie folhas no editor: cada folha é uma atividade do processo.</small></div>';
+    html += a.independente
+      ? '<div class="plj-vazio">Este planejamento ainda não tem atividades.<br><small>Use os seletores abaixo para escolher empresa, projeto e folha.</small></div>'
+      : '<div class="plj-vazio">Este projeto ainda não tem folhas MTM.<br><small>Crie folhas no editor: cada folha é uma atividade do processo.</small></div>';
   } else {
     if(selecionadas.length){
       html += '<table class="plj-tab plj-tab-sel"><thead><tr>'
@@ -20040,7 +20319,7 @@ function planRender(){
     }
   }
   html += '<div class="plj-busca">'
-       +   '<label class="plj-lbl">Buscar atividade em outras pastas, projetos e folhas</label>'
+       +   '<label class="plj-lbl">' + (a.independente ? 'Selecionar atividade de qualquer empresa, projeto e folha' : 'Buscar atividade em outras pastas, projetos e folhas') + '</label>'
        +   '<div id="plj-cascata" class="plj-cascata">' + planBuscaHTML() + '</div>'
        + '</div>';
   html += '</div>';
