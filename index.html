@@ -5879,10 +5879,10 @@ function renderContent(id){
             <input id="ttp-manual-${id}" type="number" min="0" max="100" step="0.01"
               value="${esc(s.header.manualTTP||'')}"
               placeholder="0 = bruto"
-              onchange="saveTTPManual('${id}')" oninput="saveTTPManual('${id}')"
               style="width:100%;padding:8px 10px;background:var(--surface3);border:1px solid rgba(0,212,255,.2);
                 border-radius:var(--radius-sm);color:var(--accent);font-size:15px;font-weight:700;font-family:inherit;">
             <div style="font-size:9px;color:var(--text2);margin-top:3px;">Ex.: 85% → Tempo Padrão = tempo bruto ÷ 0,85</div>
+            <div id="ttp-live-formula-${id}" style="font-size:9px;color:var(--green);margin-top:4px;font-family:'JetBrains Mono',monospace;font-weight:700;"></div>
           </div>
 
         </div>
@@ -6034,6 +6034,14 @@ function renderContent(id){
     inp.addEventListener('input', saveHandler);
     if(inp.tagName === 'SELECT') inp.addEventListener('change', saveHandler);
   });
+  // Ligação explícita da ocupação ao motor da folha.
+  // Evita depender de handler inline e garante recálculo imediato do rodapé.
+  const occInput = document.getElementById('ttp-manual-'+id);
+  if(occInput){
+    const recalcOccupancy = ()=>saveTTPManual(id);
+    occInput.addEventListener('input', recalcOccupancy);
+    occInput.addEventListener('change', recalcOccupancy);
+  }
   // Restaurar rows se já existem (carregadas do localStorage)
   if(s.rows && s.rows.length){
     s.rows.forEach(r=>renderRow(id, r.id, false));
@@ -6294,6 +6302,12 @@ function mtmStandardByOccupancy(base, occupancyPct){
   var occ = mtmOccupancyPct(occupancyPct);
   return occ > 0 ? base / (occ / 100) : base;
 }
+function mtmStandardByNonProductive(base, nonProductivePct){
+  var np = parseFloat(nonProductivePct);
+  if(!isFinite(np) || np <= 0) return base;
+  np = Math.min(99.99, np);
+  return mtmStandardByOccupancy(base, 100 - np);
+}
 
 // Helper: calcula métricas consolidadas de uma folha
 function computeSheetMetrics(s){
@@ -6353,6 +6367,12 @@ function updateTotals(sid){
   const tstdTmu=document.getElementById('tstd-tmu-'+sid);
   if(tstd)tstd.textContent=m.stdSec?m.stdSec.toFixed(4):'0';
   if(tstdTmu)tstdTmu.textContent=m.stdTmu?m.stdTmu.toFixed(2):'0';
+  const liveFormula = document.getElementById('ttp-live-formula-'+sid);
+  if(liveFormula){
+    liveFormula.textContent = m.manualTTP > 0
+      ? m.totalSec.toFixed(4)+' s ÷ '+(m.manualTTP/100).toFixed(4)+' = '+m.stdSec.toFixed(4)+' s'
+      : 'Sem ocupação aplicada: '+m.totalSec.toFixed(4)+' s';
+  }
   // Atualizar label do Tempo Padrão dinamicamente
   const tstdLbl = document.getElementById('tstd-lbl-'+sid);
   if(tstdLbl){
@@ -6712,7 +6732,9 @@ function prepararPrint(){
     var tn = tmu * 0.036;
     var h = s.header||{};
     var allow = (parseFloat(h.allowPersonal)||0) + (parseFloat(h.allowFatigue)||0) + (parseFloat(h.allowContingency)||0);
-    var ts = tn * (1 + allow/100);
+    var ocup = mtmOccupancyPct(h.manualTTP);
+    var ts = ocup > 0 ? mtmStandardByOccupancy(tn, ocup) : tn * (1 + allow/100);
+    if(ocup > 0) allow = 100 - ocup;
     var pcsCic = (function(){ var v = parseFloat(h.pcsCiclo); return (isFinite(v) && v > 0) ? v : 1; })();
     var pph = ts > 0 ? Math.floor((3600/ts) * pcsCic) : 0;
     return {tmu:tmu, tn:tn, ts:ts, allow:allow, pph:pph, pcsCiclo:pcsCic};
@@ -6914,7 +6936,7 @@ function prepararPrint(){
       var allowCalcFad = fad.tvTotal + fad.fadigaPct;
       var allowFad = (fixFad != null) ? fixFad : allowCalcFad;
       var tnFad = m.tmu * 0.036;
-      var tsFad = tnFad * (1 + allowFad/100);
+      var tsFad = mtmStandardByNonProductive(tnFad, allowFad);
       var taktV = parseFloat(h.takt)||0;
       html += '<div class="pa-h3">Análise Final — Tempo Padrão vs Takt</div>';
       html += '<div class="pa-results">';
@@ -10345,7 +10367,7 @@ function openCompanyPage(clientName){
         var _fadD = (sh.fadiga && typeof sh.fadiga==='object') ? mtmCalcFadiga(sh.fadiga) : null;
         var _stdD = m.manualTTP > 0
           ? m.stdSec
-          : _fadD ? +(m.totalSec * (1 + _fadD.allowTotal/100)).toFixed(4)
+          : _fadD ? +mtmStandardByNonProductive(m.totalSec, _fadD.allowTotal).toFixed(4)
           : m.stdSec;
         totalSecBruto += m.totalSec;
         totalStdSec += _stdD;
@@ -10529,7 +10551,7 @@ function openFolderPage(fid, keepScroll){
         var _fadD = (sh.fadiga && typeof sh.fadiga==='object') ? mtmCalcFadiga(sh.fadiga) : null;
         var _stdD = m.manualTTP > 0
           ? m.stdSec
-          : _fadD ? +(m.totalSec * (1 + _fadD.allowTotal/100)).toFixed(4)
+          : _fadD ? +mtmStandardByNonProductive(m.totalSec, _fadD.allowTotal).toFixed(4)
           : m.stdSec;
         totalSecBruto += m.totalSec;
         totalStdSec += _stdD;
@@ -11927,11 +11949,11 @@ function buildSheetDetailSection(){
       + '<div id="frp-scope-'+s.id+'"></div>'
       + '<div style="display:flex;flex-wrap:wrap;gap:8px">'
       + inputBox('Horas de Trabalho', 'frp-h-'+s.id, (s.header && s.header.workHours) || 8, '8')
-      + box('TTP (%)', 'frp-ttp-'+s.id, '100 − Allowance', 'var(--accent)')
+      + box('Ocupação / TTP (%)', 'frp-ttp-'+s.id, '100 − parcela não produtiva', 'var(--accent)')
       + '<div style="flex:1;min-width:140px;background:var(--surface2);border:1px solid var(--green);border-radius:8px;padding:8px 12px">'
       +   '<div style="font-size:9px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Tempo de Ciclo Final (TS)</div>'
       +   '<div id="frp-ts-'+s.id+'" style="font-size:16px;font-weight:800;color:var(--green);font-family:\'JetBrains Mono\',monospace">'+(x.stdSec ? x.stdSec.toFixed(2).replace('.',',') : '—')+' s</div>'
-      +   '<div style="font-size:9px;color:var(--text3);margin-top:2px">TN × (1 + Allowance/100)'+(function(){ var _u=getPcsCicloUnit(s.header); return x.pcsCiclo&&x.pcsCiclo>1?' · '+x.pcsCiclo+' '+_u.abbr+'/ciclo':''; })()+'</div>'
+      +   '<div style="font-size:9px;color:var(--text3);margin-top:2px">TS = TN ÷ (Ocupação/100)'+(function(){ var _u=getPcsCicloUnit(s.header); return x.pcsCiclo&&x.pcsCiclo>1?' · '+x.pcsCiclo+' '+_u.abbr+'/ciclo':''; })()+'</div>'
       + '</div>'
       + '<div style="flex:1;min-width:130px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:8px 12px">'
       +   '<div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Quantidade de '+(getPcsCicloUnit(s.header).label)+'</div>'
@@ -15080,7 +15102,12 @@ function _xlCalcSheetMetrics(s){
   // Análise de Fadiga na folha; só cai no allowance do cabeçalho se não houver análise.
   var _fad = (s.fadiga && typeof s.fadiga==='object' && typeof mtmCalcFadiga==='function') ? mtmCalcFadiga(s.fadiga) : null;
   var allowTotal = _fad ? _fad.allowTotal : allowHeader;
-  var stdSec = (tmu * 0.036) * (1 + allowTotal/100);
+  var ocupManual = mtmOccupancyPct(h.manualTTP);
+  var stdSec = ocupManual > 0
+    ? mtmStandardByOccupancy(tmu * 0.036, ocupManual)
+    : _fad ? mtmStandardByNonProductive(tmu * 0.036, allowTotal)
+    : (tmu * 0.036) * (1 + allowTotal/100);
+  if(ocupManual > 0) allowTotal = 100 - ocupManual;
   var pcsCiclo = (function(){ var v = parseFloat(h.pcsCiclo); return (isFinite(v) && v > 0) ? v : 1; })();
   var pph = stdSec > 0 ? Math.floor((3600/stdSec) * pcsCiclo) : 0;
   return {tmu:tmu, stdSec:stdSec, pph:pph, allow:allowTotal, pcsCiclo:pcsCiclo};
@@ -15354,7 +15381,7 @@ function exportExcel(only){
         var _premPctG = (s.fadiga && s.fadiga.modoAllow==='none') ? 0 : ((s.fadiga && s.fadiga.modoAllow==='global') ? 15 : ((s.fadiga && s.fadiga.modoAllow==='sese') ? 10 : null));
         var allowTotalFad = (_premPctG != null) ? _premPctG : (fad.tvTotal + fad.fadigaPct);
         var tnFad = m.tmu * 0.036;
-        var tsFad = tnFad * (1 + allowTotalFad/100);
+        var tsFad = mtmStandardByNonProductive(tnFad, allowTotalFad);
         var takt  = parseFloat(h.takt)||0;
         aoaG.push(['TMU total da folha',          +m.tmu.toFixed(2)]);
         aoaG.push(['TN — Tempo Normal (s)',       +tnFad.toFixed(3)]);
@@ -15451,7 +15478,7 @@ function exportExcel(only){
         var _premPctM = (s.fadiga && s.fadiga.modoAllow==='none') ? 0 : ((s.fadiga && s.fadiga.modoAllow==='global') ? 15 : ((s.fadiga && s.fadiga.modoAllow==='sese') ? 10 : null));
         var allowTotalFad = (_premPctM != null) ? _premPctM : (fad.tvTotal + fad.fadigaPct);
         var tnFad = m.tmu * 0.036;
-        var tsFad = tnFad * (1 + allowTotalFad/100);
+        var tsFad = mtmStandardByNonProductive(tnFad, allowTotalFad);
         var takt  = parseFloat(h.takt)||0;
         aoaM.push([]);
         aoaM.push(['RESUMO DE FADIGA & OCIOSIDADE']);
@@ -16069,7 +16096,7 @@ function fadRecalc(){
 
   var allowCalc  = tv.tvTotal + ter.pct;            // % detalhado
   var allowTotal = (fixPct != null) ? fixPct : allowCalc;  // % aplicado
-  var ts = tn * (1 + allowTotal/100);               // s
+  var ts = mtmStandardByNonProductive(tn, allowTotal); // s: TN ÷ ocupação
   var tempoTrab = 100 - allowTotal;                 // % tempo de trabalho
 
   var takt = activeId ? parseFloat((get(activeId)||{}).header && (get(activeId)||{}).header.takt) : NaN;
@@ -16331,7 +16358,11 @@ function closeFadiga(){
       try{
         var modoEl = document.querySelector('input[name="fad-modo-allow"]:checked');
         if(modoEl && modoEl.value === 'none'){
-          /* Sem fadiga: não aplica nenhum allowance ao cabeçalho da folha. */
+          /* Sem fadiga: remove a ocupação aplicada e volta ao tempo bruto. */
+          s.header.allowPersonal = 0;
+          s.header.allowFatigue = 0;
+          s.header.allowContingency = 0;
+          fadSyncOccupancyToSheet(activeId, 0);
         } else if(modoEl && modoEl.value === 'sese'){
           fadAplicarPadraoSESE();   // premissa SESÉ (10% fixo)
         } else if(modoEl && modoEl.value === 'global'){
@@ -16368,6 +16399,19 @@ function fadResetDefaults(){
   if(typeof showToast === 'function') showToast('Valores padrão restaurados.');
 }
 
+// Mantém o painel de fadiga e o motor principal da folha na mesma ocupação.
+function fadSyncOccupancyToSheet(sid, occupancyPct){
+  var s = get(sid);
+  if(!s) return;
+  if(!s.header) s.header = {};
+  var occ = occupancyPct === 0 ? 0 : mtmOccupancyPct(occupancyPct);
+  s.header.manualTTP = occ;
+  var inp = document.getElementById('ttp-manual-'+sid);
+  if(inp) inp.value = occ > 0 ? occ : '';
+  if(typeof updateTotals === 'function') updateTotals(sid);
+  if(typeof ttpCalc === 'function') ttpCalc(sid);
+}
+
 // Aplica os valores calculados como allowance no cabeçalho da folha ativa
 function fadAplicarFolha(){
   if(!activeId){ if(typeof showToast === 'function') showToast('Sem folha ativa.', true); return; }
@@ -16393,6 +16437,8 @@ function fadAplicarFolha(){
   s.header.allowPersonal    = r2(pPersonal);
   s.header.allowFatigue     = r2(pFatigue);
   s.header.allowContingency = r2(pContingency);
+  // TV + TER são parcela não produtiva; a ocupação é o complemento.
+  fadSyncOccupancyToSheet(activeId, Math.max(1, 100 - (pPersonal + pFatigue + pContingency)));
 
   // Atualizar campos visuais no header (se existirem)
   function setHF(field, val){
@@ -16431,6 +16477,7 @@ function fadAplicarPadraoSESE(){
   s.header.allowPersonal    = pPersonal;
   s.header.allowFatigue     = pFatigue;
   s.header.allowContingency = pContingency;
+  fadSyncOccupancyToSheet(activeId, 90);
 
   // Atualiza os campos visuais no cabeçalho da folha (se existirem)
   function setHF(field, val){
@@ -16476,6 +16523,7 @@ function fadAplicarPadraoGlobal(){
   s.header.allowPersonal    = pPersonal;
   s.header.allowFatigue     = pFatigue;
   s.header.allowContingency = pContingency;
+  fadSyncOccupancyToSheet(activeId, 85);
 
   // Atualiza os campos visuais no cabeçalho da folha (se existirem)
   function setHF(field, val){
@@ -17423,7 +17471,7 @@ function balImportFromSheets(){
     // m.stdSec já usa a ocupação manual por divisão; fallback para fadiga se não houver valor manual
     var manualTTPBal = parseFloat((s.header && s.header.manualTTP) || 0) || 0;
     var stdSec = manualTTPBal > 0 ? m.stdSec
-               : fad ? +(m.totalSec * (1 + fad.allowTotal/100)).toFixed(4)
+               : fad ? +mtmStandardByNonProductive(m.totalSec, fad.allowTotal).toFixed(4)
                : m.totalSec;
     if(stdSec <= 0) return;
     // Procurar se já existe linha com mesmo label
@@ -19147,6 +19195,7 @@ function tempoPadrao(sh, m){
   var fad = (sh && sh.fadiga && typeof sh.fadiga === 'object' && typeof mtmCalcFadiga === 'function')
               ? mtmCalcFadiga(sh.fadiga) : null;
   var allow = fad ? fad.allowTotal : m.allowPct;
+  if(fad && allow > 0) return +mtmStandardByNonProductive(m.totalSec, allow).toFixed(4);
   if(allow > 0) return +(m.totalSec * (1 + allow / 100)).toFixed(4);
   return m.stdSec;
 }
