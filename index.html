@@ -3779,6 +3779,15 @@ body.home-clean .db-company-card::after{
   border-bottom:1px solid var(--border2);font-size:11.5px;
 }
 #plan-crumb.show{ display:flex; }
+.pcrumb-back{
+  display:flex;align-items:center;gap:6px;flex-shrink:0;
+  background:var(--surface3);border:1px solid var(--border2);color:var(--text);
+  border-radius:7px;padding:5px 12px;cursor:pointer;
+  font-family:inherit;font-size:11.5px;font-weight:700;transition:all .15s;
+}
+.pcrumb-back:hover{ background:var(--accentGradSoft);border-color:var(--accent);color:var(--accent); }
+.pcrumb-back .pb-arrow{ font-size:13px;font-weight:800;line-height:1; }
+.pcrumb-div{ width:1px;height:18px;background:var(--border2);flex-shrink:0;margin:0 2px; }
 .pcrumb-item{
   display:flex;align-items:center;gap:6px;color:var(--text2);
   cursor:pointer;font-weight:600;padding:3px 8px;border-radius:6px;transition:all .15s;
@@ -18521,7 +18530,10 @@ function planRenderCrumb(){
   var p  = (typeof getActiveProject === 'function') ? getActiveProject() : null;
   var sh = (typeof get === 'function' && typeof activeId !== 'undefined' && activeId) ? get(activeId) : null;
 
-  var html = '<div class="pcrumb-item" onclick="goHome()">🏠 Início</div>';
+  var html = '<button class="pcrumb-back" onclick="planBack()" title="' + planBackTitle() + '">'
+           + '<span class="pb-arrow">←</span> Voltar</button>'
+           + '<div class="pcrumb-div"></div>'
+           + '<div class="pcrumb-item" onclick="goHome()">🏠 Início</div>';
   if(p){
     var fid   = (typeof activeProjectCtx !== 'undefined' && activeProjectCtx) ? activeProjectCtx.folderId : null;
     var fname = (fid && pmData[fid] ? pmData[fid].name : null) || p.client || 'Empresa';
@@ -18541,6 +18553,23 @@ function planRenderCrumb(){
   el.classList.add('show');
 }
 window.planRenderCrumb = planRenderCrumb;
+
+/* Recua um nível: folha aberta → pasta da empresa → menu inicial */
+function planBackTitle(){
+  var p = (typeof getActiveProject === 'function') ? getActiveProject() : null;
+  if(!p) return 'Voltar ao menu inicial';
+  var fid = (typeof activeProjectCtx !== 'undefined' && activeProjectCtx) ? activeProjectCtx.folderId : null;
+  var nome = (fid && pmData[fid] ? pmData[fid].name : null) || p.client || 'a empresa';
+  return 'Voltar para os projetos de ' + nome;
+}
+window.planBackTitle = planBackTitle;
+
+function planBack(){
+  var p = (typeof getActiveProject === 'function') ? getActiveProject() : null;
+  if(p) return planGoFolder();          // está numa folha → volta para a pasta da empresa
+  if(typeof goHome === 'function') goHome();   // folha avulsa → volta para o menu
+}
+window.planBack = planBack;
 
 function planGoFolder(){
   var fid = (typeof activeProjectCtx !== 'undefined' && activeProjectCtx) ? activeProjectCtx.folderId : null;
