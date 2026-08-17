@@ -3653,6 +3653,44 @@ body.home-clean .db-company-card::after{
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
 .plan-rec-meta{ font-size:10.5px;color:var(--text3); }
 
+
+/* ══════════════════════════════════════════════════════════════
+   PLANEJAMENTOS DENTRO DO CARTAO DO PROJETO
+   ══════════════════════════════════════════════════════════════ */
+.pj-plans{ margin-top:10px;padding-top:10px;border-top:1px solid var(--border); }
+.pj-plans-hdr{
+  display:flex;align-items:center;gap:7px;margin-bottom:7px;
+  font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);
+}
+.pj-plans-hdr span{
+  background:var(--purpleBg);color:var(--purple);
+  padding:1px 7px;border-radius:8px;font-size:9.5px;
+}
+.pj-plan-list{ display:flex;flex-direction:column;gap:5px;max-height:186px;overflow-y:auto;margin-bottom:7px; }
+.pj-plan{
+  display:flex;align-items:center;gap:8px;cursor:pointer;
+  background:var(--surface2);border:1px solid var(--border);border-radius:7px;
+  padding:7px 9px;transition:all .14s;
+}
+.pj-plan:hover{ border-color:var(--accent);background:var(--surface);transform:translateX(2px); }
+.pj-plan-ico{ font-size:12px;flex-shrink:0; }
+.pj-plan-txt{ min-width:0;flex:1; }
+.pj-plan-txt b{ display:block;font-size:11.5px;font-weight:700;color:var(--text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.pj-plan-txt em{ display:block;font-style:normal;font-size:9.5px;color:var(--text3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px; }
+.pj-plan-go{ color:var(--accent);font-size:12px;font-weight:800;flex-shrink:0; }
+.pj-plan-vazio{
+  font-size:10.5px;color:var(--text3);text-align:center;padding:12px 8px;margin-bottom:7px;
+  border:1px dashed var(--border2);border-radius:7px;
+}
+.pj-plan-novo{
+  width:100%;background:var(--accentBg);border:1px dashed rgba(0,212,255,.45);
+  color:var(--accent);border-radius:7px;padding:7px;cursor:pointer;
+  font-family:inherit;font-size:11px;font-weight:700;transition:all .14s;
+}
+.pj-plan-novo:hover{ background:var(--accentGradSoft);border-style:solid; }
+
 /* ══════════════════════════════════════════════════════════════
    ASSISTENTE (wizard) DE NOVO PLANEJAMENTO
    ══════════════════════════════════════════════════════════════ */
@@ -10403,6 +10441,7 @@ function openFolderPage(fid){
         + '</div>'
         + dbProjectImgBox(p)
         + '<button onclick="dbOpenProjectInFolder(\'' + fid + '\',' + pi + ')" style="width:100%;background:var(--accentGrad);color:#fff;border:none;padding:7px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700">Abrir Projeto →</button>'
+        + dbListaPlanejamentos(fid, pi, p)
         + '</div>';
     });
     html += '</div>';
@@ -18865,6 +18904,99 @@ function dbDuplicarProjeto(fid, pi){
   }
 }
 window.dbDuplicarProjeto = dbDuplicarProjeto;
+
+
+/* ───────────────────────────────────────────────────────────────
+   4) PLANEJAMENTOS DO PROJETO — lista abaixo do "Abrir Projeto"
+   ─────────────────────────────────────────────────────────────── */
+function planEscTxt(v){
+  return String(v == null ? '' : v)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function dbListaPlanejamentos(fid, pi, p){
+  var ids = (p && p.sheets) || [];
+  var itens = [];
+  ids.forEach(function(sid){
+    var sh = (typeof get === 'function') ? get(sid) : null;
+    if(!sh) return;
+    var proc = (sh.header && sh.header.processo) || '';
+    var nl   = (sh.rows || []).length;
+    itens.push(
+      '<div class="pj-plan" onclick="event.stopPropagation();planOpenSheet(\'' + fid + '\',' + pi + ',\'' + sid + '\')">'
+      + '<span class="pj-plan-ico">\uD83D\uDCC4</span>'
+      + '<span class="pj-plan-txt">'
+      +   '<b>' + planEscTxt(sh.label) + '</b>'
+      +   (proc ? '<em>' + planEscTxt(proc) + '</em>' : '<em>' + nl + ' linha(s)</em>')
+      + '</span>'
+      + '<span class="pj-plan-go">\u2192</span>'
+      + '</div>'
+    );
+  });
+
+  var corpo = itens.length
+    ? '<div class="pj-plan-list">' + itens.join('') + '</div>'
+    : '<div class="pj-plan-vazio">Nenhum planejamento ainda neste projeto.</div>';
+
+  return '<div class="pj-plans">'
+    + '<div class="pj-plans-hdr">Planejamentos <span>' + itens.length + '</span></div>'
+    + corpo
+    + '<button class="pj-plan-novo" onclick="event.stopPropagation();dbNovoPlanejamento(\'' + fid + '\',' + pi + ')">'
+    + '\uFF0B Novo planejamento</button>'
+    + '</div>';
+}
+window.dbListaPlanejamentos = dbListaPlanejamentos;
+
+function dbNovoPlanejamento(fid, pi){
+  if(typeof pmLoad === 'function') pmLoad();
+  if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
+
+  var f = (typeof pmData !== 'undefined') ? pmData[fid] : null;
+  var p = f && f.projects && f.projects[pi];
+  if(!p){ alert('Projeto nao encontrado.'); return; }
+  if(typeof pmEnsureProjId === 'function') pmEnsureProjId(p);
+
+  var n = ((p.sheets || []).length) + 1;
+  var nome = prompt('Nome do novo planejamento (folha):', 'FOLHA ' + n);
+  if(nome === null) return;
+  nome = nome.trim() || ('FOLHA ' + n);
+
+  var antes = (p.sheets || []).length;
+  if(typeof setActiveProjectCtx === 'function') setActiveProjectCtx(fid, pi);
+  if(typeof hideDashboard === 'function') hideDashboard();
+
+  var atual = (typeof getActiveProject === 'function' && getActiveProject()) || p;
+  var sid;
+  if(atual.sheets && atual.sheets.length > antes){
+    sid = atual.sheets[atual.sheets.length - 1];   // hideDashboard ja criou
+  } else {
+    sid = (typeof addSheetHere === 'function') ? addSheetHere() : addSheet(true);
+  }
+
+  var sh = (typeof get === 'function') ? get(sid) : null;
+  if(sh){
+    sh.label  = nome;
+    sh.header = sh.header || {};
+    if(!sh.header.empresa) sh.header.empresa = f.name;
+    if(!sh.header.projeto) sh.header.projeto = p.name;
+    if(typeof saveSheets === 'function') saveSheets();
+  }
+  if(typeof pmSave === 'function') pmSave();
+  if(typeof planTouch === 'function') planTouch(fid, p.id);
+
+  setTimeout(function(){
+    var card = document.getElementById('c-' + sid);
+    if(card) card.remove();
+    if(typeof renderContent === 'function') renderContent(sid);
+    if(typeof renderTabs === 'function') renderTabs();
+    if(typeof setActive === 'function') setActive(sid);
+    if(typeof planRenderCrumb === 'function') planRenderCrumb();
+    if(typeof showToast === 'function') showToast('\uFF0B Novo planejamento: ' + nome);
+    window.scrollTo({ top:0, behavior:'smooth' });
+  }, 90);
+}
+window.dbNovoPlanejamento = dbNovoPlanejamento;
 
 })();
 </script>
