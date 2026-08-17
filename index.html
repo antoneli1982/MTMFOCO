@@ -6250,14 +6250,26 @@ function showAC(val,list,onSel){
   list.classList.add('show');
 }
 
+// Conversão numérica única para toda a folha. Aceita ponto ou vírgula decimal
+// e mantém Q/F vazios com o valor operacional padrão 1.
+function mtmNumberValue(v, fallback){
+  if(v==null || String(v).trim()==='') return fallback;
+  var n = parseFloat(String(v).trim().replace(',', '.'));
+  return isFinite(n) ? n : fallback;
+}
+function mtmRowTotalTmu(row){
+  if(!row) return 0;
+  var tmu = mtmNumberValue(row.tmu, 0);
+  var q = mtmNumberValue(row.q, 1);
+  var f = mtmNumberValue(row.f, 1);
+  return +(tmu * q * f).toFixed(4);
+}
+
 function calcRow(sid,rid){
   const s=get(sid), row=s.rows.find(r=>r.id===rid);
   if(!row) return;
-  const tmu=parseFloat(row.tmu)||0;
   // Q e F vazios valem 1 (igual ao placeholder), nunca 0 — senão TMU×0×0 zera o total.
-  const q=(row.q==null||String(row.q).trim()===''||isNaN(parseFloat(row.q)))?1:parseFloat(row.q);
-  const f=(row.f==null||String(row.f).trim()===''||isNaN(parseFloat(row.f)))?1:parseFloat(row.f);
-  row.ttmu=+(tmu*q*f).toFixed(4);
+  row.ttmu=mtmRowTotalTmu(row);
   row.tsec=+(row.ttmu*0.036).toFixed(4);
   const tr=document.getElementById(rid);
   if(tr){
@@ -6314,7 +6326,10 @@ function computeSheetMetrics(s){
   if(!s) return null;
   const h = s.header || {};
   const rows = s.rows || [];
-  const totalTmu = rows.reduce((a,r)=>a+(parseFloat(r.ttmu)||0),0);
+  // Sempre deriva o total dos campos-fonte TMU × Q × F. `row.ttmu` é apenas
+  // um valor exibido/cache e pode chegar desatualizado após importação ou sync.
+  const rowTotals = rows.map(function(r){ return mtmRowTotalTmu(r); });
+  const totalTmu = rowTotals.reduce((a,t)=>a+t,0);
   const totalSec = +(totalTmu * 0.036).toFixed(4);
   const aP = parseFloat(h.allowPersonal)||0;
   const aF = parseFloat(h.allowFatigue)||0;
@@ -6335,8 +6350,8 @@ function computeSheetMetrics(s){
   const saturation = takt > 0 ? +(stdSec / takt * 100).toFixed(1) : 0;
   // VA / NVA / NNVA
   let va=0, nva=0, nnva=0, unc=0;
-  rows.forEach(r=>{
-    const t = parseFloat(r.ttmu)||0;
+  rows.forEach((r,i)=>{
+    const t = rowTotals[i] || 0;
     if(!t) return;
     if(r.agrega==='Sim') va += t;
     else if(r.agrega==='Não') nva += t;
@@ -6351,7 +6366,7 @@ function computeSheetMetrics(s){
     va, nva, nnva, unc,
     pcsCiclo: (function(){ var v = parseFloat(h.pcsCiclo); return (isFinite(v) && v > 0) ? v : 1; })(),
     demand: parseFloat(h.demand)||0,
-    rowCount: rows.filter(r=>(parseFloat(r.ttmu)||0)>0).length
+    rowCount: rowTotals.filter(t=>t>0).length
   };
 }
 
@@ -17674,12 +17689,30 @@ function balEsc(s){
           if(tsecEl.value !== tsecStr) tsecEl.value = tsecStr;
           somaTmu += ttmu;
         }
-        var fTmu = document.getElementById('ttmu-'+sid);
-        var fSec = document.getElementById('tsec-'+sid);
-        var vTmu = somaTmu ? somaTmu.toFixed(2)  : '0';
-        var vSec = somaTmu ? (somaTmu*0.036).toFixed(4) : '0';
-        if(fTmu && fTmu.textContent !== vTmu) fTmu.textContent = vTmu;
-        if(fSec && fSec.textContent !== vSec) fSec.textContent = vSec;
+        // Sincroniza a fonte de dados antes de atualizar o rodapé. A versão
+        // anterior escrevia somente TOTAL BRUTO no DOM; o Tempo Padrão seguia
+        // calculado com `row.ttmu` antigo, criando dois totais incompatíveis.
+        var sheet = (typeof get === 'function') ? get(sid) : null;
+        if(sheet && sheet.rows){
+          for(var j=0; j<rows.length; j++){
+            var domRow = rows[j];
+            var modelRow = sheet.rows.find(function(r){ return r.id === domRow.id; });
+            if(!modelRow) continue;
+            var srcTmu = domRow.querySelector('[data-f="tmu"]');
+            var srcQ = domRow.querySelector('[data-f="q"]');
+            var srcF = domRow.querySelector('[data-f="f"]');
+            if(srcTmu) modelRow.tmu = srcTmu.value;
+            if(srcQ) modelRow.q = srcQ.value;
+            if(srcF) modelRow.f = srcF.value;
+            modelRow.ttmu = (typeof mtmRowTotalTmu === 'function')
+              ? mtmRowTotalTmu(modelRow)
+              : 0;
+            modelRow.tsec = +(modelRow.ttmu * 0.036).toFixed(4);
+          }
+        }
+        // Uma única função atualiza TOTAL BRUTO e TEMPO PADRÃO. Com ocupação
+        // 100%, a igualdade entre ambos passa a ser garantida pelo mesmo total.
+        if(typeof updateTotals === 'function') updateTotals(sid);
       }
     }catch(e){}
   }
