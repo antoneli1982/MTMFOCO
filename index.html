@@ -3773,29 +3773,47 @@ body.home-clean .db-company-card::after{
 /* ══════════════════════════════════════════════════════════════
    RECOLHER O MENU DE FERRAMENTAS (ver a tela toda)
    ══════════════════════════════════════════════════════════════ */
-/* a linha do logo ocupa a largura toda e empurra o botao para a ponta,
-   assim ele nunca fica escondido fora da area visivel */
-.toolbar > div:first-child{ flex:1 1 auto !important; min-width:0 !important; }
-.toolbar > div:first-child .logo{ overflow:hidden;text-overflow:ellipsis;min-width:0; }
-
+/* aba fixa na lateral esquerda — sempre visivel, mesmo com o menu recolhido */
 .tb-toggle{
-  margin-left:auto;
+  position:fixed;left:0;top:50%;transform:translateY(-50%);
+  z-index:9000;
+  display:flex;align-items:center;justify-content:center;
+  width:26px;height:64px;padding:0;
   background:var(--accentGrad);border:none;color:#fff;
-  border-radius:8px;padding:7px 13px;cursor:pointer;flex-shrink:0;
-  font-family:inherit;font-size:12px;font-weight:800;
-  display:flex;align-items:center;gap:7px;white-space:nowrap;
-  box-shadow:var(--shadow-glow);transition:filter .15s;
+  border-radius:0 10px 10px 0;
+  cursor:pointer;font-family:inherit;font-size:13px;font-weight:800;
+  box-shadow:2px 0 14px rgba(0,0,0,.45);
+  transition:width .15s, filter .15s;
 }
-.tb-toggle:hover{ filter:brightness(1.12); }
-.tb-toggle .tbt-ico{ font-size:11px;line-height:1; }
+.tb-toggle:hover{ width:32px;filter:brightness(1.12); }
+.tb-toggle .tbt-lbl{ display:none; }   /* so a seta: ocupa o minimo da tela */
+.tb-toggle .tbt-ico{ font-size:13px;line-height:1; }
 
-/* recolhido: some com os botoes e a barra vira uma faixa fina */
-body.tb-collapsed .toolbar-actions{ display:none !important; }
-body.tb-collapsed .toolbar{ padding-top:6px;padding-bottom:6px; }
+/* a aba acompanha a borda da coluna: encostada nela quando aberta,
+   colada na margem da tela quando recolhida */
+@media (min-width:781px){
+  .tb-toggle{ left:214px;transition:left .26s ease, width .15s, filter .15s; }
+  body.tb-collapsed .tb-toggle{ left:0; }
+}
 
-@media(max-width:520px){
-  .tb-toggle{ padding:6px 10px;font-size:11px; }
-  .toolbar > div:first-child .logo span{ display:none; }
+/* ── Telas >= 781px: a barra e uma coluna fixa de 214px (pro-sidebar-v1).
+      Recolher = a coluna inteira desliza para fora e o conteudo ocupa tudo. ── */
+@media (min-width:781px){
+  body{ transition:padding-left .26s ease; }
+  .toolbar{ transition:transform .26s ease, opacity .18s ease; }
+  body.tb-collapsed{ padding-left:0 !important; }
+  body.tb-collapsed .toolbar{
+    transform:translateX(-100%);
+    opacity:0;
+    pointer-events:none;
+  }
+}
+
+/* ── Telas <= 780px: a barra e horizontal no topo; recolher esconde os botoes ── */
+@media (max-width:780px){
+  .toolbar-actions{ transition:opacity .18s ease; }
+  body.tb-collapsed .toolbar-actions{ display:none !important; }
+  body.tb-collapsed .toolbar{ padding-top:6px;padding-bottom:6px; }
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -4242,7 +4260,7 @@ body.tb-collapsed .toolbar{ padding-top:6px;padding-bottom:6px; }
   <!-- Logo + crédito -->
   <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
     <div class="logo">MTM <span>/ Folha de Processo</span></div>
-    <button id="tb-toggle" class="tb-toggle" onclick="tbCollapseToggle()" aria-expanded="true" title="Recolher o menu e ver a tela toda"><span class="tbt-ico" id="tbt-ico">▲</span><span class="tbt-lbl" id="tbt-lbl"> Recolher</span></button>
+    <button id="tb-toggle" class="tb-toggle" onclick="tbCollapseToggle()" aria-expanded="true" title="Recolher o menu para a lateral e liberar a tela"><span class="tbt-ico" id="tbt-ico">◀</span><span class="tbt-lbl" id="tbt-lbl"> Recolher</span></button>
     <div style="width:1px;height:28px;background:var(--border2);display:none" class="tb-sep-v"></div>
   </div>
   <!-- Crédito removido a pedido -->
@@ -18613,17 +18631,27 @@ window.planGoFolder = planGoFolder;
    ═══════════════════════════════════════════════════════════════ */
 var TB_KEY = 'mtm_tb_collapsed_v1';
 
+/* A aba precisa viver fora da barra: se ficar dentro, desliza junto e some. */
+function tbDetachToggle(){
+  try{
+    var b = document.getElementById('tb-toggle');
+    if(b && document.body && b.parentNode !== document.body) document.body.appendChild(b);
+  }catch(e){}
+}
+window.tbDetachToggle = tbDetachToggle;
+
 function tbCollapseApply(recolhido){
+  tbDetachToggle();
   document.body.classList[recolhido ? 'add' : 'remove']('tb-collapsed');
   var ico = document.getElementById('tbt-ico');
   var lbl = document.getElementById('tbt-lbl');
   var btn = document.getElementById('tb-toggle');
-  if(ico) ico.textContent = recolhido ? '\u25BC' : '\u25B2';
+  if(ico) ico.textContent = recolhido ? '\u25B6' : '\u25C0';
   if(lbl) lbl.textContent = recolhido ? ' Menu' : ' Recolher';
   if(btn){
     btn.setAttribute('aria-expanded', recolhido ? 'false' : 'true');
     btn.title = recolhido ? 'Mostrar o menu de ferramentas'
-                          : 'Recolher o menu e ver a tela toda';
+                          : 'Recolher o menu para a lateral e liberar a tela';
   }
 }
 window.tbCollapseApply = tbCollapseApply;
