@@ -3795,6 +3795,45 @@ body.home-clean .db-company-card::after{
 }
 .plj-check.on{ background:var(--green);border-color:var(--green);color:#00291d; }
 
+/* ── recursos alocados (máquina / mão de obra) do planejamento ── */
+.plj-rec-add{ display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px; }
+.plj-rec-btn{
+  background:var(--surface3);border:1px solid var(--border2);color:var(--text2);
+  border-radius:8px;padding:7px 13px;font-family:inherit;font-size:11px;
+  font-weight:700;cursor:pointer;
+}
+.plj-rec-btn:hover{ background:var(--accentBg);color:var(--accent);border-color:var(--accent); }
+.plj-rec-btn.maq:hover{ background:rgba(59,130,246,.14);color:var(--blue);border-color:var(--blue); }
+.plj-rec-row{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  background:var(--surface2);border:1px solid var(--border2);border-radius:9px;
+  padding:8px 10px;margin-bottom:7px;
+}
+.plj-rec-tipo{
+  background:var(--surface3);border:1px solid var(--border2);border-radius:7px;
+  padding:7px 9px;color:var(--text);font-family:inherit;font-size:11.5px;font-weight:700;
+  flex-shrink:0;
+}
+.plj-rec-nome{
+  flex:1;min-width:100px;background:var(--surface3);border:1px solid var(--border2);
+  border-radius:7px;padding:7px 9px;color:var(--text);font-family:inherit;font-size:11.5px;
+}
+.plj-rec-nome:focus,.plj-rec-tipo:focus{ outline:none;border-color:var(--accent); }
+.plj-rec-ded{
+  display:flex;align-items:center;gap:4px;background:var(--surface3);
+  border:1px solid var(--accent);border-radius:7px;padding:4px 9px;flex-shrink:0;
+}
+.plj-rec-ded input{
+  width:46px;background:transparent;border:none;outline:none;color:var(--text);
+  font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:800;text-align:right;
+}
+.plj-rec-ded span{ font-size:11px;color:var(--text3);font-weight:700; }
+.plj-rec-del{
+  background:transparent;border:1px solid var(--border2);color:var(--text3);
+  border-radius:6px;width:26px;height:26px;flex-shrink:0;cursor:pointer;font-size:11px;
+}
+.plj-rec-del:hover{ background:var(--redBg);color:var(--red);border-color:var(--red); }
+
 /* ══════════════════════════════════════════════════════════════
    ASSISTENTE (wizard) DE NOVO PLANEJAMENTO
    ══════════════════════════════════════════════════════════════ */
@@ -19095,10 +19134,158 @@ function planCalcular(plano, proj){
     itens:itens, tn:tn, tp:tp, takt:takt,
     ops:ops, opsExato:opsE, saturacao:satu, folga:sobra,
     va:va, nva:nva, nnva:nnva, unc:unc,
-    pecasHora: tp > 0 ? Math.floor(3600 / tp) : 0
+    pecasHora: tp > 0 ? Math.floor(3600 / tp) : 0,
+    recursos: planRecursosCalc(plano, tp)
   };
 }
 window.planCalcular = planCalcular;
+
+/* ───────────────────────────────────────────────────────────────
+   RECURSOS ALOCADOS — máquina e/ou mão de obra, com dedicação
+   individual de cada recurso. Base do cálculo: 1 recurso (máquina
+   e/ou operador) a 100% de dedicação = fator 1 (tempo do processo
+   igual ao Tempo Total apurado nas folhas). Cada recurso soma
+   dedicacao/100 ao fator; o tempo do processo cai proporcionalmente
+   (tempoEfetivo = TEMPO TOTAL ÷ fator).
+   ─────────────────────────────────────────────────────────────── */
+function planRecursosCalc(plano, tp){
+  var lista = Array.isArray(plano.recursos) ? plano.recursos : [];
+  var fator = 0, nMaq = 0, nOp = 0;
+  lista.forEach(function(r){
+    var d = parseFloat(r.dedicacao);
+    if(!isFinite(d) || d < 0) d = 0;
+    if(d > 100) d = 100;
+    fator += d / 100;
+    if(r.tipo === 'maquina') nMaq++; else nOp++;
+  });
+  if(!lista.length) fator = 1; // sem recursos informados: assume 1 recurso a 100%
+  var tpEf = fator > 0 ? tp / fator : tp;
+  return {
+    lista:lista, fator:fator, nMaquinas:nMaq, nOperadores:nOp,
+    tpEfetivo:tpEf,
+    pecasHoraEfetiva: tpEf > 0 ? Math.floor(3600 / tpEf) : 0
+  };
+}
+window.planRecursosCalc = planRecursosCalc;
+
+function planRecursoAdd(tipo){
+  var a = planAtual();
+  if(!a) return;
+  var arr = a.pl.recursos = a.pl.recursos || [];
+  arr.push({
+    id: 'r' + Date.now() + Math.random().toString(36).slice(2, 7),
+    tipo: tipo === 'maquina' ? 'maquina' : 'operador',
+    label: '',
+    dedicacao: 100
+  });
+  if(typeof pmSave === 'function') pmSave();
+  planRenderRecursos();
+}
+window.planRecursoAdd = planRecursoAdd;
+
+function planRecursoRemove(id){
+  var a = planAtual();
+  if(!a) return;
+  var arr = a.pl.recursos || [];
+  var i = -1;
+  arr.forEach(function(r, idx){ if(r.id === id) i = idx; });
+  if(i !== -1) arr.splice(i, 1);
+  if(typeof pmSave === 'function') pmSave();
+  planRenderRecursos();
+}
+window.planRecursoRemove = planRecursoRemove;
+
+function planRecursoAch(a, id){
+  var arr = a.pl.recursos || [];
+  var achado = null;
+  arr.forEach(function(r){ if(r.id === id) achado = r; });
+  return achado;
+}
+
+function planRecursoSetTipo(id, v){
+  var a = planAtual();
+  if(!a) return;
+  var r = planRecursoAch(a, id);
+  if(!r) return;
+  r.tipo = v === 'maquina' ? 'maquina' : 'operador';
+  if(typeof pmSave === 'function') pmSave();
+  planRenderRecursos();
+}
+window.planRecursoSetTipo = planRecursoSetTipo;
+
+function planRecursoSetLabel(id, v){
+  var a = planAtual();
+  if(!a) return;
+  var r = planRecursoAch(a, id);
+  if(!r) return;
+  r.label = v;
+  if(typeof pmSave === 'function') pmSave();
+}
+window.planRecursoSetLabel = planRecursoSetLabel;
+
+function planRecursoSetDedicacao(id, v){
+  var a = planAtual();
+  if(!a) return;
+  var r = planRecursoAch(a, id);
+  if(!r) return;
+  r.dedicacao = v;
+  if(typeof pmSave === 'function') pmSave();
+  planRenderRecursosSum(); // só os números — mantém o foco no input
+}
+window.planRecursoSetDedicacao = planRecursoSetDedicacao;
+
+function planRenderRecursos(){
+  var a = planAtual();
+  var rowsEl = document.getElementById('plj-recursos-rows');
+  if(!a || !rowsEl) return;
+  var lista = a.pl.recursos || [];
+  if(!lista.length){
+    rowsEl.innerHTML = '<div class="plj-vazio" style="padding:12px">Nenhum recurso informado ainda.'
+      + '<br><small>Sem recursos, o cálculo assume 1 recurso (máquina e/ou operador) a 100%.</small></div>';
+  } else {
+    rowsEl.innerHTML = lista.map(function(r){
+      return '<div class="plj-rec-row">'
+        +   '<select class="plj-rec-tipo" onchange="planRecursoSetTipo(\'' + r.id + '\', this.value)">'
+        +     '<option value="operador"' + (r.tipo !== 'maquina' ? ' selected' : '') + '>🧍 Mão de obra</option>'
+        +     '<option value="maquina"' + (r.tipo === 'maquina' ? ' selected' : '') + '>🔧 Máquina</option>'
+        +   '</select>'
+        +   '<input class="plj-rec-nome" type="text" placeholder="Nome (opcional)" value="' + esc(r.label || '') + '" '
+        +     'oninput="planRecursoSetLabel(\'' + r.id + '\', this.value)">'
+        +   '<div class="plj-rec-ded">'
+        +     '<input type="number" min="0" max="100" step="1" value="' + esc(r.dedicacao != null ? r.dedicacao : 100) + '" '
+        +       'oninput="planRecursoSetDedicacao(\'' + r.id + '\', this.value)"><span>%</span>'
+        +   '</div>'
+        +   '<button class="plj-rec-del" onclick="planRecursoRemove(\'' + r.id + '\')" title="Remover">✕</button>'
+        + '</div>';
+    }).join('');
+  }
+  planRenderRecursosSum();
+}
+window.planRenderRecursos = planRenderRecursos;
+
+function planRenderRecursosSum(){
+  var a = planAtual();
+  var el = document.getElementById('plj-recursos-sum');
+  if(!a || !el) return;
+  var c = planCalcular(a.pl, a.p);
+  var rec = c.recursos;
+  var cmpHtml = '';
+  if(c.takt > 0){
+    var ok = rec.tpEfetivo <= c.takt;
+    cmpHtml = '<div class="plj-vered ' + (ok ? 'plj-vered-ok' : 'plj-vered-alerta') + '" style="margin-top:9px">'
+      + (ok
+          ? '✅ Com estes recursos, o tempo efetivo (<b>' + seg(rec.tpEfetivo) + ' s</b>) atende ao Takt (' + seg(c.takt) + ' s).'
+          : '⚠️ Com estes recursos, o tempo efetivo (<b>' + seg(rec.tpEfetivo) + ' s</b>) excede o Takt (' + seg(c.takt) + ' s). Faltam recursos.')
+      + '</div>';
+  }
+  el.innerHTML = '<div class="plj-kpis" style="margin-top:10px">'
+    + kpi('Fator de Recursos', rec.fator.toFixed(2) + '×', 'var(--purple)',
+          rec.lista.length ? (rec.nMaquinas + ' máq. · ' + rec.nOperadores + ' m.o.') : 'padrão: 1 recurso a 100%')
+    + kpi('Tempo Efetivo', seg(rec.tpEfetivo) + ' s', 'var(--green)', minu(rec.tpEfetivo) + ' min')
+    + kpi('Peças/hora', rec.pecasHoraEfetiva || '—', 'var(--accent)', 'com estes recursos')
+    + '</div>' + cmpHtml;
+}
+window.planRenderRecursosSum = planRenderRecursosSum;
 
 
 /* ───────────────────────────────────────────────────────────────
@@ -19536,6 +19723,18 @@ function planRender(){
     + '</div>'
     + '<div id="plj-resumo"></div>'
     + '<div class="plj-secao">'
+    +   '<div class="plj-secao-hdr"><span>🔧 Recursos alocados (máquina / mão de obra)</span></div>'
+    +   '<small class="plj-hint" style="display:block;margin-bottom:9px">Insira máquina, mão de obra ou os dois, '
+    +     'cada um com sua dedicação. O cálculo parte de 1 recurso a 100%; conforme mais recursos entram, '
+    +     'o tempo do processo reduz proporcionalmente.</small>'
+    +   '<div class="plj-rec-add">'
+    +     '<button class="plj-rec-btn maq" onclick="planRecursoAdd(\'maquina\')">🔧 + Máquina</button>'
+    +     '<button class="plj-rec-btn" onclick="planRecursoAdd(\'operador\')">🧍 + Mão de obra</button>'
+    +   '</div>'
+    +   '<div id="plj-recursos-rows"></div>'
+    +   '<div id="plj-recursos-sum"></div>'
+    + '</div>'
+    + '<div class="plj-secao">'
     +   '<div class="plj-secao-hdr">'
     +     '<span>Atividades que entram neste planejamento</span>'
     +     '<button class="plj-mini" onclick="planTodas(true)">Marcar todas</button>'
@@ -19578,6 +19777,7 @@ function planRender(){
 
   box.innerHTML = html;
   planRenderResumo();
+  planRenderRecursos();
 }
 window.planRender = planRender;
 
