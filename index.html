@@ -3813,6 +3813,12 @@ body.home-clean .db-company-card::after{
 .plj-ord-btn:disabled{ opacity:.3;cursor:default; }
 .plj-ord-btn.plj-ord-del:hover{ background:var(--redBg);color:var(--red);border-color:var(--red); }
 .plj-tab-sel tbody tr{ cursor:default; }
+.plj-qtd input{
+  width:52px;text-align:right;background:var(--surface2);border:1px solid var(--accent);
+  border-radius:6px;padding:4px 6px;color:var(--text);font-family:'JetBrains Mono',monospace;
+  font-size:11.5px;font-weight:800;
+}
+.plj-qtd input:focus{ outline:none;background:var(--surface3); }
 
 /* ── recursos alocados (máquina / mão de obra) do planejamento ── */
 .plj-rec-add{ display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px; }
@@ -19133,6 +19139,12 @@ function achaProjeto(fid, pi){
 /* ───────────────────────────────────────────────────────────────
    CALCULO — soma das atividades escolhidas
    ─────────────────────────────────────────────────────────────── */
+function planQtdDe(plano, sid){
+  var v = plano.qtds ? parseFloat(plano.qtds[sid]) : NaN;
+  return (isFinite(v) && v > 0) ? v : 1;
+}
+window.planQtdDe = planQtdDe;
+
 function planCalcular(plano, proj){
   var itens = [], tn = 0, tp = 0, va = 0, nva = 0, nnva = 0, unc = 0;
   (plano.sheets || []).forEach(function(sid){
@@ -19140,9 +19152,12 @@ function planCalcular(plano, proj){
     if(!sh) return;
     var m = (typeof computeSheetMetrics === 'function') ? computeSheetMetrics(sh) : null;
     if(!m) return;
-    tn += m.totalSec; tp += tempoPadrao(sh, m);
-    va += m.va; nva += m.nva; nnva += m.nnva; unc += m.unc;
-    itens.push({ sid:sid, label:sh.label, processo:(sh.header && sh.header.processo) || '', m:m });
+    var qtd = planQtdDe(plano, sid);
+    var tpUnit = tempoPadrao(sh, m);
+    tn += m.totalSec * qtd; tp += tpUnit * qtd;
+    va += m.va * qtd; nva += m.nva * qtd; nnva += m.nnva * qtd; unc += m.unc * qtd;
+    itens.push({ sid:sid, label:sh.label, processo:(sh.header && sh.header.processo) || '', m:m,
+                 qtd:qtd, tpUnit:tpUnit, tpTotal:tpUnit * qtd });
   });
   var takt = parseFloat(plano.takt) || 0;
   var ops  = takt > 0 ? Math.ceil(tp / takt) : 0;
@@ -19703,12 +19718,36 @@ function planSheetRemove(sid){
   var i = arr.indexOf(sid);
   if(i !== -1){
     arr.splice(i, 1);
+    if(a.pl.qtds) delete a.pl.qtds[sid];
     if(typeof pmSave === 'function') pmSave();
     planRender();
     planRefreshFundo();
   }
 }
 window.planSheetRemove = planSheetRemove;
+
+/* Quantidade por atividade — no MTM o tempo apurado na folha é POR UNIDADE;
+   aqui multiplicamos pelo tanto de peças/repetições que essa atividade
+   representa dentro deste planejamento. Atualiza só o total da linha e os
+   KPIs/recursos (não reconstrói a tabela, então o input não perde o foco). */
+function planSheetSetQtd(sid, val){
+  var a = planAtual();
+  if(!a) return;
+  if(!a.pl.qtds) a.pl.qtds = {};
+  a.pl.qtds[sid] = val;
+  if(typeof pmSave === 'function') pmSave();
+  var sh = (typeof get === 'function') ? get(sid) : null;
+  var m = (sh && typeof computeSheetMetrics === 'function') ? computeSheetMetrics(sh) : null;
+  if(sh && m){
+    var qtd = planQtdDe(a.pl, sid);
+    var tpUnit = tempoPadrao(sh, m);
+    var totEl = document.getElementById('plj-tot-' + sid);
+    if(totEl) totEl.textContent = seg(tpUnit * qtd);
+  }
+  planRenderResumo();
+  planRenderRecursosSum();
+}
+window.planSheetSetQtd = planSheetSetQtd;
 
 function planSetTakt(v){
   var a = planAtual();
@@ -19831,14 +19870,16 @@ function planRender(){
   } else {
     if(selecionadas.length){
       html += '<table class="plj-tab plj-tab-sel"><thead><tr>'
-            + '<th style="width:28px">#</th><th>Atividade (folha MTM)</th>'
-            + '<th style="width:76px">TMU</th><th style="width:82px">Tempo (s)</th>'
+            + '<th style="width:26px">#</th><th>Atividade (folha MTM)</th>'
+            + '<th style="width:72px">Tempo unid. (s)</th><th style="width:62px">Qtd</th>'
+            + '<th style="width:76px">Total (s)</th>'
             + '<th style="width:78px"></th>'
             + '</tr></thead><tbody>';
       selecionadas.forEach(function(sh, i){
         var m = (typeof computeSheetMetrics === 'function') ? computeSheetMetrics(sh) : null;
         var proc = (sh.header && sh.header.processo) || '';
         var tps = m ? tempoPadrao(sh, m) : 0;
+        var qtd = planQtdDe(a.pl, sh.id);
         var deFora = proprias.indexOf(sh.id) === -1;
         var o = idx[sh.id];
         var origem = deFora
@@ -19848,8 +19889,10 @@ function planRender(){
           + '<td class="plj-num">' + (i + 1) + '</td>'
           + '<td><b>' + esc(sh.label) + '</b>' + origem
           +   (proc ? '<em>' + esc(proc) + '</em>' : '') + '</td>'
-          + '<td class="num">' + (m ? (tps / 0.036).toFixed(0) : '—') + '</td>'
           + '<td class="num">' + (m ? seg(tps) : '—') + '</td>'
+          + '<td class="num plj-qtd"><input type="number" min="0.01" step="1" value="' + esc(qtd) + '" '
+          +   'onclick="event.stopPropagation()" oninput="planSheetSetQtd(\'' + sh.id + '\', this.value)"></td>'
+          + '<td class="num" id="plj-tot-' + sh.id + '">' + (m ? seg(tps * qtd) : '—') + '</td>'
           + '<td class="plj-ord">'
           +   '<button class="plj-ord-btn" onclick="planSheetMoveUp(\'' + sh.id + '\')" '
           +     (i === 0 ? 'disabled' : '') + ' title="Subir">\u2191</button>'
