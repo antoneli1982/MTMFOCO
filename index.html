@@ -10601,7 +10601,7 @@ function openFolderPage(fid, keepScroll){
         +   '<button onclick="event.stopPropagation();dbRenameProjectInFolder(\'' + fid + '\',' + pi + ')" title="Renomear projeto" style="background:var(--orangeBg);border:1px solid rgba(255,149,0,.4);color:var(--orange);cursor:pointer;font-size:11px;border-radius:5px;padding:3px 7px;font-weight:700" onmouseover="this.style.background=\'var(--orange)\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'var(--orangeBg)\';this.style.color=\'var(--orange)\'">✏️</button>'
         +   '<button onclick="event.stopPropagation();dbDelProjectInFolder(\'' + fid + '\',' + pi + ')" title="Excluir projeto" style="background:var(--redBg);border:1px solid rgba(255,77,109,.4);color:var(--red);cursor:pointer;font-size:11px;border-radius:5px;padding:3px 7px;font-weight:700" onmouseover="this.style.background=\'var(--red)\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'var(--redBg)\';this.style.color=\'var(--red)\'">✕</button>'
         + '</div>'
-        + '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;padding-right:60px">' + dbEsc(p.name) + '</div>'
+        + '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;padding-right:140px">' + dbEsc(p.name) + '</div>'
         + '<div style="font-size:10px;color:var(--text3);margin-bottom:10px">Criado em ' + dbEsc(p.date||'—') + '</div>'
         + '<div style="display:flex;gap:10px;font-size:10px;color:var(--text2);margin-bottom:10px">'
         + '<span>📋 <strong>' + ns + '</strong> folha(s)</span>'
