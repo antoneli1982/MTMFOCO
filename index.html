@@ -3655,41 +3655,130 @@ body.home-clean .db-company-card::after{
 
 
 /* ══════════════════════════════════════════════════════════════
-   PLANEJAMENTOS DENTRO DO CARTAO DO PROJETO
+   PLANEJAMENTO DE PROCESSO — lista no cartao + painel
    ══════════════════════════════════════════════════════════════ */
-.pj-plans{ margin-top:10px;padding-top:10px;border-top:1px solid var(--border); }
-.pj-plans-hdr{
+.plj-box{ margin-top:10px;padding-top:10px;border-top:1px solid var(--border); }
+.plj-hdr{
   display:flex;align-items:center;gap:7px;margin-bottom:7px;
   font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);
 }
-.pj-plans-hdr span{
-  background:var(--purpleBg);color:var(--purple);
-  padding:1px 7px;border-radius:8px;font-size:9.5px;
-}
-.pj-plan-list{ display:flex;flex-direction:column;gap:5px;max-height:186px;overflow-y:auto;margin-bottom:7px; }
-.pj-plan{
+.plj-hdr span{ background:var(--greenBg);color:var(--green);padding:1px 7px;border-radius:8px;font-size:9.5px; }
+.plj-list{ display:flex;flex-direction:column;gap:5px;max-height:170px;overflow-y:auto;margin-bottom:7px; }
+.plj-item{
   display:flex;align-items:center;gap:8px;cursor:pointer;
   background:var(--surface2);border:1px solid var(--border);border-radius:7px;
   padding:7px 9px;transition:all .14s;
 }
-.pj-plan:hover{ border-color:var(--accent);background:var(--surface);transform:translateX(2px); }
-.pj-plan-ico{ font-size:12px;flex-shrink:0; }
-.pj-plan-txt{ min-width:0;flex:1; }
-.pj-plan-txt b{ display:block;font-size:11.5px;font-weight:700;color:var(--text);
+.plj-item:hover{ border-color:var(--green);background:var(--surface);transform:translateX(2px); }
+.plj-ico{ font-size:12px;flex-shrink:0; }
+.plj-txt{ min-width:0;flex:1; }
+.plj-txt b{ display:block;font-size:11.5px;font-weight:700;color:var(--text);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-.pj-plan-txt em{ display:block;font-style:normal;font-size:9.5px;color:var(--text3);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px; }
-.pj-plan-go{ color:var(--accent);font-size:12px;font-weight:800;flex-shrink:0; }
-.pj-plan-vazio{
+.plj-txt em{ display:block;font-style:normal;font-size:9.5px;color:var(--text3);margin-top:1px; }
+.plj-ops{ background:var(--blueBg);color:var(--blue);border-radius:6px;padding:2px 7px;
+  font-size:9.5px;font-weight:800;flex-shrink:0; }
+.plj-ops-off{ background:var(--surface3);color:var(--text3); }
+.plj-go{ color:var(--green);font-size:12px;font-weight:800;flex-shrink:0; }
+.plj-vazio{
   font-size:10.5px;color:var(--text3);text-align:center;padding:12px 8px;margin-bottom:7px;
-  border:1px dashed var(--border2);border-radius:7px;
+  border:1px dashed var(--border2);border-radius:7px;line-height:1.6;
 }
-.pj-plan-novo{
-  width:100%;background:var(--accentBg);border:1px dashed rgba(0,212,255,.45);
-  color:var(--accent);border-radius:7px;padding:7px;cursor:pointer;
+.plj-vazio small{ font-size:9.5px;color:var(--text3);opacity:.85; }
+.plj-novo{
+  width:100%;background:var(--greenBg);border:1px dashed rgba(0,229,160,.45);
+  color:var(--green);border-radius:7px;padding:7px;cursor:pointer;
   font-family:inherit;font-size:11px;font-weight:700;transition:all .14s;
 }
-.pj-plan-novo:hover{ background:var(--accentGradSoft);border-style:solid; }
+.plj-novo:hover{ background:var(--surface3);border-style:solid; }
+
+.plj-hdr-frp{ margin-top:0; }
+.plj-hdr-frp span{ background:var(--orangeBg);color:var(--orange); }
+.plj-item-frp:hover{ border-color:var(--orange); }
+.plj-item-frp .plj-go{ color:var(--orange); }
+.plj-nota{ font-size:9.5px;color:var(--text3);line-height:1.5;margin:-2px 0 12px;
+  padding-left:2px;border-left:2px solid var(--border2);padding-left:8px; }
+
+/* ── painel do planejamento ── */
+.plj-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.74);backdrop-filter:blur(4px);
+  z-index:12500;display:flex;align-items:center;justify-content:center;padding:18px;
+}
+.plj-overlay.hidden{ display:none; }
+.plj-modal{
+  background:var(--surface);border:1px solid var(--border3);border-radius:16px;
+  width:100%;max-width:760px;max-height:90vh;display:flex;flex-direction:column;
+  box-shadow:var(--shadow);overflow:hidden;
+}
+.plj-top{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:16px 20px;border-bottom:1px solid var(--border);background:var(--surface2);
+}
+.plj-titulo{ font-size:17px;font-weight:800;color:var(--text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.plj-subtitulo{ font-size:11px;color:var(--text3);margin-top:2px; }
+.plj-btn-ghost,.plj-btn-danger{
+  background:var(--surface3);border:1px solid var(--border2);color:var(--text2);
+  border-radius:8px;padding:7px 12px;font-family:inherit;font-size:11.5px;
+  font-weight:700;cursor:pointer;flex-shrink:0;
+}
+.plj-btn-ghost:hover{ background:var(--surface);color:var(--text); }
+.plj-btn-danger{ color:var(--red);border-color:rgba(255,77,109,.4); }
+.plj-btn-danger:hover{ background:var(--redBg); }
+.plj-body{ padding:18px 20px;overflow-y:auto;flex:1; }
+
+.plj-secao{ margin-bottom:18px; }
+.plj-lbl{ display:block;font-size:10.5px;font-weight:700;color:var(--text2);
+  text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px; }
+.plj-takt{
+  width:100%;max-width:220px;box-sizing:border-box;background:var(--surface2);
+  border:1px solid var(--accent);border-radius:9px;padding:11px 13px;
+  color:var(--text);font-family:inherit;font-size:15px;font-weight:800;
+}
+.plj-takt:focus{ outline:none;background:var(--surface3);box-shadow:var(--shadow-glow); }
+.plj-hint{ display:block;font-size:10.5px;color:var(--text3);margin-top:6px;line-height:1.5; }
+
+.plj-kpis{ display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:9px;margin-bottom:12px; }
+.plj-kpi{ background:var(--surface2);border:1px solid var(--border2);border-radius:10px;
+  padding:11px 10px;text-align:center; }
+.plj-kpi-v{ font-size:19px;font-weight:800;line-height:1.15; }
+.plj-kpi-r{ font-size:9px;color:var(--text3);text-transform:uppercase;
+  letter-spacing:.7px;font-weight:700;margin-top:3px; }
+.plj-kpi-s{ font-size:9px;color:var(--text3);margin-top:2px; }
+
+.plj-vered{ border-radius:9px;padding:11px 14px;font-size:12px;line-height:1.6;margin-bottom:4px; }
+.plj-vered-ok{ background:var(--greenBg);border:1px solid rgba(0,229,160,.4);color:var(--text); }
+.plj-vered-alerta{ background:var(--redBg);border:1px solid rgba(255,77,109,.45);color:var(--text); }
+.plj-vered-off{ background:var(--surface2);border:1px dashed var(--border2);color:var(--text3); }
+
+.plj-secao-hdr{ display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px; }
+.plj-secao-hdr span{ font-size:10.5px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.7px;color:var(--text2);flex:1; }
+.plj-mini{
+  background:var(--surface3);border:1px solid var(--border2);color:var(--text2);
+  border-radius:7px;padding:5px 10px;font-family:inherit;font-size:10.5px;
+  font-weight:700;cursor:pointer;
+}
+.plj-mini:hover{ background:var(--accentBg);color:var(--accent);border-color:var(--accent); }
+
+.plj-tab{ width:100%;border-collapse:collapse; }
+.plj-tab th{
+  background:var(--header-bg);padding:8px 10px;text-align:left;
+  font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;
+  color:var(--text2);border-bottom:1px solid var(--border2);
+}
+.plj-tab td{ padding:9px 10px;border-bottom:1px solid var(--border);font-size:11.5px;color:var(--text); }
+.plj-tab tbody tr{ cursor:pointer;transition:background .12s; }
+.plj-tab tbody tr:hover{ background:var(--row-hover); }
+.plj-tab tbody tr.on{ background:var(--greenBg); }
+.plj-tab td b{ font-weight:700; }
+.plj-tab td em{ display:block;font-style:normal;font-size:10px;color:var(--text3);margin-top:1px; }
+.plj-tab td.num{ text-align:right;font-family:'JetBrains Mono',monospace;font-size:11px; }
+.plj-check{
+  width:17px;height:17px;border-radius:5px;border:2px solid var(--border3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;color:transparent;
+}
+.plj-check.on{ background:var(--green);border-color:var(--green);color:#00291d; }
 
 /* ══════════════════════════════════════════════════════════════
    ASSISTENTE (wizard) DE NOVO PLANEJAMENTO
@@ -18906,97 +18995,442 @@ function dbDuplicarProjeto(fid, pi){
 window.dbDuplicarProjeto = dbDuplicarProjeto;
 
 
-/* ───────────────────────────────────────────────────────────────
-   4) PLANEJAMENTOS DO PROJETO — lista abaixo do "Abrir Projeto"
-   ─────────────────────────────────────────────────────────────── */
-function planEscTxt(v){
+})();
+</script>
+
+
+<!-- Painel do Planejamento de Processo -->
+<div class="plj-overlay hidden" id="plj-overlay" onclick="planFecharBg(event)">
+  <div class="plj-modal">
+    <div class="plj-top">
+      <div style="min-width:0;flex:1">
+        <div class="plj-titulo" id="plj-titulo">Planejamento</div>
+        <div class="plj-subtitulo" id="plj-sub"></div>
+      </div>
+      <button class="plj-btn-ghost" onclick="planRenomear(PLJ_CTX().fid, PLJ_CTX().pi, PLJ_CTX().k)">✏️ Renomear</button>
+      <button class="plj-btn-danger" onclick="planExcluir(PLJ_CTX().fid, PLJ_CTX().pi, PLJ_CTX().k)">✕ Excluir</button>
+      <button class="plj-btn-ghost" onclick="planFechar()">Fechar</button>
+    </div>
+    <div class="plj-body" id="plj-body"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PLANEJAMENTO DE PROCESSO — consolidacao de atividades
+     Um projeto pode ter varios planejamentos. Cada planejamento
+     escolhe quais folhas entram e mostra o TEMPO TOTAL, a comparacao
+     com o Takt e o numero de operadores necessarios.
+     ═══════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+'use strict';
+
+function esc(v){
   return String(v == null ? '' : v)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+function seg(v){ return (Math.round((v||0)*100)/100).toFixed(2); }
+function minu(v){ return ((v||0)/60).toFixed(2); }
 
-function dbListaPlanejamentos(fid, pi, p){
-  var ids = (p && p.sheets) || [];
-  var itens = [];
-  ids.forEach(function(sid){
+/* Tempo padrao de uma folha, na MESMA formula que a pagina da empresa usa:
+   allowance vem do painel de fadiga quando existe, senao dos campos do cabecalho. */
+function tempoPadrao(sh, m){
+  var fad = (sh && sh.fadiga && typeof sh.fadiga === 'object' && typeof mtmCalcFadiga === 'function')
+              ? mtmCalcFadiga(sh.fadiga) : null;
+  var allow = fad ? fad.allowTotal : m.allowPct;
+  if(allow > 0) return +(m.totalSec * (1 + allow / 100)).toFixed(4);
+  return m.stdSec;
+}
+window.tempoPadraoFolha = tempoPadrao;
+
+/* ── acesso aos planejamentos de um projeto ── */
+function planosDe(p){
+  if(!p) return [];
+  if(!Array.isArray(p.plans)) p.plans = [];
+  return p.plans;
+}
+window.planosDe = planosDe;
+
+function achaProjeto(fid, pi){
+  var f = (typeof pmData !== 'undefined') ? pmData[fid] : null;
+  return (f && f.projects && f.projects[pi]) ? { f:f, p:f.projects[pi] } : null;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   CALCULO — soma das atividades escolhidas
+   ─────────────────────────────────────────────────────────────── */
+function planCalcular(plano, proj){
+  var itens = [], tn = 0, tp = 0, va = 0, nva = 0, nnva = 0, unc = 0;
+  (plano.sheets || []).forEach(function(sid){
     var sh = (typeof get === 'function') ? get(sid) : null;
     if(!sh) return;
-    var proc = (sh.header && sh.header.processo) || '';
-    var nl   = (sh.rows || []).length;
-    itens.push(
-      '<div class="pj-plan" onclick="event.stopPropagation();planOpenSheet(\'' + fid + '\',' + pi + ',\'' + sid + '\')">'
-      + '<span class="pj-plan-ico">\uD83D\uDCC4</span>'
-      + '<span class="pj-plan-txt">'
-      +   '<b>' + planEscTxt(sh.label) + '</b>'
-      +   (proc ? '<em>' + planEscTxt(proc) + '</em>' : '<em>' + nl + ' linha(s)</em>')
-      + '</span>'
-      + '<span class="pj-plan-go">\u2192</span>'
-      + '</div>'
-    );
+    var m = (typeof computeSheetMetrics === 'function') ? computeSheetMetrics(sh) : null;
+    if(!m) return;
+    tn += m.totalSec; tp += tempoPadrao(sh, m);
+    va += m.va; nva += m.nva; nnva += m.nnva; unc += m.unc;
+    itens.push({ sid:sid, label:sh.label, processo:(sh.header && sh.header.processo) || '', m:m });
+  });
+  var takt = parseFloat(plano.takt) || 0;
+  var ops  = takt > 0 ? Math.ceil(tp / takt) : 0;
+  var opsE = takt > 0 ? (tp / takt) : 0;             // operadores exatos (fracionado)
+  var satu = (takt > 0 && ops > 0) ? (tp / (takt * ops) * 100) : 0;
+  var sobra = (takt > 0 && ops > 0) ? (takt * ops - tp) : 0;
+  return {
+    itens:itens, tn:tn, tp:tp, takt:takt,
+    ops:ops, opsExato:opsE, saturacao:satu, folga:sobra,
+    va:va, nva:nva, nnva:nnva, unc:unc,
+    pecasHora: tp > 0 ? Math.floor(3600 / tp) : 0
+  };
+}
+window.planCalcular = planCalcular;
+
+
+/* ───────────────────────────────────────────────────────────────
+   PLANEJAMENTOS JA EXISTENTES — "Analise de Capacidade Combinada"
+   do Relatorio Final. Ficam em mtm_frp_scope_v1 (folha base -> folhas
+   somadas) e mtm_frp_simul_v1 (folhas marcadas como PARALELAS, que
+   nao entram no tempo sequencial). Aqui apenas LEMOS e mostramos.
+   ─────────────────────────────────────────────────────────────── */
+function frpScopeRaw(){
+  try{ return JSON.parse(localStorage.getItem('mtm_frp_scope_v1') || '{}') || {}; }
+  catch(e){ return {}; }
+}
+function frpSimulRaw(){
+  try{ return JSON.parse(localStorage.getItem('mtm_frp_simul_v1') || '{}') || {}; }
+  catch(e){ return {}; }
+}
+window.frpScopeRaw = frpScopeRaw;
+
+/* Devolve os planejamentos do Relatorio Final que pertencem a este projeto */
+function planExistentes(p){
+  var escopo = frpScopeRaw(), simul = frpSimulRaw(), out = [];
+  (p && p.sheets || []).forEach(function(base){
+    var ids = escopo[base];
+    if(!Array.isArray(ids) || ids.length < 2) return;      // 1 folha so = nao e combinacao
+    var shBase = (typeof get === 'function') ? get(base) : null;
+    if(!shBase) return;
+    var par = simul[base] || {};
+    var seq = 0, paralelo = 0, itens = [];
+    ids.forEach(function(id){
+      var sh = (typeof get === 'function') ? get(id) : null;
+      if(!sh) return;
+      var m = (typeof computeSheetMetrics === 'function') ? computeSheetMetrics(sh) : null;
+      if(!m) return;
+      var t = tempoPadrao(sh, m);
+      var ehPar = !!par[id];
+      if(ehPar) paralelo += t; else seq += t;
+      itens.push({ id:id, label:sh.label, t:t, paralelo:ehPar });
+    });
+    out.push({
+      base: base, label: shBase.label,
+      itens: itens, seq: seq, paralelo: paralelo, total: seq + paralelo,
+      nPar: itens.filter(function(x){ return x.paralelo; }).length
+    });
+  });
+  return out;
+}
+window.planExistentes = planExistentes;
+
+/* Abre o Relatorio Final ja posicionado na analise daquela folha */
+function planAbrirRelatorio(sid){
+  if(typeof showFinalReport !== 'function'){
+    alert('Relatorio Final indisponivel nesta tela.');
+    return;
+  }
+  showFinalReport();
+  setTimeout(function(){
+    var el = document.getElementById('frp-scope-' + sid)
+          || document.getElementById('frp-h-' + sid);
+    if(el && el.scrollIntoView) el.scrollIntoView({ behavior:'smooth', block:'center' });
+  }, 450);
+}
+window.planAbrirRelatorio = planAbrirRelatorio;
+
+function blocoExistentes(p){
+  var lista = planExistentes(p);
+  if(!lista.length) return '';
+  var linhas = lista.map(function(x){
+    var extra = x.nPar
+      ? ' \u00b7 ' + x.nPar + ' paralela(s), fora do sequencial'
+      : '';
+    return '<div class="plj-item plj-item-frp" onclick="event.stopPropagation();planAbrirRelatorio(\'' + x.base + '\')">'
+      + '<span class="plj-ico">\uD83D\uDCC8</span>'
+      + '<span class="plj-txt"><b>' + esc(x.label) + '</b>'
+      +   '<em>' + x.itens.length + ' atividade(s) \u00b7 ' + seg(x.seq) + ' s sequencial' + extra + '</em></span>'
+      + '<span class="plj-go">\u2192</span></div>';
+  });
+  return '<div class="plj-hdr plj-hdr-frp">Planejamentos do Relat\u00f3rio Final <span>'
+       + lista.length + '</span></div>'
+       + '<div class="plj-list">' + linhas.join('') + '</div>'
+       + '<div class="plj-nota">Somas j\u00e1 montadas na An\u00e1lise de Capacidade Combinada. '
+       + 'Clique para abrir no Relat\u00f3rio Final.</div>';
+}
+
+/* ───────────────────────────────────────────────────────────────
+   CARTAO DO PROJETO — lista dos planejamentos
+   ─────────────────────────────────────────────────────────────── */
+function dbListaPlanejamentos(fid, pi, p){
+  var planos = planosDe(p);
+  var linhas = planos.map(function(pl, k){
+    var c = planCalcular(pl, p);
+    var badge = c.takt > 0
+      ? '<span class="plj-ops">' + c.ops + ' op.</span>'
+      : '<span class="plj-ops plj-ops-off">sem takt</span>';
+    return '<div class="plj-item" onclick="event.stopPropagation();planAbrir(\'' + fid + '\',' + pi + ',' + k + ')">'
+      + '<span class="plj-ico">\uD83D\uDCCA</span>'
+      + '<span class="plj-txt"><b>' + esc(pl.name) + '</b>'
+      +   '<em>' + (pl.sheets || []).length + ' atividade(s) \u00b7 '
+      +   seg(c.tp) + ' s (' + minu(c.tp) + ' min)</em></span>'
+      + badge
+      + '<span class="plj-go">\u2192</span></div>';
   });
 
-  var corpo = itens.length
-    ? '<div class="pj-plan-list">' + itens.join('') + '</div>'
-    : '<div class="pj-plan-vazio">Nenhum planejamento ainda neste projeto.</div>';
-
-  return '<div class="pj-plans">'
-    + '<div class="pj-plans-hdr">Planejamentos <span>' + itens.length + '</span></div>'
-    + corpo
-    + '<button class="pj-plan-novo" onclick="event.stopPropagation();dbNovoPlanejamento(\'' + fid + '\',' + pi + ')">'
+  return '<div class="plj-box">'
+    + blocoExistentes(p)
+    + '<div class="plj-hdr">Planejamentos <span>' + planos.length + '</span></div>'
+    + (linhas.length
+        ? '<div class="plj-list">' + linhas.join('') + '</div>'
+        : '<div class="plj-vazio">Nenhum planejamento ainda.<br>'
+          + '<small>Um planejamento soma as atividades para dar o tempo total do processo.</small></div>')
+    + '<button class="plj-novo" onclick="event.stopPropagation();planNovo(\'' + fid + '\',' + pi + ')">'
     + '\uFF0B Novo planejamento</button>'
     + '</div>';
 }
 window.dbListaPlanejamentos = dbListaPlanejamentos;
 
-function dbNovoPlanejamento(fid, pi){
+/* ───────────────────────────────────────────────────────────────
+   CRIAR / EXCLUIR
+   ─────────────────────────────────────────────────────────────── */
+function planNovo(fid, pi){
   if(typeof pmLoad === 'function') pmLoad();
   if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
+  var alvo = achaProjeto(fid, pi);
+  if(!alvo){ alert('Projeto nao encontrado.'); return; }
 
-  var f = (typeof pmData !== 'undefined') ? pmData[fid] : null;
-  var p = f && f.projects && f.projects[pi];
-  if(!p){ alert('Projeto nao encontrado.'); return; }
-  if(typeof pmEnsureProjId === 'function') pmEnsureProjId(p);
-
-  var n = ((p.sheets || []).length) + 1;
-  var nome = prompt('Nome do novo planejamento (folha):', 'FOLHA ' + n);
+  var planos = planosDe(alvo.p);
+  var nome = prompt('Nome do planejamento:\n(ex.: Ciclo completo, Turno A, Cenario proposto)',
+                    'PLANEJAMENTO ' + (planos.length + 1));
   if(nome === null) return;
-  nome = nome.trim() || ('FOLHA ' + n);
+  nome = nome.trim() || ('PLANEJAMENTO ' + (planos.length + 1));
 
-  var antes = (p.sheets || []).length;
-  if(typeof setActiveProjectCtx === 'function') setActiveProjectCtx(fid, pi);
-  if(typeof hideDashboard === 'function') hideDashboard();
-
-  var atual = (typeof getActiveProject === 'function' && getActiveProject()) || p;
-  var sid;
-  if(atual.sheets && atual.sheets.length > antes){
-    sid = atual.sheets[atual.sheets.length - 1];   // hideDashboard ja criou
-  } else {
-    sid = (typeof addSheetHere === 'function') ? addSheetHere() : addSheet(true);
-  }
-
-  var sh = (typeof get === 'function') ? get(sid) : null;
-  if(sh){
-    sh.label  = nome;
-    sh.header = sh.header || {};
-    if(!sh.header.empresa) sh.header.empresa = f.name;
-    if(!sh.header.projeto) sh.header.projeto = p.name;
-    if(typeof saveSheets === 'function') saveSheets();
-  }
+  planos.push({
+    id: 'pl_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+    name: nome,
+    date: new Date().toLocaleDateString('pt-BR'),
+    takt: '',
+    sheets: []                       // comeca vazio: o usuario escolhe as atividades
+  });
   if(typeof pmSave === 'function') pmSave();
-  if(typeof planTouch === 'function') planTouch(fid, p.id);
-
-  setTimeout(function(){
-    var card = document.getElementById('c-' + sid);
-    if(card) card.remove();
-    if(typeof renderContent === 'function') renderContent(sid);
-    if(typeof renderTabs === 'function') renderTabs();
-    if(typeof setActive === 'function') setActive(sid);
-    if(typeof planRenderCrumb === 'function') planRenderCrumb();
-    if(typeof showToast === 'function') showToast('\uFF0B Novo planejamento: ' + nome);
-    window.scrollTo({ top:0, behavior:'smooth' });
-  }, 90);
+  planAbrir(fid, pi, planos.length - 1);
 }
-window.dbNovoPlanejamento = dbNovoPlanejamento;
+window.planNovo = planNovo;
+
+function planExcluir(fid, pi, k){
+  var alvo = achaProjeto(fid, pi);
+  if(!alvo) return;
+  var planos = planosDe(alvo.p);
+  var pl = planos[k];
+  if(!pl) return;
+  if(!confirm('Excluir o planejamento "' + pl.name + '"?\n\n'
+            + 'As folhas NAO sao apagadas — apenas este agrupamento.')) return;
+  planos.splice(k, 1);
+  if(typeof pmSave === 'function') pmSave();
+  planFechar();
+  if(typeof openFolderPage === 'function') openFolderPage(fid);
+}
+window.planExcluir = planExcluir;
+
+function planRenomear(fid, pi, k){
+  var alvo = achaProjeto(fid, pi);
+  var pl = alvo && planosDe(alvo.p)[k];
+  if(!pl) return;
+  var n = prompt('Novo nome do planejamento:', pl.name);
+  if(n === null) return;
+  n = n.trim();
+  if(!n) return;
+  pl.name = n;
+  if(typeof pmSave === 'function') pmSave();
+  planRender();
+}
+window.planRenomear = planRenomear;
+
+/* ───────────────────────────────────────────────────────────────
+   PAINEL DO PLANEJAMENTO
+   ─────────────────────────────────────────────────────────────── */
+var PL = { fid:null, pi:null, k:null };
+
+function planAbrir(fid, pi, k){
+  if(typeof pmLoad === 'function') pmLoad();
+  if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
+  PL = { fid:fid, pi:pi, k:k };
+  var ov = document.getElementById('plj-overlay');
+  if(ov) ov.classList.remove('hidden');
+  planRender();
+}
+window.planAbrir = planAbrir;
+
+function planFechar(){
+  var ov = document.getElementById('plj-overlay');
+  if(ov) ov.classList.add('hidden');
+  PL = { fid:null, pi:null, k:null };
+}
+window.planFechar = planFechar;
+
+function planFecharBg(e){
+  if(e && e.target && e.target.id === 'plj-overlay') planFechar();
+}
+window.planFecharBg = planFecharBg;
+window.PLJ_CTX = function(){ return PL; };
+
+function planAtual(){
+  var alvo = achaProjeto(PL.fid, PL.pi);
+  if(!alvo) return null;
+  var pl = planosDe(alvo.p)[PL.k];
+  return pl ? { f:alvo.f, p:alvo.p, pl:pl } : null;
+}
+
+function planToggleFolha(sid){
+  var a = planAtual();
+  if(!a) return;
+  var arr = a.pl.sheets = a.pl.sheets || [];
+  var i = arr.indexOf(sid);
+  if(i === -1) arr.push(sid); else arr.splice(i, 1);
+  if(typeof pmSave === 'function') pmSave();
+  planRender();
+}
+window.planToggleFolha = planToggleFolha;
+
+function planTodas(marcar){
+  var a = planAtual();
+  if(!a) return;
+  a.pl.sheets = marcar ? (a.p.sheets || []).slice() : [];
+  if(typeof pmSave === 'function') pmSave();
+  planRender();
+}
+window.planTodas = planTodas;
+
+function planSetTakt(v){
+  var a = planAtual();
+  if(!a) return;
+  a.pl.takt = v;
+  if(typeof pmSave === 'function') pmSave();
+  planRenderResumo();
+}
+window.planSetTakt = planSetTakt;
+
+function planRenderResumo(){
+  var a = planAtual();
+  var el = document.getElementById('plj-resumo');
+  if(!a || !el) return;
+  var c = planCalcular(a.pl, a.p);
+
+  var corSat = c.saturacao === 0 ? 'var(--text3)'
+             : c.saturacao > 100 ? 'var(--red)'
+             : c.saturacao >= 85 ? 'var(--green)'
+             : c.saturacao >= 70 ? 'var(--yellow)'
+             : 'var(--orange)';
+
+  var html = ''
+    + kpi('Atividades',   c.itens.length,            'var(--purple)', '')
+    + kpi('Tempo Normal', seg(c.tn) + ' s',          'var(--text)',   minu(c.tn) + ' min')
+    + kpi('TEMPO TOTAL',  seg(c.tp) + ' s',          'var(--green)',  minu(c.tp) + ' min')
+    + kpi('Takt Time',    c.takt > 0 ? seg(c.takt) + ' s' : '—', 'var(--accent)', '')
+    + kpi('Operadores',   c.takt > 0 ? c.ops : '—',  'var(--blue)',
+          c.takt > 0 ? 'calculado: ' + c.opsExato.toFixed(2) : 'informe o takt')
+    + kpi('Saturação',    c.takt > 0 ? c.saturacao.toFixed(1) + '%' : '—', corSat,
+          c.takt > 0 ? (c.folga >= 0 ? 'folga ' + seg(c.folga) + ' s' : 'excede ' + seg(-c.folga) + ' s') : '');
+
+  el.innerHTML = '<div class="plj-kpis">' + html + '</div>' + planVeredito(c);
+}
+window.planRenderResumo = planRenderResumo;
+
+function kpi(rot, val, cor, sub){
+  return '<div class="plj-kpi"><div class="plj-kpi-v" style="color:' + cor + '">' + val + '</div>'
+       + '<div class="plj-kpi-r">' + rot + '</div>'
+       + (sub ? '<div class="plj-kpi-s">' + sub + '</div>' : '') + '</div>';
+}
+
+function planVeredito(c){
+  if(!(c.takt > 0)) {
+    return '<div class="plj-vered plj-vered-off">Informe o <b>Takt Time</b> acima para calcular '
+         + 'quantos operadores o processo exige.</div>';
+  }
+  var txt, cls;
+  if(c.tp <= c.takt){
+    txt = 'O processo cabe no takt com <b>1 operador</b>. Sobram '
+        + seg(c.takt - c.tp) + ' s por ciclo.';
+    cls = 'ok';
+  } else {
+    txt = 'O tempo total excede o takt. São necessários <b>' + c.ops + ' operadores</b> '
+        + '(' + c.opsExato.toFixed(2) + ' pelo cálculo). '
+        + 'Saturação média de <b>' + c.saturacao.toFixed(1) + '%</b>'
+        + (c.folga >= 0 ? ', com folga de ' + seg(c.folga) + ' s no conjunto.' : '.');
+    cls = c.saturacao > 100 ? 'alerta' : 'ok';
+  }
+  return '<div class="plj-vered plj-vered-' + cls + '">' + txt + '</div>';
+}
+
+function planRender(){
+  var a = planAtual();
+  var box = document.getElementById('plj-body');
+  if(!a || !box) return;
+
+  var todas = (a.p.sheets || []).map(function(sid){
+    return (typeof get === 'function') ? get(sid) : null;
+  }).filter(Boolean);
+  var escolhidas = a.pl.sheets || [];
+
+  var tit = document.getElementById('plj-titulo');
+  if(tit) tit.textContent = a.pl.name;
+  var sub = document.getElementById('plj-sub');
+  if(sub) sub.textContent = '🏢 ' + a.f.name + '  ›  📁 ' + a.p.name;
+
+  var html = ''
+    + '<div class="plj-secao">'
+    +   '<label class="plj-lbl">Takt Time do processo (segundos)</label>'
+    +   '<input class="plj-takt" type="number" step="0.1" min="0" placeholder="ex.: 60" '
+    +     'value="' + esc(a.pl.takt || '') + '" oninput="planSetTakt(this.value)">'
+    +   '<small class="plj-hint">É o ritmo exigido pela demanda. Com ele o sistema calcula '
+    +     'quantos operadores o tempo total exige.</small>'
+    + '</div>'
+    + '<div id="plj-resumo"></div>'
+    + '<div class="plj-secao">'
+    +   '<div class="plj-secao-hdr">'
+    +     '<span>Atividades que entram neste planejamento</span>'
+    +     '<button class="plj-mini" onclick="planTodas(true)">Marcar todas</button>'
+    +     '<button class="plj-mini" onclick="planTodas(false)">Limpar</button>'
+    +   '</div>';
+
+  if(!todas.length){
+    html += '<div class="plj-vazio">Este projeto ainda não tem folhas MTM.<br>'
+          + '<small>Crie folhas no editor: cada folha é uma atividade do processo.</small></div>';
+  } else {
+    html += '<table class="plj-tab"><thead><tr>'
+          + '<th style="width:34px"></th><th>Atividade (folha MTM)</th>'
+          + '<th style="width:76px">TMU</th><th style="width:82px">Tempo (s)</th>'
+          + '</tr></thead><tbody>';
+    todas.forEach(function(sh){
+      var m = (typeof computeSheetMetrics === 'function') ? computeSheetMetrics(sh) : null;
+      var on = escolhidas.indexOf(sh.id) !== -1;
+      var proc = (sh.header && sh.header.processo) || '';
+      var tps = m ? tempoPadrao(sh, m) : 0;
+      html += '<tr class="' + (on ? 'on' : '') + '" onclick="planToggleFolha(\'' + sh.id + '\')">'
+        + '<td><span class="plj-check' + (on ? ' on' : '') + '">' + (on ? '\u2713' : '') + '</span></td>'
+        + '<td><b>' + esc(sh.label) + '</b>'
+        +   (proc ? '<em>' + esc(proc) + '</em>' : '') + '</td>'
+        + '<td class="num">' + (m ? (tps / 0.036).toFixed(0) : '—') + '</td>'
+        + '<td class="num">' + (m ? seg(tps) : '—') + '</td>'
+        + '</tr>';
+    });
+    html += '</tbody></table>';
+  }
+  html += '</div>';
+
+  box.innerHTML = html;
+  planRenderResumo();
+}
+window.planRender = planRender;
 
 })();
 </script>
