@@ -3797,40 +3797,6 @@ body.home-clean .db-company-card::after{
   padding:3px 9px;font-size:10px;font-weight:800;cursor:pointer;font-family:inherit;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   BARRA DE FERRAMENTAS AGRUPADA (menus suspensos)
-   ══════════════════════════════════════════════════════════════ */
-.tb-group{ position:relative;display:inline-flex; }
-.tb-group-btn{
-  background:var(--surface3);border:1px solid var(--border2);color:var(--text2);
-  border-radius:8px;padding:7px 13px;font-family:inherit;font-size:12px;font-weight:700;
-  cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;transition:all .15s;
-}
-.tb-group-btn:hover,.tb-group.open .tb-group-btn{ background:var(--surface);color:var(--text);border-color:var(--border3); }
-.tb-group-btn .caret{ font-size:9px;opacity:.7; }
-.tb-menu{
-  display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:9500;
-  min-width:250px;background:var(--surface);border:1px solid var(--border3);
-  border-radius:11px;box-shadow:var(--shadow);padding:6px;
-}
-.tb-group.open .tb-menu{ display:block; }
-.tb-menu-sec{
-  font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;
-  color:var(--text3);padding:8px 10px 5px;
-}
-.tb-menu-item{
-  display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;
-  background:transparent;border:none;color:var(--text);border-radius:8px;
-  padding:9px 10px;font-family:inherit;font-size:12px;font-weight:600;
-  cursor:pointer;text-align:left;transition:all .12s;
-}
-.tb-menu-item:hover{ background:var(--surface3); }
-.tb-menu-item .tmi-ico{ font-size:14px;width:20px;text-align:center;flex-shrink:0; }
-.tb-menu-item .tmi-sub{ display:block;font-size:10px;color:var(--text3);font-weight:500;margin-top:1px; }
-.tb-menu-item.danger{ color:var(--red); }
-.tb-menu-item.danger:hover{ background:var(--redBg); }
-.tb-menu-div{ height:1px;background:var(--border);margin:5px 8px; }
-@media(max-width:720px){ .tb-menu{ left:auto;right:0; } }
 </style>
 
 <div id="dashboard">
@@ -4236,103 +4202,55 @@ body.home-clean .db-company-card::after{
 </style>
 
 <div class="toolbar">
-  <!-- Logo -->
+  <!-- Logo + crédito -->
   <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
     <div class="logo">MTM <span>/ Folha de Processo</span></div>
+    <div style="width:1px;height:28px;background:var(--border2);display:none" class="tb-sep-v"></div>
   </div>
+  <!-- Crédito removido a pedido -->
   <div class="dev-credit" style="display:none"></div>
   <div class="sep"></div>
-
-  <div class="toolbar-actions" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-
-    <!-- ═══ AÇÕES DO DIA A DIA (sempre visíveis) ═══ -->
-    <button class="btn btn-ghost" onclick="goHome()" title="Voltar à tela inicial (empresas, projetos e busca)"
-            style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(0,212,255,.25);font-weight:800;font-size:12px;padding:7px 14px">🏠<span class="btn-lbl"> Início</span></button>
-    <button class="btn btn-ghost" onclick="addSheetHere()" title="Criar uma nova folha DENTRO do projeto aberto"
-            style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(0,212,255,.25);font-weight:800;font-size:12px;padding:7px 14px">＋<span class="btn-lbl"> Nova Folha</span></button>
-    <button class="btn btn-green" onclick="salvarAgora()" id="btn-salvar"
-            title="Salvar no navegador (Ctrl+S) — memória temporária. Para arquivo permanente use Projeto ▸ Salvar tudo em arquivo.">💾<span class="btn-lbl"> Salvar</span></button>
-    <button class="btn btn-primary" onclick="showFinalReport()" title="Relatório consolidado de todas as folhas — inclui o balanceamento"
-            style="background:linear-gradient(135deg,#00e5a0,#00b87a);border:none;color:#001a12;font-weight:800;font-size:12px;padding:7px 16px">📋<span class="btn-lbl"> Relatório Final</span></button>
-
+  <!-- Ações -->
+  <div class="toolbar-actions" style="display:flex;align-items:center;gap:6px">
+    <!-- ★ AÇÕES PRINCIPAIS — primeiro lugar para acesso rápido ★ -->
+    <button class="btn btn-ghost" onclick="goHome()" title="Voltar à tela inicial (empresas e projetos)" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(0,212,255,.25);font-weight:800;font-size:12px;padding:7px 14px">🏠<span class="btn-lbl"> Início</span></button>
+    <button class="btn btn-primary" onclick="showFinalReport()" title="Relatório consolidado de todas as folhas — inclui o balanceamento" style="background:linear-gradient(135deg,#00e5a0,#00b87a);border:none;color:#001a12;font-weight:800;font-size:12px;padding:7px 16px">📋<span class="btn-lbl"> Relatório Final</span></button>
+    <button class="btn btn-primary" onclick="openProjectManager()" title="Gerenciador de Projetos" style="background:linear-gradient(135deg,#4f8ef7,#6366f1);border:none;color:#fff;font-weight:800;font-size:12px;padding:7px 16px">📁<span class="btn-lbl"> Projetos</span></button>
+    <!-- separador visual -->
     <div class="tb-divider" style="width:1px;height:26px;background:var(--border2);margin:0 4px;flex-shrink:0"></div>
-
-    <!-- ═══ MENU: PROJETO ═══ -->
-    <div class="tb-group" id="tbg-proj">
-      <button class="tb-group-btn" onclick="tbToggle('tbg-proj', event)">📁 Projeto <span class="caret">▼</span></button>
-      <div class="tb-menu" onclick="event.stopPropagation()">
-        <div class="tb-menu-sec">Navegar</div>
-        <button class="tb-menu-item" onclick="tbClose();goHome()"><span class="tmi-ico">🏠</span><span>Empresas e projetos<span class="tmi-sub">Tela inicial com busca e recentes</span></span></button>
-        <button class="tb-menu-item" onclick="tbClose();planWizardOpen()"><span class="tmi-ico">▶</span><span>Novo planejamento<span class="tmi-sub">Assistente: empresa › projeto › folha</span></span></button>
-        <div class="tb-menu-div"></div>
-        <div class="tb-menu-sec">Arquivo permanente</div>
-        <button class="tb-menu-item" onclick="tbClose();saveAllProjectsFile()"><span class="tmi-ico">💾</span><span>Salvar tudo em arquivo<span class="tmi-sub">Gera o .mtm.json de todos os projetos</span></span></button>
-        <button class="tb-menu-item" onclick="tbClose();openProjectFilePrompt()"><span class="tmi-ico">📂</span><span>Abrir arquivo de projeto<span class="tmi-sub">.mtm.json salvo anteriormente</span></span></button>
-        <div class="tb-menu-div"></div>
-        <div class="tb-menu-sec">Cópia de segurança</div>
-        <button class="tb-menu-item" onclick="tbClose();dbExportBackup()"><span class="tmi-ico">🛡</span><span>Gerar backup completo</span></button>
-        <button class="tb-menu-item danger" onclick="tbClose();document.getElementById('tb-backup-input').click()"><span class="tmi-ico">📥</span><span>Restaurar backup<span class="tmi-sub">Sobrescreve todos os dados atuais</span></span></button>
-      </div>
-    </div>
-
-    <!-- ═══ MENU: FOLHA ATUAL ═══ -->
-    <div class="tb-group" id="tbg-folha">
-      <button class="tb-group-btn" onclick="tbToggle('tbg-folha', event)">📄 Folha <span class="caret">▼</span></button>
-      <div class="tb-menu" onclick="event.stopPropagation()">
-        <div class="tb-menu-sec">Esta folha</div>
-        <button class="tb-menu-item" onclick="tbClose();startDirectMtmApp()"><span class="tmi-ico">📄</span><span>Ir para as folhas</span></button>
-        <button class="tb-menu-item" onclick="tbClose();renameCurrentSheet()"><span class="tmi-ico">✏️</span><span>Renomear folha</span></button>
-        <button class="tb-menu-item danger" onclick="tbClose();deleteCurrentSheet()"><span class="tmi-ico">✕</span><span>Excluir folha</span></button>
-        <div class="tb-menu-div"></div>
-        <div class="tb-menu-sec">Entrada e saída da folha</div>
-        <button class="tb-menu-item" onclick="tbClose();exportFolhaAtual()"><span class="tmi-ico">📤</span><span>Exportar só esta folha<span class="tmi-sub">.folha.json</span></span></button>
-        <button class="tb-menu-item" onclick="tbClose();importarFolhaPrompt()"><span class="tmi-ico">📥</span><span>Importar para esta folha<span class="tmi-sub">Substitui o conteúdo da folha aberta</span></span></button>
-        <button class="tb-menu-item" onclick="tbClose();exportFolhaExcelAtual()"><span class="tmi-ico">📊</span><span>Esta folha → Excel</span></button>
-        <button class="tb-menu-item" onclick="tbClose();importarFolhaExcelPrompt()"><span class="tmi-ico">📊</span><span>Excel → esta folha</span></button>
-      </div>
-    </div>
-
-    <!-- ═══ MENU: EXCEL / PDF ═══ -->
-    <div class="tb-group" id="tbg-io">
-      <button class="tb-group-btn" onclick="tbToggle('tbg-io', event)">📤 Exportar <span class="caret">▼</span></button>
-      <div class="tb-menu" onclick="event.stopPropagation()">
-        <div class="tb-menu-sec">Todas as folhas</div>
-        <button class="tb-menu-item" onclick="tbClose();exportExcel()"><span class="tmi-ico">📤</span><span>Exportar tudo para Excel<span class="tmi-sub">.xlsx com todas as folhas</span></span></button>
-        <button class="tb-menu-item" onclick="tbClose();importExcelPrompt()"><span class="tmi-ico">📥</span><span>Importar planilha Excel</span></button>
-        <div class="tb-menu-div"></div>
-        <button class="tb-menu-item" onclick="tbClose();exportPDF()"><span class="tmi-ico">⬇</span><span>Gerar PDF</span></button>
-      </div>
-    </div>
-
-    <!-- ═══ MENU: FERRAMENTAS ═══ -->
-    <div class="tb-group" id="tbg-tools">
-      <button class="tb-group-btn" onclick="tbToggle('tbg-tools', event)">🧰 Ferramentas <span class="caret">▼</span></button>
-      <div class="tb-menu" onclick="event.stopPropagation()">
-        <button class="tb-menu-item" onclick="tbClose();openLibrary()"><span class="tmi-ico">📚</span><span>Biblioteca MTM<span class="tmi-sub">Códigos e TMU para inserir na linha</span></span></button>
-        <button class="tb-menu-item" onclick="tbClose();openBook()"><span class="tmi-ico">📖</span><span>Livro de Informações<span class="tmi-sub">Anotações sobre o processo</span></span></button>
-        <button class="tb-menu-item" onclick="tbClose();openApostilas()"><span class="tmi-ico">🎓</span><span>Apostilas UAS / MEK</span></button>
-        <button class="tb-menu-item" onclick="tbClose();if(typeof openBalanceamento==='function')openBalanceamento()"><span class="tmi-ico">📊</span><span>Balanceamento de linha</span></button>
-      </div>
-    </div>
-
-    <!-- inputs ocultos usados pelos menus (não remover) -->
-    <input type="file" id="mtm-file-input"    accept=".mtm,.json,.mtm.json,application/json" style="display:none" onchange="openProjectFileHandle(this)">
+    <button class="btn btn-ghost" onclick="startDirectMtmApp()" title="Ir para as folhas" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(0,212,255,.25)">📄<span class="btn-lbl"> Folhas</span></button>
+    <button class="btn btn-ghost" onclick="addSheetHere()" title="Nova Folha">＋<span class="btn-lbl"> Nova Folha</span></button>
+    <button class="btn btn-ghost" onclick="openLibrary()" title="📚 Biblioteca MTM" style="letter-spacing:.2px">📚<span class="btn-lbl"> Biblioteca</span></button>
+    <button class="btn btn-ghost" onclick="openBook()" title="Livro de Informações — Anote tudo sobre o processo" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(124,58,237,.28)">📖<span class="btn-lbl"> Livro</span></button>
+    <button class="btn btn-ghost" onclick="renameCurrentSheet()" title="Renomear">✏️<span class="btn-lbl"> Renomear</span></button>
+    <button class="btn btn-danger" onclick="deleteCurrentSheet()" title="Excluir">✕<span class="btn-lbl"> Excluir</span></button>
+    <button class="btn btn-green" onclick="salvarAgora()" title="Salvar no navegador (Ctrl+S) — memória temporária. Use o botão 💾 em cada projeto para arquivo permanente." id="btn-salvar">💾<span class="btn-lbl"> Salvar local</span></button>
+    <button class="btn btn-ghost" onclick="openProjectFilePrompt()" title="Abrir arquivo MTM salvo (.mtm.json)" style="background:rgba(255,149,0,.10);color:var(--orange);border-color:rgba(255,149,0,.35)">📂<span class="btn-lbl"> Abrir</span></button>
+    <input type="file" id="mtm-file-input" accept=".mtm,.json,.mtm.json,application/json" style="display:none" onchange="openProjectFileHandle(this)">
+    <button class="btn btn-ghost" onclick="importExcelPrompt()" title="Importar planilha Excel (.xlsx)" style="background:rgba(0,229,160,.08);color:var(--green);border-color:rgba(0,229,160,.3)">📥<span class="btn-lbl"> Excel</span></button>
+    <button class="btn btn-ghost" onclick="exportExcel()" title="Exportar todas as folhas para Excel (.xlsx)" style="background:rgba(0,229,160,.08);color:var(--green);border-color:rgba(0,229,160,.3)">📤<span class="btn-lbl"> Excel</span></button>
     <input type="file" id="xlsx-import-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="importExcelHandle(this)">
-    <input type="file" id="folha-file-input"  accept=".folha,.json,.folha.json,.mtm,.mtm.json,application/json" style="display:none" onchange="importarFolhaHandle(this)">
-    <input type="file" id="folha-xlsx-input"  accept=".xlsx,.xls,.csv" style="display:none" onchange="importarFolhaExcelHandle(this)">
-    <input type="file" id="tb-backup-input"   accept=".json" style="display:none" onchange="dbImportBackup(this)">
-
-    <span style="flex:1"></span>
+    <!-- separador visual -->
+    <div class="tb-divider" style="width:1px;height:26px;background:var(--border2);margin:0 4px;flex-shrink:0"></div>
+    <!-- IMPORTAR / EXPORTAR POR FOLHA (individual) -->
+    <button class="btn btn-ghost" onclick="exportFolhaAtual()" title="Exportar SOMENTE esta folha para um arquivo (.folha.json)" style="background:var(--blueBg);color:var(--blue);border-color:rgba(79,142,247,.4)">📤<span class="btn-lbl"> Exportar Folha</span></button>
+    <button class="btn btn-ghost" onclick="importarFolhaPrompt()" title="Importar um arquivo de folha PARA esta folha (substitui o conteúdo da folha aberta)" style="background:var(--blueBg);color:var(--blue);border-color:rgba(79,142,247,.4)">📥<span class="btn-lbl"> Importar Folha</span></button>
+    <input type="file" id="folha-file-input" accept=".folha,.json,.folha.json,.mtm,.mtm.json,application/json" style="display:none" onchange="importarFolhaHandle(this)">
+    <button class="btn btn-ghost" onclick="exportFolhaExcelAtual()" title="Exportar SOMENTE esta folha para Excel (.xlsx)" style="background:rgba(0,229,160,.08);color:var(--green);border-color:rgba(0,229,160,.4)">📊<span class="btn-lbl"> Folha→Excel</span></button>
+    <button class="btn btn-ghost" onclick="importarFolhaExcelPrompt()" title="Importar um Excel (.xlsx) PARA esta folha (substitui o conteúdo da folha aberta)" style="background:rgba(0,229,160,.08);color:var(--green);border-color:rgba(0,229,160,.4)">📊<span class="btn-lbl"> Excel→Folha</span></button>
+    <input type="file" id="folha-xlsx-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="importarFolhaExcelHandle(this)">
+    <button class="btn btn-green" onclick="exportPDF()" title="Gerar PDF">⬇<span class="btn-lbl"> PDF</span></button>
+    <!-- FB-MTM · slot do usuário Firebase -->
     <div class="fb-user-slot" id="fb-user-slot"></div>
     <div class="theme-toggle" onclick="toggleTheme()" title="Alternar tema">
       <span class="t-icon">☀️</span>
       <div class="toggle-track"><div class="toggle-thumb"></div></div>
-      <span class="t-icon">🌙</span>
+    <span class="t-icon">🌙</span>
     </div>
   </div>
 </div>
 
-<!-- Trilha de contexto: onde você está agora -->
+<!-- Trilha de contexto do planejamento: onde voce esta agora -->
 <div id="plan-crumb"></div>
 
 <div class="tabs-wrapper" id="tabs-bar">
@@ -18631,35 +18549,16 @@ function planGoFolder(){
 }
 window.planGoFolder = planGoFolder;
 
-/* ═══════════════════════════════════════════════════════════════
-   5) MENUS SUSPENSOS DA BARRA DE FERRAMENTAS
-   ═══════════════════════════════════════════════════════════════ */
-function tbToggle(id, ev){
-  if(ev) ev.stopPropagation();
-  var g = document.getElementById(id);
-  if(!g) return;
-  var was = g.classList.contains('open');
-  document.querySelectorAll('.tb-group.open').forEach(function(x){ x.classList.remove('open'); });
-  if(!was) g.classList.add('open');
-}
-window.tbToggle = tbToggle;
-
-function tbClose(){
-  document.querySelectorAll('.tb-group.open').forEach(function(x){ x.classList.remove('open'); });
-}
-window.tbClose = tbClose;
-
-document.addEventListener('click', tbClose);
+/* ── Fecha o assistente com Esc ── */
 document.addEventListener('keydown', function(e){
   if(e.key === 'Escape'){
-    tbClose();
     var w = document.getElementById('plan-wizard');
     if(w && !w.classList.contains('hidden')) planWizardClose();
   }
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   6) LIGAÇÕES COM AS FUNÇÕES JÁ EXISTENTES (sem alterá-las)
+   5) LIGAÇÕES COM AS FUNÇÕES JÁ EXISTENTES (sem alterá-las)
    ═══════════════════════════════════════════════════════════════ */
 function wrap(name, after){
   var orig = window[name];
