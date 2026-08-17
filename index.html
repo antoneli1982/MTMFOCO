@@ -3771,6 +3771,24 @@ body.home-clean .db-company-card::after{
 .plan-btn-main:hover{ filter:brightness(1.1); }
 
 /* ══════════════════════════════════════════════════════════════
+   RECOLHER O MENU DE FERRAMENTAS (ver a tela toda)
+   ══════════════════════════════════════════════════════════════ */
+.tb-toggle{
+  background:var(--surface3);border:1px solid var(--border2);color:var(--text2);
+  border-radius:8px;padding:6px 11px;cursor:pointer;flex-shrink:0;
+  font-family:inherit;font-size:12px;font-weight:800;
+  display:flex;align-items:center;gap:6px;transition:all .15s;
+}
+.tb-toggle:hover{ background:var(--accentGradSoft);color:var(--accent);border-color:var(--accent); }
+.tb-toggle .tbt-ico{ font-size:11px;line-height:1; }
+
+/* recolhido: some com os botoes e a barra vira uma faixa fina */
+body.tb-collapsed .toolbar-actions{ display:none !important; }
+body.tb-collapsed .toolbar{ padding-top:6px;padding-bottom:6px; }
+
+@media(max-width:768px){ .tb-toggle .tbt-lbl{ display:none; } }
+
+/* ══════════════════════════════════════════════════════════════
    TRILHA DE CONTEXTO (breadcrumb) NO EDITOR
    ══════════════════════════════════════════════════════════════ */
 #plan-crumb{
@@ -4214,6 +4232,7 @@ body.home-clean .db-company-card::after{
   <!-- Logo + crédito -->
   <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
     <div class="logo">MTM <span>/ Folha de Processo</span></div>
+    <button id="tb-toggle" class="tb-toggle" onclick="tbCollapseToggle()" aria-expanded="true" title="Recolher o menu e ver a tela toda"><span class="tbt-ico" id="tbt-ico">▲</span><span class="tbt-lbl" id="tbt-lbl"> Recolher</span></button>
     <div style="width:1px;height:28px;background:var(--border2);display:none" class="tb-sep-v"></div>
   </div>
   <!-- Crédito removido a pedido -->
@@ -18579,6 +18598,35 @@ function planGoFolder(){
 }
 window.planGoFolder = planGoFolder;
 
+/* ═══════════════════════════════════════════════════════════════
+   5) RECOLHER / MOSTRAR O MENU DE FERRAMENTAS
+   ═══════════════════════════════════════════════════════════════ */
+var TB_KEY = 'mtm_tb_collapsed_v1';
+
+function tbCollapseApply(recolhido){
+  document.body.classList[recolhido ? 'add' : 'remove']('tb-collapsed');
+  var ico = document.getElementById('tbt-ico');
+  var lbl = document.getElementById('tbt-lbl');
+  var btn = document.getElementById('tb-toggle');
+  if(ico) ico.textContent = recolhido ? '\u25BC' : '\u25B2';
+  if(lbl) lbl.textContent = recolhido ? ' Menu' : ' Recolher';
+  if(btn){
+    btn.setAttribute('aria-expanded', recolhido ? 'false' : 'true');
+    btn.title = recolhido ? 'Mostrar o menu de ferramentas'
+                          : 'Recolher o menu e ver a tela toda';
+  }
+}
+window.tbCollapseApply = tbCollapseApply;
+
+function tbCollapseToggle(){
+  var novo = !document.body.classList.contains('tb-collapsed');
+  try{ localStorage.setItem(TB_KEY, novo ? '1' : '0'); }catch(e){}
+  tbCollapseApply(novo);
+}
+window.tbCollapseToggle = tbCollapseToggle;
+
+try{ tbCollapseApply(localStorage.getItem(TB_KEY) === '1'); }catch(e){}
+
 /* ── Fecha o assistente com Esc ── */
 document.addEventListener('keydown', function(e){
   if(e.key === 'Escape'){
@@ -18588,7 +18636,7 @@ document.addEventListener('keydown', function(e){
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   5) LIGAÇÕES COM AS FUNÇÕES JÁ EXISTENTES (sem alterá-las)
+   6) LIGAÇÕES COM AS FUNÇÕES JÁ EXISTENTES (sem alterá-las)
    ═══════════════════════════════════════════════════════════════ */
 function wrap(name, after){
   var orig = window[name];
