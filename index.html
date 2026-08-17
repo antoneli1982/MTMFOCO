@@ -3698,6 +3698,32 @@ body.home-clean .db-company-card::after{
 .plj-nota{ font-size:9.5px;color:var(--text3);line-height:1.5;margin:-2px 0 12px;
   padding-left:2px;border-left:2px solid var(--border2);padding-left:8px; }
 
+.plj-fora{
+  display:inline-block;margin-left:7px;background:var(--purpleBg);color:var(--purple);
+  border-radius:5px;padding:1px 6px;font-size:9px;font-weight:800;vertical-align:middle;
+}
+.plj-busca{ margin-top:16px;padding-top:14px;border-top:1px dashed var(--border2); }
+.plj-q{
+  width:100%;box-sizing:border-box;background:var(--surface2);
+  border:1px solid var(--border2);border-radius:9px;padding:10px 13px;
+  color:var(--text);font-family:inherit;font-size:12.5px;
+}
+.plj-q:focus{ outline:none;border-color:var(--accent);background:var(--surface3); }
+.plj-res{ margin-top:8px;display:flex;flex-direction:column;gap:5px;max-height:220px;overflow-y:auto; }
+.plj-res-item{
+  display:flex;align-items:center;gap:9px;cursor:pointer;
+  background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  padding:8px 10px;transition:all .14s;
+}
+.plj-res-item:hover{ border-color:var(--green);background:var(--surface); }
+.plj-res-mais{ color:var(--green);font-size:13px;font-weight:800;flex-shrink:0; }
+.plj-res-txt{ min-width:0;flex:1; }
+.plj-res-txt b{ display:block;font-size:11.5px;font-weight:700;color:var(--text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.plj-res-txt em{ display:block;font-style:normal;font-size:9.5px;color:var(--text3);margin-top:1px; }
+.plj-res-t{ font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--text2);flex-shrink:0; }
+.plj-res-dica{ font-size:10.5px;color:var(--text3);padding:8px 4px; }
+
 /* ── painel do planejamento ── */
 .plj-overlay{
   position:fixed;inset:0;background:rgba(0,0,0,.74);backdrop-filter:blur(4px);
@@ -19255,6 +19281,82 @@ function planRenomear(fid, pi, k){
 }
 window.planRenomear = planRenomear;
 
+
+/* ───────────────────────────────────────────────────────────────
+   INDICE GERAL — de onde vem cada folha (empresa / projeto).
+   Permite montar um planejamento com atividades de OUTRAS pastas,
+   projetos e folhas, nao so as do projeto atual.
+   ─────────────────────────────────────────────────────────────── */
+function indiceFolhas(){
+  var idx = {}, d = (typeof pmData !== 'undefined' && pmData) ? pmData : {};
+  Object.keys(d).forEach(function(fid){
+    if(fid === '__flat__') return;
+    var f = d[fid];
+    if(!f) return;
+    (f.projects || []).forEach(function(pr, pidx){
+      (pr.sheets || []).forEach(function(sid){
+        idx[sid] = { fid:fid, pidx:pidx, empresa:f.name || '', projeto:pr.name || '' };
+      });
+    });
+  });
+  return idx;
+}
+window.indiceFolhas = indiceFolhas;
+
+function normTxt(v){
+  return String(v == null ? '' : v).toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+var buscaQ = '';
+
+function planBuscar(q){
+  buscaQ = q || '';
+  var host = document.getElementById('plj-res');
+  if(!host) return;
+  var termo = normTxt(buscaQ.trim());
+  if(termo.length < 2){
+    host.innerHTML = termo.length
+      ? '<div class="plj-res-dica">Digite ao menos 2 letras.</div>' : '';
+    return;
+  }
+  var a = planAtual();
+  if(!a) return;
+  var idx = indiceFolhas();
+  var jaTem = a.pl.sheets || [];
+  var proprias = a.p.sheets || [];
+  var achados = [];
+
+  (typeof sheets !== 'undefined' ? sheets : []).forEach(function(sh){
+    if(!sh || jaTem.indexOf(sh.id) !== -1) return;
+    if(proprias.indexOf(sh.id) !== -1) return;          // ja aparece na tabela acima
+    var o = idx[sh.id] || { empresa:'', projeto:'' };
+    var proc = (sh.header && sh.header.processo) || '';
+    var alvo = normTxt(sh.label + ' ' + proc + ' ' + o.empresa + ' ' + o.projeto);
+    if(alvo.indexOf(termo) === -1) return;
+    var m = (typeof computeSheetMetrics === 'function') ? computeSheetMetrics(sh) : null;
+    achados.push({
+      sid: sh.id, label: sh.label, proc: proc,
+      origem: o.empresa ? (o.empresa + ' \u203A ' + o.projeto) : 'Folha sem projeto',
+      t: m ? tempoPadrao(sh, m) : 0
+    });
+  });
+
+  if(!achados.length){
+    host.innerHTML = '<div class="plj-res-dica">Nenhuma atividade encontrada para "'
+                   + esc(buscaQ) + '".</div>';
+    return;
+  }
+  host.innerHTML = achados.slice(0, 20).map(function(x){
+    return '<div class="plj-res-item" onclick="planToggleFolha(\'' + x.sid + '\')">'
+      + '<span class="plj-res-mais">\uFF0B</span>'
+      + '<span class="plj-res-txt"><b>' + esc(x.label) + (x.proc ? ' \u2014 ' + esc(x.proc) : '') + '</b>'
+      +   '<em>\uD83C\uDFE2 ' + esc(x.origem) + '</em></span>'
+      + '<span class="plj-res-t">' + seg(x.t) + ' s</span></div>';
+  }).join('');
+}
+window.planBuscar = planBuscar;
+
 /* ───────────────────────────────────────────────────────────────
    PAINEL DO PLANEJAMENTO
    ─────────────────────────────────────────────────────────────── */
@@ -19264,6 +19366,7 @@ function planAbrir(fid, pi, k){
   if(typeof pmLoad === 'function') pmLoad();
   if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
   PL = { fid:fid, pi:pi, k:k };
+  buscaQ = '';
   var ov = document.getElementById('plj-overlay');
   if(ov) ov.classList.remove('hidden');
   planRender();
@@ -19376,10 +19479,15 @@ function planRender(){
   var box = document.getElementById('plj-body');
   if(!a || !box) return;
 
-  var todas = (a.p.sheets || []).map(function(sid){
+  var escolhidas = a.pl.sheets || [];
+  var proprias   = a.p.sheets || [];
+  var idx        = indiceFolhas();
+  // folhas do projeto + as que vieram de outras pastas/projetos e ja estao no plano
+  var ordem = proprias.slice();
+  escolhidas.forEach(function(sid){ if(ordem.indexOf(sid) === -1) ordem.push(sid); });
+  var todas = ordem.map(function(sid){
     return (typeof get === 'function') ? get(sid) : null;
   }).filter(Boolean);
-  var escolhidas = a.pl.sheets || [];
 
   var tit = document.getElementById('plj-titulo');
   if(tit) tit.textContent = a.pl.name;
@@ -19415,9 +19523,14 @@ function planRender(){
       var on = escolhidas.indexOf(sh.id) !== -1;
       var proc = (sh.header && sh.header.processo) || '';
       var tps = m ? tempoPadrao(sh, m) : 0;
+      var deFora = proprias.indexOf(sh.id) === -1;
+      var o = idx[sh.id];
+      var origem = deFora
+        ? '<span class="plj-fora">\uD83C\uDFE2 ' + esc(o ? (o.empresa + ' \u203A ' + o.projeto) : 'outro projeto') + '</span>'
+        : '';
       html += '<tr class="' + (on ? 'on' : '') + '" onclick="planToggleFolha(\'' + sh.id + '\')">'
         + '<td><span class="plj-check' + (on ? ' on' : '') + '">' + (on ? '\u2713' : '') + '</span></td>'
-        + '<td><b>' + esc(sh.label) + '</b>'
+        + '<td><b>' + esc(sh.label) + '</b>' + origem
         +   (proc ? '<em>' + esc(proc) + '</em>' : '') + '</td>'
         + '<td class="num">' + (m ? (tps / 0.036).toFixed(0) : '—') + '</td>'
         + '<td class="num">' + (m ? seg(tps) : '—') + '</td>'
@@ -19425,10 +19538,19 @@ function planRender(){
     });
     html += '</tbody></table>';
   }
+  html += '<div class="plj-busca">'
+       +   '<label class="plj-lbl">Buscar atividade em outras pastas, projetos e folhas</label>'
+       +   '<input id="plj-q" class="plj-q" autocomplete="off" '
+       +     'placeholder="\uD83D\uDD0E  nome da folha, do processo, da empresa ou do projeto..." '
+       +     'oninput="planBuscar(this.value)">'
+       +   '<div id="plj-res" class="plj-res"></div>'
+       + '</div>';
   html += '</div>';
 
   box.innerHTML = html;
   planRenderResumo();
+  var q = document.getElementById('plj-q');
+  if(q && buscaQ){ q.value = buscaQ; planBuscar(buscaQ); }
 }
 window.planRender = planRender;
 
