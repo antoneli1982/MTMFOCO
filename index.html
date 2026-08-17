@@ -3773,20 +3773,30 @@ body.home-clean .db-company-card::after{
 /* ══════════════════════════════════════════════════════════════
    RECOLHER O MENU DE FERRAMENTAS (ver a tela toda)
    ══════════════════════════════════════════════════════════════ */
+/* a linha do logo ocupa a largura toda e empurra o botao para a ponta,
+   assim ele nunca fica escondido fora da area visivel */
+.toolbar > div:first-child{ flex:1 1 auto !important; min-width:0 !important; }
+.toolbar > div:first-child .logo{ overflow:hidden;text-overflow:ellipsis;min-width:0; }
+
 .tb-toggle{
-  background:var(--surface3);border:1px solid var(--border2);color:var(--text2);
-  border-radius:8px;padding:6px 11px;cursor:pointer;flex-shrink:0;
+  margin-left:auto;
+  background:var(--accentGrad);border:none;color:#fff;
+  border-radius:8px;padding:7px 13px;cursor:pointer;flex-shrink:0;
   font-family:inherit;font-size:12px;font-weight:800;
-  display:flex;align-items:center;gap:6px;transition:all .15s;
+  display:flex;align-items:center;gap:7px;white-space:nowrap;
+  box-shadow:var(--shadow-glow);transition:filter .15s;
 }
-.tb-toggle:hover{ background:var(--accentGradSoft);color:var(--accent);border-color:var(--accent); }
+.tb-toggle:hover{ filter:brightness(1.12); }
 .tb-toggle .tbt-ico{ font-size:11px;line-height:1; }
 
 /* recolhido: some com os botoes e a barra vira uma faixa fina */
 body.tb-collapsed .toolbar-actions{ display:none !important; }
 body.tb-collapsed .toolbar{ padding-top:6px;padding-bottom:6px; }
 
-@media(max-width:768px){ .tb-toggle .tbt-lbl{ display:none; } }
+@media(max-width:520px){
+  .tb-toggle{ padding:6px 10px;font-size:11px; }
+  .toolbar > div:first-child .logo span{ display:none; }
+}
 
 /* ══════════════════════════════════════════════════════════════
    TRILHA DE CONTEXTO (breadcrumb) NO EDITOR
