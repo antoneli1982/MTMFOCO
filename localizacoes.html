@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5">
+<meta name="theme-color" content="#070a12">
+<title>MTM · Auditoria de Geolocalização</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  --bg:#070a12;--surface:#0d1422;--surface2:#121b2d;--surface3:#1b2740;
+  --border:rgba(222,232,255,.08);--border2:rgba(222,232,255,.14);
+  --text:#f4f7ff;--text2:#a9b8d6;--text3:#6f7f9f;
+  --cyan:#16c7ff;--blue:#3b82f6;--violet:#8b5cf6;--green:#2ee6a6;--red:#ff5575;
+  --grad:linear-gradient(135deg,#16c7ff 0%,#3b82f6 52%,#8b5cf6 100%);
+  --shadow:0 22px 70px rgba(0,0,0,.38);--radius:16px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}
+body{background-image:radial-gradient(900px 500px at 10% -10%,rgba(22,199,255,.09),transparent 62%),radial-gradient(800px 520px at 100% 0,rgba(139,92,246,.08),transparent 62%)}
+button,input,select{font:inherit}
+button{cursor:pointer}
+.hidden{display:none!important}
+.lock{
+  position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:24px;
+  background:radial-gradient(800px 480px at 50% 0,rgba(22,199,255,.10),transparent 60%),#070a12;
+}
+.lock-card{width:min(410px,100%);padding:34px;border-radius:20px;background:rgba(13,20,34,.96);border:1px solid var(--border2);box-shadow:var(--shadow)}
+.mark{width:50px;height:50px;border-radius:14px;display:grid;place-items:center;font:800 22px JetBrains Mono,monospace;background:var(--grad);margin-bottom:22px}
+.lock-kicker,.eyebrow{font-size:9px;font-weight:800;letter-spacing:.18em;color:var(--cyan);text-transform:uppercase}
+.lock h1{font-size:24px;line-height:1.15;margin:8px 0 9px;letter-spacing:-.03em}
+.lock p{font-size:12px;color:var(--text2);line-height:1.6;margin:0 0 20px}
+.field{display:grid;gap:7px}.field label{font-size:10px;font-weight:700;color:var(--text2)}
+.field input,.toolbar input,.toolbar select{width:100%;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:10px;outline:none}
+.field input{padding:13px 14px;font-family:JetBrains Mono,monospace;letter-spacing:.12em}
+.field input:focus,.toolbar input:focus,.toolbar select:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(22,199,255,.12)}
+.btn{border:1px solid var(--border2);border-radius:10px;padding:11px 14px;font-size:11px;font-weight:800;color:var(--text);background:var(--surface2);transition:.15s}
+.btn:hover{transform:translateY(-1px);border-color:rgba(22,199,255,.42)}
+.btn-primary{border:0;background:var(--grad);color:#fff}.lock .btn{width:100%;margin-top:12px;padding:13px}
+.lock-err{min-height:17px;color:var(--red);font-size:10px;font-weight:700;margin-top:9px}
+.app{min-height:100vh}
+.topbar{position:sticky;top:0;z-index:800;background:rgba(7,10,18,.86);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+.topbar-in{max-width:1440px;margin:auto;padding:15px 22px;display:flex;align-items:center;justify-content:space-between;gap:18px}
+.brand{display:flex;align-items:center;gap:11px}.brand-mark{width:35px;height:35px;border-radius:10px;display:grid;place-items:center;font-weight:800;background:var(--grad)}
+.brand b{display:block;font-size:13px}.brand small{display:block;color:var(--text3);font-size:8px;letter-spacing:.1em;margin-top:2px}
+.top-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+main{max-width:1440px;margin:auto;padding:28px 22px 46px}
+.hero{display:flex;align-items:end;justify-content:space-between;gap:20px;margin-bottom:20px}
+.hero h1{font-size:clamp(24px,3vw,38px);line-height:1.1;letter-spacing:-.045em;margin:7px 0 7px}.hero p{font-size:12px;color:var(--text2);margin:0;line-height:1.55}
+.sync{display:flex;align-items:center;gap:8px;font:700 9px JetBrains Mono,monospace;color:var(--text3);white-space:nowrap}.dot{width:7px;height:7px;border-radius:50%;background:var(--text3)}.dot.ok{background:var(--green);box-shadow:0 0 12px rgba(46,230,166,.5)}.dot.bad{background:var(--red)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+.kpi{padding:17px 18px;border:1px solid var(--border);border-radius:14px;background:linear-gradient(145deg,rgba(18,27,45,.94),rgba(13,20,34,.94));position:relative;overflow:hidden}
+.kpi:after{content:"";position:absolute;inset:auto -20% -80% 20%;height:90px;background:var(--grad);filter:blur(46px);opacity:.12}
+.kpi small{font-size:8px;font-weight:800;letter-spacing:.13em;color:var(--text3)}.kpi b{display:block;margin-top:7px;font:700 25px JetBrains Mono,monospace}.kpi em{display:block;margin-top:5px;color:var(--text2);font-size:9px;font-style:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.content{display:grid;grid-template-columns:minmax(360px,.9fr) minmax(460px,1.45fr);gap:14px;align-items:start}
+.card{border:1px solid var(--border);border-radius:var(--radius);background:rgba(13,20,34,.92);box-shadow:0 10px 35px rgba(0,0,0,.18);overflow:hidden}
+.card-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}.card-head b{font-size:11px}.card-head small{font-size:8px;color:var(--text3)}
+#map{height:500px;background:#0a101b}.leaflet-container{font-family:Inter,sans-serif}.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#10192a;color:#eef7ff}.leaflet-popup-content{font-size:11px;line-height:1.55}
+.map-empty{height:500px;display:grid;place-items:center;text-align:center;color:var(--text3);font-size:11px;padding:30px}
+.toolbar{padding:12px;display:grid;grid-template-columns:1fr 145px;gap:8px;border-bottom:1px solid var(--border)}.toolbar input,.toolbar select{padding:10px 11px;font-size:10px}.toolbar select{cursor:pointer}
+.table-scroll{overflow:auto;max-height:560px}
+table{width:100%;border-collapse:collapse;min-width:780px}th{position:sticky;top:0;z-index:1;background:#111a2b;color:var(--text3);font-size:8px;letter-spacing:.1em;text-align:left;padding:11px 12px;border-bottom:1px solid var(--border2)}td{font-size:10px;color:var(--text2);padding:11px 12px;border-bottom:1px solid var(--border);vertical-align:middle}tbody tr{cursor:pointer;transition:.12s}tbody tr:hover{background:rgba(22,199,255,.045)}td strong{color:var(--text);font-weight:700}.mono{font-family:JetBrains Mono,monospace;font-size:9px}.badge{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border-radius:99px;font-size:8px;font-weight:800;white-space:nowrap}.badge:before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}.badge.allow{color:var(--green);background:rgba(46,230,166,.09)}.badge.block{color:var(--red);background:rgba(255,85,117,.10)}.map-link{color:var(--cyan);text-decoration:none;font-weight:700}.map-link:hover{text-decoration:underline}
+.empty{padding:48px 20px;text-align:center;color:var(--text3);font-size:11px}
+.notice{margin-top:14px;padding:12px 14px;border:1px solid rgba(22,199,255,.15);background:rgba(22,199,255,.045);border-radius:12px;color:var(--text2);font-size:9px;line-height:1.55}.notice b{color:var(--cyan)}
+@media(max-width:1000px){.content{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}#map,.map-empty{height:390px}}
+@media(max-width:620px){.topbar-in,main{padding-left:14px;padding-right:14px}.hero{align-items:start;flex-direction:column}.top-actions .btn span{display:none}.kpis{gap:8px}.kpi{padding:14px}.kpi b{font-size:20px}.toolbar{grid-template-columns:1fr}.content{grid-template-columns:minmax(0,1fr)}#map,.map-empty{height:330px}}
+</style>
+</head>
+<body>
+<section class="lock" id="admin-lock">
+  <div class="lock-card">
+    <div class="mark">A</div>
+    <div class="lock-kicker">ACESSO ADMINISTRATIVO</div>
+    <h1>Auditoria de localização</h1>
+    <p>Área separada para visualizar as tentativas realizadas com a chapa <strong>0000000</strong>.</p>
+    <div class="field"><label for="admin-code">Identificação de acesso</label><input id="admin-code" type="password" autocomplete="off" placeholder="Digite o acesso" onkeydown="if(event.key==='Enter')unlock()"></div>
+    <button class="btn btn-primary" onclick="unlock()">Acessar painel →</button>
+    <div class="lock-err" id="lock-err"></div>
+  </div>
+</section>
+
+<div class="app hidden" id="admin-app">
+  <header class="topbar"><div class="topbar-in">
+    <div class="brand"><div class="brand-mark">M</div><div><b>MTM · GEOAUDITORIA</b><small>USUÁRIO 0000000</small></div></div>
+    <div class="top-actions">
+      <button class="btn" onclick="loadLogs()">↻ <span>Atualizar</span></button>
+      <button class="btn" onclick="exportCSV()">⇩ <span>Exportar CSV</span></button>
+      <button class="btn" onclick="backToTool()">← <span>Ferramenta</span></button>
+    </div>
+  </div></header>
+  <main>
+    <section class="hero">
+      <div><div class="eyebrow">SEGURANÇA DE ACESSO</div><h1>Geolocalização dos acessos</h1><p>Histórico centralizado de permissões, bloqueios, coordenadas e precisão informada pelo dispositivo.</p></div>
+      <div class="sync"><span class="dot" id="sync-dot"></span><span id="sync-text">AGUARDANDO DADOS</span></div>
+    </section>
+    <section class="kpis">
+      <article class="kpi"><small>TOTAL DE TENTATIVAS</small><b id="k-total">0</b><em>registros encontrados</em></article>
+      <article class="kpi"><small>ACESSOS PERMITIDOS</small><b id="k-allowed" style="color:var(--green)">0</b><em>Taubaté ou São Carlos</em></article>
+      <article class="kpi"><small>ACESSOS BLOQUEADOS</small><b id="k-blocked" style="color:var(--red)">0</b><em>fora da área ou sem permissão</em></article>
+      <article class="kpi"><small>ÚLTIMA TENTATIVA</small><b id="k-last" style="font-size:16px">—</b><em id="k-last-sub">sem registros</em></article>
+    </section>
+    <section class="content">
+      <article class="card">
+        <div class="card-head"><div><b>Mapa dos acessos</b><br><small>Clique numa linha para destacar o ponto</small></div><small id="map-count">0 pontos</small></div>
+        <div id="map"></div>
+      </article>
+      <article class="card">
+        <div class="toolbar"><input id="search" type="search" placeholder="Pesquisar data, cidade ou coordenada…" oninput="renderTable()"><select id="status-filter" onchange="renderTable()"><option value="all">Todos os status</option><option value="permitido">Permitidos</option><option value="bloqueado">Bloqueados</option></select></div>
+        <div class="table-scroll"><table><thead><tr><th>DATA E HORA</th><th>STATUS</th><th>LOCALIZAÇÃO</th><th>PRECISÃO</th><th>DISPOSITIVO</th><th>MAPA</th></tr></thead><tbody id="log-body"></tbody></table><div class="empty hidden" id="empty">Nenhum acesso encontrado.</div></div>
+      </article>
+    </section>
+    <div class="notice"><b>Controle de privacidade:</b> geolocalização é dado pessoal. Antes da publicação definitiva, restrinja a leitura deste histórico no banco por autenticação administrativa; a palavra “Antonel” protege apenas a interface e não substitui regra de segurança no servidor.</div>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+var FIREBASE_DATABASE_URL='https://mtm-em-foco-default-rtdb.firebaseio.com';
+var AUDIT_PATH='mtm_access_audit/0000000';
+var PENDING_KEY='mtm_geo_audit_pending_v1';
+var allLogs=[],map=null,markers=null,markerById={};
+
+function isUnlocked(){try{return sessionStorage.getItem('mtm_geo_admin_v1')==='Antonel';}catch(e){return false;}}
+function unlock(){
+  var v=(document.getElementById('admin-code').value||'').trim();
+  if(v.toLowerCase()!=='antonel'){document.getElementById('lock-err').textContent='Acesso não reconhecido.';return;}
+  try{sessionStorage.setItem('mtm_geo_admin_v1','Antonel');}catch(e){}
+  showApp();
+}
+function showApp(){
+  document.getElementById('admin-lock').classList.add('hidden');document.getElementById('admin-app').classList.remove('hidden');
+  setTimeout(function(){initMap();loadLogs();},30);
+}
+function backToTool(){if(document.referrer){history.back();}else{window.location.href='index.html';}}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function idOf(x){return x.clientId||x.remoteKey||[x.capturedAtMs,x.latitude,x.longitude].join('_');}
+function localPending(){try{var x=JSON.parse(localStorage.getItem(PENDING_KEY)||'[]');return Array.isArray(x)?x:[];}catch(e){return[];}}
+function setSync(state,text){var d=document.getElementById('sync-dot');d.className='dot '+state;document.getElementById('sync-text').textContent=text;}
+function fmtDate(v){if(!v)return'—';var d=new Date(v);if(isNaN(d))return'—';return new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'medium'}).format(d);}
+function shortDevice(ua){
+  ua=String(ua||'');var os=/Android[^;)]+/.exec(ua)||/iPhone OS [^ )]+/.exec(ua)||/Windows NT [^;)]+/.exec(ua)||/Mac OS X [^;)]+/.exec(ua);
+  var browser=/Edg\/[\d.]+/.exec(ua)||/Chrome\/[\d.]+/.exec(ua)||/Firefox\/[\d.]+/.exec(ua)||/Version\/[\d.]+/.exec(ua);
+  return [os&&os[0],browser&&browser[0]].filter(Boolean).join(' · ')||'Não informado';
+}
+function initMap(){
+  var el=document.getElementById('map');if(map||!el)return;
+  if(!window.L){el.className='map-empty';el.textContent='O mapa não pôde ser carregado. As coordenadas continuam disponíveis na tabela.';return;}
+  map=L.map(el,{zoomControl:true,attributionControl:true}).setView([-22.55,-46.65],7);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+  markers=L.layerGroup().addTo(map);
+}
+function markerIcon(allowed){
+  if(!window.L)return null;var color=allowed?'#2ee6a6':'#ff5575';
+  return L.divIcon({className:'',html:'<span style="display:block;width:16px;height:16px;border:3px solid #fff;border-radius:50%;background:'+color+';box-shadow:0 2px 14px rgba(0,0,0,.55)"></span>',iconSize:[16,16],iconAnchor:[8,8]});
+}
+function renderMap(){
+  if(!map||!markers)return;markers.clearLayers();markerById={};var pts=[];
+  allLogs.forEach(function(r){if(!Number.isFinite(+r.latitude)||!Number.isFinite(+r.longitude))return;var ll=[+r.latitude,+r.longitude];pts.push(ll);
+    var m=L.marker(ll,{icon:markerIcon(!!r.allowed)}).bindPopup('<b>'+(r.allowed?'Permitido':'Bloqueado')+'</b><br>'+esc(r.city||'Fora das áreas autorizadas')+'<br><span style="font-family:monospace">'+(+r.latitude).toFixed(6)+', '+(+r.longitude).toFixed(6)+'</span><br>'+esc(fmtDate(r.capturedAt||r.capturedAtMs)));m.addTo(markers);markerById[idOf(r)]=m;
+  });
+  document.getElementById('map-count').textContent=pts.length+' ponto'+(pts.length===1?'':'s');if(pts.length)map.fitBounds(pts,{padding:[34,34],maxZoom:13});
+}
+function focusLog(id){var m=markerById[id];if(m&&map){map.setView(m.getLatLng(),15,{animate:true});m.openPopup();}}
+function updateKpis(){
+  var allowed=allLogs.filter(function(x){return!!x.allowed;}).length,blocked=allLogs.length-allowed,last=allLogs[0];
+  document.getElementById('k-total').textContent=allLogs.length;document.getElementById('k-allowed').textContent=allowed;document.getElementById('k-blocked').textContent=blocked;
+  document.getElementById('k-last').textContent=last?fmtDate(last.capturedAt||last.capturedAtMs).split(' ')[0]:'—';document.getElementById('k-last-sub').textContent=last?fmtDate(last.capturedAt||last.capturedAtMs):'sem registros';
+}
+function filteredLogs(){var q=(document.getElementById('search').value||'').toLowerCase(),st=document.getElementById('status-filter').value;return allLogs.filter(function(r){var status=r.allowed?'permitido':'bloqueado';var blob=[fmtDate(r.capturedAt||r.capturedAtMs),r.city,r.latitude,r.longitude,r.error,status].join(' ').toLowerCase();return(st==='all'||status===st)&&(!q||blob.indexOf(q)>=0);});}
+function renderTable(){
+  var rows=filteredLogs(),body=document.getElementById('log-body'),empty=document.getElementById('empty');empty.classList.toggle('hidden',rows.length>0);body.innerHTML=rows.map(function(r){
+    var has=Number.isFinite(+r.latitude)&&Number.isFinite(+r.longitude),id=esc(idOf(r)),coords=has?(+r.latitude).toFixed(6)+'<br>'+(+r.longitude).toFixed(6):esc(r.error||'Não capturada');
+    var link=has?'https://www.openstreetmap.org/?mlat='+encodeURIComponent(r.latitude)+'&mlon='+encodeURIComponent(r.longitude)+'#map=17/'+encodeURIComponent(r.latitude)+'/'+encodeURIComponent(r.longitude):'';
+    return '<tr onclick="focusLog(\''+id+'\')"><td><strong>'+esc(fmtDate(r.capturedAt||r.capturedAtMs))+'</strong><br><span class="mono">'+esc(r.source==='local'?'PENDENTE DE SINCRONIZAÇÃO':'REGISTRADO')+'</span></td><td><span class="badge '+(r.allowed?'allow':'block')+'">'+(r.allowed?'PERMITIDO':'BLOQUEADO')+'</span></td><td><strong>'+esc(r.city||'Fora das áreas autorizadas')+'</strong><br><span class="mono">'+coords+'</span></td><td class="mono">'+(r.accuracyM!=null?'± '+esc(r.accuracyM)+' m':'—')+'</td><td>'+esc(shortDevice(r.device))+'</td><td>'+(link?'<a class="map-link" href="'+link+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">Abrir mapa ↗</a>':'—')+'</td></tr>';
+  }).join('');
+}
+function mergeLogs(remote,local){var seen={},out=[];remote.concat(local).forEach(function(x){var id=idOf(x);if(seen[id])return;seen[id]=1;out.push(x);});return out.sort(function(a,b){return(+new Date(b.capturedAt||b.capturedAtMs)||0)-(+new Date(a.capturedAt||a.capturedAtMs)||0);});}
+function loadLogs(){
+  setSync('','SINCRONIZANDO…');var url=FIREBASE_DATABASE_URL.replace(/\/$/,'')+'/'+AUDIT_PATH+'.json';
+  fetch(url,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(function(data){
+    var remote=Object.keys(data||{}).map(function(k){return Object.assign({remoteKey:k,source:'remote'},data[k]||{});});var pending=localPending().map(function(x){return Object.assign({source:'local'},x);});
+    allLogs=mergeLogs(remote,pending);setSync('ok',pending.length?'SINCRONIZADO · '+pending.length+' PENDENTE(S)':'DADOS SINCRONIZADOS');updateKpis();renderTable();renderMap();
+  }).catch(function(err){var pending=localPending().map(function(x){return Object.assign({source:'local'},x);});allLogs=mergeLogs([],pending);setSync('bad','FALHA AO LER O HISTÓRICO');updateKpis();renderTable();renderMap();console.error(err);});
+}
+function csvCell(v){v=String(v==null?'':v);return '"'+v.replace(/"/g,'""')+'"';}
+function exportCSV(){
+  if(!allLogs.length){alert('Não há registros para exportar.');return;}
+  var lines=[['Data/hora','Status','Cidade/área','Latitude','Longitude','Precisão (m)','Dispositivo','Erro'].map(csvCell).join(';')];
+  allLogs.forEach(function(r){lines.push([fmtDate(r.capturedAt||r.capturedAtMs),r.allowed?'Permitido':'Bloqueado',r.city||'Fora das áreas autorizadas',r.latitude,r.longitude,r.accuracyM,shortDevice(r.device),r.error].map(csvCell).join(';'));});
+  var blob=new Blob(['\uFEFF'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='geolocalizacoes_0000000_'+new Date().toISOString().slice(0,10)+'.csv';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},200);
+}
+document.addEventListener('DOMContentLoaded',function(){if(isUnlocked())showApp();else setTimeout(function(){document.getElementById('admin-code').focus();},80);});
+</script>
+</body>
+</html>
