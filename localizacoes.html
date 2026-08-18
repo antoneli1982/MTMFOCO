@@ -72,18 +72,16 @@ table{width:100%;border-collapse:collapse;min-width:780px}th{position:sticky;top
 <section class="lock" id="admin-lock">
   <div class="lock-card">
     <div class="mark">A</div>
-    <div class="lock-kicker">ACESSO ADMINISTRATIVO</div>
+    <div class="lock-kicker">MÓDULO EXCLUSIVO DO MASTER</div>
     <h1>Auditoria de localização</h1>
-    <p>Área separada para visualizar as tentativas realizadas com a chapa <strong>0000000</strong>.</p>
-    <div class="field"><label for="admin-code">Identificação de acesso</label><input id="admin-code" type="password" autocomplete="off" placeholder="Digite o acesso" onkeydown="if(event.key==='Enter')unlock()"></div>
-    <button class="btn btn-primary" onclick="unlock()">Acessar painel →</button>
-    <div class="lock-err" id="lock-err"></div>
+    <p>Entre na ferramenta como <strong>Antonel</strong> e abra este módulo pelo botão <strong>Geolocalização 0000000</strong>.</p>
+    <button class="btn btn-primary" onclick="backToTool()">← Voltar para a ferramenta</button>
   </div>
 </section>
 
 <div class="app hidden" id="admin-app">
   <header class="topbar"><div class="topbar-in">
-    <div class="brand"><div class="brand-mark">M</div><div><b>MTM · GEOAUDITORIA</b><small>USUÁRIO 0000000</small></div></div>
+    <div class="brand"><div class="brand-mark">M</div><div><b>MTM · MÓDULO MASTER</b><small>GEOAUDITORIA · USUÁRIO 0000000</small></div></div>
     <div class="top-actions">
       <button class="btn" onclick="loadLogs()">↻ <span>Atualizar</span></button>
       <button class="btn" onclick="exportCSV()">⇩ <span>Exportar CSV</span></button>
@@ -111,7 +109,7 @@ table{width:100%;border-collapse:collapse;min-width:780px}th{position:sticky;top
         <div class="table-scroll"><table><thead><tr><th>DATA E HORA</th><th>STATUS</th><th>LOCALIZAÇÃO</th><th>PRECISÃO</th><th>DISPOSITIVO</th><th>MAPA</th></tr></thead><tbody id="log-body"></tbody></table><div class="empty hidden" id="empty">Nenhum acesso encontrado.</div></div>
       </article>
     </section>
-    <div class="notice"><b>Controle de privacidade:</b> geolocalização é dado pessoal. Antes da publicação definitiva, restrinja a leitura deste histórico no banco por autenticação administrativa; a palavra “Antonel” protege apenas a interface e não substitui regra de segurança no servidor.</div>
+    <div class="notice"><b>Controle de privacidade:</b> geolocalização é dado pessoal. Antes da publicação definitiva, restrinja a leitura deste histórico no banco por autenticação administrativa; o perfil Antonel protege a interface, mas não substitui uma regra de segurança no servidor.</div>
   </main>
 </div>
 
@@ -122,13 +120,7 @@ var AUDIT_PATH='mtm_access_audit/0000000';
 var PENDING_KEY='mtm_geo_audit_pending_v1';
 var allLogs=[],map=null,markers=null,markerById={};
 
-function isUnlocked(){try{return sessionStorage.getItem('mtm_geo_admin_v1')==='Antonel';}catch(e){return false;}}
-function unlock(){
-  var v=(document.getElementById('admin-code').value||'').trim();
-  if(v.toLowerCase()!=='antonel'){document.getElementById('lock-err').textContent='Acesso não reconhecido.';return;}
-  try{sessionStorage.setItem('mtm_geo_admin_v1','Antonel');}catch(e){}
-  showApp();
-}
+function isUnlocked(){try{return sessionStorage.getItem('mtm_master_v1')==='true'&&sessionStorage.getItem('mtm_geo_admin_v1')==='Antonel';}catch(e){return false;}}
 function showApp(){
   document.getElementById('admin-lock').classList.add('hidden');document.getElementById('admin-app').classList.remove('hidden');
   setTimeout(function(){initMap();loadLogs();},30);
@@ -191,7 +183,7 @@ function exportCSV(){
   allLogs.forEach(function(r){lines.push([fmtDate(r.capturedAt||r.capturedAtMs),r.allowed?'Permitido':'Bloqueado',r.city||'Fora das áreas autorizadas',r.latitude,r.longitude,r.accuracyM,shortDevice(r.device),r.error].map(csvCell).join(';'));});
   var blob=new Blob(['\uFEFF'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='geolocalizacoes_0000000_'+new Date().toISOString().slice(0,10)+'.csv';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},200);
 }
-document.addEventListener('DOMContentLoaded',function(){if(isUnlocked())showApp();else setTimeout(function(){document.getElementById('admin-code').focus();},80);});
+document.addEventListener('DOMContentLoaded',function(){if(isUnlocked())showApp();});
 </script>
 </body>
 </html>
