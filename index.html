@@ -2487,6 +2487,15 @@ html[data-theme="light"] #dashboard{
 #mtm-chapa-btn:active{ transform:scale(.98); }
 .mtm-chapa-help{ font-size:11px; color:var(--text3); text-align:center; margin-top:16px; line-height:1.5; }
 
+/* Recursos exclusivos do perfil master Antonel */
+.mtm-master-only{display:none!important;}
+body.mtm-is-master .mtm-master-only{display:inline-flex!important;}
+.mtm-master-badge{
+  align-items:center;gap:6px;padding:5px 10px;border-radius:999px;
+  background:rgba(46,230,166,.10);border:1px solid rgba(46,230,166,.28);
+  color:var(--green,#2ee6a6);font-size:9px;font-weight:800;letter-spacing:.08em;
+}
+
 /* GEOAUDITORIA · bloqueio visual quando a chapa monitorada está fora da área permitida */
 #mtm-geo-block{
   position:fixed; inset:0; z-index:1000001; display:none; overflow:hidden;
@@ -2564,6 +2573,28 @@ html[data-theme="light"] #dashboard{
   var AUDIT_PATH = 'mtm_access_audit/0000000';
   var PENDING_KEY = 'mtm_geo_audit_pending_v1';
   var binaryStarted = false;
+
+  function isMaster(){
+    try{return sessionStorage.getItem('mtm_master_v1')==='true' && sessionStorage.getItem(KEY)==='Antonel';}
+    catch(e){return false;}
+  }
+  function applyMasterMode(){
+    var master=isMaster();
+    if(document.body) document.body.classList.toggle('mtm-is-master',master);
+    document.documentElement.setAttribute('data-access-role',master?'master':'user');
+    window.MTM_ACCESS_ROLE=master?'master':'user';
+    var name=document.getElementById('db-user-name');
+    if(master&&name) name.textContent='Antonel · MASTER';
+    return master;
+  }
+  function openGeoAuditPage(){
+    if(!isMaster()) return;
+    try{sessionStorage.setItem('mtm_geo_admin_v1','Antonel');}catch(e){}
+    window.location.href='localizacoes.html';
+  }
+  window.isMtmMaster=isMaster;
+  window.applyMtmMasterMode=applyMasterMode;
+  window.openGeoAuditPage=openGeoAuditPage;
 
   /* Limites municipais do IBGE, qualidade máxima (códigos 3548906 e 3554102).
      Cada ponto está em [longitude, latitude]. */
@@ -2724,8 +2755,14 @@ html[data-theme="light"] #dashboard{
     err.classList.remove('show');
     err.style.color='';
     if(v.toLowerCase()==='antonel'){
-      try{sessionStorage.setItem('mtm_geo_admin_v1','Antonel');}catch(e){}
-      window.location.href='localizacoes.html';
+      try{
+        sessionStorage.setItem(KEY,'Antonel');
+        sessionStorage.setItem('mtm_master_v1','true');
+        sessionStorage.setItem('mtm_geo_admin_v1','Antonel');
+      }catch(e){}
+      applyMasterMode();
+      var masterScreen=document.getElementById('mtm-chapa-screen');
+      if(masterScreen) masterScreen.classList.add('hidden');
       return;
     }
     if(v==='0000000'){
@@ -2739,6 +2776,7 @@ html[data-theme="light"] #dashboard{
 
   document.addEventListener('DOMContentLoaded', function(){
     var scr = document.getElementById('mtm-chapa-screen');
+    applyMasterMode();
     try{
       if(sessionStorage.getItem(KEY)==='0000000'){
         validateFelipe();
@@ -4283,7 +4321,9 @@ body.home-clean .db-company-card::after{
   <div class="db-hdr">
     <div class="db-hdr-logo">MTM</div>
     <div class="db-hdr-user" id="db-user-name"></div>
+    <span class="mtm-master-only mtm-master-badge">◆ MASTER</span>
     <div class="db-hdr-actions">
+      <button class="db-hdr-btn mtm-master-only" onclick="openGeoAuditPage()" style="color:var(--cyan,var(--accent));border-color:rgba(22,199,255,.35)">⌖ Geolocalização 0000000</button>
       <button class="db-hdr-btn db-hdr-btn-purple" onclick="openApostilas()">📚 Apostilas</button>
     </div>
   </div>
@@ -4706,6 +4746,7 @@ body.home-clean .db-company-card::after{
     <button class="btn btn-ghost" onclick="goHome()" title="Voltar à tela inicial (empresas e projetos)" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(0,212,255,.25);font-weight:800;font-size:12px;padding:7px 14px">🏠<span class="btn-lbl"> Início</span></button>
     <button class="btn btn-primary" onclick="showFinalReport()" title="Relatório consolidado de todas as folhas — inclui o balanceamento" style="background:linear-gradient(135deg,#00e5a0,#00b87a);border:none;color:#001a12;font-weight:800;font-size:12px;padding:7px 16px">📋<span class="btn-lbl"> Relatório Final</span></button>
     <button class="btn btn-primary" onclick="openProjectManager()" title="Gerenciador de Projetos" style="background:linear-gradient(135deg,#4f8ef7,#6366f1);border:none;color:#fff;font-weight:800;font-size:12px;padding:7px 16px">📁<span class="btn-lbl"> Projetos</span></button>
+    <button class="btn btn-ghost mtm-master-only" onclick="openGeoAuditPage()" title="Auditoria de geolocalização dos acessos da chapa 0000000" style="background:rgba(22,199,255,.09);color:var(--accent);border-color:rgba(22,199,255,.32);font-weight:800">⌖<span class="btn-lbl"> Geo 0000000</span></button>
     <!-- separador visual -->
     <div class="tb-divider" style="width:1px;height:26px;background:var(--border2);margin:0 4px;flex-shrink:0"></div>
     <button class="btn btn-ghost" onclick="startDirectMtmApp()" title="Ir para as folhas" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(0,212,255,.25)">📄<span class="btn-lbl"> Folhas</span></button>
@@ -9968,9 +10009,11 @@ function showDashboard(){
   if(typeof currentFolderId !== 'undefined') currentFolderId = null;
   if(typeof currentCompany  !== 'undefined') currentCompany  = null;
   var sess = (typeof getSession === 'function') ? getSession() : null;
-  var name = sess ? sess.name : 'Usuário';
+  var master = (typeof window.isMtmMaster === 'function') && window.isMtmMaster();
+  var name = master ? 'Antonel' : (sess ? sess.name : 'Usuário');
   var userEl = document.getElementById('db-user-name');
-  if(userEl) userEl.textContent = name.split(' ')[0] + ' · MTM';
+  if(userEl) userEl.textContent = master ? 'Antonel · MASTER' : name.split(' ')[0] + ' · MTM';
+  if(typeof window.applyMtmMasterMode === 'function') window.applyMtmMasterMode();
   var db = document.getElementById('dashboard');
   if(db){ db.classList.add('active'); db.style.display='flex'; }
   __homeFirstPending = false;
