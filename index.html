@@ -631,6 +631,49 @@ body{
   box-shadow:0 0 0 3px rgba(0,212,255,.08);
 }
 .f-input::placeholder{color:var(--text3);font-weight:400}
+
+/* ══ Calculadora rápida do cabeçalho (substitui os fatores manuais) ══ */
+.mtmcalc{
+  grid-column:1/-1;display:flex;gap:16px;align-items:stretch;flex-wrap:wrap;
+  background:var(--surface2);border:1px solid var(--border2);
+  border-left:3px solid var(--purple);border-radius:8px;padding:10px 12px;
+}
+.mtmcalc-disp{flex:1 1 240px;min-width:200px;display:flex;flex-direction:column;gap:5px;justify-content:center}
+.mtmcalc-hist{
+  font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);
+  min-height:13px;text-align:right;letter-spacing:.5px;overflow:hidden;white-space:nowrap;
+}
+.mtmcalc-out{
+  width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;
+  padding:9px 11px;color:var(--text);font-family:'JetBrains Mono',monospace;
+  font-size:24px;font-weight:700;text-align:right;outline:none;letter-spacing:-.5px;cursor:pointer;
+}
+.mtmcalc-out:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(124,58,237,.14)}
+.mtmcalc-tools{display:flex;gap:5px}
+.mtmcalc-tool{
+  flex:1;font-size:10px;font-weight:700;padding:6px 3px;border-radius:6px;cursor:pointer;
+  background:transparent;border:1px solid var(--border2);color:var(--text2);
+  font-family:'Inter',sans-serif;transition:.15s;white-space:nowrap;
+}
+.mtmcalc-tool:hover{color:var(--text);border-color:var(--border3);background:var(--surface3)}
+.mtmcalc-pad{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;flex:0 0 260px;width:260px}
+.mtmcalc-b{
+  background:var(--surface3);border:1px solid var(--border);border-radius:6px;color:var(--text);
+  font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;padding:10px 0;
+  cursor:pointer;transition:.12s;-webkit-user-select:none;user-select:none;
+}
+.mtmcalc-b:hover{background:var(--border2);border-color:var(--border3)}
+.mtmcalc-b:active{transform:scale(.93)}
+.mtmcalc-b.op{color:var(--accent);background:var(--accentBg);border-color:rgba(0,212,255,.25)}
+.mtmcalc-b.fn{color:var(--orange);font-size:13px}
+.mtmcalc-b.eq{background:var(--accentGrad);color:#00131c;border-color:transparent}
+@media(max-width:760px){
+  .mtmcalc{flex-direction:column;gap:10px}
+  .mtmcalc-pad{flex:1 1 auto;width:100%}
+  .mtmcalc-b{padding:13px 0;font-size:16px}
+}
+@media print{.mtmcalc{display:none!important}}
+
 .folha-title-row{display:flex;align-items:center;gap:10px;margin-bottom:2px}
 .folha-title{
   font-size:18px;font-weight:800;
@@ -6035,17 +6078,43 @@ function renderContent(id){
           ${[['unidade','Unidade'],['carreta','Carreta'],['bitrem','Bitrem'],['truck','Truck'],['cx','Caixas'],['un','Unidades'],['kg','Quilogramas'],['L','Litros'],['m','Metros lineares'],['m²','Metros quadrados'],['m³','Metros cúbicos'],['pal','Paletes'],['bob','Bobinas'],['pct','Pacotes'],['fd','Fardos'],['tl','Toneladas'],['rack','Rack'],['brc','Berço']].map(([v,l])=>`<option value="${v}" ${(h.pcsCicloUnit||'unidade')===v?'selected':''}>${v} — ${l}</option>`).join('')}
         </select>
       </div>
-      <div class="f-group" style="background:var(--greenBg);border-left:2px solid var(--green);padding-left:8px">
-        <span class="f-label" style="color:var(--green)">Fator Pessoal (%)</span>
-        <input class="f-input" type="number" step="0.5" min="0" max="20" placeholder="5" data-key="allowPersonal" value="${esc(h.allowPersonal||'5')}">
-      </div>
-      <div class="f-group" style="background:var(--greenBg);border-left:2px solid var(--green);padding-left:8px">
-        <span class="f-label" style="color:var(--green)">Fator Fadiga (%)</span>
-        <input class="f-input" type="number" step="0.5" min="0" max="20" placeholder="4" data-key="allowFatigue" value="${esc(h.allowFatigue||'4')}">
-      </div>
-      <div class="f-group" style="background:var(--greenBg);border-left:2px solid var(--green);padding-left:8px">
-        <span class="f-label" style="color:var(--green)">Contingência (%)</span>
-        <input class="f-input" type="number" step="0.5" min="0" max="10" placeholder="3" data-key="allowContingency" value="${esc(h.allowContingency||'3')}">
+      <div class="mtmcalc" data-noprint="1">
+        <div class="mtmcalc-disp">
+          <span class="f-label" style="color:var(--purple)">🧮 Calculadora</span>
+          <div class="mtmcalc-hist" id="calc-h-${id}"></div>
+          <input class="mtmcalc-out" id="calc-d-${id}" value="0" readonly inputmode="none"
+                 data-nodec="1" autocomplete="off" spellcheck="false"
+                 title="Clique aqui e use o teclado: números, + - * / % Enter Backspace Esc"
+                 onkeydown="mtmCalcKeyboard(event,'${id}')">
+          <div class="mtmcalc-tools">
+            <button type="button" class="mtmcalc-tool" id="calc-cp-${id}" onclick="mtmCalcCopy('${id}')">📋 Copiar</button>
+            <button type="button" class="mtmcalc-tool" onclick="mtmCalcPress('${id}','√')" title="Raiz quadrada">√x</button>
+            <button type="button" class="mtmcalc-tool" onclick="mtmCalcPress('${id}','x²')" title="Elevar ao quadrado">x²</button>
+            <button type="button" class="mtmcalc-tool" onclick="mtmCalcPress('${id}','1/x')" title="Inverso">1/x</button>
+          </div>
+        </div>
+        <div class="mtmcalc-pad">
+          <button type="button" class="mtmcalc-b fn" onclick="mtmCalcPress('${id}','C')">C</button>
+          <button type="button" class="mtmcalc-b fn" onclick="mtmCalcPress('${id}','back')">⌫</button>
+          <button type="button" class="mtmcalc-b fn" onclick="mtmCalcPress('${id}','%')">%</button>
+          <button type="button" class="mtmcalc-b op" onclick="mtmCalcPress('${id}','÷')">÷</button>
+          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}','7')">7</button>
+          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}','8')">8</button>
+          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}','9')">9</button>
+          <button type="button" class="mtmcalc-b op" onclick="mtmCalcPress('${id}','×')">×</button>
+          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}','4')">4</button>
+          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}','5')">5</button>
+          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}','6')">6</button>
+          <button type="button" class="mtmcalc-b op" onclick="mtmCalcPress('${id}','-')">−</button>
+          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}','1')">1</button>
+          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}','2')">2</button>
+          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}','3')">3</button>
+          <button type="button" class="mtmcalc-b op" onclick="mtmCalcPress('${id}','+')">+</button>
+          <button type="button" class="mtmcalc-b fn" onclick="mtmCalcPress('${id}','±')">±</button>
+          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}','0')">0</button>
+          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}',',')">,</button>
+          <button type="button" class="mtmcalc-b eq" onclick="mtmCalcPress('${id}','=')">=</button>
+        </div>
       </div>
     </div>
     <div class="table-wrapper">
@@ -6599,10 +6668,9 @@ function computeSheetMetrics(s){
   const rowTotals = rows.map(function(r){ return mtmRowTotalTmu(r); });
   const totalTmu = rowTotals.reduce((a,t)=>a+t,0);
   const totalSec = +(totalTmu * 0.036).toFixed(4);
-  const aP = parseFloat(h.allowPersonal)||0;
-  const aF = parseFloat(h.allowFatigue)||0;
-  const aC = parseFloat(h.allowContingency)||0;
-  const allowPct = aP + aF + aC;
+  // Fatores manuais (Pessoal/Fadiga/Contingência) foram removidos do cabeçalho:
+  // a OCUPAÇÃO (%) já representa esse acréscimo. Mantido em 0 para não duplicar.
+  const allowPct = 0;
   // O valor manual representa OCUPAÇÃO, não um acréscimo aditivo.
   // Tempo Padrão = Tempo Bruto ÷ (Ocupação/100).
   // Quando ocupação = 0/vazio, usa o Total Bruto sem ajuste.
@@ -7014,7 +7082,7 @@ function prepararPrint(){
     (s.rows||[]).forEach(function(r){ tmu += parseFloat(r.ttmu)||0; });
     var tn = tmu * 0.036;
     var h = s.header||{};
-    var allow = (parseFloat(h.allowPersonal)||0) + (parseFloat(h.allowFatigue)||0) + (parseFloat(h.allowContingency)||0);
+    var allow = 0; // fatores manuais removidos — a ocupação (%) assume o papel
     var ocup = mtmOccupancyPct(h.manualTTP);
     var ts = ocup > 0 ? mtmStandardByOccupancy(tn, ocup) : tn * (1 + allow/100);
     if(ocup > 0) allow = 100 - ocup;
@@ -15478,10 +15546,7 @@ function _xlCalcSheetMetrics(s){
     var q = parseFloat(r.q)||1, f = parseFloat(r.f)||1, t = parseFloat(r.tmu)||0;
     tmu += t * q * f;
   });
-  var aP = parseFloat(h.allowPersonal)||0;
-  var aF = parseFloat(h.allowFatigue)||0;
-  var aC = parseFloat(h.allowContingency)||0;
-  var allowHeader = aP+aF+aC;
+  var allowHeader = 0; // fatores manuais removidos — a ocupação (%) assume o papel
   // Tempo Padrão usa a premissa de fadiga (TV+TER / SESÉ 10% / Global 15%) quando há
   // Análise de Fadiga na folha; só cai no allowance do cabeçalho se não houver análise.
   var _fad = (s.fadiga && typeof s.fadiga==='object' && typeof mtmCalcFadiga==='function') ? mtmCalcFadiga(s.fadiga) : null;
@@ -15668,9 +15733,7 @@ function exportExcel(only){
       aoaG.push([]);
 
       aoaG.push(['╔ ALLOWANCES APLICADAS ╗']);
-      aoaG.push(['Pessoal (%)',      parseFloat(h.allowPersonal)||0]);
-      aoaG.push(['Fadiga (%)',       parseFloat(h.allowFatigue)||0]);
-      aoaG.push(['Contingência (%)', parseFloat(h.allowContingency)||0]);
+      aoaG.push(['Ocupação (%)',     +(mtmOccupancyPct(h.manualTTP)||0).toFixed(2)]);
       aoaG.push(['Total (%)',        m.allow]);
       aoaG.push([]);
 
@@ -20679,6 +20742,328 @@ function planRender(){
 }
 window.planRender = planRender;
 
+})();
+</script>
+
+
+
+<!-- ═══════════════════════════════════════════════════════════════
+     CALCULADORA RÁPIDA DO CABEÇALHO (substitui Fator Pessoal /
+     Fator Fadiga / Contingência — a Ocupação (%) já cobre isso)
+     ═══════════════════════════════════════════════════════════ -->
+<script>
+var _mtmCalcS = {};
+
+function mtmCalcState(id){
+  if(!_mtmCalcS[id]) _mtmCalcS[id] = {cur:'0', acc:null, op:null, fresh:true, opJust:false, hist:''};
+  return _mtmCalcS[id];
+}
+
+/* string exibida ("1234,5") -> número */
+function mtmCalcNum(v){
+  var n = parseFloat(String(v).replace(/\./g,'').replace(',','.'));
+  return isFinite(n) ? n : 0;
+}
+/* número -> string com vírgula decimal */
+function mtmCalcStr(n){
+  if(!isFinite(n)) return 'Erro';
+  var r = Math.round(n * 1e10) / 1e10;
+  var s = String(r);
+  if(s.indexOf('e') > -1) s = r.toExponential(6);
+  return s.replace('.', ',');
+}
+/* separador de milhar para exibição */
+function mtmCalcGroup(v){
+  if(v === 'Erro') return v;
+  var s = String(v), neg = s.charAt(0) === '-';
+  if(neg) s = s.slice(1);
+  var p = s.split(',');
+  p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return (neg ? '-' : '') + p[0] + (p.length > 1 ? ',' + p[1] : '');
+}
+
+function mtmCalcApply(a, b, op){
+  if(op === '+') return a + b;
+  if(op === '-') return a - b;
+  if(op === '×') return a * b;
+  if(op === '÷') return b === 0 ? NaN : a / b;
+  return b;
+}
+
+function mtmCalcPaint(id){
+  var st = mtmCalcState(id);
+  var d = document.getElementById('calc-d-' + id);
+  var h = document.getElementById('calc-h-' + id);
+  if(d) d.value = mtmCalcGroup(st.cur);
+  if(h) h.textContent = st.hist || '';
+}
+
+function mtmCalcPress(id, k){
+  var st = mtmCalcState(id);
+  if(st.cur === 'Erro' && k !== 'C') { st.cur = '0'; st.acc = null; st.op = null; st.fresh = true; st.hist=''; }
+
+  if(/^[0-9]$/.test(k)){
+    st.cur = (st.fresh || st.cur === '0') ? k : (st.cur.replace(/[^0-9]/g,'').length < 15 ? st.cur + k : st.cur);
+    st.fresh = false; st.opJust = false;
+  }
+  else if(k === ','){
+    if(st.fresh){ st.cur = '0,'; st.fresh = false; }
+    else if(st.cur.indexOf(',') < 0) st.cur += ',';
+    st.opJust = false;
+  }
+  else if(k === 'C'){
+    _mtmCalcS[id] = {cur:'0', acc:null, op:null, fresh:true, opJust:false, hist:''};
+  }
+  else if(k === 'back'){
+    if(st.fresh){ st.cur = '0'; }
+    else {
+      st.cur = st.cur.slice(0, -1);
+      if(st.cur === '' || st.cur === '-') { st.cur = '0'; st.fresh = true; }
+    }
+  }
+  else if(k === '±'){
+    st.cur = st.cur.charAt(0) === '-' ? st.cur.slice(1) : (st.cur === '0' ? '0' : '-' + st.cur);
+  }
+  else if(k === '%'){
+    var v = mtmCalcNum(st.cur);
+    var r = ((st.op === '+' || st.op === '-') && st.acc != null) ? (st.acc * v / 100) : (v / 100);
+    st.cur = mtmCalcStr(r); st.fresh = false; st.opJust = false;
+  }
+  else if(k === '√'){
+    var v1 = mtmCalcNum(st.cur);
+    st.hist = '√(' + mtmCalcGroup(st.cur) + ')';
+    st.cur = v1 < 0 ? 'Erro' : mtmCalcStr(Math.sqrt(v1));
+    st.fresh = true;
+  }
+  else if(k === 'x²'){
+    var v2 = mtmCalcNum(st.cur);
+    st.hist = mtmCalcGroup(st.cur) + '²';
+    st.cur = mtmCalcStr(v2 * v2); st.fresh = true;
+  }
+  else if(k === '1/x'){
+    var v3 = mtmCalcNum(st.cur);
+    st.hist = '1 ÷ ' + mtmCalcGroup(st.cur);
+    st.cur = v3 === 0 ? 'Erro' : mtmCalcStr(1 / v3); st.fresh = true;
+  }
+  else if(k === '+' || k === '-' || k === '×' || k === '÷'){
+    var v4 = mtmCalcNum(st.cur);
+    if(st.op && !st.opJust && st.acc != null){
+      var res = mtmCalcApply(st.acc, v4, st.op);
+      st.acc = res; st.cur = mtmCalcStr(res);
+    } else if(st.acc == null || st.opJust === false){
+      st.acc = v4;
+    }
+    if(st.cur === 'Erro'){ st.acc = null; st.op = null; st.hist = ''; }
+    else { st.op = k; st.opJust = true; st.fresh = true; st.hist = mtmCalcGroup(mtmCalcStr(st.acc)) + ' ' + k; }
+  }
+  else if(k === '='){
+    if(st.op != null && st.acc != null){
+      var v5 = mtmCalcNum(st.cur);
+      var out = mtmCalcApply(st.acc, v5, st.op);
+      st.hist = mtmCalcGroup(mtmCalcStr(st.acc)) + ' ' + st.op + ' ' + mtmCalcGroup(st.cur) + ' =';
+      st.cur = mtmCalcStr(out);
+      st.acc = null; st.op = null; st.opJust = false; st.fresh = true;
+    }
+  }
+  mtmCalcPaint(id);
+}
+
+/* Teclado físico quando o visor está focado */
+function mtmCalcKeyboard(e, id){
+  var k = e.key, m = null;
+  if(/^[0-9]$/.test(k)) m = k;
+  else if(k === ',' || k === '.') m = ',';
+  else if(k === '+') m = '+';
+  else if(k === '-') m = '-';
+  else if(k === '*' || k === 'x' || k === 'X') m = '×';
+  else if(k === '/') m = '÷';
+  else if(k === '%') m = '%';
+  else if(k === 'Enter' || k === '=') m = '=';
+  else if(k === 'Backspace') m = 'back';
+  else if(k === 'Escape' || k === 'Delete') m = 'C';
+  if(m){ e.preventDefault(); mtmCalcPress(id, m); }
+}
+
+/* Copia o resultado para a área de transferência */
+function mtmCalcCopy(id){
+  var d = document.getElementById('calc-d-' + id);
+  var b = document.getElementById('calc-cp-' + id);
+  if(!d) return;
+  var txt = d.value;
+  var done = function(){
+    if(!b) return;
+    var old = b.textContent;
+    b.textContent = '✓ Copiado';
+    setTimeout(function(){ b.textContent = old; }, 1200);
+  };
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(done, function(){ done(); });
+      return;
+    }
+  }catch(e){}
+  try{
+    d.removeAttribute('readonly'); d.select();
+    document.execCommand('copy');
+    d.setAttribute('readonly','readonly');
+    done();
+  }catch(e){}
+}
+</script>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     ENTRADA NUMÉRICA BR — aceita VÍRGULA ou PONTO como separador decimal
+     em todos os campos numéricos (type="number" e inputmode="decimal").
+     Converte para ponto internamente, sem alterar os cálculos existentes.
+     ═════════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  'use strict';
+
+  var FLAG = 'data-decok';
+  var fixes = 0;              // trava de segurança contra loop de re-render
+  var SEL  = 'input[type="number"],input[type=number],input[inputmode="decimal"]';
+
+  /* Normaliza texto numérico → formato interno com PONTO decimal.
+     Regra: o último separador (',' ou '.') é o decimal; os demais são milhar.
+     Ex.: "1,5" → "1.5" | "1.234,56" → "1234.56" | "1,234.56" → "1234.56" */
+  function decNorm(v){
+    var s = String(v == null ? '' : v).trim();
+    if(s === '') return '';
+    var lc = s.lastIndexOf(','), ld = s.lastIndexOf('.');
+    if(lc > -1 && ld > -1){
+      if(lc > ld) s = s.replace(/\./g,'').replace(/,/g,'.');
+      else        s = s.replace(/,/g,'');
+    } else if(lc > -1){
+      s = s.replace(/,/g,'.');
+    }
+    s = s.replace(/[^0-9.\-]/g,'');           // descarta letras/símbolos
+    var neg = s.charAt(0) === '-';
+    s = s.replace(/-/g,'');
+    var i = s.indexOf('.');
+    if(i > -1) s = s.slice(0, i+1) + s.slice(i+1).replace(/\./g,'');  // 1 ponto só
+    return (neg ? '-' : '') + s;
+  }
+
+  /* Helpers globais reutilizáveis */
+  window.decNorm  = decNorm;
+  window.decParse = function(v, fb){
+    var n = parseFloat(decNorm(v));
+    return isFinite(n) ? n : (fb === undefined ? 0 : fb);
+  };
+
+  /* Prepara o campo: number → text + inputmode decimal (teclado numérico
+     no tablet/celular, mas permitindo digitar vírgula). */
+  function prep(el){
+    if(!el || el.nodeType !== 1 || el.tagName !== 'INPUT') return;
+    if(el.getAttribute('data-nodec') === '1') return;   // campo isento (ex.: calculadora)
+    if(el.getAttribute(FLAG) === '1') return;
+    el.setAttribute(FLAG,'1');
+
+    var isNum = String(el.type || '').toLowerCase() === 'number';
+    var raw   = el.value || el.getAttribute('value') || '';
+
+    if(isNum){
+      try{ el.type = 'text'; }catch(e){}
+      if(!el.getAttribute('inputmode')) el.setAttribute('inputmode','decimal');
+      el.setAttribute('autocomplete','off');
+      el.setAttribute('data-decnum','1');
+    }
+
+    var fix = decNorm(raw);
+    if(el.value !== fix){
+      el.value = fix;
+      // avisa os handlers (oninput) só quando realmente houve correção
+      if(fixes < 300){
+        fixes++;
+        try{ el.dispatchEvent(new Event('input', {bubbles:true})); }catch(e){}
+      }
+    }
+  }
+
+  function scan(root){
+    if(!root || root.nodeType !== 1) return;
+    try{
+      if(root.matches && root.matches(SEL)) prep(root);
+      var l = root.querySelectorAll ? root.querySelectorAll(SEL) : null;
+      if(l) for(var i=0;i<l.length;i++) prep(l[i]);
+    }catch(e){}
+  }
+
+  /* Corrige o que o usuário digita ANTES dos handlers oninput rodarem
+     (listener em fase de captura no document). */
+  document.addEventListener('input', function(e){
+    var el = e.target;
+    if(!el || el.tagName !== 'INPUT') return;
+    if(el.getAttribute('data-nodec') === '1') return;
+    if(el.getAttribute(FLAG) !== '1'){
+      try{ if(el.matches && el.matches(SEL)) prep(el); else return; }catch(err){ return; }
+    }
+    var cur = el.value;
+    var fix = decNorm(cur);
+    if(fix !== cur){
+      var pos = null;
+      try{ pos = el.selectionStart; }catch(err){}
+      el.value = fix;
+      if(pos != null){
+        var np = pos + (fix.length - cur.length);
+        if(np < 0) np = 0; if(np > fix.length) np = fix.length;
+        try{ el.setSelectionRange(np, np); }catch(err){}
+      }
+    }
+  }, true);
+
+  /* Limpeza ao sair do campo: "12." → "12" ; "-" → "" */
+  document.addEventListener('blur', function(e){
+    var el = e.target;
+    if(!el || el.tagName !== 'INPUT' || el.getAttribute(FLAG) !== '1') return;
+    var v = el.value, f = v;
+    if(f === '-' || f === '.' || f === '-.') f = '';
+    else if(f.slice(-1) === '.') f = f.slice(0,-1);
+    else if(f.charAt(0) === '.') f = '0' + f;
+    if(f !== v){
+      el.value = f;
+      try{ el.dispatchEvent(new Event('input', {bubbles:true})); }catch(err){}
+      try{ el.dispatchEvent(new Event('change',{bubbles:true})); }catch(err){}
+    }
+  }, true);
+
+  /* Mantém as setas ↑ ↓ funcionando como no campo numérico nativo */
+  document.addEventListener('keydown', function(e){
+    if(e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    var el = e.target;
+    if(!el || el.tagName !== 'INPUT' || el.getAttribute('data-decnum') !== '1') return;
+    var stepA = el.getAttribute('step');
+    var step  = (stepA && stepA !== 'any') ? parseFloat(stepA) : 1;
+    if(!isFinite(step) || step <= 0) step = 1;
+    var min = parseFloat(el.getAttribute('min'));
+    var max = parseFloat(el.getAttribute('max'));
+    var cur = parseFloat(decNorm(el.value));
+    if(!isFinite(cur)) cur = isFinite(min) ? min : 0;
+    var next = cur + (e.key === 'ArrowUp' ? step : -step);
+    if(isFinite(min) && next < min) next = min;
+    if(isFinite(max) && next > max) next = max;
+    var dec = (String(step).split('.')[1] || '').length;
+    el.value = dec ? next.toFixed(dec) : String(Math.round(next * 1e6) / 1e6);
+    e.preventDefault();
+    try{ el.dispatchEvent(new Event('input', {bubbles:true})); }catch(err){}
+    try{ el.dispatchEvent(new Event('change',{bubbles:true})); }catch(err){}
+  }, true);
+
+  /* Campos criados dinamicamente (tabelas, modais, painéis) */
+  try{
+    new MutationObserver(function(muts){
+      for(var i=0;i<muts.length;i++){
+        var ad = muts[i].addedNodes;
+        for(var j=0;j<ad.length;j++) scan(ad[j]);
+      }
+    }).observe(document.documentElement, {childList:true, subtree:true});
+  }catch(e){}
+
+  /* Varredura inicial */
+  scan(document.body || document.documentElement);
+  document.addEventListener('DOMContentLoaded', function(){ scan(document.body); });
+  window.addEventListener('load', function(){ scan(document.body); });
 })();
 </script>
 
