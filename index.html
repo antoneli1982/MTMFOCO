@@ -8779,6 +8779,39 @@ document.addEventListener('DOMContentLoaded',()=>{
   </div>
 </div>
 
+<!-- MODAL: NOVO PROJETO (aba dedicada, no lugar do prompt() nativo) -->
+<div class="pm-modal-bg hidden" id="db-np-modal">
+  <div class="pm-modal-box">
+    <h3>Novo Projeto<span id="db-np-sub" style="display:block;font-size:10px;font-weight:500;
+      color:var(--text3);text-transform:none;letter-spacing:normal;margin-top:3px"></span></h3>
+
+    <div class="pm-field" id="db-np-img-field">
+      <label>Imagem do Projeto (opcional)</label>
+      <div class="pm-img-upload" onclick="document.getElementById('db-np-img-file').click()">
+        <img id="db-np-img-preview" style="display:none">
+        <span class="pm-img-label" id="db-np-img-label">📷 Clique para adicionar imagem</span>
+      </div>
+      <input type="file" id="db-np-img-file" accept="image/*" onchange="dbNewProjectLoadImg(this)">
+    </div>
+
+    <div class="pm-field">
+      <label>Nome do Projeto</label>
+      <input type="text" id="db-np-input" placeholder="Ex: Linha A - Montagem Motor...">
+    </div>
+
+    <div class="pm-modal-actions">
+      <button class="pm-btn pm-btn-ghost" onclick="dbCloseNewProjectModal()">Cancelar</button>
+      <button class="pm-btn pm-btn-primary" onclick="dbConfirmNewProject()">Criar Projeto</button>
+    </div>
+  </div>
+</div>
+<script>
+document.getElementById('db-np-input').addEventListener('keydown', function(e){
+  if(e.key === 'Enter') dbConfirmNewProject();
+  if(e.key === 'Escape') dbCloseNewProjectModal();
+});
+</script>
+
 <script>
 /* ═══════════════════════════════════════════════════
    GERENCIADOR DE PROJETOS — PASTA > PROJETO > FOLHAS
@@ -10371,19 +10404,77 @@ function dbNewFolder(){
   }
 }
 
-// ─── Criar novo PROJETO dentro de uma pasta ─────────────────────
+// ─── Novo Projeto: abre a aba/formulário dedicado (não usa mais prompt()) ───
+var dbNPModalFid = null;
+var dbNPModalImg = null;
+
 function dbNewProjectInFolder(fid){
   pmLoad();
   if(!pmData[fid]) return;
-  var name = prompt('Nome do projeto:\n(Ex.: Linha A - Montagem Motor)');
-  if(!name) return;
-  name = name.trim();
-  if(!name) return;
+  dbShowNewProjectModal(fid);
+}
+
+function dbShowNewProjectModal(fid){
+  dbNPModalFid = fid;
+  dbNPModalImg = null;
+  var f = pmData[fid];
+  var input = document.getElementById('db-np-input');
+  var img   = document.getElementById('db-np-img-preview');
+  var lbl   = document.getElementById('db-np-img-label');
+  var sub   = document.getElementById('db-np-sub');
+  if(input) input.value = '';
+  if(img){ img.style.display = 'none'; img.src = ''; }
+  if(lbl) lbl.style.display = 'flex';
+  if(sub) sub.textContent = f ? ('em ' + f.name) : '';
+  document.getElementById('db-np-modal').classList.remove('hidden');
+  setTimeout(function(){ if(input) input.focus(); }, 60);
+}
+window.dbShowNewProjectModal = dbShowNewProjectModal;
+
+function dbCloseNewProjectModal(){
+  var modal = document.getElementById('db-np-modal');
+  if(modal) modal.classList.add('hidden');
+  dbNPModalFid = null;
+  dbNPModalImg = null;
+}
+window.dbCloseNewProjectModal = dbCloseNewProjectModal;
+
+function dbNewProjectLoadImg(input){
+  var file = input.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    dbNPModalImg = e.target.result;
+    var img = document.getElementById('db-np-img-preview');
+    img.src = dbNPModalImg;
+    img.style.display = 'block';
+    document.getElementById('db-np-img-label').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+window.dbNewProjectLoadImg = dbNewProjectLoadImg;
+
+function dbConfirmNewProject(){
+  var fid = dbNPModalFid;
+  if(!fid || !pmData[fid]){ dbCloseNewProjectModal(); return; }
+  var input = document.getElementById('db-np-input');
+  var name = input ? input.value.trim() : '';
+  if(!name){ if(input) input.focus(); return; }
+  var img = dbNPModalImg;
+  dbCloseNewProjectModal();
+  dbCreateProjectInFolder(fid, name, img);
+}
+window.dbConfirmNewProject = dbConfirmNewProject;
+
+// ─── Criar novo PROJETO dentro de uma pasta (executa ao confirmar o formulário) ───
+function dbCreateProjectInFolder(fid, name, img){
+  pmLoad();
+  if(!pmData[fid]) return;
   var proj = {
     id: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
     client: pmData[fid].name,
     name: name,
-    logo: pmData[fid].logo || null,
+    logo: img || pmData[fid].logo || null,
     date: new Date().toLocaleDateString('pt-BR'),
     sheets: [],
     notes: []
@@ -10425,6 +10516,7 @@ function dbNewProjectInFolder(fid){
     window.scrollTo({top:0, behavior:'smooth'});
   }, 80);
 }
+window.dbCreateProjectInFolder = dbCreateProjectInFolder;
 
 // ─── Excluir pasta inteira (via card do dashboard) ──────────────
 function dbDelFolder(fid){
@@ -19334,7 +19426,7 @@ wrap('renderTabs',    function(){ planRenderCrumb(); });
 wrap('openFolderPage',function(){ planRenderCrumb(); });
 
 wrap('dbOpenProjectInFolder', function(fid, pi){ planTouchByIndex(fid, pi); planRenderCrumb(); });
-wrap('dbNewProjectInFolder',  function(fid){
+wrap('dbCreateProjectInFolder',  function(fid){
   try{
     var ps = pmData[fid] && pmData[fid].projects;
     if(ps && ps.length) planTouchByIndex(fid, ps.length - 1);
