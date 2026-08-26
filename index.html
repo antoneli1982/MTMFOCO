@@ -632,46 +632,40 @@ body{
 }
 .f-input::placeholder{color:var(--text3);font-weight:400}
 
-/* ══ Calculadora rápida do cabeçalho (substitui os fatores manuais) ══ */
+/* ══ Calculadora compacta — vive na linha do painel ANÁLISE FINAL ══ */
 .mtmcalc{
-  grid-column:1/-1;display:flex;gap:16px;align-items:stretch;flex-wrap:wrap;
-  background:var(--surface2);border:1px solid var(--border2);
-  border-left:3px solid var(--purple);border-radius:8px;padding:10px 12px;
+  background:var(--purpleBg);border:1px solid rgba(167,139,250,.22);
+  border-radius:var(--radius-sm);padding:8px 10px;
+  display:flex;flex-direction:column;gap:4px;
 }
-.mtmcalc-disp{flex:1 1 240px;min-width:200px;display:flex;flex-direction:column;gap:5px;justify-content:center}
-.mtmcalc-hist{
-  font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);
-  min-height:13px;text-align:right;letter-spacing:.5px;overflow:hidden;white-space:nowrap;
+.mtmcalc-lbl{
+  font-size:10px;font-weight:700;color:var(--purple);
+  text-transform:uppercase;letter-spacing:.5px;
 }
-.mtmcalc-out{
-  width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;
-  padding:9px 11px;color:var(--text);font-family:'JetBrains Mono',monospace;
-  font-size:24px;font-weight:700;text-align:right;outline:none;letter-spacing:-.5px;cursor:pointer;
+.mtmcalc-in{
+  width:100%;padding:7px 9px;background:var(--surface3);
+  border:1px solid rgba(167,139,250,.25);border-radius:var(--radius-sm);
+  color:var(--text);font-family:'JetBrains Mono',monospace;
+  font-size:14px;font-weight:700;outline:none;
 }
-.mtmcalc-out:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(124,58,237,.14)}
-.mtmcalc-tools{display:flex;gap:5px}
-.mtmcalc-tool{
-  flex:1;font-size:10px;font-weight:700;padding:6px 3px;border-radius:6px;cursor:pointer;
-  background:transparent;border:1px solid var(--border2);color:var(--text2);
-  font-family:'Inter',sans-serif;transition:.15s;white-space:nowrap;
+.mtmcalc-in:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(124,58,237,.12)}
+.mtmcalc-in::placeholder{color:var(--text3);font-weight:400;font-size:12px}
+.mtmcalc-chips{display:flex;gap:3px;flex-wrap:wrap}
+.mtmcalc-chip{
+  flex:1;min-width:20px;padding:3px 0;border-radius:4px;cursor:pointer;
+  background:var(--surface3);border:1px solid var(--border2);color:var(--text2);
+  font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;
+  line-height:1.2;transition:.12s;
 }
-.mtmcalc-tool:hover{color:var(--text);border-color:var(--border3);background:var(--surface3)}
-.mtmcalc-pad{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;flex:0 0 260px;width:260px}
-.mtmcalc-b{
-  background:var(--surface3);border:1px solid var(--border);border-radius:6px;color:var(--text);
-  font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;padding:10px 0;
-  cursor:pointer;transition:.12s;-webkit-user-select:none;user-select:none;
+.mtmcalc-chip:hover{color:var(--purple);border-color:rgba(167,139,250,.5);background:var(--surface)}
+.mtmcalc-chip:active{transform:scale(.9)}
+.mtmcalc-res{
+  font-size:11px;font-weight:700;color:var(--green);cursor:pointer;
+  font-family:'JetBrains Mono',monospace;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
 }
-.mtmcalc-b:hover{background:var(--border2);border-color:var(--border3)}
-.mtmcalc-b:active{transform:scale(.93)}
-.mtmcalc-b.op{color:var(--accent);background:var(--accentBg);border-color:rgba(0,212,255,.25)}
-.mtmcalc-b.fn{color:var(--orange);font-size:13px}
-.mtmcalc-b.eq{background:var(--accentGrad);color:#00131c;border-color:transparent}
-@media(max-width:760px){
-  .mtmcalc{flex-direction:column;gap:10px}
-  .mtmcalc-pad{flex:1 1 auto;width:100%}
-  .mtmcalc-b{padding:13px 0;font-size:16px}
-}
+.mtmcalc-res:hover{text-decoration:underline}
+@media(max-width:760px){.mtmcalc-chip{padding:6px 0;font-size:12px}}
 @media print{.mtmcalc{display:none!important}}
 
 .folha-title-row{display:flex;align-items:center;gap:10px;margin-bottom:2px}
@@ -6078,44 +6072,6 @@ function renderContent(id){
           ${[['unidade','Unidade'],['carreta','Carreta'],['bitrem','Bitrem'],['truck','Truck'],['cx','Caixas'],['un','Unidades'],['kg','Quilogramas'],['L','Litros'],['m','Metros lineares'],['m²','Metros quadrados'],['m³','Metros cúbicos'],['pal','Paletes'],['bob','Bobinas'],['pct','Pacotes'],['fd','Fardos'],['tl','Toneladas'],['rack','Rack'],['brc','Berço']].map(([v,l])=>`<option value="${v}" ${(h.pcsCicloUnit||'unidade')===v?'selected':''}>${v} — ${l}</option>`).join('')}
         </select>
       </div>
-      <div class="mtmcalc" data-noprint="1">
-        <div class="mtmcalc-disp">
-          <span class="f-label" style="color:var(--purple)">🧮 Calculadora</span>
-          <div class="mtmcalc-hist" id="calc-h-${id}"></div>
-          <input class="mtmcalc-out" id="calc-d-${id}" value="0" readonly inputmode="none"
-                 data-nodec="1" autocomplete="off" spellcheck="false"
-                 title="Clique aqui e use o teclado: números, + - * / % Enter Backspace Esc"
-                 onkeydown="mtmCalcKeyboard(event,'${id}')">
-          <div class="mtmcalc-tools">
-            <button type="button" class="mtmcalc-tool" id="calc-cp-${id}" onclick="mtmCalcCopy('${id}')">📋 Copiar</button>
-            <button type="button" class="mtmcalc-tool" onclick="mtmCalcPress('${id}','√')" title="Raiz quadrada">√x</button>
-            <button type="button" class="mtmcalc-tool" onclick="mtmCalcPress('${id}','x²')" title="Elevar ao quadrado">x²</button>
-            <button type="button" class="mtmcalc-tool" onclick="mtmCalcPress('${id}','1/x')" title="Inverso">1/x</button>
-          </div>
-        </div>
-        <div class="mtmcalc-pad">
-          <button type="button" class="mtmcalc-b fn" onclick="mtmCalcPress('${id}','C')">C</button>
-          <button type="button" class="mtmcalc-b fn" onclick="mtmCalcPress('${id}','back')">⌫</button>
-          <button type="button" class="mtmcalc-b fn" onclick="mtmCalcPress('${id}','%')">%</button>
-          <button type="button" class="mtmcalc-b op" onclick="mtmCalcPress('${id}','÷')">÷</button>
-          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}','7')">7</button>
-          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}','8')">8</button>
-          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}','9')">9</button>
-          <button type="button" class="mtmcalc-b op" onclick="mtmCalcPress('${id}','×')">×</button>
-          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}','4')">4</button>
-          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}','5')">5</button>
-          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}','6')">6</button>
-          <button type="button" class="mtmcalc-b op" onclick="mtmCalcPress('${id}','-')">−</button>
-          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}','1')">1</button>
-          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}','2')">2</button>
-          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}','3')">3</button>
-          <button type="button" class="mtmcalc-b op" onclick="mtmCalcPress('${id}','+')">+</button>
-          <button type="button" class="mtmcalc-b fn" onclick="mtmCalcPress('${id}','±')">±</button>
-          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}','0')">0</button>
-          <button type="button" class="mtmcalc-b" onclick="mtmCalcPress('${id}',',')">,</button>
-          <button type="button" class="mtmcalc-b eq" onclick="mtmCalcPress('${id}','=')">=</button>
-        </div>
-      </div>
     </div>
     <div class="table-wrapper">
       <div class="table-scroll">
@@ -6220,6 +6176,18 @@ function renderContent(id){
                 border-radius:var(--radius-sm);color:var(--accent);font-size:15px;font-weight:700;font-family:inherit;">
             <div style="font-size:9px;color:var(--text2);margin-top:3px;">Ex.: 85% → Tempo Padrão = tempo bruto ÷ 0,85</div>
             <div id="ttp-live-formula-${id}" style="font-size:9px;color:var(--green);margin-top:4px;font-family:'JetBrains Mono',monospace;font-weight:700;"></div>
+          </div>
+
+          <div class="mtmcalc" style="flex:1;min-width:170px;">
+            <div class="mtmcalc-lbl">🧮 Calculadora</div>
+            <input id="calc-e-${id}" class="mtmcalc-in" data-nodec="1" autocomplete="off" spellcheck="false"
+              placeholder="ex.: 54,49 / 0,9" title="Digite a conta e veja o resultado. Enter copia o resultado."
+              oninput="mtmCalcEval('${id}')" onkeydown="mtmCalcKey(event,'${id}')">
+            <div class="mtmcalc-chips">
+              ${['+','-','×','÷','%','(',')'].map(function(op){ return '<button type="button" class="mtmcalc-chip" tabindex="-1" onclick="mtmCalcIns(\''+id+'\',\''+op+'\')">'+op+'</button>'; }).join('')}
+              <button type="button" class="mtmcalc-chip" tabindex="-1" title="Limpar" onclick="mtmCalcIns('${id}','C')">C</button>
+            </div>
+            <div id="calc-r-${id}" class="mtmcalc-res" title="Clique para copiar" onclick="mtmCalcCopy('${id}')">= —</div>
           </div>
 
         </div>
@@ -20748,165 +20716,148 @@ window.planRender = planRender;
 
 
 <!-- ═══════════════════════════════════════════════════════════════
-     CALCULADORA RÁPIDA DO CABEÇALHO (substitui Fator Pessoal /
-     Fator Fadiga / Contingência — a Ocupação (%) já cobre isso)
+     CALCULADORA COMPACTA (painel ANÁLISE FINAL)
+     Aceita vírgula ou ponto · + − × ÷ % ^ ( ) · avaliação ao vivo
      ═══════════════════════════════════════════════════════════ -->
 <script>
-var _mtmCalcS = {};
+/* ── Avaliador de expressão (descida recursiva, sem eval) ── */
+function mtmCalcCompute(src){
+  var s = String(src == null ? '' : src)
+    .replace(/×/g,'*').replace(/x/gi,'*')
+    .replace(/÷/g,'/').replace(/−/g,'-')
+    .replace(/\s+/g,'');
+  if(!s) return null;
+  // separador BR: 1.234,56 → 1234.56 ; 12,5 → 12.5
+  s = s.replace(/(\d)\.(?=\d{3}(\D|$))/g, '$1');
+  s = s.replace(/,/g, '.');
+  if(!/^[0-9.+\-*/%^()]+$/.test(s)) return NaN;
 
-function mtmCalcState(id){
-  if(!_mtmCalcS[id]) _mtmCalcS[id] = {cur:'0', acc:null, op:null, fresh:true, opJust:false, hist:''};
-  return _mtmCalcS[id];
+  var i = 0;
+  function ws(){}
+  function peek(){ return s.charAt(i); }
+  function expr(){
+    var v = term();
+    for(;;){
+      var c = peek();
+      if(c === '+'){ i++; v += term(); }
+      else if(c === '-'){ i++; v -= term(); }
+      else return v;
+    }
+  }
+  function term(){
+    var v = unary();
+    for(;;){
+      var c = peek();
+      if(c === '*'){ i++; v *= unary(); }
+      else if(c === '/'){ i++; var d = unary(); v = (d === 0) ? NaN : v / d; }
+      else return v;
+    }
+  }
+  function unary(){
+    var c = peek();
+    if(c === '-'){ i++; return -unary(); }
+    if(c === '+'){ i++; return unary(); }
+    return power();
+  }
+  function power(){
+    var v = postfix();
+    if(peek() === '^'){ i++; v = Math.pow(v, unary()); }
+    return v;
+  }
+  function postfix(){
+    var v = primary();
+    while(peek() === '%'){ i++; v = v / 100; }
+    return v;
+  }
+  function primary(){
+    var c = peek();
+    if(c === '('){
+      i++;
+      var v = expr();
+      if(peek() !== ')') throw 0;
+      i++;
+      return v;
+    }
+    var st = i;
+    while(/[0-9.]/.test(s.charAt(i))) i++;
+    if(i === st) throw 0;
+    var n = parseFloat(s.slice(st, i));
+    if(!isFinite(n)) throw 0;
+    return n;
+  }
+  try{
+    var out = expr();
+    if(i !== s.length) return null;   // expressão incompleta → sem resultado
+    return out;
+  }catch(e){ return null; }
 }
 
-/* string exibida ("1234,5") -> número */
-function mtmCalcNum(v){
-  var n = parseFloat(String(v).replace(/\./g,'').replace(',','.'));
-  return isFinite(n) ? n : 0;
-}
-/* número -> string com vírgula decimal */
-function mtmCalcStr(n){
-  if(!isFinite(n)) return 'Erro';
-  var r = Math.round(n * 1e10) / 1e10;
+/* ── Formatação BR: 1.234,5678 ── */
+function mtmCalcFmt(n){
+  if(n == null) return '—';
+  if(!isFinite(n)) return 'erro';
+  var r = Math.round(n * 1e6) / 1e6;
   var s = String(r);
-  if(s.indexOf('e') > -1) s = r.toExponential(6);
-  return s.replace('.', ',');
-}
-/* separador de milhar para exibição */
-function mtmCalcGroup(v){
-  if(v === 'Erro') return v;
-  var s = String(v), neg = s.charAt(0) === '-';
-  if(neg) s = s.slice(1);
-  var p = s.split(',');
+  if(s.indexOf('e') > -1) return s.replace('.', ',');
+  var p = s.split('.');
   p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return (neg ? '-' : '') + p[0] + (p.length > 1 ? ',' + p[1] : '');
+  return p[0] + (p.length > 1 ? ',' + p[1] : '');
 }
 
-function mtmCalcApply(a, b, op){
-  if(op === '+') return a + b;
-  if(op === '-') return a - b;
-  if(op === '×') return a * b;
-  if(op === '÷') return b === 0 ? NaN : a / b;
-  return b;
+function mtmCalcEval(id){
+  var e = document.getElementById('calc-e-' + id);
+  var r = document.getElementById('calc-r-' + id);
+  if(!e || !r) return null;
+  var v = mtmCalcCompute(e.value);
+  r.textContent = '= ' + mtmCalcFmt(v);
+  r.style.color = (v == null || !isFinite(v)) ? 'var(--text3)' : 'var(--green)';
+  return v;
 }
 
-function mtmCalcPaint(id){
-  var st = mtmCalcState(id);
-  var d = document.getElementById('calc-d-' + id);
-  var h = document.getElementById('calc-h-' + id);
-  if(d) d.value = mtmCalcGroup(st.cur);
-  if(h) h.textContent = st.hist || '';
+/* ── Chips de operador / limpar ── */
+function mtmCalcIns(id, op){
+  var e = document.getElementById('calc-e-' + id);
+  if(!e) return;
+  if(op === 'C'){ e.value = ''; }
+  else {
+    var a = e.selectionStart, b = e.selectionEnd;
+    if(a == null){ e.value += op; }
+    else { e.value = e.value.slice(0, a) + op + e.value.slice(b); a += op.length; }
+    try{ e.setSelectionRange(a, a); }catch(err){}
+  }
+  e.focus();
+  mtmCalcEval(id);
 }
 
-function mtmCalcPress(id, k){
-  var st = mtmCalcState(id);
-  if(st.cur === 'Erro' && k !== 'C') { st.cur = '0'; st.acc = null; st.op = null; st.fresh = true; st.hist=''; }
-
-  if(/^[0-9]$/.test(k)){
-    st.cur = (st.fresh || st.cur === '0') ? k : (st.cur.replace(/[^0-9]/g,'').length < 15 ? st.cur + k : st.cur);
-    st.fresh = false; st.opJust = false;
-  }
-  else if(k === ','){
-    if(st.fresh){ st.cur = '0,'; st.fresh = false; }
-    else if(st.cur.indexOf(',') < 0) st.cur += ',';
-    st.opJust = false;
-  }
-  else if(k === 'C'){
-    _mtmCalcS[id] = {cur:'0', acc:null, op:null, fresh:true, opJust:false, hist:''};
-  }
-  else if(k === 'back'){
-    if(st.fresh){ st.cur = '0'; }
-    else {
-      st.cur = st.cur.slice(0, -1);
-      if(st.cur === '' || st.cur === '-') { st.cur = '0'; st.fresh = true; }
-    }
-  }
-  else if(k === '±'){
-    st.cur = st.cur.charAt(0) === '-' ? st.cur.slice(1) : (st.cur === '0' ? '0' : '-' + st.cur);
-  }
-  else if(k === '%'){
-    var v = mtmCalcNum(st.cur);
-    var r = ((st.op === '+' || st.op === '-') && st.acc != null) ? (st.acc * v / 100) : (v / 100);
-    st.cur = mtmCalcStr(r); st.fresh = false; st.opJust = false;
-  }
-  else if(k === '√'){
-    var v1 = mtmCalcNum(st.cur);
-    st.hist = '√(' + mtmCalcGroup(st.cur) + ')';
-    st.cur = v1 < 0 ? 'Erro' : mtmCalcStr(Math.sqrt(v1));
-    st.fresh = true;
-  }
-  else if(k === 'x²'){
-    var v2 = mtmCalcNum(st.cur);
-    st.hist = mtmCalcGroup(st.cur) + '²';
-    st.cur = mtmCalcStr(v2 * v2); st.fresh = true;
-  }
-  else if(k === '1/x'){
-    var v3 = mtmCalcNum(st.cur);
-    st.hist = '1 ÷ ' + mtmCalcGroup(st.cur);
-    st.cur = v3 === 0 ? 'Erro' : mtmCalcStr(1 / v3); st.fresh = true;
-  }
-  else if(k === '+' || k === '-' || k === '×' || k === '÷'){
-    var v4 = mtmCalcNum(st.cur);
-    if(st.op && !st.opJust && st.acc != null){
-      var res = mtmCalcApply(st.acc, v4, st.op);
-      st.acc = res; st.cur = mtmCalcStr(res);
-    } else if(st.acc == null || st.opJust === false){
-      st.acc = v4;
-    }
-    if(st.cur === 'Erro'){ st.acc = null; st.op = null; st.hist = ''; }
-    else { st.op = k; st.opJust = true; st.fresh = true; st.hist = mtmCalcGroup(mtmCalcStr(st.acc)) + ' ' + k; }
-  }
-  else if(k === '='){
-    if(st.op != null && st.acc != null){
-      var v5 = mtmCalcNum(st.cur);
-      var out = mtmCalcApply(st.acc, v5, st.op);
-      st.hist = mtmCalcGroup(mtmCalcStr(st.acc)) + ' ' + st.op + ' ' + mtmCalcGroup(st.cur) + ' =';
-      st.cur = mtmCalcStr(out);
-      st.acc = null; st.op = null; st.opJust = false; st.fresh = true;
-    }
-  }
-  mtmCalcPaint(id);
+/* ── Enter = resolve e copia · Esc = limpa ── */
+function mtmCalcKey(ev, id){
+  if(ev.key === 'Enter'){ ev.preventDefault(); mtmCalcCopy(id); }
+  else if(ev.key === 'Escape'){ ev.preventDefault(); mtmCalcIns(id, 'C'); }
 }
 
-/* Teclado físico quando o visor está focado */
-function mtmCalcKeyboard(e, id){
-  var k = e.key, m = null;
-  if(/^[0-9]$/.test(k)) m = k;
-  else if(k === ',' || k === '.') m = ',';
-  else if(k === '+') m = '+';
-  else if(k === '-') m = '-';
-  else if(k === '*' || k === 'x' || k === 'X') m = '×';
-  else if(k === '/') m = '÷';
-  else if(k === '%') m = '%';
-  else if(k === 'Enter' || k === '=') m = '=';
-  else if(k === 'Backspace') m = 'back';
-  else if(k === 'Escape' || k === 'Delete') m = 'C';
-  if(m){ e.preventDefault(); mtmCalcPress(id, m); }
-}
-
-/* Copia o resultado para a área de transferência */
+/* ── Copia o resultado ── */
 function mtmCalcCopy(id){
-  var d = document.getElementById('calc-d-' + id);
-  var b = document.getElementById('calc-cp-' + id);
-  if(!d) return;
-  var txt = d.value;
-  var done = function(){
-    if(!b) return;
-    var old = b.textContent;
-    b.textContent = '✓ Copiado';
-    setTimeout(function(){ b.textContent = old; }, 1200);
+  var r = document.getElementById('calc-r-' + id);
+  var v = mtmCalcEval(id);
+  if(!r || v == null || !isFinite(v)) return;
+  var txt = mtmCalcFmt(v);
+  var flash = function(){
+    var old = r.textContent;
+    r.textContent = '✓ ' + txt + ' copiado';
+    setTimeout(function(){ if(r.textContent.indexOf('copiado') > -1) r.textContent = old; }, 1200);
   };
   try{
     if(navigator.clipboard && navigator.clipboard.writeText){
-      navigator.clipboard.writeText(txt).then(done, function(){ done(); });
+      navigator.clipboard.writeText(txt).then(flash, flash);
       return;
     }
   }catch(e){}
   try{
-    d.removeAttribute('readonly'); d.select();
-    document.execCommand('copy');
-    d.setAttribute('readonly','readonly');
-    done();
+    var t = document.createElement('textarea');
+    t.value = txt; t.style.position = 'fixed'; t.style.opacity = '0';
+    document.body.appendChild(t); t.select();
+    document.execCommand('copy'); document.body.removeChild(t);
+    flash();
   }catch(e){}
 }
 </script>
