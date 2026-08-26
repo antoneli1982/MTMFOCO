@@ -6970,14 +6970,36 @@ function goBottom(){
   if(last)last.scrollIntoView({behavior:'smooth',block:'center'});
   else window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
 }
+// Monta o título "Análise MTM CÓDIGO - DESCRIÇÃO" a partir da folha ativa,
+// para que o navegador sugira esse nome no diálogo de Salvar como / Gerar PDF.
+function mtmPrintTitle(){
+  try{
+    var sh = (typeof activeId !== 'undefined' && typeof get === 'function') ? get(activeId) : null;
+    var h = (sh && sh.header) || {};
+    var titulo = 'Análise MTM';
+    if(h.codigo)   titulo += ' ' + String(h.codigo).trim();
+    if(h.processo) titulo += ' - ' + String(h.processo).trim();
+    return titulo;
+  }catch(e){ return 'Análise MTM'; }
+}
+
 function exportPDF(){
+  var _tituloAnterior = document.title;
   try{
     window._mtmPrintMode = 'folhas';
     prepararPrint();
+    document.title = mtmPrintTitle();
+    var _restaurarTitulo = function(){
+      document.title = _tituloAnterior;
+      window.removeEventListener('afterprint', _restaurarTitulo);
+    };
+    window.addEventListener('afterprint', _restaurarTitulo);
+    setTimeout(_restaurarTitulo, 60000); // rede de segurança, caso 'afterprint' não dispare
     // Pequeno delay para o DOM renderizar antes do print
     setTimeout(function(){ window.print(); }, 80);
   }catch(e){
     console.error('Erro ao preparar PDF:', e);
+    document.title = _tituloAnterior;
     window.print();
   }
 }
