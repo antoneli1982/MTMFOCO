@@ -734,6 +734,7 @@ td.col-n{text-align:center;font-size:11px;font-weight:700;color:var(--text3);wid
 .ci-code{color:var(--accent);font-weight:700;text-align:center;font-family:'JetBrains Mono','Inter',monospace}
 .ci-tmu {color:var(--green);font-weight:600;text-align:right;font-family:'JetBrains Mono','Inter',monospace}
 .ci-num {color:var(--text2);text-align:right}
+.ci-erro {border-color:var(--red)!important;background:var(--redBg)!important}
 .ci-res {color:var(--orange);font-weight:700;text-align:right;pointer-events:none;font-family:'JetBrains Mono','Inter',monospace}
 .ci-sec {color:var(--red);font-weight:700;text-align:right;pointer-events:none;font-family:'JetBrains Mono','Inter',monospace}
 
@@ -6480,6 +6481,23 @@ function renderRow(sid,rid,focus=false){
       el.addEventListener('keydown',e=>{
         if(e.key==='Enter'){
           e.preventDefault();
+          // ── Campos Q e F: aceitam fórmula estilo Excel (ex.: =5*5 ↵ → 25) ──
+          if(f==='q'||f==='f'){
+            const raw=el.value.trim();
+            if(raw.charAt(0)==='='){
+              const val=(typeof mtmCalcCompute==='function')?mtmCalcCompute(raw.slice(1)):null;
+              if(val==null||!isFinite(val)){
+                el.classList.add('ci-erro');
+                setTimeout(()=>el.classList.remove('ci-erro'),900);
+                return; // fórmula inválida: mantém o foco no campo para correção
+              }
+              const res=Math.round(val*1e6)/1e6;
+              el.value=String(res).replace('.', ',');
+              row[f]=el.value;
+              calcRow(sid,rid);
+              saveSheets();
+            }
+          }
           const rows=s.rows;
           if(rows[rows.length-1].id===rid){addRow(sid,true)}
           else{
