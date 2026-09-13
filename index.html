@@ -5811,23 +5811,39 @@ function delById(id){
 }
 
 function setActive(id){
-  if(activeId===id)return;
-  document.querySelectorAll('.folha-content').forEach(el=>el.classList.remove('active'));
-  activeId=id; renderTabs();
-  let el=document.getElementById('c-'+id);
-  if(!el)renderContent(id);
-  el=document.getElementById('c-'+id);
-  if(el)el.classList.add('active');
+  try{
+    var target = (typeof get === 'function') ? get(id) : null;
+    if(!target){
+      var fallback = (typeof scopedSheets === 'function' ? scopedSheets() : (Array.isArray(sheets) ? sheets : []))[0];
+      console.warn('MTM: tentativa de ativar folha ausente', id);
+      if(fallback && fallback.id !== id) return setActive(fallback.id);
+      return;
+    }
+    if(activeId===id && document.getElementById('c-'+id))return;
+    document.querySelectorAll('.folha-content').forEach(el=>el.classList.remove('active'));
+    activeId=id; if(typeof renderTabs==='function') renderTabs();
+    let el=document.getElementById('c-'+id);
+    if(!el && typeof renderContent==='function') renderContent(id);
+    el=document.getElementById('c-'+id);
+    if(el)el.classList.add('active');
   // Recalcula os totais (TOTAL TMU / TOTAL (S)) de todas as linhas ao exibir a
   // folha — cobre folhas vindas do localStorage, importadas ou sincronizadas
   // que chegam com o total salvo em branco.
-  if(typeof recalcSheet === 'function') recalcSheet(id);
+    if(typeof recalcSheet === 'function') recalcSheet(id);
   // Sincroniza Empresa/Projeto com o gerenciador (se houver vínculo)
-  if(typeof syncSheetEmpresaProjeto === 'function') syncSheetEmpresaProjeto(id);
+    if(typeof syncSheetEmpresaProjeto === 'function') syncSheetEmpresaProjeto(id);
+  }catch(err){
+    console.error('MTM: falha ao ativar folha', id, err);
+    try{ if(typeof showToast==='function') showToast('Não foi possível abrir esta folha. Os dados foram preservados.', true); }catch(_e){}
+  }
 }
 
 function renderContent(id){
   const s=get(id);
+  if(!s || typeof s !== 'object'){
+    console.warn('MTM: folha ausente/corrompida ignorada durante renderContent', id);
+    return null;
+  }
   if(document.getElementById('c-'+id))return;
   const h = s.header || {};
   const div=document.createElement('div');
@@ -6544,7 +6560,7 @@ window.mtmSafeMetrics = mtmSafeMetrics;
 function updateTotals(sid){
   const s=get(sid);
   if(!s) return;
-  const m = computeSheetMetrics(s);
+  const m = (typeof mtmSafeMetrics === 'function') ? mtmSafeMetrics(s) : computeSheetMetrics(s);
   const te=document.getElementById('ttmu-'+sid);
   const se=document.getElementById('tsec-'+sid);
   if(te)te.textContent=m.totalTmu?m.totalTmu.toFixed(2):'0';
@@ -6625,7 +6641,7 @@ function demandToPerPeriod(raw, unit, h){
 function ttpCalc(sid){
   var s = get(sid);
   if(!s) return;
-  var m     = computeSheetMetrics(s);
+  var m     = (typeof mtmSafeMetrics === 'function') ? mtmSafeMetrics(s) : computeSheetMetrics(s);
   var allow = +(m.appliedAllowPct||0);
   var ts    = m.stdSec || 0;
   var hEl_  = document.getElementById('ttp-h-'+sid);
@@ -9943,7 +9959,7 @@ function syncSheetEmpresaProjeto(sid){
   if(changed && typeof saveSheets === 'function') saveSheets();
 }
 
-function dbRenderList(){
+function dbRenderListUnsafe(){
   if(typeof planTodosAtivo !== 'undefined') planTodosAtivo = false;
   pmLoad();
   if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
@@ -10072,6 +10088,27 @@ function dbRenderList(){
   html += '</div>';
   el.innerHTML = html;
 }
+
+/* A lista de pastas é um ponto de entrada global: qualquer registro antigo
+   inválido deve produzir uma mensagem recuperável, nunca fechar a aplicação. */
+function dbRenderList(){
+  try{
+    return dbRenderListUnsafe();
+  }catch(err){
+    console.error('MTM: falha ao renderizar lista de pastas', err);
+    var host = document.getElementById('db-proj-list');
+    if(host){
+      host.innerHTML = '<div style="padding:26px;text-align:center;background:var(--surface2);border:1px solid var(--red);border-radius:12px">'
+        + '<div style="font-size:28px;margin-bottom:8px">⚠️</div>'
+        + '<div style="font-weight:800;color:var(--text);margin-bottom:6px">Não foi possível carregar as pastas</div>'
+        + '<div style="font-size:12px;color:var(--text3);margin-bottom:14px">Os dados continuam preservados. Execute <code>mtmRunNavigationTests()</code> no console.</div>'
+        + '<button onclick="dbRenderList()" style="background:var(--accentGrad);color:#fff;border:0;border-radius:7px;padding:8px 14px;font-weight:700;cursor:pointer">Tentar novamente</button></div>';
+    }
+    try{ if(typeof showToast==='function') showToast('Não foi possível carregar as pastas. Os dados foram preservados.', true); }catch(_e){}
+    return null;
+  }
+}
+window.dbRenderList = dbRenderList;
 
 // ─── Criar nova PASTA (empresa) direto do dashboard ─────────────
 function dbNewFolder(){
@@ -10608,8 +10645,8 @@ function openFolderPageUnsafe(fid, keepScroll){
   currentFolderId = fid;
   currentCompany = f.name;
 
-  var projects = f.projects || [];
-  var clientName = f.name;
+  var projects = Array.isArray(f.projects) ? f.projects.filter(function(p){ return p && typeof p === 'object'; }) : [];
+  var clientName = String(f.name || 'Sem nome');
 
   // Consolidar métricas
   var totalSheets = 0, totalSecBruto = 0, totalStdSec = 0;
@@ -10617,7 +10654,7 @@ function openFolderPageUnsafe(fid, keepScroll){
   var codeFreq = {};
 
   projects.forEach(function(p){
-    (p.sheets||[]).forEach(function(sid){
+    (Array.isArray(p.sheets) ? p.sheets : []).forEach(function(sid){
       totalSheets++;
       var sh = typeof get === 'function' ? get(sid) : null;
       if(sh){
@@ -10630,7 +10667,8 @@ function openFolderPageUnsafe(fid, keepScroll){
         totalSecBruto += m.totalSec;
         totalStdSec += _stdD;
         totalVA += m.va; totalNVA += m.nva; totalNNVA += m.nnva; totalUnc += m.unc;
-        (sh.rows||[]).forEach(function(r){
+        (Array.isArray(sh.rows) ? sh.rows : []).forEach(function(r){
+          if(!r || typeof r !== 'object') return;
           var c = (r.code||'').toUpperCase().trim();
           if(c && c !== '-') codeFreq[c] = (codeFreq[c]||0) + 1;
         });
@@ -10708,10 +10746,11 @@ function openFolderPageUnsafe(fid, keepScroll){
   } else {
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">';
     projects.forEach(function(p, pi){
-      var ns = (p.sheets||[]).length;
+      var sheetIds = Array.isArray(p.sheets) ? p.sheets : [];
+      var ns = sheetIds.length;
       var pSec = 0, pStdSec = 0, pNormSec = 0, pSumAllow = 0;
       var pFindBits = [p.name || ''];
-      (p.sheets||[]).forEach(function(sid){
+      sheetIds.forEach(function(sid){
         var sh = typeof get === 'function' ? get(sid) : null;
         if(sh){
           var m = mtmSafeMetrics(sh);
@@ -10893,8 +10932,13 @@ function dbRenameFolder(fid){
 
 function dbOpenProjectInFolderUnsafe(fid, pi){
   pmLoad();
-  var p = pmData[fid] && pmData[fid].projects && pmData[fid].projects[pi];
-  if(!p) return;
+  var folder = pmData[fid];
+  var p = folder && Array.isArray(folder.projects) ? folder.projects[pi] : null;
+  if(!folder || !p || typeof p !== 'object'){
+    console.warn('MTM: projeto ausente/corrompido', fid, pi);
+    try{ if(typeof showToast==='function') showToast('Projeto não encontrado. Os dados foram preservados.', true); }catch(_e){}
+    return null;
+  }
   if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
   hideDashboard();
   pmFolderId = fid;
@@ -10902,7 +10946,7 @@ function dbOpenProjectInFolderUnsafe(fid, pi){
   // ESCOPO: editor passa a mostrar SÓ as folhas deste projeto
   if(typeof setActiveProjectCtx === 'function') setActiveProjectCtx(fid, pi);
   var sid;
-  if(p.sheets && p.sheets.length > 0){
+  if(Array.isArray(p.sheets) && p.sheets.length > 0){
     sid = p.sheets[0];
     // Garantir que a folha existe em sheets[] (pode ter sido removida)
     var exists = typeof sheets !== 'undefined' && sheets.some(function(s){ return s.id === sid; });
@@ -10973,6 +11017,53 @@ function dbOpenProjectInFolder(fid, pi){
   }
 }
 window.dbOpenProjectInFolder = dbOpenProjectInFolder;
+
+/* Diagnóstico de navegação. Apenas lê e valida o estado local; não remove nem
+   altera pastas, projetos, folhas ou planejamentos. Pode ser executado no
+   console com: mtmRunNavigationTests() */
+function mtmRunNavigationTests(){
+  var report = {ok:true, folders:0, projects:0, sheets:0, plans:0, errors:[]};
+  try{ if(typeof pmLoad==='function') pmLoad(); }catch(e){ report.ok=false; report.errors.push('pmLoad: '+(e.message||e)); }
+  try{ if(typeof bootSheetsOnce==='function') bootSheetsOnce(); }catch(e){ report.ok=false; report.errors.push('bootSheetsOnce: '+(e.message||e)); }
+  var data = (typeof pmData==='object' && pmData) ? pmData : {};
+  Object.keys(data).forEach(function(fid){
+    if(fid==='__flat__') return;
+    var f=data[fid];
+    if(!f || typeof f!=='object'){ report.ok=false; report.errors.push('Pasta inválida: '+fid); return; }
+    report.folders++;
+    var ps=Array.isArray(f.projects)?f.projects:[];
+    if(!Array.isArray(f.projects)) report.errors.push('Projetos inválidos na pasta '+fid);
+    ps.forEach(function(p,pi){
+      if(!p || typeof p!=='object'){ report.ok=false; report.errors.push('Projeto inválido: '+fid+'/'+pi); return; }
+      report.projects++;
+      var ids=Array.isArray(p.sheets)?p.sheets:[];
+      if(!Array.isArray(p.sheets)) report.errors.push('Folhas inválidas no projeto '+fid+'/'+pi);
+      ids.forEach(function(sid){
+        report.sheets++;
+        var sh=(typeof get==='function')?get(sid):null;
+        if(!sh){ report.errors.push('Folha ausente: '+sid+' ('+fid+'/'+pi+')'); return; }
+        try{ if(typeof mtmSafeMetrics==='function') mtmSafeMetrics(sh); else computeSheetMetrics(sh); }
+        catch(e){ report.errors.push('Métrica '+sid+': '+(e.message||e)); }
+      });
+      var plans=Array.isArray(p.plans)?p.plans:[];
+      report.plans+=plans.length;
+      plans.forEach(function(pl,k){
+        if(!pl || typeof pl!=='object'){ report.errors.push('Planejamento inválido: '+fid+'/'+pi+'/'+k); return; }
+        try{ if(typeof planCalcular==='function') planCalcular(pl,p); }catch(e){ report.errors.push('Planejamento '+fid+'/'+pi+'/'+k+': '+(e.message||e)); }
+      });
+    });
+  });
+  report.ok = report.errors.length===0;
+  console.info('MTM navigation diagnostics', report);
+  return report;
+}
+window.mtmRunNavigationTests = mtmRunNavigationTests;
+// Executa uma verificação leve após o carregamento para deixar o resultado
+// disponível em window.mtmLastNavigationTest e no console, sem alterar dados.
+setTimeout(function(){
+  try{ window.mtmLastNavigationTest = mtmRunNavigationTests(); }
+  catch(e){ console.error('MTM: diagnóstico inicial falhou', e); }
+}, 350);
 
 function dbDelProjectInFolder(fid, pi){
   pmLoad();
