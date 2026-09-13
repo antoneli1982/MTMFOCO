@@ -5658,6 +5658,65 @@ function confirmRename(){
 function closeModal(id){document.getElementById(id).classList.add('hidden')}
 function get(id){return sheets.find(s=>s.id===id)}
 
+/* Reconstitui uma folha ausente mantendo exatamente o ID referenciado pelo
+   projeto. Isso preserva o vínculo antigo e permite continuar a edição; os
+   campos ficam vazios para que nenhum código MTM seja inventado. */
+function mtmEnsureSheet(id, context){
+  if(id == null || String(id).trim() === '') return null;
+  var sid = String(id);
+  var found = (Array.isArray(sheets) ? sheets : []).find(function(s){ return s && String(s.id) === sid; });
+  if(found) return found;
+  var sh = {
+    id: sid,
+    label: 'FOLHA RECUPERADA',
+    header: {
+      empresa: context && context.empresa || '',
+      projeto: context && context.projeto || '',
+      recuperada: true
+    },
+    book: '', fadiga: null, rows: []
+  };
+  sheets.push(sh);
+  return sh;
+}
+window.mtmEnsureSheet = mtmEnsureSheet;
+
+/* Recupera, de uma vez, todos os vínculos de folhas ausentes em todos os
+   projetos. Os IDs originais são preservados e nenhum projeto ou folha válida
+   é removido. */
+window.mtmRepairAllNavigation = function(){
+  if(typeof pmLoad !== 'function') throw new Error('Gerenciador indisponível');
+  pmLoad();
+  if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
+  var repaired = [];
+  Object.keys(pmData || {}).forEach(function(fid){
+    if(fid === '__flat__') return;
+    var f = pmData[fid];
+    if(!f || typeof f !== 'object' || !Array.isArray(f.projects)) return;
+    f.projects.forEach(function(p, pi){
+      if(!p || typeof p !== 'object' || !Array.isArray(p.sheets)) return;
+      p.sheets.forEach(function(sid){
+        if(typeof get === 'function' && get(sid)) return;
+        if(typeof mtmEnsureSheet === 'function'){
+          mtmEnsureSheet(sid, {empresa:f.name || '', projeto:p.name || ''});
+          repaired.push({folderId:fid, folder:f.name || '', projectIndex:pi, project:p.name || '', sheetId:String(sid)});
+        }
+      });
+    });
+  });
+  pmSave();
+  if(repaired.length){
+    if(typeof salvarAgora === 'function') salvarAgora();
+    else if(typeof saveSheets === 'function') saveSheets();
+  }
+  if(typeof dbRenderList === 'function' && document.getElementById('dashboard')?.classList.contains('active')){
+    try{ dbRenderList(); }catch(e){}
+  }
+  var result = {ok:true, recuperadas:repaired.length, detalhes:repaired};
+  console.info('MTM: recuperação de navegação concluída', result);
+  return result;
+};
+
 function renderTabs(){
   const bar=document.getElementById('tabs-bar');
   bar.querySelectorAll('.tab').forEach(e=>e.remove());
@@ -10943,6 +11002,17 @@ function dbOpenProjectInFolderUnsafe(fid, pi){
   hideDashboard();
   pmFolderId = fid;
   pmProjectIdx = pi;
+  // Recupera todos os IDs de folhas vinculados antes de definir o escopo.
+  // Folhas existentes permanecem intactas; apenas ausentes recebem um rascunho
+  // vazio com o mesmo ID para que o projeto continue editável.
+  var houveRecuperacao = false;
+  (Array.isArray(p.sheets) ? p.sheets : []).forEach(function(sheetId){
+    if(!get(sheetId) && typeof mtmEnsureSheet === 'function'){
+      mtmEnsureSheet(sheetId, {empresa:folder.name || '', projeto:p.name || ''});
+      houveRecuperacao = true;
+    }
+  });
+  if(houveRecuperacao && typeof saveSheets === 'function') saveSheets();
   // ESCOPO: editor passa a mostrar SÓ as folhas deste projeto
   if(typeof setActiveProjectCtx === 'function') setActiveProjectCtx(fid, pi);
   var sid;
@@ -21314,17 +21384,94 @@ window.mtmRunNavigationTests = function(){
 window.mtmInserirTransbordo = function(){
   if(typeof pmLoad !== 'function') throw new Error('Gerenciador indisponível');
   pmLoad();
-  var fid = Object.keys(pmData).find(function(k){ return k !== '__flat__' && pmData[k] && String(pmData[k].name||'').toLowerCase() === 'transbordo'; });
+  // Reutiliza a pasta existente mesmo quando o nome contém o prefixo da
+  // empresa (por exemplo, "SESÉ TRANSBORDO").
+  var fid = Object.keys(pmData).find(function(k){
+    return k !== '__flat__' && pmData[k] && String(pmData[k].name||'').toLowerCase().indexOf('transbordo') !== -1;
+  });
   if(!fid){ fid='f_transbordo_'+Date.now(); pmData[fid]={name:'Transbordo',logo:null,projects:[]}; }
   var f=pmData[fid]; f.projects=Array.isArray(f.projects)?f.projects:[];
   var p=f.projects.find(function(x){ return x && String(x.name||'').toLowerCase().indexOf('mtm por caixa')===0; });
-  if(!p){ p={id:'p_transbordo_'+Date.now(),name:'MTM por caixa EKLT — processo de transbordo',client:'Transbordo',sheets:[],notes:[]}; f.projects.push(p); }
+  if(!p){ p={id:'p_transbordo_'+Date.now(),name:'MTM por caixa EKLT — processo de transbordo',client:f.name,sheets:[],notes:[]}; f.projects.push(p); }
+  p.sheets=Array.isArray(p.sheets)?p.sheets:[];
   p.notes=Array.isArray(p.notes)?p.notes:[];
-  var note='Chapa: ANTONEL\nUnidade: 1 caixa EKLT\nTempo observado: 3 min 35 s\nTolerância aplicada: 15% (32 s)\nTempo padrão recomendado: 4 min 10 s por caixa\nOperadores observados: 2\nEtapas: deslocar, abrir embalagem, manusear peças, transferir para EKLT, acomodar, conferir e posicionar.\nObservação: registrar códigos MTM somente após cronoanálise validada.';
+  var note='Chapa: ANTONEL\nUnidade: 1 caixa EKLT\nTempo observado: 3 min 35 s\nTolerância aplicada: 15% (32 s)\nTempo padrão recomendado: 4 min 10 s por caixa\nOperadores observados: 2\nEtapas: deslocar, abrir embalagem, manusear peças, transferir para EKLT, acomodar, conferir e posicionar.\nPeça: N.91254401\nOrigem: caixa de papelão\nDestino: caixa EKLT azul.';
   if(!p.notes.some(function(n){return n && String(n.body||'') === note;})) p.notes.push({id:'n_transbordo_'+Date.now(),title:'Análise por caixa — transbordo',body:note,date:new Date().toLocaleDateString('pt-BR')});
+  if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
+  var sid=p.sheets[0];
+  var sh=sid && typeof get === 'function' ? get(sid) : null;
+  if(!sh){ sid='sh_transbordo_'+Date.now(); sh={id:sid,label:'FOLHA 1 — CAIXA EKLT',header:{},book:'',fadiga:null,rows:[]}; sheets.push(sh); p.sheets.push(sid); }
+  sh.header=sh.header||{};
+  Object.assign(sh.header,{empresa:f.name,projeto:p.name,processo:'Transbordo da embalagem de origem para a caixa EKLT',codigo:'N.91254401',operator:'2 operadores',unidade:'1 caixa EKLT',tempoObservado:'00:03:35',tolerancia:'15% (aprox. 32 s)',tempoPadraoRecomendado:'00:04:10',etapas:'Deslocamento; abertura da caixa; abertura do saco; retirada/manuseio; transferência; acomodação; conferência; fechamento/posicionamento',caixaOrigem:'Caixa de papelão',caixaDestino:'EKLT azul',peca:'N.91254401'});
+  if(typeof saveSheets === 'function') saveSheets();
   pmData[fid]=f; pmSave();
   if(typeof dbRenderList === 'function') dbRenderList();
-  return {folderId:fid, projectId:p.id, note:note};
+  return {folderId:fid, projectId:p.id, sheetId:sid, note:note};
+};
+
+/* Ponte controlada para uma IA operar a ferramenta dentro da sessão já aberta.
+   A IA envia um objeto JSON validado; a função faz upsert (não apaga dados),
+   grava localmente e devolve os IDs criados/atualizados. */
+window.mtmAiGetState = function(){
+  if(typeof pmLoad === 'function') pmLoad();
+  if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
+  var out=[];
+  Object.keys(pmData||{}).forEach(function(fid){
+    if(fid==='__flat__') return;
+    var f=pmData[fid]; if(!f || typeof f!=='object') return;
+    var projects=(Array.isArray(f.projects)?f.projects:[]).map(function(p){
+      return {id:p.id||'',name:p.name||'',sheets:(Array.isArray(p.sheets)?p.sheets:[]).map(function(sid){
+        var sh=typeof get==='function'?get(sid):null;
+        return {id:String(sid),exists:!!sh,label:sh&&sh.label||'',header:sh&&sh.header||{},rows:sh&&Array.isArray(sh.rows)?sh.rows.length:0};
+      })};
+    });
+    out.push({id:fid,name:f.name||'',projects:projects});
+  });
+  return out;
+};
+
+window.mtmAiInput = function(input){
+  var data=input;
+  if(typeof data==='string') data=JSON.parse(data);
+  if(!data || typeof data!=='object') throw new Error('Entrada IA deve ser um objeto JSON.');
+  if(typeof pmLoad==='function') pmLoad();
+  if(typeof bootSheetsOnce==='function') bootSheetsOnce();
+  var folderName=String(data.folderName||data.folder||data.empresa||'').trim();
+  if(!folderName) throw new Error('Informe folderName/folder.');
+  var projectName=String(data.projectName||data.project||data.projeto||'').trim();
+  if(!projectName) throw new Error('Informe projectName/project.');
+  var fid=data.folderId||Object.keys(pmData||{}).find(function(k){return k!=='__flat__'&&pmData[k]&&String(pmData[k].name||'').toLowerCase()===folderName.toLowerCase();});
+  if(!fid){ fid='f_ai_'+Date.now()+'_'+Math.random().toString(36).slice(2,7); pmData[fid]={name:folderName,logo:null,projects:[]}; }
+  var f=pmData[fid]; f.projects=Array.isArray(f.projects)?f.projects:[];
+  var p=(data.projectId&&f.projects.find(function(x){return x&&x.id===data.projectId;}))||f.projects.find(function(x){return x&&String(x.name||'').toLowerCase()===projectName.toLowerCase();});
+  if(!p){ p={id:'p_ai_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),client:f.name,name:projectName,date:new Date().toLocaleDateString('pt-BR'),sheets:[],notes:[]}; f.projects.push(p); }
+  p.sheets=Array.isArray(p.sheets)?p.sheets:[];
+  var shData=data.sheet||{};
+  var sid=shData.id||data.sheetId||p.sheets[0];
+  var sh=sid&&typeof get==='function'?get(sid):null;
+  if(!sh){ sid=sid||'sh_ai_'+Date.now()+'_'+Math.random().toString(36).slice(2,7); sh={id:String(sid),label:String(shData.label||'FOLHA 1'),header:{},book:'',fadiga:null,rows:[]}; sheets.push(sh); p.sheets.push(sh.id); }
+  sh.header=Object.assign({},sh.header||{},shData.header||data.header||{});
+  if(!sh.header.empresa) sh.header.empresa=f.name;
+  if(!sh.header.projeto) sh.header.projeto=p.name;
+  if(Array.isArray(shData.rows)||Array.isArray(data.rows)){
+    var rows=Array.isArray(shData.rows)?shData.rows:data.rows;
+    rows.forEach(function(r,i){
+      if(!r||typeof r!=='object') return;
+      var rid=String(r.id||('r_ai_'+Date.now()+'_'+i));
+      var old=(Array.isArray(sh.rows)?sh.rows:[]).find(function(x){return x&&String(x.id)===rid;});
+      var clean={id:rid,desc:String(r.desc||''),agrega:String(r.agrega||''),code:String(r.code||''),tmu:r.tmu==null?'':r.tmu,q:r.q==null?'':r.q,f:r.f==null?'':r.f,ttmu:r.ttmu||0,tsec:r.tsec||0};
+      if(old) Object.assign(old,clean); else sh.rows.push(clean);
+    });
+  }
+  pmData[fid]=f; pmSave();
+  if(typeof persistNow==='function') persistNow(); else if(typeof saveSheets==='function') saveSheets();
+  try{ window.dispatchEvent(new CustomEvent('mtm:ai-write',{detail:{folderId:fid,projectId:p.id,sheetId:sh.id}})); }catch(e){}
+  if(typeof dbRenderList==='function' && document.getElementById('dashboard')?.classList.contains('active')){ try{dbRenderList();}catch(e){} }
+  return {ok:true,folderId:fid,projectId:p.id,sheetId:sh.id,folder:f.name,project:p.name,rows:sh.rows.length};
+};
+window.mtmAiInputExample = {
+  folder:'Transbordo', project:'MTM por caixa EKLT — processo de transbordo',
+  sheet:{label:'FOLHA 1 — CAIXA EKLT',header:{processo:'Transbordo da embalagem de origem para a caixa EKLT',codigo:'N.91254401',unidade:'1 caixa EKLT',operadores:2,tempoObservado:'00:03:35',tolerancia:'15% (aprox. 32 s)',tempoPadraoRecomendado:'00:04:10'}}
 };
 </script>
 </body>
