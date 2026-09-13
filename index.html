@@ -6474,12 +6474,14 @@ function mtmStandardByNonProductive(base, nonProductivePct){
 
 // Helper: calcula métricas consolidadas de uma folha
 function computeSheetMetrics(s){
-  if(!s) return null;
-  const h = s.header || {};
-  const rows = s.rows || [];
+  if(!s || typeof s !== 'object') return null;
+  const h = (s.header && typeof s.header === 'object') ? s.header : {};
+  const rows = Array.isArray(s.rows) ? s.rows.filter(function(r){ return r && typeof r === 'object'; }) : [];
   // Sempre deriva o total dos campos-fonte TMU × Q × F. `row.ttmu` é apenas
   // um valor exibido/cache e pode chegar desatualizado após importação ou sync.
-  const rowTotals = rows.map(function(r){ return mtmRowTotalTmu(r); });
+  const rowTotals = rows.map(function(r){
+    try{ return Number(mtmRowTotalTmu(r)) || 0; }catch(e){ return 0; }
+  });
   const totalTmu = rowTotals.reduce((a,t)=>a+t,0);
   const totalSec = +(totalTmu * 0.036).toFixed(4);
   // Fatores manuais (Pessoal/Fadiga/Contingência) foram removidos do cabeçalho:
@@ -8468,9 +8470,35 @@ let pmModalImg   = null;
 
 /* ── Persistence ── */
 function pmLoad(){
-  try{ const r=localStorage.getItem(PM_KEY); if(r) pmData=JSON.parse(r); }catch(e){ pmData={}; }
+  try{
+    const r = localStorage.getItem(PM_KEY);
+    const parsed = r ? JSON.parse(r) : {};
+    // Dados antigos ou parcialmente gravados não podem derrubar a tela inicial.
+    pmData = (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+    Object.keys(pmData).forEach(function(fid){
+      var f = pmData[fid];
+      if(!f || typeof f !== 'object' || Array.isArray(f)){
+        delete pmData[fid];
+        return;
+      }
+      f.name = String(f.name || 'Sem nome');
+      f.projects = Array.isArray(f.projects) ? f.projects.filter(function(p){ return p && typeof p === 'object'; }) : [];
+      f.projects.forEach(function(p){
+        p.id = String(p.id || ('p_' + Date.now() + '_' + Math.random().toString(36).slice(2,7)));
+        p.name = String(p.name || 'Projeto sem nome');
+        p.sheets = Array.isArray(p.sheets) ? p.sheets.filter(Boolean).map(String) : [];
+        p.notes = Array.isArray(p.notes) ? p.notes : [];
+      });
+    });
+  }catch(e){
+    console.warn('pmLoad: dados locais inválidos, iniciando estrutura vazia.', e);
+    pmData = {};
+  }
 }
-function pmSave(){ localStorage.setItem(PM_KEY, JSON.stringify(pmData)); }
+function pmSave(){
+  try{ localStorage.setItem(PM_KEY, JSON.stringify(pmData || {})); }
+  catch(e){ console.warn('pmSave falhou:', e); }
+}
 
 /* ── Open / Close ── */
 function openProjectManager(){
@@ -8512,12 +8540,15 @@ function pmRenderBC(){
   let html = `<span class="pm-bc-link" onclick="pmView('folders')">Pastas</span>`;
   if(pmFolderId){
     const f = pmData[pmFolderId];
+    if(!f){ pmFolderId=null; pmProjectIdx=null; pmView('folders'); return; }
     html += `<span class="pm-bc-sep"> / </span>
              <span class="pm-bc-link" onclick="pmView('projects')">${f.name}</span>`;
     sub.textContent = '/ ' + f.name;
   }
   if(pmProjectIdx !== null){
-    const p = pmGetFolder().projects[pmProjectIdx];
+    const folder = pmGetFolder();
+    const p = folder && folder.projects ? folder.projects[pmProjectIdx] : null;
+    if(!p){ pmProjectIdx=null; pmView('projects'); return; }
     html += `<span class="pm-bc-sep"> / </span>
              <span class="pm-bc-cur">${p.name}</span>`;
     sub.textContent = '/ ' + p.name;
@@ -8622,6 +8653,7 @@ function pmGetFolder(){ return pmData[pmFolderId]; }
 
 function pmRenderProjects(){
   const f = pmGetFolder();
+  if(!f){ pmView('folders'); return; }
   const projs = f.projects || [];
   const body = document.getElementById('pm-body');
   let html = `
@@ -9825,7 +9857,7 @@ function dbGetAllProjects(){
   // Legacy folders
   Object.keys(pmData).forEach(function(fid){
     if(fid === FLAT_KEY) return;
-    (pmData[fid].projects || []).forEach(function(p){
+    ((pmData[fid] && pmData[fid].projects) || []).forEach(function(p){
       all.push({ p: p, fid: fid });
     });
   });
@@ -9834,7 +9866,7 @@ function dbGetAllProjects(){
 
 function dbFindByPid(pid){
   var FLAT_KEY = '__flat__';
-  var fids = [FLAT_KEY].concat(Object.keys(pmData).filter(function(k){ return k !== FLAT_KEY; }));
+  var fids = [FLAT_KEY].concat(Object.keys(pmData).filter(function(k){ return k !== FLAT_KEY && pmData[k] && typeof pmData[k] === 'object'; }));
   for(var fi=0; fi<fids.length; fi++){
     var fid = fids[fi];
     var projs = (pmData[fid] && pmData[fid].projects) || [];
@@ -9900,7 +9932,9 @@ function dbRenderList(){
 
   // Coletar TODAS as pastas reais (ignora a pseudo "__flat__" legado)
   var FLAT_KEY = '__flat__';
-  var folderIds = Object.keys(pmData || {}).filter(function(k){ return k !== FLAT_KEY; });
+  var folderIds = Object.keys(pmData || {}).filter(function(k){
+    return k !== FLAT_KEY && pmData[k] && typeof pmData[k] === 'object';
+  });
 
   // Header sempre visível
   var html = '<div class="db-list-head" style="margin-bottom:18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
@@ -13499,7 +13533,7 @@ function bootSheetsOnce(){
         header: s.header || {},
         book: s.book || '',
         fadiga: s.fadiga || null,
-        rows: (s.rows||[]).map(function(r){
+        rows: (Array.isArray(s.rows) ? s.rows : []).filter(function(r){ return r && typeof r === 'object'; }).map(function(r){
           return {
             id: r.id, desc: r.desc||'', agrega: r.agrega||'', code: r.code||'',
             tmu: r.tmu||'', q: r.q||'', f: r.f||'',
