@@ -2948,179 +2948,7 @@ body.mtm-is-master .mtm-master-only{display:inline-flex!important;}
   </div>
 </div>
 
-<!-- ==============================
-     AUTH SCREEN
-     ============================== -->
-<div id="auth-screen">
-  <canvas id="factory-canvas"></canvas>
-  <div id="auth-screen-overlay"></div>
-  <div class="auth-card">
-
-    <!-- TABS -->
-    <div class="auth-tabs">
-      <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">🔐 Entrar</button>
-      <button class="auth-tab" id="tab-register" onclick="switchTab('register')">📋 Cadastrar</button>
-    </div>
-
-    <div class="auth-body">
-
-      <!-- LOGO (compartilhado) -->
-      <div class="auth-logo">
-        <span class="auth-logo-mtm">MTM</span>
-        <span class="auth-logo-slash">/</span>
-        <span class="auth-logo-title">Ferramenta</span>
-      </div>
-      <div class="auth-logo-sub">Folha Padrão de Processo · Acesso Seguro</div>
-
-      <!-- ============ PAINEL LOGIN ============ -->
-      <div class="auth-panel active" id="panel-login">
-
-        <!-- Login: usuario + senha -->
-        <div class="auth-step active" id="lstep1">
-          <div class="af">
-            <label class="af-label">Usuário</label>
-            <input class="af-input" id="l-user" type="text" placeholder="Seu nome de usuário" autocomplete="username">
-          </div>
-          <div class="af">
-            <label class="af-label">Senha</label>
-            <div class="af-pw-wrap">
-              <input class="af-input" id="l-pass" type="password" placeholder="Sua senha" autocomplete="current-password">
-              <button class="af-pw-toggle" onclick="togglePw('l-pass',this)" tabindex="-1">&#128065;</button>
-            </div>
-          </div>
-          <div style="text-align:right;margin-top:-8px;margin-bottom:4px">
-            <button class="forgot-link" onclick="goForgot()">Esqueceu a senha?</button>
-          </div>
-          <button class="auth-btn" onclick="doLogin()">Entrar na Ferramenta &#8594;</button>
-          <div class="auth-err" id="err-login"></div>
-          <div class="auth-div"><div class="auth-div-line"></div><div class="auth-div-txt">NAO TEM CONTA?</div><div class="auth-div-line"></div></div>
-          <button class="auth-btn-ghost" onclick="switchTab('register')">Criar conta &#8594;</button>
-        </div>
-
-        <!-- Esqueceu a senha -->
-        <div class="auth-step" id="lstep-forgot">
-          <div class="forgot-header">
-            <div class="forgot-icon">&#128273;</div>
-            <div>
-              <div style="font-size:14px;font-weight:800;color:var(--text)">Recuperar Acesso</div>
-              <div style="font-size:10px;color:var(--text3);margin-top:2px">Uma nova senha será gerada para você</div>
-            </div>
-          </div>
-          <div class="af">
-            <label class="af-label">Nome de Usuário</label>
-            <input class="af-input" id="forgot-user" type="text" placeholder="Digite seu usuário" autocomplete="username">
-          </div>
-          <button class="auth-btn" id="forgot-gen-btn" onclick="doForgot()">&#128260; Gerar Nova Senha</button>
-          <div class="auth-err" id="err-forgot"></div>
-          <div id="forgot-result" style="display:none;margin-top:12px">
-            <div class="new-pass-box">
-              <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">&#9989; Nova Senha Gerada</div>
-              <div style="display:flex;align-items:center;gap:10px;justify-content:space-between">
-                <span id="new-pass-display" style="font-size:24px;font-weight:800;letter-spacing:5px;color:var(--accent);font-family:monospace"></span>
-                <button class="copy-btn" onclick="copyNewPass()" id="copy-btn" title="Copiar">&#128203;</button>
-              </div>
-              <div style="font-size:10px;color:var(--text3);margin-top:10px;line-height:1.5">
-                Anote esta senha agora. Por segurança ela <b style="color:var(--text2)">não será exibida novamente.</b>
-              </div>
-            </div>
-            <button class="auth-btn" onclick="afterForgot()" style="margin-top:10px">Ir para o Login &#8594;</button>
-          </div>
-          <button class="auth-btn-ghost" onclick="backToLogin()" style="margin-top:8px">&#8592; Voltar ao Login</button>
-        </div>
-
-      </div>
-      <!-- ============ /PAINEL LOGIN ============ -->
-
-
-      <!-- ============ PAINEL CADASTRO ============ -->
-      <div class="auth-panel" id="panel-register">
-
-        <!-- Indicador de progresso -->
-        <div style="display:flex;align-items:center;gap:0;margin-bottom:22px" id="reg-progress">
-          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
-            <div id="prog-dot-1" style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;transition:all .25s">1</div>
-            <span style="font-size:9px;font-weight:700;letter-spacing:.8px;color:var(--accent);text-transform:uppercase;transition:color .25s" id="prog-lbl-1">Seus Dados</span>
-          </div>
-          <div style="flex:1;height:2px;background:var(--border);margin-bottom:18px;transition:background .25s" id="prog-line"></div>
-          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
-            <div id="prog-dot-2" style="width:28px;height:28px;border-radius:50%;background:var(--surface3);border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--text3);transition:all .25s">2</div>
-            <span style="font-size:9px;font-weight:700;letter-spacing:.8px;color:var(--text3);text-transform:uppercase;transition:color .25s" id="prog-lbl-2">Código Dev</span>
-          </div>
-        </div>
-
-        <!-- Cadastro Step 1: Dados do usuário -->
-        <div class="auth-step active" id="rstep1">
-          <div class="af">
-            <label class="af-label">Nome Completo</label>
-            <input class="af-input" id="r-name" type="text" placeholder="Seu nome completo" autocomplete="name">
-          </div>
-          <div class="af">
-            <label class="af-label">Usuário (para login)</label>
-            <input class="af-input" id="r-user" type="text" placeholder="Escolha um nome de usuário" autocomplete="off">
-          </div>
-          <div class="af">
-            <label class="af-label">Senha</label>
-            <div class="af-pw-wrap">
-              <input class="af-input" id="r-pass" type="password" placeholder="Crie uma senha" autocomplete="new-password">
-              <button class="af-pw-toggle" onclick="togglePw('r-pass',this)" tabindex="-1">👁</button>
-            </div>
-          </div>
-          <div class="af">
-            <label class="af-label">Confirmar Senha</label>
-            <div class="af-pw-wrap">
-              <input class="af-input" id="r-pass2" type="password" placeholder="Repita a senha" autocomplete="new-password">
-              <button class="af-pw-toggle" onclick="togglePw('r-pass2',this)" tabindex="-1">👁</button>
-            </div>
-          </div>
-          <button class="auth-btn" onclick="goToCodeStep()">Continuar → Código de Acesso</button>
-          <div class="auth-err" id="err-rdata"></div>
-          <div class="auth-div"><div class="auth-div-line"></div><div class="auth-div-txt">JÁ TEM CONTA?</div><div class="auth-div-line"></div></div>
-          <button class="auth-btn-ghost" onclick="switchTab('login')">← Fazer login</button>
-        </div>
-
-        <!-- Cadastro Step 2: Código do desenvolvedor -->
-        <div class="auth-step" id="rstep2">
-          <!-- chip com nome do usuário -->
-          <div class="user-chip" id="reg-user-chip">
-            <div class="user-chip-av" id="reg-chip-av">?</div>
-            <div>
-              <div class="user-chip-name" id="reg-chip-name">—</div>
-              <div class="user-chip-hint">Quase lá! Insira o código do desenvolvedor</div>
-            </div>
-          </div>
-
-          <div class="af">
-            <label class="af-label">Código de Acesso do Desenvolvedor</label>
-            <input class="af-input" id="r-code" type="text" placeholder="Digite o código fornecido" autocomplete="off" maxlength="20"
-              style="font-size:20px;font-weight:800;letter-spacing:4px;text-align:center">
-          </div>
-          <div class="code-hint" style="margin-bottom:14px">
-            Não possui código? Solicite ao administrador do sistema.
-          </div>
-
-          <!-- badges de tipo de acesso (aparecem ao validar) -->
-          <div class="access-badge trial" id="badge-trial">
-            <span class="access-badge-icon">⏳</span>
-            <div><b>Trial — 10 Dias</b><br>Acesso completo por 10 dias a partir do cadastro.</div>
-          </div>
-          <div class="access-badge full" id="badge-full">
-            <span class="access-badge-icon">✅</span>
-            <div><b>Acesso Completo</b><br>Sem restrição de tempo. Acesso ilimitado.</div>
-          </div>
-
-          <button class="auth-btn" onclick="doRegister()">✔ Criar Minha Conta</button>
-          <div class="auth-err" id="err-register"></div>
-          <div class="auth-ok"  id="ok-register"></div>
-          <button class="auth-btn-ghost" onclick="backToData()">← Voltar</button>
-        </div>
-
-      </div>
-      <!-- ============ /PAINEL CADASTRO ============ -->
-
-    </div><!-- /auth-body -->
-  </div><!-- /auth-card -->
-</div>
-<!-- ============================== /AUTH SCREEN ============================== -->
+<!-- TELA DE LOGIN/CADASTRO ANTIGA REMOVIDA: o acesso e feito so pela chapa. -->
 
 <!-- ==============================
      DASHBOARD — TELA INICIAL
@@ -7743,298 +7571,35 @@ document.getElementById('rename-modal').addEventListener('click',function(e){
 
 <script>
 /* ============================================================
-   AUTH SYSTEM
-   Cadastro: Etapa 1 = Nome/Usuário/Senha  →  Etapa 2 = Código Dev
-   Login: Usuário + Senha direto
-   Armazenamento: localStorage (mtm_users) + sessionStorage (mtm_session)
-   Códigos: '1' = trial 10 dias | '1234' = acesso completo
+   SISTEMA DE CONTAS REMOVIDO
+   Não há mais cadastro, login, senha, "esqueci minha senha" nem
+   código de desenvolvedor. O único controle de acesso do sistema
+   é a chapa do colaborador digitada na tela inicial.
+   Ficam aqui apenas os utilitários que o restante do app consulta.
    ============================================================ */
 
-const DEV_CODES = {
-  '1':    { type: 'trial', days: 10 },
-  '1234': { type: 'full',  days: null }
-};
-
-function getUsers()     { try{ return JSON.parse(localStorage.getItem('mtm_users')||'{}') }catch(e){return{}} }
-function saveUsers(u)   { localStorage.setItem('mtm_users', JSON.stringify(u)) }
-function getSession()   { try{ return JSON.parse(sessionStorage.getItem('mtm_session')||'null') }catch(e){return null} }
-function saveSession(s) { sessionStorage.setItem('mtm_session', JSON.stringify(s)) }
-
-function showMsg(id, msg, type='err'){
-  const el=document.getElementById(id);
-  if(!el) return;
-  el.className = type==='ok' ? 'auth-ok show' : 'auth-err show';
-  el.innerHTML = msg;
-}
-function hideMsg(id){ const el=document.getElementById(id); if(el){el.className=el.className.replace(' show','');el.innerHTML=''} }
-
-function togglePw(inputId, btn){
-  const inp=document.getElementById(inputId);
-  const show=inp.type==='password';
-  inp.type=show?'text':'password';
-  btn.textContent=show?'🙈':'👁';
+function getSession(){
+  try{
+    var chapa = sessionStorage.getItem('mtm_chapa_ok_v2') || '';
+    if(!chapa) return null;
+    var master = (typeof window.isMtmMaster === 'function') && window.isMtmMaster();
+    return {
+      user: chapa,
+      name: master ? 'Antonel' : chapa,
+      access: master ? 'full' : 'view',
+      expiresAt: null
+    };
+  }catch(e){ return null; }
 }
 
-// ── Tab switching ──────────────────────────────────────────────
-function switchTab(tab){
-  document.getElementById('panel-login').classList.toggle('active', tab==='login');
-  document.getElementById('panel-register').classList.toggle('active', tab==='register');
-  document.getElementById('tab-login').classList.toggle('active', tab==='login');
-  document.getElementById('tab-register').classList.toggle('active', tab==='register');
-}
-
-// ── Progress indicator ─────────────────────────────────────────
-function setProgress(step){
-  const dot1=document.getElementById('prog-dot-1');
-  const dot2=document.getElementById('prog-dot-2');
-  const lbl1=document.getElementById('prog-lbl-1');
-  const lbl2=document.getElementById('prog-lbl-2');
-  const line=document.getElementById('prog-line');
-  if(step===1){
-    dot1.style.background='var(--accent)'; dot1.style.color='#fff'; dot1.style.border='none';
-    dot2.style.background='var(--surface3)'; dot2.style.color='var(--text3)'; dot2.style.border='2px solid var(--border2)';
-    lbl1.style.color='var(--accent)'; lbl2.style.color='var(--text3)';
-    line.style.background='var(--border)';
-  } else {
-    dot1.style.background='var(--green)'; dot1.textContent='✓'; dot1.style.border='none';
-    dot2.style.background='var(--accent)'; dot2.style.color='#fff'; dot2.style.border='none';
-    lbl1.style.color='var(--green)'; lbl2.style.color='var(--accent)';
-    line.style.background='var(--accent)';
-  }
-}
-
-// ── REGISTER Step 1 → Step 2 ───────────────────────────────────
-function goToCodeStep(){
-  ['err-rdata'].forEach(hideMsg);
-
-  const name  = document.getElementById('r-name').value.trim();
-  const user  = document.getElementById('r-user').value.trim().toLowerCase();
-  const pass  = document.getElementById('r-pass').value;
-  const pass2 = document.getElementById('r-pass2').value;
-
-  if(!name)         { showMsg('err-rdata','⚠️ Informe seu nome completo.'); return; }
-  if(!user)         { showMsg('err-rdata','⚠️ Escolha um nome de usuário.'); return; }
-  if(user.length<3) { showMsg('err-rdata','⚠️ Usuário deve ter ao menos 3 caracteres.'); return; }
-  if(/\s/.test(user)){ showMsg('err-rdata','⚠️ Usuário não pode conter espaços.'); return; }
-  if(!pass)         { showMsg('err-rdata','⚠️ Crie uma senha.'); return; }
-  if(pass.length<4) { showMsg('err-rdata','⚠️ Senha deve ter ao menos 4 caracteres.'); return; }
-  if(pass!==pass2)  { showMsg('err-rdata','✕ As senhas não coincidem.'); return; }
-
-  const users=getUsers();
-  if(users[user])   { showMsg('err-rdata','✕ Esse nome de usuário já está em uso. Escolha outro.'); return; }
-
-  // Preenche chip no step 2
-  document.getElementById('reg-chip-av').textContent   = name.charAt(0).toUpperCase();
-  document.getElementById('reg-chip-name').textContent = name + ' (@' + user + ')';
-
-  // Limpa badges e campo de código
-  document.getElementById('badge-trial').classList.remove('show');
-  document.getElementById('badge-full').classList.remove('show');
-  document.getElementById('r-code').value='';
-  hideMsg('err-register'); hideMsg('ok-register');
-
-  // Avança
-  document.getElementById('rstep1').classList.remove('active');
-  document.getElementById('rstep2').classList.add('active');
-  setProgress(2);
-  setTimeout(()=>document.getElementById('r-code').focus(), 80);
-}
-
-function backToData(){
-  document.getElementById('rstep2').classList.remove('active');
-  document.getElementById('rstep1').classList.add('active');
-  setProgress(1);
-  hideMsg('err-register'); hideMsg('ok-register');
-  setTimeout(()=>document.getElementById('r-name').focus(), 80);
-}
-
-// ── REGISTER Step 2: validar código e criar conta ──────────────
-function doRegister(){
-  hideMsg('err-register'); hideMsg('ok-register');
-
-  const code = document.getElementById('r-code').value.trim();
-  if(!code){ showMsg('err-register','⚠️ Digite o código de acesso do desenvolvedor.'); return; }
-
-  const access = DEV_CODES[code];
-  if(!access){ showMsg('err-register','✕ Código inválido. Solicite ao administrador do sistema.'); return; }
-
-  // Mostra badge de tipo de acesso
-  document.getElementById('badge-trial').classList.toggle('show', access.type==='trial');
-  document.getElementById('badge-full').classList.toggle('show',  access.type==='full');
-
-  // Recupera dados do step 1
-  const name = document.getElementById('r-name').value.trim();
-  const user = document.getElementById('r-user').value.trim().toLowerCase();
-  const pass = document.getElementById('r-pass').value;
-
-  const users=getUsers();
-  if(users[user]){ showMsg('err-register','✕ Usuário já existe. Volte e escolha outro.'); return; }
-
-  const hashed = btoa(pass.split('').map((c,i)=>String.fromCharCode(c.charCodeAt(0)^(i%7+3))).join(''));
-  const now = Date.now();
-
-  users[user] = {
-    name,
-    passHash: hashed,
-    access: access.type,
-    days:   access.days,
-    registerDate: now,
-    expiresAt: access.type==='trial' ? now + access.days*86400000 : null
-  };
-  saveUsers(users);
-
-  const typeLabel = access.type==='trial'
-    ? `Trial de <b>${access.days} dias</b>`
-    : `<b>Acesso Completo</b>`;
-
-  showMsg('ok-register', `✅ Conta criada! Bem-vindo, <b>${name}</b>. Tipo: ${typeLabel}. Redirecionando para o login...`, 'ok');
-
-  setTimeout(()=>{
-    // Reset register form
-    ['r-name','r-user','r-pass','r-pass2','r-code'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-    document.getElementById('rstep2').classList.remove('active');
-    document.getElementById('rstep1').classList.add('active');
-    document.getElementById('badge-trial').classList.remove('show');
-    document.getElementById('badge-full').classList.remove('show');
-    setProgress(1);
-    hideMsg('err-register'); hideMsg('ok-register');
-
-    // Vai para login com usuário já preenchido
-    document.getElementById('l-user').value = user;
-    switchTab('login');
-    setTimeout(()=>document.getElementById('l-pass').focus(), 100);
-  }, 2400);
-}
-
-// ── LOGIN ──────────────────────────────────────────────────────
-function doLogin(){
-  hideMsg('err-login');
-  const user = document.getElementById('l-user').value.trim().toLowerCase();
-  const pass = document.getElementById('l-pass').value;
-
-  if(!user){ showMsg('err-login','⚠️ Informe o nome de usuário.'); return; }
-  if(!pass){ showMsg('err-login','⚠️ Digite a senha.'); return; }
-
-  const users   = getUsers();
-  const account = users[user];
-  if(!account){ showMsg('err-login','✕ Usuário não encontrado. Verifique ou cadastre-se.'); return; }
-
-  const hashed = btoa(pass.split('').map((c,i)=>String.fromCharCode(c.charCodeAt(0)^(i%7+3))).join(''));
-  if(hashed !== account.passHash){
-    showMsg('err-login','✕ Senha incorreta. Tente novamente.');
-    document.getElementById('l-pass').value='';
-    return;
-  }
-
-  if(account.access==='trial' && account.expiresAt && Date.now()>account.expiresAt){
-    showMsg('err-login','⏰ Seu período trial expirou. Solicite um novo código ao desenvolvedor.');
-    return;
-  }
-
-  saveSession({ user, name: account.name, access: account.access, expiresAt: account.expiresAt });
-
-  const card=document.querySelector('.auth-card');
-  card.style.transition='transform .3s ease, opacity .3s ease';
-  card.style.transform='scale(1.03)'; card.style.opacity='0';
-  setTimeout(()=>{
-    const screen=document.getElementById('auth-screen');
-    screen.style.transition='opacity .25s ease'; screen.style.opacity='0';
-    setTimeout(()=>{
-      screen.style.display='none';
-      showDashboard();
-    }, 260);
-  }, 280);
-}
-
-// ── FORGOT PASSWORD ────────────────────────────────────────────
-let _generatedPass = '';
-
-function goForgot(){
-  hideMsg('err-login');
-  document.getElementById('forgot-user').value = document.getElementById('l-user').value;
-  document.getElementById('forgot-result').style.display = 'none';
-  document.getElementById('forgot-gen-btn').style.display = '';
-  hideMsg('err-forgot');
-  _generatedPass = '';
-  document.getElementById('lstep1').classList.remove('active');
-  document.getElementById('lstep-forgot').classList.add('active');
-  setTimeout(()=>document.getElementById('forgot-user').focus(), 80);
-}
-
-function backToLogin(){
-  document.getElementById('lstep-forgot').classList.remove('active');
-  document.getElementById('lstep1').classList.add('active');
-  hideMsg('err-forgot');
-}
-
-function genPassword(){
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#';
-  let p = '';
-  for(let i=0; i<10; i++) p += chars[Math.floor(Math.random()*chars.length)];
-  return p;
-}
-
-function doForgot(){
-  hideMsg('err-forgot');
-  const user = document.getElementById('forgot-user').value.trim().toLowerCase();
-  if(!user){ showMsg('err-forgot','⚠️ Informe o nome de usuário.'); return; }
-
-  const users = getUsers();
-  const account = users[user];
-  if(!account){ showMsg('err-forgot','✕ Usuário não encontrado. Verifique o nome digitado.'); return; }
-
-  _generatedPass = genPassword();
-
-  // Save new hash
-  const hashed = btoa(_generatedPass.split('').map((c,i)=>String.fromCharCode(c.charCodeAt(0)^(i%7+3))).join(''));
-  users[user].passHash = hashed;
-  saveUsers(users);
-
-  // Show result
-  document.getElementById('new-pass-display').textContent = _generatedPass;
-  document.getElementById('forgot-result').style.display = 'block';
-  document.getElementById('forgot-gen-btn').style.display = 'none';
-  document.getElementById('copy-btn').className = 'copy-btn';
-  document.getElementById('copy-btn').textContent = '📋';
-}
-
-function copyNewPass(){
-  if(!_generatedPass) return;
-  navigator.clipboard.writeText(_generatedPass).then(()=>{
-    const btn = document.getElementById('copy-btn');
-    btn.textContent = '✓';
-    btn.className = 'copy-btn copied';
-    setTimeout(()=>{ btn.textContent = '📋'; btn.className = 'copy-btn'; }, 2000);
-  }).catch(()=>{
-    // fallback
-    const el = document.createElement('textarea');
-    el.value = _generatedPass;
-    document.body.appendChild(el);
-    el.select(); document.execCommand('copy');
-    document.body.removeChild(el);
-    const btn = document.getElementById('copy-btn');
-    btn.textContent = '✓'; btn.className = 'copy-btn copied';
-    setTimeout(()=>{ btn.textContent = '📋'; btn.className = 'copy-btn'; }, 2000);
-  });
-}
-
-function afterForgot(){
-  document.getElementById('l-user').value = document.getElementById('forgot-user').value.trim().toLowerCase();
-  document.getElementById('l-pass').value = '';
-  backToLogin();
-  setTimeout(()=>document.getElementById('l-pass').focus(), 80);
-}
-
-// ── Init ───────────────────────────────────────────────────────
-// FIREBASE MTM: bloco comentado — autenticação gerenciada pelo firebase-mtm.js
-/*
-document.addEventListener('DOMContentLoaded',()=>{
-  // Modo direto: sem tela inicial/login/dashboard. Abre a folha principal imediatamente.
-  setTimeout(()=>{
-    if(typeof startDirectMtmApp === 'function') startDirectMtmApp();
-  }, 50);
-});
-*/
+/* Stubs mantidos por compatibilidade com chamadas antigas espalhadas no app. */
+function saveSession(){}
+function getUsers(){ return {}; }
+function saveUsers(){}
+function switchTab(){}
+function togglePw(){}
+function showMsg(){}
+function hideMsg(){}
 </script>
 
 <script>
@@ -21141,5 +20706,389 @@ function mtmCalcCopy(id){
 })();
 </script>
 
+<!-- ════════════════════════════════════════════════════════════
+     MTM · CONTROLE DE ACESSO — MODO SOMENTE LEITURA
+     Somente a chapa ANTONEL edita. Todas as outras chapas apenas
+     visualizam: podem navegar, consultar, simular e exportar,
+     mas nada do que fizerem é gravado.
+     ════════════════════════════════════════════════════════════ -->
+<style id="mtm-readonly-css">
+/* Tela antiga de cadastro/login local: removida do documento. */
+#auth-screen { display:none !important; }
+
+/* Faixa fixa de aviso (abaixo das telas de login, que usam z-index maior) */
+#mtm-ro-bar{
+  display:none; position:fixed; left:0; right:0; bottom:0; z-index:9000;
+  background:linear-gradient(90deg,#f5a623,#ffca6b,#e07b00);
+  color:#1a1205; text-align:center;
+  font:800 10.5px/1.5 'Inter',system-ui,-apple-system,sans-serif;
+  letter-spacing:.09em; text-transform:uppercase;
+  padding:9px 14px; box-shadow:0 -2px 16px rgba(0,0,0,.30);
+}
+body.mtm-readonly #mtm-ro-bar{ display:block; }
+body.mtm-readonly{ padding-bottom:34px; }
+
+/* Ações de escrita desaparecem para quem só visualiza */
+body.mtm-readonly [data-ro-hide="1"]{ display:none !important; }
+
+/* Campos travados continuam legíveis, sem cara de campo editável */
+body.mtm-readonly [data-ro-lock="1"]{
+  cursor:default !important;
+  caret-color:transparent !important;
+  opacity:.97;
+}
+body.mtm-readonly [data-ro-lock="1"]:focus,
+body.mtm-readonly [data-ro-lock="1"]:focus-visible{
+  outline:none !important; box-shadow:none !important;
+}
+body.mtm-readonly select[data-ro-lock="1"]{ opacity:.85; }
+
+/* Aviso flutuante */
+#mtm-ro-toast{
+  position:fixed; left:50%; bottom:58px; z-index:9500;
+  transform:translateX(-50%) translateY(14px);
+  background:#12203a; color:#eaf2ff;
+  border:1px solid rgba(245,166,35,.55); border-radius:11px;
+  padding:11px 20px; max-width:86vw; text-align:center;
+  font:700 12.5px/1.45 'Inter',system-ui,-apple-system,sans-serif;
+  box-shadow:0 14px 38px rgba(0,0,0,.45);
+  opacity:0; pointer-events:none;
+  transition:opacity .22s ease, transform .22s ease;
+}
+#mtm-ro-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+
+<div id="mtm-ro-bar">🔒 Modo somente leitura — apenas Antonel pode alterar dados</div>
+<div id="mtm-ro-toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ─────────────────────────────────────────────────────────────
+   1. QUEM É O EDITOR
+   ───────────────────────────────────────────────────────────── */
+function ehMaster(){
+  try{
+    if(typeof window.isMtmMaster === 'function') return !!window.isMtmMaster();
+    return window.MTM_ACCESS_ROLE === 'master';
+  }catch(e){ return false; }
+}
+function soLeitura(){ return !ehMaster(); }
+window.mtmSomenteLeitura = soLeitura;
+
+var _toastTimer = null;
+function aviso(msg){
+  var el = document.getElementById('mtm-ro-toast');
+  if(!el) return;
+  el.textContent = msg || '🔒 Somente leitura — apenas Antonel pode alterar.';
+  el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 2600);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   2. FUNÇÕES DE ESCRITA — BLOQUEADAS
+   Ações que só existem por comando do usuário (criar, renomear,
+   excluir, importar, mover). Nunca são chamadas internamente.
+   ───────────────────────────────────────────────────────────── */
+var ACOES_BLOQUEADAS = [
+  /* folhas */
+  'insertRowAbove','delRow','delById','deleteCurrentSheet','renameCurrentSheet',
+  'confirmRename','renameById','moveRow','moveSheet',
+  /* importação */
+  'importExcelPrompt','importExcelHandle','importExcelParaFolha',
+  'importarFolhaPrompt','importarFolhaExcelPrompt','chooseImportMode',
+  'openProjectFilePrompt','dbOpenProjectFileForFolder','dbImportBackup',
+  /* balanceamento */
+  'balAddRow','balDelRow','balImportFromSheets','pmSaveBalanceamento',
+  /* caderno / apostila */
+  'bookCmd','bookBlock','bookClearAll','bookInsertLink','bookInsertTable','bookOnInput',
+  /* gerenciador de projetos */
+  'pmNewSheet','pmDeleteSheet','pmDeleteNote','pmAddNote','pmToggleNewNote',
+  'pmStartNoteEdit','pmSaveNoteEdit','pmRenameProject','pmDeleteProject',
+  'pmRenameFolder','pmDeleteFolder',
+  /* dashboard / empresas */
+  'dbNewFolder','dbDelFolder','dbRenameFolder','dbNewProjectInFolder',
+  'dbDelProjectInFolder','dbRenameProjectInFolder','dbDuplicarProjeto',
+  'dbDelById','dbDelClient','dbCreateProject','dbCreateProjectInFolder',
+  'dbConfirmNewProject','dbShowNewProjectModal','dbNewProjectLoadImg',
+  'dbPickProjectImgById','dbRemoveProjectImgById',
+  /* padrões / biblioteca */
+  'fadAplicarEstado','fadAplicarFolha','fadAplicarPadraoGlobal',
+  'fadAplicarPadraoSESE','fadResetDefaults','libInsertCode','mergePMData',
+  /* planejamento */
+  'planNovo','planNovoIndependente','planRenomear','planExcluir',
+  'planRecursoAdd','planRecursoRemove','planSheetRemove','planSheetMoveUp',
+  'planSheetMoveDown','planToggleFolha','planWizardOpen','planWizardNext',
+  'planIndepSalvar','planRemapImport'
+];
+
+/* Gravação: vira no-op silencioso (nada de aviso, pois rodam sozinhas). */
+var GRAVACOES = [
+  'saveSheets','pmSave','salvarAgora','bookPersistNow','dbSaveClientLogos',
+  'frpAllSave','frpPdfSave','frpScopeSave','frpSimulSave','frpTppSave',
+  'saveUsers','saveSession'
+];
+
+function blindarFuncoes(){
+  ACOES_BLOQUEADAS.forEach(function(nome){
+    var f = window[nome];
+    if(typeof f !== 'function' || f.__mtmRO) return;
+    var w = function(){
+      if(soLeitura()){ aviso(); return; }
+      return f.apply(this, arguments);
+    };
+    w.__mtmRO = 1; w.__mtmOrig = f;
+    try{ window[nome] = w; }catch(e){}
+  });
+  GRAVACOES.forEach(function(nome){
+    var f = window[nome];
+    if(typeof f !== 'function' || f.__mtmRO) return;
+    var w = function(){
+      if(soLeitura()) return;
+      return f.apply(this, arguments);
+    };
+    w.__mtmRO = 1; w.__mtmOrig = f;
+    try{ window[nome] = w; }catch(e){}
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────
+   3. TRAVA DE GRAVAÇÃO NO NAVEGADOR
+   Última linha de defesa: mesmo que algo escape, os dados do
+   sistema não são regravados por quem só visualiza.
+   ───────────────────────────────────────────────────────────── */
+var CHAVES_DE_DADOS = /^(mtm_sheets_v1|pmgr_v3|mtm_client_logos_v1|mtm_process_plans_independent_v1|mtm_users|mtm_frp_)/;
+try{
+  var _setItemOriginal = localStorage.setItem.bind(localStorage);
+  localStorage.setItem = function(chave, valor){
+    if(soLeitura() && CHAVES_DE_DADOS.test(String(chave))) return;
+    return _setItemOriginal(chave, valor);
+  };
+  var _removeOriginal = localStorage.removeItem.bind(localStorage);
+  localStorage.removeItem = function(chave){
+    if(soLeitura() && CHAVES_DE_DADOS.test(String(chave))) return;
+    return _removeOriginal(chave);
+  };
+}catch(e){}
+
+/* ─────────────────────────────────────────────────────────────
+   4. CAMPOS: O QUE CONTINUA LIBERADO
+   Telas de login (prefixo fb-), busca, calculadora e campos de
+   simulação (o resultado aparece na tela, mas não é salvo).
+   Todo o resto fica travado.
+   ───────────────────────────────────────────────────────────── */
+var IDS_LIVRES   = /^(mtm-chapa-input|lib-q|lib-grp|plan-search|db-projfind|ap-input|balDemand|balPeople|balEff|balEffSlider|balAvailTime|balAvailUnit|balActUnit)$/;
+var PREFIXOS_LIVRES = /^(calc-e-|ttp-colab-inp-|ttp-dem-|ttp-h-|ttp-manual-|frp-dem-|frp-pcs-|fb-)/;
+
+function campoLivre(el){
+  var id = el.id || '';
+  if(el.getAttribute('data-ro-ok') === '1') return true;
+  if(el.closest && el.closest('.fb-overlay')) return true;   /* telas de login */
+  if(IDS_LIVRES.test(id)) return true;
+  if(PREFIXOS_LIVRES.test(id)) return true;
+  return false;
+}
+
+function travarCampo(el){
+  if(!el || el.nodeType !== 1) return;
+  if(campoLivre(el)){
+    if(el.getAttribute('data-ro-lock') === '1'){
+      el.removeAttribute('data-ro-lock');
+      el.readOnly = false; el.disabled = false;
+    }
+    return;
+  }
+  var tag = el.tagName;
+  if(tag === 'INPUT'){
+    var t = String(el.type || 'text').toLowerCase();
+    if(t === 'checkbox' || t === 'radio' || t === 'file' || t === 'range' || t === 'color'){
+      el.disabled = true;
+    }else{
+      el.readOnly = true;
+    }
+    el.setAttribute('data-ro-lock','1');
+  }else if(tag === 'TEXTAREA'){
+    el.readOnly = true;
+    el.setAttribute('data-ro-lock','1');
+  }else if(tag === 'SELECT'){
+    el.disabled = true;
+    el.setAttribute('data-ro-lock','1');
+  }
+  if(el.getAttribute('contenteditable') === 'true'){
+    el.setAttribute('contenteditable','false');
+    el.setAttribute('data-ro-lock','1');
+  }
+}
+
+function liberarCampo(el){
+  if(!el || el.nodeType !== 1) return;
+  if(el.getAttribute('data-ro-lock') !== '1') return;
+  el.removeAttribute('data-ro-lock');
+  try{ el.readOnly = false; }catch(e){}
+  try{ el.disabled = false; }catch(e){}
+  if(el.getAttribute('contenteditable') === 'false' && el.id === 'book-editor'){
+    el.setAttribute('contenteditable','true');
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   5. BOTÕES DE ESCRITA SOMEM
+   Identificados pelo próprio onclick do elemento.
+   ───────────────────────────────────────────────────────────── */
+var ONCLICK_ESCRITA = new RegExp(
+  '\\b(' + [
+    'addSheet','addSheetHere','addRow','insertRowAbove','delRow','delById',
+    'deleteCurrentSheet','renameCurrentSheet','confirmRename','renameById',
+    'moveSheet','salvarAgora',
+    'importExcelPrompt','importExcelHandle','importExcelParaFolha',
+    'importarFolhaPrompt','importarFolhaExcelPrompt','chooseImportMode',
+    'openProjectFilePrompt','dbOpenProjectFileForFolder','dbImportBackup',
+    'balAddRow','balDelRow','balImportFromSheets','pmSaveBalanceamento',
+    'bookCmd','bookBlock','bookClearAll','bookInsertLink','bookInsertTable',
+    'pmNewSheet','pmDeleteSheet','pmDeleteNote','pmAddNote','pmToggleNewNote',
+    'pmStartNoteEdit','pmSaveNoteEdit','pmRenameProject','pmDeleteProject',
+    'pmRenameFolder','pmDeleteFolder',
+    'dbNewFolder','dbDelFolder','dbRenameFolder','dbNewProjectInFolder',
+    'dbDelProjectInFolder','dbRenameProjectInFolder','dbDuplicarProjeto',
+    'dbDelById','dbDelClient','dbCreateProject','dbCreateProjectInFolder',
+    'dbConfirmNewProject','dbShowNewProjectModal','dbNewProjectLoadImg',
+    'dbPickProjectImgById','dbRemoveProjectImgById',
+    'fadAplicarEstado','fadAplicarFolha','fadAplicarPadraoGlobal',
+    'fadAplicarPadraoSESE','fadResetDefaults','libInsertCode','mergePMData',
+    'planNovo','planNovoIndependente','planRenomear','planExcluir',
+    'planRecursoAdd','planRecursoRemove','planSheetRemove','planSheetMoveUp',
+    'planSheetMoveDown','planToggleFolha','planWizardOpen','planWizardNext',
+    'planIndepSalvar','planRemapImport'
+  ].join('|') + ')\\s*\\('
+);
+
+function marcarElemento(el){
+  if(!el || el.nodeType !== 1) return;
+  if(el.closest && el.closest('.fb-overlay')) return;   /* telas de login intactas */
+  var oc = el.getAttribute && el.getAttribute('onclick');
+  if(oc && ONCLICK_ESCRITA.test(oc)) el.setAttribute('data-ro-hide','1');
+  if(el.hasAttribute && el.hasAttribute('draggable')) el.setAttribute('data-ro-nodrag','1');
+}
+
+/* ─────────────────────────────────────────────────────────────
+   6. VARREDURA
+   ───────────────────────────────────────────────────────────── */
+var SELETOR_CAMPOS = 'input,textarea,select,[contenteditable]';
+var SELETOR_ACOES  = '[onclick],[draggable]';
+
+/* Cada elemento guarda o modo já aplicado nele, para que as varreduras
+   seguintes saiam na hora em vez de refazer o mesmo trabalho. */
+var MODO = 'r';
+
+function tratarAcao(el){
+  if(el.getAttribute('data-ro-ma') === MODO) return;
+  el.setAttribute('data-ro-ma', MODO);
+  marcarElemento(el);
+}
+function tratarCampo(el, leitura){
+  if(el.getAttribute('data-ro-mc') === MODO) return;
+  el.setAttribute('data-ro-mc', MODO);
+  leitura ? travarCampo(el) : liberarCampo(el);
+}
+
+function varrer(raiz){
+  if(!raiz || raiz.nodeType !== 1) return;
+  var leitura = soLeitura();
+  MODO = leitura ? 'r' : 'e';
+  try{
+    if(raiz.matches){
+      if(raiz.matches(SELETOR_ACOES))  tratarAcao(raiz);
+      if(raiz.matches(SELETOR_CAMPOS)) tratarCampo(raiz, leitura);
+    }
+    var acoes = raiz.querySelectorAll(SELETOR_ACOES);
+    for(var i=0;i<acoes.length;i++) tratarAcao(acoes[i]);
+    var campos = raiz.querySelectorAll(SELETOR_CAMPOS);
+    for(var j=0;j<campos.length;j++) tratarCampo(campos[j], leitura);
+  }catch(e){}
+}
+
+/* Identificação do usuário no cabeçalho: chapa para quem visualiza. */
+function mostrarIdentificacao(){
+  var el = document.getElementById('db-user-name');
+  if(!el) return;
+  if(ehMaster()){ el.textContent = 'Antonel · MASTER'; return; }
+  var chapa = '';
+  try{ chapa = sessionStorage.getItem('mtm_chapa_ok_v2') || ''; }catch(e){}
+  el.textContent = (chapa ? chapa : 'Colaborador') + ' · SOMENTE LEITURA';
+}
+
+function aplicar(){
+  var leitura = soLeitura();
+  if(document.body) document.body.classList.toggle('mtm-readonly', leitura);
+  blindarFuncoes();
+  varrer(document.body || document.documentElement);
+  mostrarIdentificacao();
+}
+window.mtmAplicarSomenteLeitura = aplicar;
+
+/* Reavalia sempre que o modo master for (re)aplicado pela tela da chapa. */
+(function(){
+  var original = window.applyMtmMasterMode;
+  window.applyMtmMasterMode = function(){
+    var r = (typeof original === 'function') ? original.apply(this, arguments) : undefined;
+    try{ aplicar(); }catch(e){}
+    return r;
+  };
+})();
+
+/* ─────────────────────────────────────────────────────────────
+   7. BLOQUEIOS DE INTERAÇÃO (captura, antes de qualquer handler)
+   ───────────────────────────────────────────────────────────── */
+function alvoTravado(e){
+  var el = e.target;
+  return el && el.nodeType === 1 && el.getAttribute &&
+         el.getAttribute('data-ro-lock') === '1';
+}
+['paste','cut','drop'].forEach(function(tipo){
+  document.addEventListener(tipo, function(e){
+    if(soLeitura() && alvoTravado(e)){ e.preventDefault(); e.stopPropagation(); aviso(); }
+  }, true);
+});
+document.addEventListener('dragstart', function(e){
+  if(!soLeitura()) return;
+  var el = e.target;
+  if(el && el.nodeType === 1 && el.closest && el.closest('[data-ro-nodrag="1"],tr,.bal-row')){
+    e.preventDefault(); e.stopPropagation();
+  }
+}, true);
+document.addEventListener('keydown', function(e){
+  if(!soLeitura()) return;
+  var k = (e.key || '').toLowerCase();
+  if((e.ctrlKey || e.metaKey) && (k === 's')){ e.preventDefault(); aviso(); }
+}, true);
+document.addEventListener('click', function(e){
+  if(!soLeitura()) return;
+  var el = e.target && e.target.closest ? e.target.closest('[data-ro-hide="1"]') : null;
+  if(el){ e.preventDefault(); e.stopPropagation(); aviso(); }
+}, true);
+
+/* ─────────────────────────────────────────────────────────────
+   8. PARTIDA E MONITORAMENTO DO QUE É CRIADO DEPOIS
+   ───────────────────────────────────────────────────────────── */
+try{
+  new MutationObserver(function(muts){
+    if(!document.body) return;
+    var leitura = soLeitura();
+    document.body.classList.toggle('mtm-readonly', leitura);
+    for(var i=0;i<muts.length;i++){
+      var novos = muts[i].addedNodes;
+      for(var j=0;j<novos.length;j++) varrer(novos[j]);
+    }
+  }).observe(document.documentElement, {childList:true, subtree:true});
+}catch(e){}
+
+document.addEventListener('DOMContentLoaded', function(){ aplicar(); setTimeout(aplicar, 400); });
+window.addEventListener('load', function(){ aplicar(); setTimeout(aplicar, 600); });
+setInterval(aplicar, 4000);
+if(document.readyState !== 'loading') aplicar();
+})();
+</script>
 </body>
 </html>
