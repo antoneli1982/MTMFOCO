@@ -6522,6 +6522,25 @@ function computeSheetMetrics(s){
   };
 }
 
+/* Camada de segurança para a navegação do gerenciador.
+   Dados antigos/importados podem conter folhas ou linhas incompletas; a tela
+   deve continuar navegável e mostrar zero para o item inválido. */
+function mtmZeroMetrics(){
+  return {totalTmu:0,totalSec:0,allowPct:0,manualTTP:0,impliedAllow:0,
+    appliedAllowPct:0,occupancyPct:100,standardFactor:1,stdSec:0,stdTmu:0,
+    takt:0,saturation:0,va:0,nva:0,nnva:0,unc:0,pcsCiclo:1,demand:0,rowCount:0};
+}
+function mtmSafeMetrics(sh){
+  try{
+    var m = computeSheetMetrics(sh);
+    return m && typeof m === 'object' ? m : mtmZeroMetrics();
+  }catch(err){
+    console.warn('MTM: folha ignorada durante o cálculo', err);
+    return mtmZeroMetrics();
+  }
+}
+window.mtmSafeMetrics = mtmSafeMetrics;
+
 function updateTotals(sid){
   const s=get(sid);
   if(!s) return;
@@ -10005,7 +10024,7 @@ function dbRenderList(){
         totalSheets++;
         var sh = typeof get === 'function' ? get(sid) : null;
         if(sh){
-          var m = computeSheetMetrics(sh);
+          var m = mtmSafeMetrics(sh);
           totalStdSec    += m.stdSec;
           totalNormalSec += m.totalSec;
           if(m.appliedAllowPct > 0){
@@ -10418,7 +10437,7 @@ function openCompanyPage(clientName){
       totalSheets++;
       var sh = typeof get === 'function' ? get(sid) : null;
       if(sh){
-        var m = computeSheetMetrics(sh);
+        var m = mtmSafeMetrics(sh);
         var _fadD = (sh.fadiga && typeof sh.fadiga==='object') ? mtmCalcFadiga(sh.fadiga) : null;
         var _stdD = m.manualTTP > 0
           ? m.stdSec
@@ -10531,7 +10550,7 @@ function openCompanyPage(clientName){
     (p.sheets||[]).forEach(function(sid){
       var sh = typeof get === 'function' ? get(sid) : null;
       if(sh){
-        var m = computeSheetMetrics(sh);
+        var m = mtmSafeMetrics(sh);
         pSec += m.totalSec; pStdSec += m.stdSec; pNormSec += m.totalSec;
         if(m.appliedAllowPct > 0) pSumAllow += m.appliedAllowPct * m.totalSec;
       }
@@ -10580,7 +10599,7 @@ function closeCompanyPage(){
 // ============================================================
 var currentFolderId = null;
 
-function openFolderPage(fid, keepScroll){
+function openFolderPageUnsafe(fid, keepScroll){
   pmLoad();
   if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
   var f = pmData[fid];
@@ -10602,7 +10621,7 @@ function openFolderPage(fid, keepScroll){
       totalSheets++;
       var sh = typeof get === 'function' ? get(sid) : null;
       if(sh){
-        var m = computeSheetMetrics(sh);
+        var m = mtmSafeMetrics(sh);
         var _fadD = (sh.fadiga && typeof sh.fadiga==='object') ? mtmCalcFadiga(sh.fadiga) : null;
         var _stdD = m.manualTTP > 0
           ? m.stdSec
@@ -10695,7 +10714,7 @@ function openFolderPage(fid, keepScroll){
       (p.sheets||[]).forEach(function(sid){
         var sh = typeof get === 'function' ? get(sid) : null;
         if(sh){
-          var m = computeSheetMetrics(sh);
+          var m = mtmSafeMetrics(sh);
           pSec += m.totalSec; pStdSec += m.stdSec; pNormSec += m.totalSec;
           if(m.appliedAllowPct > 0) pSumAllow += m.appliedAllowPct * m.totalSec;
           var _hh = sh.header || {};
@@ -10752,6 +10771,26 @@ function openFolderPage(fid, keepScroll){
 
   if(!keepScroll) window.scrollTo({top:0, behavior:'smooth'});
 }
+
+/* Abre a pasta sem deixar uma folha corrompida derrubar o dashboard. */
+function openFolderPage(fid, keepScroll){
+  try{
+    return openFolderPageUnsafe(fid, keepScroll);
+  }catch(err){
+    console.error('MTM: falha ao abrir pasta', fid, err);
+    var host = document.getElementById('db-proj-list');
+    if(host){
+      host.innerHTML = '<div style="padding:26px;text-align:center;background:var(--surface2);border:1px solid var(--red);border-radius:12px">'
+        + '<div style="font-size:28px;margin-bottom:8px">⚠️</div>'
+        + '<div style="font-weight:800;color:var(--text);margin-bottom:6px">Não foi possível abrir esta pasta</div>'
+        + '<div style="font-size:12px;color:var(--text3);margin-bottom:14px">Os dados continuam preservados. Execute <code>mtmRunNavigationTests()</code> no console para identificar o registro.</div>'
+        + '<button onclick="dbRenderList()" style="background:var(--accentGrad);color:#fff;border:0;border-radius:7px;padding:8px 14px;font-weight:700;cursor:pointer">Voltar às pastas</button></div>';
+    }
+    try{ if(typeof showToast === 'function') showToast('Não foi possível abrir a pasta. Os dados foram preservados.', true); }catch(_e){}
+    return null;
+  }
+}
+window.openFolderPage = openFolderPage;
 
 // ─── Pesquisa de projetos dentro da pasta (nome do projeto ou codigo das folhas) ───
 var dbProjFindQ = {};
@@ -10852,7 +10891,7 @@ function dbRenameFolder(fid){
   if(typeof showToast === 'function') showToast('✏️ Empresa renomeada para "' + newName + '"');
 }
 
-function dbOpenProjectInFolder(fid, pi){
+function dbOpenProjectInFolderUnsafe(fid, pi){
   pmLoad();
   var p = pmData[fid] && pmData[fid].projects && pmData[fid].projects[pi];
   if(!p) return;
@@ -10920,6 +10959,20 @@ function dbOpenProjectInFolder(fid, pi){
     window.scrollTo({top:0, behavior:'smooth'});
   }, 80);
 }
+
+function dbOpenProjectInFolder(fid, pi){
+  try{
+    return dbOpenProjectInFolderUnsafe(fid, pi);
+  }catch(err){
+    console.error('MTM: falha ao abrir projeto', fid, pi, err);
+    try{ if(typeof showToast === 'function') showToast('Não foi possível abrir o projeto. Os dados foram preservados.', true); }catch(_e){}
+    if(typeof showDashboard === 'function'){
+      try{ showDashboard(); }catch(_e2){}
+    }
+    return null;
+  }
+}
+window.dbOpenProjectInFolder = dbOpenProjectInFolder;
 
 function dbDelProjectInFolder(fid, pi){
   pmLoad();
@@ -11194,7 +11247,7 @@ function openYamazumi(clientName){
     (item.p.sheets||[]).forEach(function(sid){
       var sh = typeof get === 'function' ? get(sid) : null;
       if(sh){
-        var m = computeSheetMetrics(sh);
+        var m = mtmSafeMetrics(sh);
         if(m.stdSec > 0){
           posts.push({
             label: sh.label + ' (' + item.p.name + ')',
@@ -11384,7 +11437,7 @@ function balCalcProjeto(proj, params){
   (proj.sheets||[]).forEach(function(sid){
     var sh = (typeof get === 'function') ? get(sid) : null;
     if(!sh) return;
-    var m = computeSheetMetrics(sh);
+    var m = mtmSafeMetrics(sh);
     var fad = (sh.fadiga && typeof sh.fadiga === 'object') ? mtmCalcFadiga(sh.fadiga) : null;
     // Quando a ocupação manual está definida, m.stdSec já usa TN ÷ ocupação.
     var manualTTP = mtmOccupancyPct((sh.header && sh.header.manualTTP) || 0);
@@ -18595,9 +18648,10 @@ function planFolders(){
   if(typeof pmLoad === 'function') pmLoad();
   var d = (typeof pmData !== 'undefined' && pmData) ? pmData : {};
   return Object.keys(d)
-    .filter(function(k){ return k !== '__flat__'; })
+    .filter(function(k){ return k !== '__flat__' && d[k] && typeof d[k] === 'object' && !Array.isArray(d[k]); })
     .map(function(fid){
-      return { fid: fid, name: (d[fid].name || 'Sem nome'), projects: (d[fid].projects || []) };
+      var f = d[fid];
+      return { fid: fid, name: String(f.name || 'Sem nome'), projects: Array.isArray(f.projects) ? f.projects.filter(Boolean) : [] };
     })
     .sort(function(a,b){ return a.name.localeCompare(b.name, 'pt-BR'); });
 }
@@ -19472,7 +19526,7 @@ function planCalcular(plano, proj){
   (plano.sheets || []).forEach(function(sid){
     var sh = (typeof get === 'function') ? get(sid) : null;
     if(!sh) return;
-    var m = (typeof computeSheetMetrics === 'function') ? computeSheetMetrics(sh) : null;
+    var m = (typeof computeSheetMetrics === 'function') ? mtmSafeMetrics(sh) : null;
     if(!m) return;
     var qtd = planQtdDe(plano, sid);
     var tpUnit = tempoPadrao(sh, m);
@@ -19673,7 +19727,7 @@ function planExistentes(p){
     ids.forEach(function(id){
       var sh = (typeof get === 'function') ? get(id) : null;
       if(!sh) return;
-      var m = (typeof computeSheetMetrics === 'function') ? computeSheetMetrics(sh) : null;
+      var m = (typeof computeSheetMetrics === 'function') ? mtmSafeMetrics(sh) : null;
       if(!m) return;
       var t = tempoPadrao(sh, m);
       var ehPar = !!par[id];
@@ -19731,7 +19785,10 @@ function blocoExistentes(p){
 function dbListaPlanejamentos(fid, pi, p){
   var planos = planosDe(p);
   var linhas = planos.map(function(pl, k){
-    var c = planCalcular(pl, p);
+    if(!pl || typeof pl !== 'object') return '';
+    var c;
+    try{ c = planCalcular(pl, p) || {takt:0,ops:0,tp:0}; }
+    catch(err){ console.warn('MTM: planejamento inválido ignorado', err); c = {takt:0,ops:0,tp:0}; }
     var badge = c.takt > 0
       ? '<span class="plj-ops">' + c.ops + ' op.</span>'
       : '<span class="plj-ops plj-ops-off">sem takt</span>';
@@ -20226,7 +20283,7 @@ function planSheetSetQtd(sid, val){
   a.pl.qtds[sid] = val;
   planPersist(a);
   var sh = (typeof get === 'function') ? get(sid) : null;
-  var m = (sh && typeof computeSheetMetrics === 'function') ? computeSheetMetrics(sh) : null;
+  var m = (sh && typeof computeSheetMetrics === 'function') ? mtmSafeMetrics(sh) : null;
   if(sh && m){
     var qtd = planQtdDe(a.pl, sid);
     var tpUnit = tempoPadrao(sh, m);
@@ -20368,7 +20425,7 @@ function planRender(){
             + '<th style="width:78px"></th>'
             + '</tr></thead><tbody>';
       selecionadas.forEach(function(sh, i){
-        var m = (typeof computeSheetMetrics === 'function') ? computeSheetMetrics(sh) : null;
+        var m = (typeof computeSheetMetrics === 'function') ? mtmSafeMetrics(sh) : null;
         var proc = (sh.header && sh.header.processo) || '';
         var tps = m ? tempoPadrao(sh, m) : 0;
         var qtd = planQtdDe(a.pl, sh.id);
@@ -20401,7 +20458,7 @@ function planRender(){
       html += '<div class="plj-add-hdr">' + (selecionadas.length ? 'Adicionar mais atividades' : 'Escolha as atividades') + '</div>'
             + '<table class="plj-tab"><tbody>';
       disponiveis.forEach(function(sh){
-        var m = (typeof computeSheetMetrics === 'function') ? computeSheetMetrics(sh) : null;
+        var m = (typeof computeSheetMetrics === 'function') ? mtmSafeMetrics(sh) : null;
         var proc = (sh.header && sh.header.processo) || '';
         var tps = m ? tempoPadrao(sh, m) : 0;
         var deFora = proprias.indexOf(sh.id) === -1;
@@ -21123,6 +21180,61 @@ window.addEventListener('load', function(){ aplicar(); setTimeout(aplicar, 600);
 setInterval(aplicar, 4000);
 if(document.readyState !== 'loading') aplicar();
 })();
+</script>
+<script>
+/* Diagnóstico embutido: executa sem alterar dados nem trocar de tela. */
+window.mtmRunNavigationTests = function(){
+  var out = [], folders = 0, projects = 0, sheetsOk = 0, sheetsBad = 0, plansBad = 0;
+  function check(name, fn){
+    try{ fn(); out.push({teste:name, ok:true, erro:''}); }
+    catch(err){ out.push({teste:name, ok:false, erro:String(err && err.message || err)}); }
+  }
+  check('pmLoad', function(){ if(typeof pmLoad !== 'function') throw new Error('pmLoad indisponível'); pmLoad(); });
+  var data = (typeof pmData === 'object' && pmData) ? pmData : {};
+  Object.keys(data).forEach(function(fid){
+    if(fid === '__flat__' || !data[fid] || typeof data[fid] !== 'object') return;
+    folders++;
+    var ps = Array.isArray(data[fid].projects) ? data[fid].projects : [];
+    ps.forEach(function(p){
+      if(!p || typeof p !== 'object') return;
+      projects++;
+      (Array.isArray(p.sheets) ? p.sheets : []).forEach(function(sid){
+        var sh = (typeof get === 'function') ? get(String(sid)) : null;
+        if(!sh){ sheetsBad++; return; }
+        try{ mtmSafeMetrics(sh); sheetsOk++; }catch(_e){ sheetsBad++; }
+      });
+      (Array.isArray(p.plans) ? p.plans : []).forEach(function(pl){
+        try{ if(typeof planCalcular === 'function') planCalcular(pl,p); }catch(_e){ plansBad++; }
+      });
+    });
+  });
+  out.push({teste:'integridade das pastas',ok:true,erro:folders+' pasta(s), '+projects+' projeto(s)'});
+  out.push({teste:'folhas vinculadas',ok:sheetsBad===0,erro:sheetsOk+' válidas; '+sheetsBad+' ausente(s)/inválida(s)'});
+  out.push({teste:'planejamentos',ok:plansBad===0,erro:plansBad+' com erro'});
+  var failed = out.filter(function(x){return !x.ok;}).length;
+  console.table(out);
+  try{ if(typeof showToast === 'function') showToast(failed ? 'Diagnóstico encontrou '+failed+' falha(s).' : 'Diagnóstico concluído: navegação segura.', !!failed); }catch(_e){}
+  return {ok:failed===0, folders:folders, projects:projects, sheetsOk:sheetsOk, sheetsBad:sheetsBad, plansBad:plansBad, detalhes:out};
+};
+
+/* Insere no gerenciador um registro-base do estudo de transbordo, sem inventar
+   códigos MTM. Os tempos observados ficam documentados na nota do projeto para
+   posterior cronoanálise/codificação. Pode ser executado pelo console uma vez. */
+window.mtmInserirTransbordo = function(){
+  if(typeof pmLoad !== 'function') throw new Error('Gerenciador indisponível');
+  pmLoad();
+  var fid = Object.keys(pmData).find(function(k){ return k !== '__flat__' && pmData[k] && String(pmData[k].name||'').toLowerCase() === 'transbordo'; });
+  if(!fid){ fid='f_transbordo_'+Date.now(); pmData[fid]={name:'Transbordo',logo:null,projects:[]}; }
+  var f=pmData[fid]; f.projects=Array.isArray(f.projects)?f.projects:[];
+  var p=f.projects.find(function(x){ return x && String(x.name||'').toLowerCase().indexOf('mtm por caixa')===0; });
+  if(!p){ p={id:'p_transbordo_'+Date.now(),name:'MTM por caixa EKLT — processo de transbordo',client:'Transbordo',sheets:[],notes:[]}; f.projects.push(p); }
+  p.notes=Array.isArray(p.notes)?p.notes:[];
+  var note='Chapa: ANTONEL\nUnidade: 1 caixa EKLT\nTempo observado: 3 min 35 s\nTolerância aplicada: 15% (32 s)\nTempo padrão recomendado: 4 min 10 s por caixa\nOperadores observados: 2\nEtapas: deslocar, abrir embalagem, manusear peças, transferir para EKLT, acomodar, conferir e posicionar.\nObservação: registrar códigos MTM somente após cronoanálise validada.';
+  if(!p.notes.some(function(n){return n && String(n.body||'') === note;})) p.notes.push({id:'n_transbordo_'+Date.now(),title:'Análise por caixa — transbordo',body:note,date:new Date().toLocaleDateString('pt-BR')});
+  pmData[fid]=f; pmSave();
+  if(typeof dbRenderList === 'function') dbRenderList();
+  return {folderId:fid, projectId:p.id, note:note};
+};
 </script>
 </body>
 </html>
