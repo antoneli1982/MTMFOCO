@@ -10688,8 +10688,11 @@ function closeCompanyPage(){
 // ============================================================
 var currentFolderId = null;
 
-function openFolderPageUnsafe(fid, keepScroll){
-  pmLoad();
+function openFolderPageUnsafe(fid, keepScroll, skipReload){
+  // Navegação interna pode usar o estado que já está em memória. Recarregar o
+  // pmData no meio do botão Voltar criava uma corrida com a sincronização do
+  // Firestore e, em alguns casos, fazia a pasta atual desaparecer por um frame.
+  if(!skipReload && typeof pmLoad === 'function') pmLoad();
   if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
   var f = pmData[fid];
   if(!f){ alert('Pasta não encontrada.'); dbRenderList(); return; }
@@ -10864,9 +10867,9 @@ function openFolderPageUnsafe(fid, keepScroll){
 }
 
 /* Abre a pasta sem deixar uma folha corrompida derrubar o dashboard. */
-function openFolderPage(fid, keepScroll){
+function openFolderPage(fid, keepScroll, skipReload){
   try{
-    return openFolderPageUnsafe(fid, keepScroll);
+    return openFolderPageUnsafe(fid, keepScroll, skipReload);
   }catch(err){
     console.error('MTM: falha ao abrir pasta', fid, err);
     var host = document.getElementById('db-proj-list');
@@ -19299,17 +19302,88 @@ function planBackTitle(){
 }
 window.planBackTitle = planBackTitle;
 
+function mtmResolveBackFolderId(){
+  try{
+    // 1) contexto explícito do projeto aberto
+    if(typeof activeProjectCtx !== 'undefined' && activeProjectCtx && activeProjectCtx.folderId){
+      return String(activeProjectCtx.folderId);
+    }
+    // 2) contexto do gerenciador antigo
+    if(typeof pmFolderId !== 'undefined' && pmFolderId){
+      return String(pmFolderId);
+    }
+    // 3) pasta que já estava aberta no dashboard
+    if(typeof currentFolderId !== 'undefined' && currentFolderId){
+      return String(currentFolderId);
+    }
+    // 4) fallback robusto: descobre a pasta pela folha atualmente aberta
+    if(typeof activeId !== 'undefined' && activeId && typeof pmData === 'object' && pmData){
+      var fids = Object.keys(pmData);
+      for(var i=0;i<fids.length;i++){
+        var fid=fids[i], f=pmData[fid];
+        if(fid==='__flat__' || !f || !Array.isArray(f.projects)) continue;
+        for(var j=0;j<f.projects.length;j++){
+          var p=f.projects[j];
+          if(p && Array.isArray(p.sheets) && p.sheets.map(String).indexOf(String(activeId))!==-1){
+            return String(fid);
+          }
+        }
+      }
+    }
+  }catch(e){ console.warn('MTM: não foi possível resolver a pasta do botão Voltar.', e); }
+  return '';
+}
+window.mtmResolveBackFolderId = mtmResolveBackFolderId;
+
 function planBack(){
-  var p = (typeof getActiveProject === 'function') ? getActiveProject() : null;
-  if(p) return planGoFolder();          // está numa folha → volta para a pasta da empresa
-  if(typeof goHome === 'function') goHome();   // folha avulsa → volta para o menu
+  var fid = mtmResolveBackFolderId();
+  if(fid) return planGoFolder(fid);
+  if(typeof goHome === 'function') return goHome();
 }
 window.planBack = planBack;
 
-function planGoFolder(){
-  var fid = (typeof activeProjectCtx !== 'undefined' && activeProjectCtx) ? activeProjectCtx.folderId : null;
-  if(typeof goHome === 'function') goHome();
-  if(fid) setTimeout(function(){ if(typeof openFolderPage === 'function') openFolderPage(fid); }, 70);
+function planGoFolder(fidOverride){
+  var fid = String(fidOverride || mtmResolveBackFolderId() || '');
+  if(!fid){
+    if(typeof goHome === 'function') return goHome();
+    return;
+  }
+
+  // Guarda a referência ANTES de sair do editor. Não chamamos goHome() aqui,
+  // pois goHome -> showDashboard -> pmLoad podia substituir pmData durante a
+  // sincronização do Firestore e quebrar justamente o retorno à pasta.
+  var folder = (typeof pmData === 'object' && pmData) ? pmData[fid] : null;
+  if(!folder){
+    // Último recurso: tenta uma única recarga e volta para a home se a pasta
+    // realmente não existir mais.
+    try{ if(typeof pmLoad === 'function') pmLoad(); }catch(e){}
+    folder = (typeof pmData === 'object' && pmData) ? pmData[fid] : null;
+    if(!folder){
+      console.warn('MTM: pasta de retorno não encontrada', fid);
+      if(typeof goHome === 'function') return goHome();
+      return;
+    }
+  }
+
+  try{ if(typeof persistNow === 'function') persistNow(); }catch(e){}
+
+  // Sai formalmente do escopo do projeto para não deixar contexto antigo
+  // contaminando o próximo projeto aberto.
+  try{ if(typeof clearActiveProjectCtx === 'function') clearActiveProjectCtx(); }catch(e){}
+  try{ if(typeof pmProjectIdx !== 'undefined') pmProjectIdx = null; }catch(e){}
+  try{ if(typeof pmFolderId !== 'undefined') pmFolderId = fid; }catch(e){}
+  try{ if(typeof __enteredProject !== 'undefined') __enteredProject = false; }catch(e){}
+
+  document.body.classList.add('home-clean');
+  var db = document.getElementById('dashboard');
+  if(db){ db.classList.add('active'); db.style.display='flex'; }
+  document.body.style.overflow='';
+
+  // Usa o estado já validado em memória e evita nova recarga no meio da troca.
+  if(typeof openFolderPage === 'function'){
+    return openFolderPage(fid, false, true);
+  }
+  if(typeof goHome === 'function') return goHome();
 }
 window.planGoFolder = planGoFolder;
 
