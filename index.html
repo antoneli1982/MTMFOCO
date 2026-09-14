@@ -10013,6 +10013,8 @@ function dbRenderListUnsafe(){
   if(typeof planTodosAtivo !== 'undefined') planTodosAtivo = false;
   pmLoad();
   if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
+  // Recupera vínculos órfãos sem apagá-los: eles aparecem em OBSOLETOS › VÍNCULOS OBSOLETOS.
+  try{ if(typeof window.mtmOrganizarVinculosObsoletos === 'function') window.mtmOrganizarVinculosObsoletos({skipLoad:true,rerender:false,silent:true}); }catch(_e){}
   var el = document.getElementById('db-proj-list');
 
   // Coletar TODAS as pastas reais (ignora a pseudo "__flat__" legado)
@@ -21340,6 +21342,212 @@ if(document.readyState !== 'loading') aplicar();
 })();
 </script>
 <script>
+/* ═══════════════════════════════════════════════════════════════
+   RECUPERAÇÃO DE VÍNCULOS ÓRFÃOS
+   - Não apaga referências antigas.
+   - Move vínculos que apontam para folhas inexistentes para:
+       Pasta:   OBSOLETOS
+       Projeto: VÍNCULOS OBSOLETOS
+   - Cria uma folha-placeholder com o MESMO ID do vínculo antigo,
+     preservando a origem (empresa/projeto) para auditoria.
+   - Idempotente: pode rodar várias vezes sem duplicar registros.
+   ═══════════════════════════════════════════════════════════════ */
+(function(){
+  'use strict';
+
+  var OBS_FOLDER_ID = 'f_mtm_obsoletos';
+  var OBS_PROJECT_ID = 'p_mtm_vinculos_obsoletos';
+  var OBS_FOLDER_NAME = 'OBSOLETOS';
+  var OBS_PROJECT_NAME = 'VÍNCULOS OBSOLETOS';
+
+  function arr(v){ return Array.isArray(v) ? v : []; }
+  function sidText(v){ return String(v == null ? '' : v).trim(); }
+  function findSheet(id){
+    id = sidText(id);
+    if(!id || typeof sheets === 'undefined' || !Array.isArray(sheets)) return null;
+    return sheets.find(function(sh){ return sh && sidText(sh.id) === id; }) || null;
+  }
+  function uniqOrigins(list){
+    var seen = Object.create(null), out=[];
+    arr(list).forEach(function(x){
+      if(!x) return;
+      var key = String(x.folderId||'')+'|'+String(x.projectId||'')+'|'+String(x.folderName||'')+'|'+String(x.projectName||'');
+      if(seen[key]) return; seen[key]=1; out.push(x);
+    });
+    return out;
+  }
+  function originText(origins){
+    return uniqOrigins(origins).map(function(o){
+      return (o.folderName || 'Sem empresa') + ' › ' + (o.projectName || 'Projeto sem nome');
+    }).join(' | ');
+  }
+
+  window.mtmOrganizarVinculosObsoletos = function(options){
+    var opt = options || {};
+    try{
+      if(!opt.skipLoad && typeof pmLoad === 'function') pmLoad();
+      if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
+      if(typeof pmData !== 'object' || !pmData) return {ok:false,moved:0,total:0,reason:'pmData indisponível'};
+      if(typeof sheets === 'undefined' || !Array.isArray(sheets)) return {ok:false,moved:0,total:0,reason:'sheets indisponível'};
+
+      var missing = Object.create(null);
+      var changedPM = false, changedSheets = false;
+
+      // Localiza pasta/projeto de obsoletos já existente, se houver.
+      var obsFid = Object.keys(pmData).find(function(fid){
+        var f=pmData[fid];
+        return fid===OBS_FOLDER_ID || (f && (f.__mtmObsoletos===true || String(f.name||'').toUpperCase()===OBS_FOLDER_NAME));
+      }) || null;
+      var obsFolder = obsFid ? pmData[obsFid] : null;
+      var obsProject = null;
+      if(obsFolder){
+        obsFolder.projects = arr(obsFolder.projects);
+        obsProject = obsFolder.projects.find(function(p){
+          return p && (p.id===OBS_PROJECT_ID || p.__mtmObsoletos===true || String(p.name||'').toUpperCase()===OBS_PROJECT_NAME);
+        }) || null;
+      }
+
+      // 1) Varre projetos normais. O vínculo órfão sai da origem, mas não é descartado.
+      Object.keys(pmData).forEach(function(fid){
+        if(fid==='__flat__') return;
+        var f=pmData[fid];
+        if(!f || typeof f!=='object') return;
+        var ps=arr(f.projects);
+        ps.forEach(function(p){
+          if(!p || typeof p!=='object') return;
+          if(obsProject && p===obsProject) return;
+          var src=arr(p.sheets);
+          var keep=[];
+          src.forEach(function(rawSid){
+            var sid=sidText(rawSid);
+            if(!sid) return;
+            if(findSheet(sid)){ keep.push(sid); return; }
+            if(!missing[sid]) missing[sid]=[];
+            missing[sid].push({folderId:fid,folderName:String(f.name||'Sem empresa'),projectId:String(p.id||''),projectName:String(p.name||'Projeto sem nome')});
+          });
+          if(keep.length!==src.length){ p.sheets=keep; changedPM=true; }
+        });
+      });
+
+      // 2) Se a pasta OBSOLETOS já existia e perdeu um placeholder, recria-o.
+      if(obsProject){
+        arr(obsProject.sheets).forEach(function(rawSid){
+          var sid=sidText(rawSid);
+          if(sid && !findSheet(sid) && !missing[sid]){
+            missing[sid]=[{folderId:obsFid,folderName:OBS_FOLDER_NAME,projectId:OBS_PROJECT_ID,projectName:OBS_PROJECT_NAME}];
+          }
+        });
+      }
+
+      var ids=Object.keys(missing);
+      if(ids.length){
+        if(!obsFolder){
+          obsFid = OBS_FOLDER_ID;
+          // Evita colisão improvável com um id antigo não relacionado.
+          if(pmData[obsFid] && !pmData[obsFid].__mtmObsoletos) obsFid = OBS_FOLDER_ID+'_'+Date.now();
+          obsFolder = pmData[obsFid] = {name:OBS_FOLDER_NAME,logo:null,projects:[],__mtmObsoletos:true};
+          changedPM=true;
+        }
+        obsFolder.name = OBS_FOLDER_NAME;
+        obsFolder.__mtmObsoletos = true;
+        obsFolder.projects = arr(obsFolder.projects);
+        if(!obsProject){
+          obsProject={id:OBS_PROJECT_ID,name:OBS_PROJECT_NAME,client:OBS_FOLDER_NAME,date:new Date().toLocaleDateString('pt-BR'),sheets:[],notes:[],__mtmObsoletos:true};
+          obsFolder.projects.push(obsProject); changedPM=true;
+        }
+        obsProject.id = obsProject.id || OBS_PROJECT_ID;
+        obsProject.name = OBS_PROJECT_NAME;
+        obsProject.client = OBS_FOLDER_NAME;
+        obsProject.__mtmObsoletos = true;
+        obsProject.sheets = arr(obsProject.sheets).map(sidText).filter(Boolean);
+        obsProject.notes = arr(obsProject.notes);
+
+        ids.forEach(function(sid,idx){
+          var origins=uniqOrigins(missing[sid]);
+          var origem=originText(origins);
+          var sh=findSheet(sid);
+          if(!sh){
+            sh={
+              id:sid,
+              label:'OBSOLETO '+String(idx+1).padStart(2,'0')+' · '+(origins[0] ? origins[0].projectName : sid),
+              header:{
+                empresa:OBS_FOLDER_NAME,
+                projeto:OBS_PROJECT_NAME,
+                processo:'Vínculo obsoleto preservado',
+                codigo:sid,
+                statusVinculo:'OBSOLETO',
+                origem:origem,
+                observacao:'Referência antiga sem folha correspondente. Preservada automaticamente para auditoria.'
+              },
+              book:'VÍNCULO OBSOLETO\n\nID original: '+sid+'\nOrigem: '+origem+'\n\nEste registro foi preservado automaticamente porque o projeto referenciava uma folha que não existia mais no conjunto carregado.',
+              fadiga:null,
+              rows:[],
+              __mtmObsoleto:true
+            };
+            sheets.push(sh); changedSheets=true;
+          }else{
+            sh.header=sh.header||{};
+            if(sh.__mtmObsoleto || String(sh.header.statusVinculo||'').toUpperCase()==='OBSOLETO'){
+              sh.__mtmObsoleto=true;
+              sh.header.empresa=OBS_FOLDER_NAME;
+              sh.header.projeto=OBS_PROJECT_NAME;
+              sh.header.statusVinculo='OBSOLETO';
+              if(origem) sh.header.origem=origem;
+            }
+          }
+          if(obsProject.sheets.indexOf(sid)===-1){ obsProject.sheets.push(sid); changedPM=true; }
+        });
+
+        // Nota-resumo legível no projeto, atualizada em vez de duplicada.
+        var resumo = obsProject.sheets.map(function(sid,i){
+          var sh=findSheet(sid); var h=sh&&sh.header||{};
+          return (i+1)+'. '+sid+' — '+String(h.origem||'origem não identificada');
+        }).join('\n');
+        var noteId='n_mtm_vinculos_obsoletos';
+        var note=obsProject.notes.find(function(n){return n&&n.id===noteId;});
+        if(!note){ note={id:noteId,title:'Vínculos obsoletos preservados',body:'',date:new Date().toLocaleDateString('pt-BR')}; obsProject.notes.push(note); }
+        note.body='Estes vínculos estavam associados a projetos, mas suas folhas não existiam mais. Foram movidos para esta área sem perda do ID original.\n\n'+resumo;
+        note.date=new Date().toLocaleDateString('pt-BR');
+        changedPM=true;
+      }
+
+      var total = obsProject ? arr(obsProject.sheets).length : 0;
+      if(changedPM || changedSheets || opt.forcePersist){
+        try{ if(typeof persistNow==='function') persistNow(); }catch(_e){}
+        try{ if(typeof pmSave==='function') pmSave(); }catch(_e){}
+        try{ if(typeof saveSheets==='function') saveSheets(); }catch(_e){}
+        try{
+          if(obsProject && total){
+            window.dispatchEvent(new CustomEvent('mtm:ai-write',{detail:{folderId:obsFid,projectId:obsProject.id,sheetId:obsProject.sheets[0]||''}}));
+          }
+        }catch(_e){}
+      }
+      if(opt.rerender && typeof dbRenderList==='function'){
+        try{ dbRenderList(); }catch(_e){}
+      }
+      if(ids.length && !opt.silent && typeof showToast==='function'){
+        try{ showToast('📦 '+ids.length+' vínculo(s) movido(s) para OBSOLETOS › VÍNCULOS OBSOLETOS.'); }catch(_e){}
+      }
+      return {ok:true,moved:ids.length,total:total,folderId:obsFid||'',projectId:obsProject&&obsProject.id||''};
+    }catch(err){
+      console.error('MTM: falha ao organizar vínculos obsoletos',err);
+      return {ok:false,moved:0,total:0,reason:String(err&&err.message||err)};
+    }
+  };
+
+  // O Firestore é assíncrono. Rodamos novamente após o carregamento para pegar
+  // qualquer conjunto remoto que tenha chegado depois da primeira renderização.
+  window.addEventListener('load',function(){
+    [1200,3500,7000].forEach(function(ms,idx){
+      setTimeout(function(){
+        var r=window.mtmOrganizarVinculosObsoletos({rerender:true,forcePersist:idx===2,silent:idx!==0});
+        if(r && r.moved) console.info('[MTM] Vínculos obsoletos organizados:',r);
+      },ms);
+    });
+  });
+})();
+</script>
+<script>
 /* Diagnóstico embutido: executa sem alterar dados nem trocar de tela. */
 window.mtmRunNavigationTests = function(){
   var out = [], folders = 0, projects = 0, sheetsOk = 0, sheetsBad = 0, plansBad = 0;
@@ -21348,6 +21556,9 @@ window.mtmRunNavigationTests = function(){
     catch(err){ out.push({teste:name, ok:false, erro:String(err && err.message || err)}); }
   }
   check('pmLoad', function(){ if(typeof pmLoad !== 'function') throw new Error('pmLoad indisponível'); pmLoad(); });
+  try{ if(typeof bootSheetsOnce === 'function') bootSheetsOnce(); }catch(_e){}
+  var obsInfo = null;
+  try{ if(typeof window.mtmOrganizarVinculosObsoletos === 'function') obsInfo = window.mtmOrganizarVinculosObsoletos({skipLoad:true,rerender:false,silent:true}); }catch(_e){}
   var data = (typeof pmData === 'object' && pmData) ? pmData : {};
   Object.keys(data).forEach(function(fid){
     if(fid === '__flat__' || !data[fid] || typeof data[fid] !== 'object') return;
@@ -21368,6 +21579,7 @@ window.mtmRunNavigationTests = function(){
   });
   out.push({teste:'integridade das pastas',ok:true,erro:folders+' pasta(s), '+projects+' projeto(s)'});
   out.push({teste:'folhas vinculadas',ok:sheetsBad===0,erro:sheetsOk+' válidas; '+sheetsBad+' ausente(s)/inválida(s)'});
+  out.push({teste:'obsoletos',ok:true,erro:(obsInfo&&obsInfo.total||0)+' vínculo(s) preservado(s) em OBSOLETOS'});
   out.push({teste:'planejamentos',ok:plansBad===0,erro:plansBad+' com erro'});
   var failed = out.filter(function(x){return !x.ok;}).length;
   console.table(out);
