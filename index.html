@@ -2584,7 +2584,7 @@ body.mtm-is-master .mtm-master-only{display:inline-flex!important;}
            autocomplete="off" spellcheck="false" placeholder="0000000">
     <div class="mtm-chapa-err" id="mtm-chapa-err"></div>
     <button id="mtm-chapa-btn">Entrar na Ferramenta &#8594;</button>
-    <div class="mtm-chapa-help">Digite a sua chapa para liberar o acesso.<br><span style="font-size:9px">A chapa 0000000 exige permissão de localização e registra a tentativa de acesso.</span></div>
+    <div class="mtm-chapa-help">Digite a sua chapa para liberar o acesso.</div>
   </div>
 </div>
 
@@ -2771,10 +2771,10 @@ body.mtm-is-master .mtm-master-only{display:inline-flex!important;}
     },{enableHighAccuracy:true,timeout:18000,maximumAge:60000});
   }
 
-  // Outras chapas permanecem liberadas na sessão. A chapa monitorada é
-  // revalidada e registrada a cada carregamento da página.
+  // Qualquer chapa já liberada permanece liberada durante a sessão.
+  // Antonel continua identificado separadamente como perfil MASTER.
   try{
-    if(sessionStorage.getItem(KEY) && sessionStorage.getItem(KEY)!=='0000000'){
+    if(sessionStorage.getItem(KEY)){
       var s = document.getElementById('mtm-chapa-screen');
       if(s) s.classList.add('hidden');
     }
@@ -2803,10 +2803,7 @@ body.mtm-is-master .mtm-master-only{display:inline-flex!important;}
       if(masterScreen) masterScreen.classList.add('hidden');
       return;
     }
-    if(v==='0000000'){
-      validateFelipe();
-      return;
-    }
+    // A chapa 0000000 agora segue a mesma regra das demais: sem bloqueio geográfico.
     try{ sessionStorage.setItem(KEY, v); }catch(e){}
     var scr = document.getElementById('mtm-chapa-screen');
     if(scr) scr.classList.add('hidden');
@@ -2815,12 +2812,6 @@ body.mtm-is-master .mtm-master-only{display:inline-flex!important;}
   document.addEventListener('DOMContentLoaded', function(){
     var scr = document.getElementById('mtm-chapa-screen');
     applyMasterMode();
-    try{
-      if(sessionStorage.getItem(KEY)==='0000000'){
-        validateFelipe();
-        return;
-      }
-    }catch(e){}
     if(scr && scr.classList.contains('hidden')) return; // já estava logado
     var btn = document.getElementById('mtm-chapa-btn');
     var inp = document.getElementById('mtm-chapa-input');
@@ -21010,13 +21001,19 @@ body.mtm-readonly select[data-ro-lock="1"]{ opacity:.85; }
 #mtm-ro-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 </style>
 
-<div id="mtm-ro-bar">🔒 Modo somente leitura — apenas Antonel pode alterar dados</div>
+<div id="mtm-ro-bar">Edição liberada</div>
 <div id="mtm-ro-toast" role="status" aria-live="polite"></div>
 
 <script>
 (function(){
 'use strict';
 
+/* ─────────────────────────────────────────────────────────────
+   ACESSO DE EDIÇÃO LIBERADO
+   A infraestrutura antiga de somente leitura permanece abaixo apenas por
+   compatibilidade, mas soLeitura() retorna false para todos os colaboradores.
+   Antonel continua recebendo somente os privilégios adicionais de MASTER.
+   ───────────────────────────────────────────────────────────── */
 /* ─────────────────────────────────────────────────────────────
    1. QUEM É O EDITOR
    ───────────────────────────────────────────────────────────── */
@@ -21026,7 +21023,7 @@ function ehMaster(){
     return window.MTM_ACCESS_ROLE === 'master';
   }catch(e){ return false; }
 }
-function soLeitura(){ return !ehMaster(); }
+function soLeitura(){ return false; } // edição liberada para todos; Antonel mantém perfil MASTER
 window.mtmSomenteLeitura = soLeitura;
 
 var _toastTimer = null;
@@ -21268,7 +21265,7 @@ function mostrarIdentificacao(){
   if(ehMaster()){ el.textContent = 'Antonel · MASTER'; return; }
   var chapa = '';
   try{ chapa = sessionStorage.getItem('mtm_chapa_ok_v2') || ''; }catch(e){}
-  el.textContent = (chapa ? chapa : 'Colaborador') + ' · SOMENTE LEITURA';
+  el.textContent = (chapa ? chapa : 'Colaborador') + ' · COLABORADOR';
 }
 
 function aplicar(){
