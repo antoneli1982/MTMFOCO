@@ -170,26 +170,58 @@ import {
     return { sheetsArr: sheetsArr, pmObj: pmObj, logosObj: logosObj };
   }
 
+  // Fica true quando algo do computador foi preservado e precisa subir.
+  let pendenteSubida = false;
+
   function applyFromCloud(sheetsArr, pmObj, logosObj) {
     applyingCloud = true;
     try {
-      setSheetsLocal(sheetsArr);
-      setPmLocal(pmObj);
-      setLogosLocal(logosObj);
+      // REGRA DE OURO: nuvem vazia NÃO apaga dado local.
+      // Se uma coleção volta sem nenhum registro e o computador tem
+      // conteúdo, isso significa "ainda não subiu" — e não "foi apagado".
+      // Nesse caso mantemos o local e marcamos para enviar depois.
+      const localSheets = getSheetsLocal() || [];
+      const localPm     = getPmLocal() || {};
+      const localLogos  = getLogosLocal() || {};
 
-      // Popular caches para o primeiro save NÃO reescrever tudo.
+      const usarNuvemSheets = sheetsArr.length > 0 || localSheets.length === 0;
+      const usarNuvemPm     = Object.keys(pmObj).length > 0 || Object.keys(localPm).length === 0;
+      const usarNuvemLogos  = Object.keys(logosObj).length > 0 || Object.keys(localLogos).length === 0;
+
+      const preservado = [];
+      if (!usarNuvemSheets) preservado.push(localSheets.length + ' folha(s)');
+      if (!usarNuvemPm)     preservado.push(Object.keys(localPm).length + ' pasta(s)');
+      if (!usarNuvemLogos)  preservado.push(Object.keys(localLogos).length + ' logo(s)');
+      pendenteSubida = preservado.length > 0;
+
+      if (usarNuvemSheets) setSheetsLocal(sheetsArr);
+      if (usarNuvemPm)     setPmLocal(pmObj);
+      if (usarNuvemLogos)  setLogosLocal(logosObj);
+
+      // Os caches marcam o que já está igual na nuvem. O que foi preservado
+      // fica DE FORA de propósito, para ser enviado na primeira gravação.
       Object.keys(syncedSheets).forEach(function (k) { delete syncedSheets[k]; });
-      sheetsArr.forEach(function (sh) { if (sh && sh.id) syncedSheets[sh.id] = JSON.stringify(sh); });
+      if (usarNuvemSheets) {
+        sheetsArr.forEach(function (sh) { if (sh && sh.id) syncedSheets[sh.id] = JSON.stringify(sh); });
+      }
 
       Object.keys(syncedFolders).forEach(function (k) { delete syncedFolders[k]; });
-      Object.keys(pmObj).forEach(function (fid) { syncedFolders[fid] = JSON.stringify(Object.assign({ id: fid }, pmObj[fid])); });
+      if (usarNuvemPm) {
+        Object.keys(pmObj).forEach(function (fid) { syncedFolders[fid] = JSON.stringify(Object.assign({ id: fid }, pmObj[fid])); });
+      }
 
       Object.keys(syncedLogos).forEach(function (k) { delete syncedLogos[k]; });
-      Object.keys(logosObj).forEach(function (c) { syncedLogos[logoDocId(c)] = JSON.stringify({ client: c, dataUrl: logosObj[c] }); });
+      if (usarNuvemLogos) {
+        Object.keys(logosObj).forEach(function (c) { syncedLogos[logoDocId(c)] = JSON.stringify({ client: c, dataUrl: logosObj[c] }); });
+      }
 
       renderAfterLoad();
       log('Dados recuperados do Firestore: ' + sheetsArr.length + ' folha(s), ' +
           Object.keys(pmObj).length + ' pasta(s), ' + Object.keys(logosObj).length + ' logo(s).');
+      if (preservado.length) {
+        log('Nuvem vazia nessa parte — mantido o que estava no computador: ' +
+            preservado.join(', ') + '. Será enviado para a nuvem em seguida.');
+      }
     } finally {
       setTimeout(function () { applyingCloud = false; }, 500);
     }
@@ -354,6 +386,13 @@ import {
 
     cloudReady = true; // só agora o salvamento fica ativo
     if (typeof window.showDashboard === 'function') window.showDashboard();
+
+    // Havia dado local que a nuvem não tinha: envia agora para reconstruir
+    // o que estava faltando lá.
+    if (pendenteSubida) {
+      pendenteSubida = false;
+      queueCloudSave('envio do que estava no computador');
+    }
   }
 
   function boot() {
