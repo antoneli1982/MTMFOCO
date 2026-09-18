@@ -731,6 +731,39 @@ td.col-n{text-align:center;font-size:11px;font-weight:700;color:var(--text3);wid
 .ci:focus{border-color:rgba(0,212,255,.4);background:rgba(0,212,255,.04);box-shadow:0 0 0 2px rgba(0,212,255,.06)}
 .ci::placeholder{color:var(--text3);font-weight:300;font-size:11px}
 .ci-desc{color:var(--blue)}
+/* ═══ DESCRIÇÃO COMPLETA: o campo quebra linha e cresce sozinho ═══
+   O espelho ::after tem exatamente a mesma métrica do textarea
+   (fonte, padding, borda), então a altura sempre acompanha o texto. */
+.desc-wrap{
+  display:grid;width:100%;
+  font-family:'Inter',sans-serif;font-size:12px;font-weight:500;line-height:1.38;
+}
+.desc-wrap::after,
+.desc-wrap>textarea.ci-desc{
+  grid-area:1/1;width:100%;box-sizing:border-box;
+  padding:5px 7px;border:1px solid transparent;border-radius:6px;
+  font-family:inherit;font-size:inherit;font-weight:inherit;line-height:inherit;
+  letter-spacing:inherit;
+  white-space:pre-wrap;overflow-wrap:break-word;word-break:break-word;
+}
+.desc-wrap::after{
+  content:attr(data-value) " ";
+  visibility:hidden;pointer-events:none;
+}
+.desc-wrap>textarea.ci-desc{
+  resize:none;overflow:hidden;min-height:0;height:100%;
+  outline:none;transition:all .18s;
+  -webkit-appearance:none;appearance:none;display:block;
+}
+.desc-wrap>textarea.ci-desc::placeholder{color:var(--text3);font-weight:300;font-size:11px}
+@media(max-width:768px){
+  .desc-wrap{font-size:16px;line-height:1.35}
+  .desc-wrap>textarea.ci-desc::placeholder{font-size:14px}
+}
+@media print{
+  .desc-wrap::after,.desc-wrap>textarea.ci-desc{border-color:transparent!important}
+  .desc-wrap>textarea.ci-desc{color:#000!important;background:transparent!important}
+}
 .ci-code{color:var(--accent);font-weight:700;text-align:center;font-family:'JetBrains Mono','Inter',monospace}
 .ci-tmu {color:var(--green);font-weight:600;text-align:right;font-family:'JetBrains Mono','Inter',monospace}
 .ci-num {color:var(--text2);text-align:right}
@@ -744,6 +777,12 @@ td.col-n{text-align:center;font-size:11px;font-weight:700;color:var(--text3);wid
   font-size:11px;font-weight:600;outline:none;width:100%;cursor:pointer;transition:border-color .15s;
 }
 .cell-select:focus{border-color:var(--accent);background:var(--accentBg)}
+.cell-select{text-overflow:clip}
+table.mtm td:has(>.cell-select){min-width:118px}
+@media(max-width:768px){
+  table.mtm td:has(>.cell-select){min-width:150px}
+  .cell-select{padding:7px 2px 7px 4px}
+}
 .cell-select option{background:var(--surface2);color:var(--text)}
 
 /* TOTAL ROW */
@@ -805,7 +844,7 @@ tr.row-drop-below td{border-bottom:2px solid var(--accent)!important}
 .ac-item:hover,.ac-item.sel{background:var(--accentBg)}
 .ac-code{color:var(--accent);font-weight:700;font-size:12px;min-width:72px}
 .ac-tmu {color:var(--green);font-size:11px;font-weight:600;min-width:58px;text-align:right}
-.ac-desc{color:var(--text2);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ac-desc{color:var(--text2);font-size:11px;white-space:normal;overflow-wrap:break-word;word-break:break-word;line-height:1.4;flex:1;min-width:0}
 
 /* FLOAT NAV */
 .float-nav{position:fixed;right:20px;bottom:24px;display:flex;flex-direction:column;gap:8px;z-index:200}
@@ -869,7 +908,7 @@ tr.row-drop-below td{border-bottom:2px solid var(--accent)!important}
   .folha-title{font-size:16px}
   .f-input{font-size:13px;padding:8px 10px}
   .table-scroll{-webkit-overflow-scrolling:touch}
-  table.mtm{min-width:600px}
+  table.mtm{min-width:700px}
   table.mtm thead th{padding:10px 5px;font-size:9px}
   table.mtm td{padding:5px 4px}
   .ci{font-size:13px;padding:7px 6px}
@@ -896,7 +935,7 @@ tr.row-drop-below td{border-bottom:2px solid var(--accent)!important}
 @media(max-width:420px){
   .header-card{grid-template-columns:1fr}
   .logo{font-size:13px}
-  table.mtm{min-width:540px}
+  table.mtm{min-width:660px}
 }
 
 /* ── MOBILE: previne zoom automático do iOS em inputs (font-size < 16px) ── */
@@ -1019,7 +1058,7 @@ tr.row-drop-below td{border-bottom:2px solid var(--accent)!important}
 .lib-body tbody tr:hover td{background:var(--accentBg)!important}
 .lib-body td{padding:6px 8px;vertical-align:middle;color:var(--text)}
 .lib-code{font-family:'JetBrains Mono','Inter',monospace;font-size:11px;font-weight:700;color:var(--accent);background:var(--accentBg);padding:2px 6px;border-radius:4px;white-space:nowrap;border:1px solid rgba(0,212,255,.2)}
-.lib-desc{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px}
+.lib-desc{max-width:420px;white-space:pre-wrap;overflow-wrap:break-word;word-break:break-word;font-size:11.5px;line-height:1.45}
 .lib-tmu{font-family:'JetBrains Mono','Inter',monospace;font-weight:700;text-align:right;color:var(--green);font-size:12px;white-space:nowrap}
 .lib-sec{font-family:'JetBrains Mono','Inter',monospace;font-weight:700;text-align:right;color:var(--accent);font-size:12px;white-space:nowrap}
 .lib-cat{font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;white-space:nowrap;display:inline-block}
@@ -1102,7 +1141,7 @@ tr.row-drop-below td{border-bottom:2px solid var(--accent)!important}
 }
 .res-table td.r{text-align:right}
 .res-n{font-size:11px;font-weight:700;color:var(--text3);width:28px;text-align:center}
-.res-desc{color:var(--blue);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.res-desc{color:var(--blue);min-width:220px;max-width:420px;white-space:pre-wrap;overflow-wrap:break-word;word-break:break-word;line-height:1.45}
 .res-code{color:var(--accent);font-weight:700;font-size:11px}
 .res-tmu{color:var(--green);font-weight:600;text-align:right}
 .res-ttmu{color:var(--accent2);font-weight:700;text-align:right}
@@ -1413,7 +1452,7 @@ table.mtm tfoot tr.total-row td{
 .ac-item:hover,.ac-item.sel{background:var(--accentGradSoft)}
 .ac-code{color:var(--accent);font-weight:700;font-size:12px;min-width:72px;font-family:'JetBrains Mono','Inter',monospace}
 .ac-tmu {color:var(--green);font-size:11px;font-weight:600;min-width:58px;text-align:right;font-family:'JetBrains Mono','Inter',monospace}
-.ac-desc{color:var(--text2);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ac-desc{color:var(--text2);font-size:11px;white-space:normal;overflow-wrap:break-word;word-break:break-word;line-height:1.4;flex:1;min-width:0}
 
 /* Folha content padding */
 .folha-content{display:none;padding:20px}
@@ -6025,7 +6064,7 @@ function renderContent(id){
           <thead><tr>
             <th style="width:36px">N°</th>
             <th style="min-width:280px;text-align:left;padding-left:10px">Descrição</th>
-            <th style="width:100px">Agrega</th>
+            <th style="width:132px">Agrega</th>
             <th style="width:90px">Código</th>
             <th style="width:72px">TMU</th>
             <th style="width:58px">Q</th>
@@ -6346,7 +6385,8 @@ function renderRow(sid,rid,focus=false){
   const agOpts = ['', 'Sim', 'Não', 'Necessário'];
   tr.innerHTML=`
     <td class="col-n" data-n></td>
-    <td><input class="ci ci-desc" placeholder="Descrição da atividade..." data-f="desc" value="${esc(row.desc||'')}"></td>
+    <td><div class="desc-wrap" data-value="${esc(row.desc||'')}"><textarea class="ci ci-desc" rows="1" placeholder="Descrição da atividade..." data-f="desc" spellcheck="false">
+${esc(row.desc||'')}</textarea></div></td>
     <td><select class="cell-select" data-f="agrega">
       ${agOpts.map(o=>`<option value="${o}"${row.agrega===o?' selected':''}>${o||'—'}</option>`).join('')}
     </select></td>
@@ -6419,12 +6459,16 @@ function renderRow(sid,rid,focus=false){
     const ev=el.tagName==='SELECT'?'change':'input';
     el.addEventListener(ev,()=>{
       row[f]=el.value;
+      // Descrição: atualiza o espelho para o campo crescer e mostrar tudo
+      if(f==='desc'){ const w=el.closest('.desc-wrap'); if(w) w.dataset.value=el.value; }
       if(['tmu','q','f'].includes(f))calcRow(sid,rid);
       saveSheets();
     });
-    if(el.tagName==='INPUT'){
+    if(el.tagName==='INPUT'||el.tagName==='TEXTAREA'){
       el.addEventListener('keydown',e=>{
         if(e.key==='Enter'){
+          // Na descrição, Shift+Enter cria uma nova linha dentro do campo
+          if(el.tagName==='TEXTAREA'&&e.shiftKey) return;
           e.preventDefault();
           // ── Campos Q e F: aceitam fórmula estilo Excel (ex.: =5*5 ↵ → 25) ──
           if(f==='q'||f==='f'){
