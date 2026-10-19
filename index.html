@@ -7699,6 +7699,14 @@ document.addEventListener('DOMContentLoaded',()=>{
 }
 .pm-folder-card:hover .pm-folder-rename{opacity:1}
 .pm-folder-rename:hover{background:var(--orange);color:#fff}
+.pm-folder-dup{
+  position:absolute;top:5px;left:72px;z-index:2;
+  background:rgba(0,0,0,.55);border:1px solid transparent;border-radius:4px;
+  color:#fff;font-size:11px;padding:3px 7px;cursor:pointer;
+  opacity:0;transition:all .15s;
+}
+.pm-folder-card:hover .pm-folder-dup{opacity:1}
+.pm-folder-dup:hover{background:var(--accent);color:#fff}
 
 /* ── PROJECT CARDS ── */
 .pm-projects-grid{display:flex;flex-direction:column;gap:8px}
@@ -7976,6 +7984,7 @@ function pmRenderFolders(){
           <button class="pm-folder-del" onclick="event.stopPropagation();pmDeleteFolder('${fid}')" title="Excluir pasta">✕</button>
           <button class="pm-folder-edit-img" onclick="event.stopPropagation();pmPickFolderLogo('${fid}')" title="${editLbl}">📷</button>
           <button class="pm-folder-rename" onclick="event.stopPropagation();pmRenameFolder('${fid}')" title="Renomear pasta">✏️</button>
+          <button class="pm-folder-dup" onclick="event.stopPropagation();dbDuplicateFolder('${fid}')" title="Duplicar pasta (com projetos e folhas)">📑</button>
           <div class="pm-folder-banner">${bannerHtml}</div>
           <div class="pm-folder-info">
             <div class="pm-folder-name">${esc(f.name)}</div>
@@ -9545,18 +9554,36 @@ function dbDelFolder(fid){
 }
 
 // ─── Duplicar pasta inteira (projetos + folhas) ─────────────────
+// Aviso bem visível (fica na tela por alguns segundos; clique para fechar)
+function dbDupNotice(msg, isErr){
+  try{
+    var old = document.getElementById('db-dup-notice');
+    if(old) old.remove();
+    var d = document.createElement('div');
+    d.id = 'db-dup-notice';
+    d.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2147483000;max-width:92vw;'
+      + 'padding:12px 18px;border-radius:10px;font:600 13px/1.4 system-ui,sans-serif;cursor:pointer;'
+      + 'box-shadow:0 8px 30px rgba(0,0,0,.45);color:#fff;background:' + (isErr ? '#c62828' : '#1b8a4b');
+    d.textContent = msg;
+    d.onclick = function(){ d.remove(); };
+    document.body.appendChild(d);
+    setTimeout(function(){ if(d.parentNode) d.remove(); }, isErr ? 15000 : 6000);
+  }catch(e){}
+}
+
+// ─── Duplicar pasta inteira (projetos + folhas) ─────────────────
 function dbDuplicateFolder(fid){
+  var newFid = null;
   try{
     pmLoad();
     if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
     var src = pmData[fid];
     if(!src || fid === '__flat__'){
-      if(typeof showToast === 'function') showToast('Pasta não encontrada para duplicar.', true);
+      dbDupNotice('Pasta não encontrada para duplicar.', true);
       return;
     }
 
     // Nome único automático: "Nome (cópia)", "Nome (cópia 2)", ...
-    // (sem prompt/confirm: eles são bloqueados em alguns navegadores/iframes e a ação ficava muda)
     var existing = Object.keys(pmData).filter(function(k){return k!=='__flat__';}).map(function(k){
       return (pmData[k].name||'').toLowerCase();
     });
@@ -9569,7 +9596,7 @@ function dbDuplicateFolder(fid){
     var clone = function(o){ return o === undefined ? undefined : JSON.parse(JSON.stringify(o)); };
     var stamp = Date.now();
     var rnd = function(){ return Math.random().toString(36).slice(2,7); };
-    var newFid = 'f_' + stamp + '_' + rnd();
+    newFid = 'f_' + stamp + '_' + rnd();
     var newSheets = [];
     var missing = 0, totalSh = 0;
 
@@ -9598,29 +9625,59 @@ function dbDuplicateFolder(fid){
       return np;
     });
 
+    var sheetsBefore = sheets.length;
     sheets.push.apply(sheets, newSheets);
     pmData[newFid] = newFolder;
 
-    // Logo no store de clientes (para a página da empresa)
-    try{
-      var logo = src.logo || (typeof dbGetClientLogo === 'function' ? dbGetClientLogo(src.name) : null);
-      if(logo && typeof dbSetClientLogo === 'function') dbSetClientLogo(newName, logo);
-    }catch(e){}
+    // ── Grava e CONFERE no armazenamento (pode estourar a cota do navegador por causa das imagens) ──
+    var stripped = false;
+    function trySave(){
+      pmSave();
+      var raw = localStorage.getItem('pmgr_v3') || '';
+      return raw.indexOf('"' + newFid + '"') !== -1;
+    }
+    var saved = false;
+    try{ saved = trySave(); }catch(e){ saved = false; }
+    if(!saved){
+      // Cópia sem as imagens embutidas (logo/foto) — elas ocupam muito espaço
+      newFolder.logo = null;
+      newFolder.projects.forEach(function(p){ p.logo = null; p.img = null; });
+      stripped = true;
+      try{ saved = trySave(); }catch(e){ saved = false; }
+    }
+    if(!saved){
+      // Desfaz tudo: não deixa cópia pela metade
+      sheets.length = sheetsBefore;
+      delete pmData[newFid];
+      try{ pmSave(); }catch(e){}
+      dbDupNotice('Não foi possível duplicar: o armazenamento do navegador está cheio. Faça um 💾 Backup, apague pastas/imagens que não usa e tente de novo.', true);
+      return;
+    }
 
-    pmSave();
+    // Logo no store de clientes (para a página da empresa) — só se não foi removida
+    if(!stripped){
+      try{
+        var logo = src.logo || (typeof dbGetClientLogo === 'function' ? dbGetClientLogo(src.name) : null);
+        if(logo && typeof dbSetClientLogo === 'function') dbSetClientLogo(newName, logo);
+      }catch(e){}
+    }
+
     try{ if(typeof saveSheets === 'function') saveSheets(); }catch(e){}
     try{ if(typeof persistNow === 'function') persistNow(); }catch(e){}
     try{ if(typeof renderTabs === 'function') renderTabs(); }catch(e){}
 
-    // Se estava dentro da página da pasta, volta para a lista para ver a cópia
+    // Atualiza as telas de pastas
     try{ currentFolderId = null; currentCompany = null; }catch(e){}
-    dbRenderList();
-    if(typeof showToast === 'function'){
-      showToast('📑 Pasta duplicada: "' + newName + '" (' + newFolder.projects.length + ' projeto(s), ' + totalSh + ' folha(s))' + (missing ? ' — ' + missing + ' folha(s) não encontrada(s)' : '') + '. Use ✏️ Renomear para trocar o nome.');
-    }
+    try{ dbRenderList(); }catch(e){ console.error(e); }
+    try{ if(typeof pmRenderFolders === 'function' && document.getElementById('pm-body') && !pmFolderId) pmRenderFolders(); }catch(e){}
+
+    dbDupNotice('📑 Pasta duplicada: "' + newName + '" (' + newFolder.projects.length + ' projeto(s), ' + totalSh + ' folha(s))'
+      + (stripped ? ' — sem as imagens (espaço do navegador cheio)' : '')
+      + (missing ? ' — ' + missing + ' folha(s) não encontrada(s)' : '')
+      + '. Use ✏️ Renomear para trocar o nome.', false);
   }catch(err){
     console.error('dbDuplicateFolder falhou:', err);
-    if(typeof showToast === 'function') showToast('Erro ao duplicar pasta: ' + (err && err.message ? err.message : err), true);
+    dbDupNotice('Erro ao duplicar pasta: ' + (err && err.message ? err.message : err), true);
   }
 }
 
