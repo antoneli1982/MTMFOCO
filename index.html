@@ -9546,77 +9546,81 @@ function dbDelFolder(fid){
 
 // ─── Duplicar pasta inteira (projetos + folhas) ─────────────────
 function dbDuplicateFolder(fid){
-  pmLoad();
-  if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
-  var src = pmData[fid];
-  if(!src || fid === '__flat__') return;
-
-  // Sugere um nome único: "Nome (cópia)", "Nome (cópia 2)", ...
-  var existing = Object.keys(pmData).filter(function(k){return k!=='__flat__';}).map(function(k){
-    return (pmData[k].name||'').toLowerCase();
-  });
-  var base = (src.name || 'Pasta') + ' (cópia)';
-  var suggestion = base, n = 2;
-  while(existing.indexOf(suggestion.toLowerCase()) !== -1){
-    suggestion = (src.name || 'Pasta') + ' (cópia ' + (n++) + ')';
-  }
-  var newName = prompt('Duplicar a pasta "' + src.name + '" com todos os projetos e folhas.\n\nNome da nova pasta:', suggestion);
-  if(!newName) return;
-  newName = newName.trim();
-  if(!newName) return;
-  if(existing.indexOf(newName.toLowerCase()) !== -1){
-    if(!confirm('Já existe uma pasta com esse nome. Criar mesmo assim?')) return;
-  }
-
-  var clone = function(o){ return o === undefined ? undefined : JSON.parse(JSON.stringify(o)); };
-  var stamp = Date.now();
-  var rnd = function(){ return Math.random().toString(36).slice(2,7); };
-  var newFid = 'f_' + stamp + '_' + rnd();
-  var newSheets = [];
-  var missing = 0, totalSh = 0;
-
-  var newFolder = clone(src);
-  newFolder.name = newName;
-  newFolder.projects = (src.projects || []).map(function(p, pi){
-    var np = clone(p);
-    np.id = 'p_' + stamp + '_' + pi + '_' + rnd();
-    np.client = newName;
-    np.sheets = [];
-    (p.sheets || []).forEach(function(sid, si){
-      var orig = sheets.find(function(s){ return s.id === sid; });
-      if(!orig){ missing++; return; }
-      var sc = clone(_serializeSheet(orig));
-      // preserva eventuais outros campos da folha (ex.: configs extras)
-      sc.id = gid();
-      sc.header = sc.header || {};
-      sc.header.empresa = newName;
-      sc.rows = (sc.rows || []).map(function(r, ri){
-        r.id = 'r_' + sc.id + '_' + ri + '_' + rnd();
-        return r;
-      });
-      newSheets.push(sc);
-      np.sheets.push(sc.id);
-      totalSh++;
-    });
-    return np;
-  });
-
-  sheets.push.apply(sheets, newSheets);
-  pmData[newFid] = newFolder;
-
-  // Logo no store de clientes (para a página da empresa)
   try{
-    var logo = src.logo || (typeof dbGetClientLogo === 'function' ? dbGetClientLogo(src.name) : null);
-    if(logo && typeof dbSetClientLogo === 'function') dbSetClientLogo(newName, logo);
-  }catch(e){}
+    pmLoad();
+    if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
+    var src = pmData[fid];
+    if(!src || fid === '__flat__'){
+      if(typeof showToast === 'function') showToast('Pasta não encontrada para duplicar.', true);
+      return;
+    }
 
-  pmSave();
-  if(typeof saveSheets === 'function') saveSheets();
-  if(typeof persistNow === 'function') persistNow();
-  if(typeof renderTabs === 'function') try{ renderTabs(); }catch(e){}
-  dbRenderList();
-  if(typeof showToast === 'function'){
-    showToast('📑 Pasta duplicada: "' + newName + '" (' + newFolder.projects.length + ' projeto(s), ' + totalSh + ' folha(s))' + (missing ? ' — ' + missing + ' folha(s) não encontrada(s)' : ''));
+    // Nome único automático: "Nome (cópia)", "Nome (cópia 2)", ...
+    // (sem prompt/confirm: eles são bloqueados em alguns navegadores/iframes e a ação ficava muda)
+    var existing = Object.keys(pmData).filter(function(k){return k!=='__flat__';}).map(function(k){
+      return (pmData[k].name||'').toLowerCase();
+    });
+    var srcName = src.name || 'Pasta';
+    var newName = srcName + ' (cópia)', n = 2;
+    while(existing.indexOf(newName.toLowerCase()) !== -1){
+      newName = srcName + ' (cópia ' + (n++) + ')';
+    }
+
+    var clone = function(o){ return o === undefined ? undefined : JSON.parse(JSON.stringify(o)); };
+    var stamp = Date.now();
+    var rnd = function(){ return Math.random().toString(36).slice(2,7); };
+    var newFid = 'f_' + stamp + '_' + rnd();
+    var newSheets = [];
+    var missing = 0, totalSh = 0;
+
+    var newFolder = clone(src);
+    newFolder.name = newName;
+    newFolder.projects = (src.projects || []).map(function(p, pi){
+      var np = clone(p);
+      np.id = 'p_' + stamp + '_' + pi + '_' + rnd();
+      np.client = newName;
+      np.sheets = [];
+      (p.sheets || []).forEach(function(sid){
+        var orig = sheets.find(function(s){ return s.id === sid; });
+        if(!orig){ missing++; return; }
+        var sc = clone(_serializeSheet(orig));
+        sc.id = gid();
+        sc.header = sc.header || {};
+        sc.header.empresa = newName;
+        sc.rows = (sc.rows || []).map(function(r, ri){
+          r.id = 'r_' + sc.id + '_' + ri + '_' + rnd();
+          return r;
+        });
+        newSheets.push(sc);
+        np.sheets.push(sc.id);
+        totalSh++;
+      });
+      return np;
+    });
+
+    sheets.push.apply(sheets, newSheets);
+    pmData[newFid] = newFolder;
+
+    // Logo no store de clientes (para a página da empresa)
+    try{
+      var logo = src.logo || (typeof dbGetClientLogo === 'function' ? dbGetClientLogo(src.name) : null);
+      if(logo && typeof dbSetClientLogo === 'function') dbSetClientLogo(newName, logo);
+    }catch(e){}
+
+    pmSave();
+    try{ if(typeof saveSheets === 'function') saveSheets(); }catch(e){}
+    try{ if(typeof persistNow === 'function') persistNow(); }catch(e){}
+    try{ if(typeof renderTabs === 'function') renderTabs(); }catch(e){}
+
+    // Se estava dentro da página da pasta, volta para a lista para ver a cópia
+    try{ currentFolderId = null; currentCompany = null; }catch(e){}
+    dbRenderList();
+    if(typeof showToast === 'function'){
+      showToast('📑 Pasta duplicada: "' + newName + '" (' + newFolder.projects.length + ' projeto(s), ' + totalSh + ' folha(s))' + (missing ? ' — ' + missing + ' folha(s) não encontrada(s)' : '') + '. Use ✏️ Renomear para trocar o nome.');
+    }
+  }catch(err){
+    console.error('dbDuplicateFolder falhou:', err);
+    if(typeof showToast === 'function') showToast('Erro ao duplicar pasta: ' + (err && err.message ? err.message : err), true);
   }
 }
 
