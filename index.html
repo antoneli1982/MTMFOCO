@@ -2431,6 +2431,7 @@ html[data-theme="light"] #dashboard{
 }
 </style>
 
+<link rel="stylesheet" href="planejamento.css?v=1">
 </head>
 <body>
 
@@ -3902,6 +3903,7 @@ body.home-clean .db-company-card::after{
     <button class="btn btn-primary" onclick="openProjectManager()" title="Gerenciador de Projetos" style="background:linear-gradient(135deg,#4f8ef7,#6366f1);border:none;color:#fff;font-weight:800;font-size:12px;padding:7px 16px">📁<span class="btn-lbl"> Projetos</span></button>
     <!-- separador visual -->
     <div class="tb-divider" style="width:1px;height:26px;background:var(--border2);margin:0 4px;flex-shrink:0"></div>
+    <button class="btn btn-ghost" onclick="openPlanning()" title="Selecionar folhas e calcular o tempo total do projeto">📊<span class="btn-lbl"> Planejamento</span></button>
     <button class="btn btn-ghost" onclick="startDirectMtmApp()" title="Ir para as folhas" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(0,212,255,.25)">📄<span class="btn-lbl"> Folhas</span></button>
     <button class="btn btn-ghost" onclick="addSheetHere()" title="Nova Folha">＋<span class="btn-lbl"> Nova Folha</span></button>
     <button class="btn btn-ghost" onclick="openLibrary()" title="📚 Biblioteca MTM" style="letter-spacing:.2px">📚<span class="btn-lbl"> Biblioteca</span></button>
@@ -9320,6 +9322,7 @@ function syncSheetEmpresaProjeto(sid){
 }
 
 function dbRenderList(){
+  if(typeof planResetView === 'function') planResetView();
   pmLoad();
   if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
   var el = document.getElementById('db-proj-list');
@@ -9333,6 +9336,7 @@ function dbRenderList(){
     + '<span class="db-list-title" style="font-size:16px;font-weight:800">📁 Empresas</span>'
     + '<span class="db-list-badge" style="background:var(--accentBg);color:var(--accent);padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700">' + folderIds.length + '</span>'
     + '<span style="flex:1"></span>'
+    + '<button onclick="openPlanning()" style="background:var(--greenBg);color:var(--green);border:1px solid var(--green);padding:8px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">📊 Planejamento</button>'
     + '<button onclick="dbNewFolder()" style="background:var(--accentGrad);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:var(--shadow-glow)">＋ Nova Pasta</button>'
     + '<button onclick="saveAllProjectsFile()" style="background:linear-gradient(135deg,#f5a623,#e07b00);color:#000;border:2px solid #f5a623;padding:7px 12px;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer">💾 Salvar Tudo</button>'
     + '<button onclick="dbExportBackup()" style="background:var(--greenBg);color:var(--green);border:1px solid var(--green);padding:7px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">💾 Backup</button>'
@@ -9598,6 +9602,7 @@ function dbDuplicateFolder(fid){
     var rnd = function(){ return Math.random().toString(36).slice(2,7); };
     newFid = 'f_' + stamp + '_' + rnd();
     var newSheets = [];
+    var planSidMap = {};
     var missing = 0, totalSh = 0;
 
     var newFolder = clone(src);
@@ -9612,6 +9617,7 @@ function dbDuplicateFolder(fid){
         if(!orig){ missing++; return; }
         var sc = clone(_serializeSheet(orig));
         sc.id = gid();
+        planSidMap[sid] = sc.id;
         sc.header = sc.header || {};
         sc.header.empresa = newName;
         sc.rows = (sc.rows || []).map(function(r, ri){
@@ -9624,6 +9630,8 @@ function dbDuplicateFolder(fid){
       });
       return np;
     });
+
+    newFolder.projects.forEach(function(p){ p.plans = planRemapImport(p.plans || [], planSidMap, true); });
 
     var sheetsBefore = sheets.length;
     sheets.push.apply(sheets, newSheets);
@@ -10038,7 +10046,7 @@ function closeCompanyPage(){
 // ============================================================
 var currentFolderId = null;
 
-function openFolderPage(fid){
+function openFolderPage(fid, manterRolagem){
   pmLoad();
   if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
   var f = pmData[fid];
@@ -10164,6 +10172,7 @@ function openFolderPage(fid){
         + '<span title="TTP = 100 − Allowance Total médio ponderado (TV + TER)">⏱ ' + pTTPText + '</span>'
         + '</div>'
         + dbProjectImgBox(p)
+        + (typeof dbListaPlanejamentos === 'function' ? dbListaPlanejamentos(fid, pi, p) : '')
         + '<button onclick="dbOpenProjectInFolder(\'' + fid + '\',' + pi + ')" style="width:100%;background:var(--accentGrad);color:#fff;border:none;padding:7px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700">Abrir Projeto →</button>'
         + '</div>';
     });
@@ -10173,7 +10182,7 @@ function openFolderPage(fid){
 
   var el = document.getElementById('db-proj-list');
   el.innerHTML = html;
-  window.scrollTo({top:0, behavior:'smooth'});
+  if(!manterRolagem) window.scrollTo({top:0, behavior:'smooth'});
 }
 
 function closeFolderPage(){
@@ -10390,10 +10399,12 @@ function dbHandleProjectFileForFolder(input, fid){
       //    - Se o arquivo tem PM com 1 projeto: usar nome desse projeto
       //    - Senão: usar nome do arquivo (sem extensão)
       var nomeProjeto = null;
+      var planosImportados = [];
       if(incomingPM && typeof incomingPM === 'object'){
         Object.keys(incomingPM).forEach(function(k){
           var pl = (incomingPM[k] && incomingPM[k].projects) || [];
           if(pl.length === 1 && !nomeProjeto) nomeProjeto = pl[0].name;
+          pl.forEach(function(p){ planosImportados = planosImportados.concat(p.plans || []); });
         });
       }
       if(!nomeProjeto){
@@ -10421,6 +10432,7 @@ function dbHandleProjectFileForFolder(input, fid){
         }),
         notes: []
       };
+      proj.plans = planRemapImport(planosImportados, sidMap, true);
       pmData[fid].projects = pmData[fid].projects || [];
       pmData[fid].projects.push(proj);
       pmSave();
@@ -10496,7 +10508,8 @@ function dbExportBackup(){
       version: 1,
       exportedAt: new Date().toISOString(),
       pmData: pmData || {},
-      sheets: sheets || []
+      sheets: sheets || [],
+      standalonePlans: planIndependentes()
     };
     var blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
     var url = URL.createObjectURL(blob);
@@ -10531,6 +10544,7 @@ function dbImportBackup(input){
         sheets.forEach(function(s){ renderContent(s.id); });
         if(typeof renderTabs === 'function') renderTabs();
       }
+      if(Array.isArray(data.standalonePlans)) planIndepDefinir(data.standalonePlans);
       alert('Backup restaurado com sucesso!');
       dbRenderList();
     }catch(err){
@@ -16121,7 +16135,7 @@ function saveProjectFile(){
           projetoAtivo      = _proj;
           pastaAtiva        = _pasta;
           fidAtivo          = pmFolderId;
-          idsDoProjetoAtivo = _proj.sheets; // array de IDs das folhas deste projeto
+          idsDoProjetoAtivo = planSheetIdsForExport(_proj); // array de IDs das folhas deste projeto
         }
       }
     }catch(e){}
@@ -16213,7 +16227,8 @@ function saveProjectFile(){
       sheetsCount: sheetsPayload.length,
       sheets:      sheetsPayload,
       projectManager: pmPayload,
-      clientLogos:    logosPayload
+      clientLogos:    logosPayload,
+      standalonePlans: modoSalvar === 'individual' ? [] : planIndependentes()
     };
 
     if(!sheetsPayload.length){
@@ -16301,6 +16316,10 @@ function dbSalvarProjetoIndividual(fid, pi){
     }
   }
 
+  planSheetIdsForExport(projeto).forEach(function(sid){
+    var sh = get(sid);
+    if(sh && !sheetsDoProj.some(function(s){ return s.id === sid; })) sheetsDoProj.push(sh);
+  });
   var sheetsPayload = sheetsDoProj.map(_serializeSheet);
 
   // PM filtrado: só esta empresa + este projeto
@@ -16502,7 +16521,8 @@ function mergePMData(currentPM, incomingPM, sidMap){
         logo: incomingProj.logo || targetFolder.logo || null,
         date: incomingProj.date || new Date().toLocaleDateString('pt-BR'),
         sheets: mappedSheets,
-        notes: incomingProj.notes || []
+        notes: incomingProj.notes || [],
+        plans: planRemapImport(incomingProj.plans || [], sidMap, true)
       });
       stats.projetosAdicionados++;
       stats.folhasVinculadas += mappedSheets.length;
@@ -16529,11 +16549,13 @@ function openProjectFileHandle(input){
         var incomingSheets = null;
         var incomingPM     = null;
         var incomingLogos  = null;
+        var incomingStandalone = null;
 
         if(obj && obj.format === 'MTM_FILE' && Array.isArray(obj.sheets)){
           incomingSheets = obj.sheets;
           incomingPM     = obj.projectManager || null;
           incomingLogos  = obj.clientLogos    || null;
+          incomingStandalone = Array.isArray(obj.standalonePlans) ? obj.standalonePlans : null;
         } else if(Array.isArray(obj)){
           incomingSheets = obj;
         } else {
@@ -16602,6 +16624,13 @@ function openProjectFileHandle(input){
         if(incomingPM && typeof incomingPM === 'object'){
           try{
             if(mode === 'replace'){
+              incomingPM = JSON.parse(JSON.stringify(incomingPM));
+              Object.keys(incomingPM).forEach(function(fid){
+                (incomingPM[fid].projects || []).forEach(function(p){
+                  p.sheets = (p.sheets || []).map(function(id){ return sidMap[id] || id; });
+                  p.plans = planRemapImport(p.plans || [], sidMap, false);
+                });
+              });
               localStorage.setItem('pmgr_v3', JSON.stringify(incomingPM));
               if(typeof pmData !== 'undefined'){ pmData = incomingPM; }
             } else {
@@ -16613,6 +16642,11 @@ function openProjectFileHandle(input){
               pmStats = merged.stats;
             }
           }catch(e){ console.warn('PM merge falhou', e); }
+        }
+
+        if(incomingStandalone){
+          var remappedPlans = planRemapImport(incomingStandalone, sidMap, mode !== 'replace');
+          planIndepDefinir(mode === 'replace' ? remappedPlans : planIndependentes().concat(remappedPlans));
         }
 
         // ---- Logos ----
@@ -17847,5 +17881,23 @@ function balEsc(s){
 })();
 </script>
 
+<!-- Painel do Planejamento de Processo -->
+<div class="plj-overlay hidden" id="plj-overlay" onclick="planFecharBg(event)">
+  <div class="plj-modal">
+    <div class="plj-top">
+      <div style="min-width:0;flex:1">
+        <div class="plj-titulo" id="plj-titulo">Planejamento</div>
+        <div class="plj-subtitulo" id="plj-sub"></div>
+      </div>
+      <button class="plj-btn-ghost" onclick="planRenomear(PLJ_CTX().fid, PLJ_CTX().pi, PLJ_CTX().k)">✏️ Renomear</button>
+      <button class="plj-btn-danger" onclick="planExcluir(PLJ_CTX().fid, PLJ_CTX().pi, PLJ_CTX().k)">✕ Excluir</button>
+      <button class="plj-btn-ghost" onclick="planFechar()">Fechar</button>
+    </div>
+    <div class="plj-body" id="plj-body"></div>
+  </div>
+</div>
+
+
+<script src="planejamento.js?v=1"></script>
 </body>
 </html>
