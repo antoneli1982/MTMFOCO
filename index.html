@@ -10046,12 +10046,54 @@ function closeCompanyPage(){
 // ============================================================
 var currentFolderId = null;
 
+var dbFolderSearchQuery = '';
+function dbFolderSearchNormalize(value){
+  return String(value == null ? '' : value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+}
+function dbFolderProjectMatches(project, query){
+  var terms = String(query || '').trim().split(/\s+/).map(dbFolderSearchNormalize).filter(Boolean);
+  var fields = [project.name, project.codigo, project.peca];
+  (project.sheets || []).forEach(function(sid){
+    var sheet = typeof get === 'function' ? get(sid) : null;
+    if(!sheet) return;
+    var header = sheet.header || {};
+    fields.push(sheet.label, header.codigo, header.processo, header.peca);
+  });
+  var normalized = fields.map(dbFolderSearchNormalize);
+  return terms.every(function(term){
+    return normalized.some(function(field){return field.indexOf(term) !== -1;});
+  });
+}
+function dbFilterFolderProjects(query){
+  dbFolderSearchQuery = query || '';
+  var folder = pmData[currentFolderId];
+  if(!folder) return;
+  var projects = folder.projects || [];
+  var count = 0;
+  document.querySelectorAll('#db-proj-list [data-folder-project-index]').forEach(function(card){
+    var project = projects[Number(card.getAttribute('data-folder-project-index'))];
+    var matches = !!project && dbFolderProjectMatches(project, dbFolderSearchQuery);
+    card.hidden = !matches;
+    if(matches) count++;
+  });
+  var counter = document.getElementById('db-folder-search-count');
+  if(counter) counter.textContent = count + ' de ' + projects.length + ' projeto(s)';
+  var empty = document.getElementById('db-folder-search-empty');
+  if(empty) empty.hidden = count > 0 || projects.length === 0;
+}
+function dbClearFolderSearch(){
+  var input = document.getElementById('db-folder-search');
+  if(input){ input.value = ''; input.focus(); }
+  dbFilterFolderProjects('');
+}
+
 function openFolderPage(fid, manterRolagem){
   pmLoad();
   if(typeof bootSheetsOnce === 'function') bootSheetsOnce();
   var f = pmData[fid];
   if(!f){ alert('Pasta não encontrada.'); dbRenderList(); return; }
 
+  if(currentFolderId !== fid) dbFolderSearchQuery = '';
   currentFolderId = fid;
   currentCompany = f.name;
 
@@ -10130,6 +10172,14 @@ function openFolderPage(fid, manterRolagem){
     + '<input type="file" id="db-import-file-' + fid + '" accept=".mtm,.json,.mtm.json,application/json" style="display:none" onchange="dbHandleProjectFileForFolder(this, \'' + fid + '\')">'
     + '</div>';
 
+  html += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">'
+    + '<label for="db-folder-search" style="font-size:12px;font-weight:700">Buscar peça</label>'
+    + '<input id="db-folder-search" type="search" placeholder="Digite o código ou nome da peça" autocomplete="off" oninput="dbFilterFolderProjects(this.value)" style="flex:1;min-width:180px;padding:11px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--surface3);color:var(--text);font:inherit">'
+    + '<button type="button" class="btn btn-ghost" onclick="dbClearFolderSearch()">Limpar</button>'
+    + '<span id="db-folder-search-count" role="status" style="font-size:12px;color:var(--text2)"></span>'
+    + '</div>'
+    + '<div id="db-folder-search-empty" hidden style="padding:24px;text-align:center;color:var(--text2)">Nenhuma peça encontrada nesta pasta. Tente outro código ou nome.</div>';
+
   if(!projects.length){
     html += '<div style="text-align:center;padding:40px 20px;color:var(--text3)">'
       + '<div style="font-size:40px;margin-bottom:10px">📄</div>'
@@ -10159,7 +10209,7 @@ function openFolderPage(fid, manterRolagem){
         : 'var(--blue)';
       var pTTPText  = pTTP === null ? '— TTP (sem allow.)' : 'TTP <strong style="color:' + pTTPColor + '">' + pTTP.toFixed(1) + '%</strong>';
       html += ''
-        + '<div style="background:var(--surface3);border:1px solid var(--border);border-radius:10px;padding:12px;position:relative">'
+        + '<div data-folder-project-index="' + pi + '" style="background:var(--surface3);border:1px solid var(--border);border-radius:10px;padding:12px;position:relative">'
         + '<div style="position:absolute;top:6px;right:6px;display:flex;gap:4px">'
         + '<button onclick="event.stopPropagation();dbSalvarProjetoIndividual(\'' + fid + '\',' + pi + ')" title="Salvar este projeto como arquivo .mtm.json" style="background:linear-gradient(135deg,#f5a623,#e07b00);color:#000;border:none;cursor:pointer;font-size:11px;border-radius:5px;padding:3px 8px;font-weight:800" onmouseover="this.style.filter=\'brightness(1.15)\'" onmouseout="this.style.filter=\'\'">💾</button>'
         +   '<button onclick="event.stopPropagation();dbRenameProjectInFolder(\'' + fid + '\',' + pi + ')" title="Renomear projeto" style="background:var(--orangeBg);border:1px solid rgba(255,149,0,.4);color:var(--orange);cursor:pointer;font-size:11px;border-radius:5px;padding:3px 7px;font-weight:700" onmouseover="this.style.background=\'var(--orange)\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'var(--orangeBg)\';this.style.color=\'var(--orange)\'">✏️</button>'
@@ -10182,6 +10232,8 @@ function openFolderPage(fid, manterRolagem){
 
   var el = document.getElementById('db-proj-list');
   el.innerHTML = html;
+  document.getElementById('db-folder-search').value = dbFolderSearchQuery;
+  dbFilterFolderProjects(dbFolderSearchQuery);
   if(!manterRolagem) window.scrollTo({top:0, behavior:'smooth'});
 }
 
