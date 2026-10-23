@@ -3886,7 +3886,7 @@ body.home-clean .db-company-card::after{
 .bal-empty-icon{font-size:36px;margin-bottom:10px;opacity:.5;}
 </style>
 
-<div class="toolbar">
+<div class="toolbar" id="mtm-main-menu">
   <!-- Logo + crédito -->
   <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
     <div class="logo">MTM <span>/ Folha de Processo</span></div>
@@ -17897,6 +17897,59 @@ function balEsc(s){
   </div>
 </div>
 
+
+<!-- Controle do menu lateral: somente preferência visual local. -->
+<style id="mtm-menu-collapse-style">
+#mtm-menu-toggle{display:none;}
+@media screen and (min-width:781px){
+  .toolbar{padding-top:64px;}
+  #mtm-menu-toggle{
+    display:flex;position:fixed;top:10px;left:8px;z-index:301;
+    align-items:center;justify-content:center;gap:8px;
+    width:198px;height:40px;padding:8px;border:1px solid var(--border2);
+    border-radius:10px;background:var(--surface);color:var(--text);
+    font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;
+  }
+  #mtm-menu-toggle:hover{background:var(--surface2);}
+  #mtm-menu-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  body.mtm-menu-collapsed{padding-left:56px;}
+  body.mtm-menu-collapsed .toolbar{display:none;}
+  body.mtm-menu-collapsed #mtm-menu-toggle{width:40px;}
+  body.mtm-menu-collapsed #mtm-menu-toggle .menu-toggle-label{display:none;}
+}
+@media print{
+  #mtm-menu-toggle{display:none!important;}
+  body.mtm-menu-collapsed{padding-left:0!important;}
+}
+</style>
+<button type="button" id="mtm-menu-toggle" aria-controls="mtm-main-menu" aria-expanded="true" aria-label="Recolher menu" title="Recolher menu">
+  <span class="menu-toggle-icon" aria-hidden="true">◀</span>
+  <span class="menu-toggle-label">Recolher menu</span>
+</button>
+<script>
+(function(){
+  var button=document.getElementById('mtm-menu-toggle');
+  var desktop=window.matchMedia('(min-width:781px)');
+  var collapsed=false;
+  try{collapsed=localStorage.getItem('mtm-menu-collapsed')==='1';}catch(e){}
+  function renderMenu(){
+    var hidden=desktop.matches && collapsed;
+    document.body.classList.toggle('mtm-menu-collapsed',hidden);
+    button.setAttribute('aria-expanded',String(!hidden));
+    button.setAttribute('aria-label',hidden?'Expandir menu':'Recolher menu');
+    button.title=hidden?'Expandir menu':'Recolher menu';
+    button.querySelector('.menu-toggle-icon').textContent=hidden?'▶':'◀';
+  }
+  button.addEventListener('click',function(){
+    collapsed=!collapsed;
+    try{localStorage.setItem('mtm-menu-collapsed',collapsed?'1':'0');}catch(e){}
+    renderMenu();
+  });
+  if(desktop.addEventListener) desktop.addEventListener('change',renderMenu);
+  else desktop.addListener(renderMenu);
+  renderMenu();
+})();
+</script>
 
 <script src="planejamento.js?v=1"></script>
 </body>
