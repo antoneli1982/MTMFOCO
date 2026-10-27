@@ -2432,6 +2432,12 @@ html[data-theme="light"] #dashboard{
 </style>
 
 <link rel="stylesheet" href="planejamento.css?v=1">
+<style id="mtm-full-text">
+textarea.mtm-autogrow{display:block;width:100%;box-sizing:border-box;min-height:36px;max-height:none!important;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;resize:vertical;overflow:hidden;font-family:inherit;}
+table.mtm th:nth-child(3),table.mtm td:nth-child(3){min-width:132px;}
+table.mtm .cell-select{min-width:120px;}
+.f-group:has([data-key="conjuntoObs"]){min-width:0;}
+</style>
 </head>
 <body>
 
@@ -5181,11 +5187,13 @@ function renderContent(id){
         </select>
       </div>
       <div class="f-group" style="background:var(--purpleBg);border-left:2px solid var(--purple);padding-left:8px">
-        <span class="f-label" style="color:var(--purple)">${h.pcsCicloUnit||'unidade'} por ciclo</span>
+        <span class="f-label" data-cycle-label style="color:var(--purple)">${esc(h.pcsCicloUnit==='conj'?'Conjunto':(h.pcsCicloUnit||'unidade'))} por ciclo</span>
         <input class="f-input" type="number" step="1" min="1" placeholder="1" title="Quantidade por ciclo (ex.: 2 caixas por vez na máquina). Multiplica produção/hora e capacidade." data-key="pcsCiclo" value="${esc(h.pcsCiclo||'')}">
         <select class="f-input" data-key="pcsCicloUnit" style="font-size:10px;background:transparent;border:none;border-top:1px solid var(--border2);padding:2px 0;width:100%;color:var(--text2);margin-top:2px;cursor:pointer">
-          ${[['unidade','Unidade'],['carreta','Carreta'],['bitrem','Bitrem'],['truck','Truck'],['cx','Caixas'],['un','Unidades'],['kg','Quilogramas'],['L','Litros'],['m','Metros lineares'],['m²','Metros quadrados'],['m³','Metros cúbicos'],['pal','Paletes'],['bob','Bobinas'],['pct','Pacotes'],['fd','Fardos'],['tl','Toneladas'],['rack','Rack'],['brc','Berço']].map(([v,l])=>`<option value="${v}" ${(h.pcsCicloUnit||'unidade')===v?'selected':''}>${v} — ${l}</option>`).join('')}
+          ${[['unidade','Unidade'],['conj','Conjunto'],['carreta','Carreta'],['bitrem','Bitrem'],['truck','Truck'],['cx','Caixas'],['un','Unidades'],['kg','Quilogramas'],['L','Litros'],['m','Metros lineares'],['m²','Metros quadrados'],['m³','Metros cúbicos'],['pal','Paletes'],['bob','Bobinas'],['pct','Pacotes'],['fd','Fardos'],['tl','Toneladas'],['rack','Rack'],['brc','Berço']].map(([v,l])=>`<option value="${v}" ${(h.pcsCicloUnit||'unidade')===v?'selected':''}>${v} — ${l}</option>`).join('')}
         </select>
+        <label class="f-label" for="conjunto-obs-${id}" style="margin-top:8px">Observação do conjunto</label>
+        <textarea id="conjunto-obs-${id}" class="f-input mtm-autogrow" data-key="conjuntoObs" rows="2" placeholder="Ex.: conjunto com 2 pallets e 8 embalagens.">${esc(h.conjuntoObs||'')}</textarea>
       </div>
       <div class="f-group" style="background:var(--greenBg);border-left:2px solid var(--green);padding-left:8px">
         <span class="f-label" style="color:var(--green)">Fator Pessoal (%)</span>
@@ -5431,6 +5439,9 @@ function renderContent(id){
   div.querySelectorAll('.f-input[data-key]').forEach(inp=>{
     const saveHandler = ()=>{
       s.header[inp.dataset.key]=inp.value;
+      if(inp.dataset.key==='pcsCicloUnit'){
+        div.querySelector('[data-cycle-label]').textContent = (inp.value==='conj'?'Conjunto':inp.value)+' por ciclo';
+      }
       updateTotals(id);
       saveSheets();
       if(inp.dataset.key==='demand' && typeof syncDemandDisplay==='function') syncDemandDisplay(id, inp.value);
@@ -5454,6 +5465,7 @@ function renderContent(id){
     inp.addEventListener('input', saveHandler);
     if(inp.tagName === 'SELECT') inp.addEventListener('change', saveHandler);
   });
+  div.querySelectorAll('.mtm-autogrow').forEach(setupMtmAutoGrow);
   // Restaurar rows se já existem (carregadas do localStorage)
   if(s.rows && s.rows.length){
     s.rows.forEach(r=>renderRow(id, r.id, false));
@@ -5499,6 +5511,25 @@ function insertRowAbove(sid, refRid){
   }, 30);
 }
 
+function setupMtmAutoGrow(el){
+  const fit = ()=>{
+    if(!el.isConnected || !el.getClientRects().length) return;
+    el.style.height='auto';
+    el.style.height=(el.scrollHeight+2)+'px';
+  };
+  el.addEventListener('input',fit);
+  if(typeof ResizeObserver!=='undefined'){
+    let lastWidth=-1;
+    const observer=new ResizeObserver(entries=>{
+      const width=entries[0].contentRect.width;
+      if(width!==lastWidth){lastWidth=width;fit();}
+      if(!el.isConnected) observer.disconnect();
+    });
+    observer.observe(el);
+  }
+  requestAnimationFrame(fit);
+}
+
 function renderRow(sid,rid,focus=false){
   const tbody=document.getElementById('tb-'+sid);
   const s=get(sid); const row=s.rows.find(r=>r.id===rid);
@@ -5507,7 +5538,7 @@ function renderRow(sid,rid,focus=false){
   const agOpts = ['', 'Sim', 'Não', 'Necessário'];
   tr.innerHTML=`
     <td class="col-n" data-n></td>
-    <td><input class="ci ci-desc" placeholder="Descrição da atividade..." data-f="desc" value="${esc(row.desc||'')}"></td>
+    <td><textarea class="ci ci-desc mtm-autogrow" rows="1" aria-label="Descrição da atividade" placeholder="Descrição da atividade..." data-f="desc">${esc(row.desc||'')}</textarea></td>
     <td><select class="cell-select" data-f="agrega">
       ${agOpts.map(o=>`<option value="${o}"${row.agrega===o?' selected':''}>${o||'—'}</option>`).join('')}
     </select></td>
@@ -5523,6 +5554,7 @@ function renderRow(sid,rid,focus=false){
     <td style="white-space:nowrap"><button class="row-drag" title="Arrastar para reordenar">⠿</button><button class="row-ins" onclick="insertRowAbove('${sid}','${rid}')" title="Inserir uma linha acima desta">＋</button><button class="row-del" onclick="delRow('${sid}','${rid}')" title="Excluir esta linha">✕</button></td>`;
   tr.draggable = false;          // ativa só ao pressionar o handle ⠿
   tbody.appendChild(tr);
+  tr.querySelectorAll('.mtm-autogrow').forEach(setupMtmAutoGrow);
 
   // ── Drag-and-drop para reordenar linhas ──
   // O handle ⠿ ativa draggable no mousedown; dragend desativa novamente.
@@ -11912,7 +11944,7 @@ function frpAnalise(sid){
 
 // ── Unidade por ciclo — retorna {abbr, label} a partir do header da folha ──
 var _PCS_UNIT_MAP = {
-  'unidade':'Unidade','carreta':'Carreta','bitrem':'Bitrem','truck':'Truck','cx':'Caixas','un':'Unidades','kg':'Quilogramas','L':'Litros',
+  'unidade':'Unidade','conj':'Conjunto','carreta':'Carreta','bitrem':'Bitrem','truck':'Truck','cx':'Caixas','un':'Unidades','kg':'Quilogramas','L':'Litros',
   'm':'Metros','m²':'Metros²','m³':'Metros³','pal':'Paletes',
   'bob':'Bobinas','pct':'Pacotes','fd':'Fardos','tl':'Toneladas',
   'rack':'Rack','brc':'Berço'
