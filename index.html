@@ -2446,6 +2446,14 @@ table.mtm .cell-select{min-width:120px;}
 .frp-overview-observation{margin-top:12px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:7px;}
 @media print{.frp-overview-metrics{grid-template-columns:repeat(5,minmax(0,1fr));}.frp-overview-observation{break-inside:auto;}}
 </style>
+<style id="mtm-folder-project-wrap">
+.mtm-project-full-name,.mtm-folder-full-name,.db-proj-name,.db-proj-client,.pm-folder-name,.pm-proj-name,.pm-sh-title,.plj-txt b,.plj-txt em,.plj-titulo,.plj-subtitulo{
+  white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere;word-break:normal;line-height:1.4;max-height:none!important;min-width:0;
+}
+.pm-proj-info,.pm-folder-info,.db-proj-body,.plj-txt{min-width:0;}
+.plj-item{height:auto;min-height:0;align-items:flex-start;}
+.plj-list{max-height:none;overflow:visible;}
+</style>
 </head>
 <body>
 
@@ -9466,10 +9474,10 @@ function dbRenderList(){
     html += '<div class="db-company-card" onclick="openFolderPage(\'' + fid + '\')" style="background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:16px;cursor:pointer;transition:all .2s;position:relative" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'var(--accent)\';this.style.boxShadow=\'var(--shadow-glow)\'" onmouseout="this.style.transform=\'\';this.style.borderColor=\'var(--border2)\';this.style.boxShadow=\'\'">'
       + '<button onclick="event.stopPropagation();dbDuplicateFolder(\'' + fid + '\')" title="Duplicar pasta (com projetos e folhas)" style="position:absolute;top:10px;right:44px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:4px 8px;border-radius:6px;transition:all .2s" onmouseover="this.style.color=\'var(--accent)\';this.style.background=\'var(--surface3)\'" onmouseout="this.style.color=\'var(--text3)\';this.style.background=\'transparent\'">📑</button>'
       + '<button onclick="event.stopPropagation();dbDelFolder(\'' + fid + '\')" title="Excluir pasta e tudo dentro" style="position:absolute;top:10px;right:10px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:4px 8px;border-radius:6px;transition:all .2s" onmouseover="this.style.color=\'var(--red)\';this.style.background=\'var(--redBg)\'" onmouseout="this.style.color=\'var(--text3)\';this.style.background=\'transparent\'">🗑</button>'
-      + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
+      + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-top:28px">'
       + '<div style="width:56px;height:56px;border-radius:12px;background:var(--surface3);border:1px solid var(--border2);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;position:relative;cursor:pointer" onclick="event.stopPropagation();dbPickFolderLogo(\'' + fid + '\')" title="' + (logo?'Trocar imagem':'Adicionar imagem') + '">' + logoHtml + '<div style="position:absolute;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;font-size:18px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">📷</div></div>'
       + '<div style="min-width:0;flex:1">'
-      + '<div style="font-size:15px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + dbEsc(clientName) + '</div>'
+      + '<div class="mtm-folder-full-name" style="font-size:15px;font-weight:800;color:var(--text)">' + dbEsc(clientName) + '</div>'
       + '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:600">Empresa · Pasta</div>'
       + '</div>'
       + '</div>'
@@ -9961,7 +9969,7 @@ function openCompanyPage(clientName){
     + '<button onclick="closeCompanyPage()" style="background:var(--surface3);border:1px solid var(--border2);color:var(--text);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">← Voltar</button>'
     + '<div onclick="dbPickClientLogo(' + JSON.stringify(clientName) + ')" style="width:68px;height:68px;border-radius:14px;background:var(--surface3);border:1px solid var(--border2);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0;position:relative;cursor:pointer" title="' + (logo?'Trocar imagem':'Adicionar imagem') + '">' + logoHtml + '<div style="position:absolute;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;font-size:22px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">📷</div></div>'
     + '<div style="flex:1;min-width:200px">'
-    + '<div style="font-size:22px;font-weight:800;color:var(--text);background:var(--accentGrad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">' + dbEsc(clientName) + '</div>'
+    + '<div class="mtm-folder-full-name" style="font-size:22px;font-weight:800;color:var(--text);background:var(--accentGrad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">' + dbEsc(clientName) + '</div>'
     + '<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-top:2px">Página da Empresa · Dossiê Consolidado</div>'
     + '</div>'
     + '<button onclick="openYamazumi(' + JSON.stringify(clientName) + ')" style="background:linear-gradient(135deg,#7c3aed,#4f8ef7);color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">📊 Yamazumi</button>'
@@ -10054,7 +10062,7 @@ function openCompanyPage(clientName){
     html += ''
       + '<div style="background:var(--surface3);border:1px solid var(--border);border-radius:10px;padding:12px;position:relative">'
       + '<button onclick="dbDelById(' + JSON.stringify(p.id) + ')" title="Excluir projeto" style="position:absolute;top:8px;right:8px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:12px" onmouseover="this.style.color=\'var(--red)\'" onmouseout="this.style.color=\'var(--text3)\'">✕</button>'
-      + '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;padding-right:20px">' + dbEsc(p.name) + '</div>'
+      + '<div class="mtm-project-full-name" style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;padding-right:24px">' + dbEsc(p.name) + '</div>'
       + '<div style="font-size:10px;color:var(--text3);margin-bottom:10px">Criado em ' + dbEsc(p.date) + '</div>'
       + '<div style="display:flex;gap:10px;font-size:10px;color:var(--text2);margin-bottom:10px">'
       + '<span>📋 <strong>' + ns + '</strong> folha(s)</span>'
@@ -10181,7 +10189,7 @@ function openFolderPage(fid, manterRolagem){
     + '<button onclick="closeFolderPage()" style="background:var(--surface3);border:1px solid var(--border2);color:var(--text);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">← Voltar</button>'
     + '<div onclick="dbPickFolderLogo(\'' + fid + '\')" style="width:68px;height:68px;border-radius:14px;background:var(--surface3);border:1px solid var(--border2);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0;position:relative;cursor:pointer" title="' + (logo?'Trocar imagem':'Adicionar imagem') + '">' + logoHtml + '<div style="position:absolute;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;font-size:22px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">📷</div></div>'
     + '<div style="flex:1;min-width:200px">'
-    + '<div style="font-size:22px;font-weight:800;color:var(--text);background:var(--accentGrad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">' + dbEsc(clientName) + '</div>'
+    + '<div class="mtm-folder-full-name" style="font-size:22px;font-weight:800;color:var(--text);background:var(--accentGrad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">' + dbEsc(clientName) + '</div>'
     + '<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-top:2px">📁 Pasta da Empresa · Dossiê Consolidado</div>'
     + '</div>'
     + '<button onclick="dbRenameFolder(\'' + fid + '\')" style="background:var(--surface3);color:var(--text);border:1px solid var(--border2);padding:10px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">✏️ Renomear</button>'
@@ -10250,12 +10258,12 @@ function openFolderPage(fid, manterRolagem){
       var pTTPText  = pTTP === null ? '— TTP (sem allow.)' : 'TTP <strong style="color:' + pTTPColor + '">' + pTTP.toFixed(1) + '%</strong>';
       html += ''
         + '<div data-folder-project-index="' + pi + '" style="background:var(--surface3);border:1px solid var(--border);border-radius:10px;padding:12px;position:relative">'
-        + '<div style="position:absolute;top:6px;right:6px;display:flex;gap:4px">'
+        + '<div style="display:flex;justify-content:flex-end;flex-wrap:wrap;gap:4px;margin-bottom:8px">'
         + '<button onclick="event.stopPropagation();dbSalvarProjetoIndividual(\'' + fid + '\',' + pi + ')" title="Salvar este projeto como arquivo .mtm.json" style="background:linear-gradient(135deg,#f5a623,#e07b00);color:#000;border:none;cursor:pointer;font-size:11px;border-radius:5px;padding:3px 8px;font-weight:800" onmouseover="this.style.filter=\'brightness(1.15)\'" onmouseout="this.style.filter=\'\'">💾</button>'
         +   '<button onclick="event.stopPropagation();dbRenameProjectInFolder(\'' + fid + '\',' + pi + ')" title="Renomear projeto" style="background:var(--orangeBg);border:1px solid rgba(255,149,0,.4);color:var(--orange);cursor:pointer;font-size:11px;border-radius:5px;padding:3px 7px;font-weight:700" onmouseover="this.style.background=\'var(--orange)\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'var(--orangeBg)\';this.style.color=\'var(--orange)\'">✏️</button>'
         +   '<button onclick="event.stopPropagation();dbDelProjectInFolder(\'' + fid + '\',' + pi + ')" title="Excluir projeto" style="background:var(--redBg);border:1px solid rgba(255,77,109,.4);color:var(--red);cursor:pointer;font-size:11px;border-radius:5px;padding:3px 7px;font-weight:700" onmouseover="this.style.background=\'var(--red)\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'var(--redBg)\';this.style.color=\'var(--red)\'">✕</button>'
         + '</div>'
-        + '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;padding-right:60px">' + dbEsc(p.name) + '</div>'
+        + '<div class="mtm-project-full-name" style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px">' + dbEsc(p.name) + '</div>'
         + '<div style="font-size:10px;color:var(--text3);margin-bottom:10px">Criado em ' + dbEsc(p.date||'—') + '</div>'
         + '<div style="display:flex;gap:10px;font-size:10px;color:var(--text2);margin-bottom:10px">'
         + '<span>📋 <strong>' + ns + '</strong> folha(s)</span>'
