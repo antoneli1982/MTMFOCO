@@ -2438,6 +2438,14 @@ table.mtm th:nth-child(3),table.mtm td:nth-child(3){min-width:132px;}
 table.mtm .cell-select{min-width:120px;}
 .f-group:has([data-key="conjuntoObs"]){min-width:0;}
 </style>
+<style id="mtm-overview-horizontal">
+.frp-overview-list{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin-bottom:20px;}
+.frp-overview-card{min-width:0;}
+.frp-overview-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:stretch;}
+.frp-overview-metrics>div{min-width:0;overflow-wrap:anywhere;}
+.frp-overview-observation{margin-top:12px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:7px;}
+@media print{.frp-overview-metrics{grid-template-columns:repeat(5,minmax(0,1fr));}.frp-overview-observation{break-inside:auto;}}
+</style>
 </head>
 <body>
 
@@ -13841,11 +13849,11 @@ function showFinalReport(){
         +(_pcsCic > 1 ? ' ÷ '+_pcsCic+' '+_unitAbbr+'/ciclo' : '')
         +') × '+x.stdSec.toFixed(2).replace('.',',')+' s = '+_tDisplay;
     }
-    return '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden">'
+    return '<div class="frp-overview-card" style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden">'
       + '<div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--accentGrad)"></div>'
-      + '<div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:10px;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.25">'+x.sheet.label+'</div>'
-      + (s.header.processo ? '<div style="font-size:10px;color:var(--text3);margin-bottom:8px;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.3">'+s.header.processo+'</div>' : '')
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+      + '<div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:10px;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.25">'+esc(x.sheet.label)+'</div>'
+      + (s.header.processo ? '<div style="font-size:10px;color:var(--text3);margin-bottom:8px;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.3">'+esc(s.header.processo)+'</div>' : '')
+      + '<div class="frp-overview-metrics">'
       +   '<div style="text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 4px">'
       +     '<div style="font-size:16px;font-weight:800;color:var(--accent);font-family:\'JetBrains Mono\',monospace">'+(m.totalTmu?m.totalTmu.toFixed(0):'—')+'</div>'
       +     '<div style="font-size:8px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-top:2px">TMU Total</div>'
@@ -13858,20 +13866,24 @@ function showFinalReport(){
       +     '<div style="font-size:16px;font-weight:800;color:'+allowColor(x.allowUsed)+';font-family:\'JetBrains Mono\',monospace">'+fmt(x.allowUsed,1)+'%</div>'
       +     '<div style="font-size:8px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-top:2px">Allowance Total</div>'
       +   '</div>'
-      + '</div>'
       // ── Quantidade de Peças (antigo TPP) ──
-      + '<div style="margin-top:8px;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 12px">'
+      + '<div style="background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 12px">'
       +   '<div style="font-size:8px;color:var(--text2);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px">Quantidade de '+_unitAbbr+'</div>'
       +   '<input type="number" step="1" min="0" value="'+qtdVal+'" placeholder="ex: 400" '
       +     'oninput="frpCalcTotal(\''+s.id+'\',this,'+x.stdSec+','+_pcsCic+',\''+_unitAbbr+'\')" '
       +     'style="width:100%;background:transparent;border:none;outline:none;font-size:16px;font-weight:800;color:var(--text);font-family:\'JetBrains Mono\',monospace">'
       + '</div>'
       // ── Tempo Total de Produção (dinâmico) ──
-      + '<div id="tt-wrap-'+s.id+'" style="margin-top:8px;background:var(--surface);border:1px solid var(--accent);border-radius:7px;padding:8px 12px;'
+      + '<div id="tt-wrap-'+s.id+'" style="background:var(--surface);border:1px solid var(--accent);border-radius:7px;padding:8px 12px;'
       +   (_tTotal ? '' : 'display:none') + '">'
       +   '<div style="font-size:8px;color:var(--accent);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px">⏱ Tempo Total de Produção</div>'
       +   '<div id="tt-total-'+s.id+'" style="font-size:18px;font-weight:800;color:var(--accent);font-family:\'JetBrains Mono\',monospace">'+_tDisplay+'</div>'
       +   '<div id="tt-formula-'+s.id+'" style="font-size:8px;color:var(--text3);margin-top:3px;line-height:1.4">'+_tFormula+'</div>'
+      + '</div>'
+      + '</div>'
+      + '<div class="frp-overview-observation">'
+      +   '<div style="font-size:10px;font-weight:700;color:var(--text2);margin-bottom:6px">Observação do conjunto</div>'
+      +   '<div style="white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;font-size:12px;color:var(--text)">'+esc(s.header.conjuntoObs||'Nenhuma observação informada.')+'</div>'
       + '</div>'
       + '<div style="font-size:9px;color:var(--text3);margin-top:8px;text-align:right">'
       +   (m.takt > 0 ? 'Takt '+m.takt+'s' : '')
@@ -13984,7 +13996,7 @@ function showFinalReport(){
     +   kpiHtml
     +   '<div class="res-body">'
     +     mtmReportImgHtml()
-    +     frpSection('sec-overview', '🗂️ Visão Geral por Folha', '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-bottom:20px">'+cardsHtml+'</div>')
+    +     frpSection('sec-overview', '🗂️ Visão Geral por Folha', '<div class="frp-overview-list">'+cardsHtml+'</div>')
     +     buildSheetDetailSection()
     +     compTable
     +     buildTTPSection()
