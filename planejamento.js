@@ -1083,7 +1083,7 @@ function prepararPrintPlanejamento(){
   function n(v, d){ return Number(v).toLocaleString('pt-BR', {minimumFractionDigits:d == null ? 2 : d, maximumFractionDigits:d == null ? 2 : d}); }
   function row(label, value){ return '<tr><th>' + esc(label) + '</th><td>' + esc(value) + '</td></tr>'; }
   var r = c.recursos;
-  var html = '<div class="pa-folha"><div class="pa-h1">MTM em Foco · Relatório de Planejamento</div>'
+  var html = '<div class="pa-folha"><div class="pa-h1">Planejamento · ' + esc(a.p.name) + '</div>'
     + '<div class="pa-h2">' + esc(a.pl.name) + '</div><table class="pa-table"><tbody>'
     + row('Empresa', a.f.name) + row('Projeto', a.p.name)
     + row('Tipo', a.independente ? 'Independente' : 'Vinculado ao projeto')
@@ -1125,7 +1125,23 @@ function prepararPrintPlanejamento(){
     + row('Agrega valor', n(c.va*0.036) + ' s') + row('Não agrega valor', n(c.nva*0.036) + ' s')
     + row('Necessário', n(c.nnva*0.036) + ' s') + row('Não classificado', n(c.unc*0.036) + ' s')
     + '</tbody></table></div>';
-  prepararPrint(c.itens.map(function(it){ return get(it.sid); }));
+  var folhasRelatorio = c.itens.map(function(it){
+    var sh = get(it.sid), origem = idx[it.sid], h = sh.header || {};
+    // O vínculo real da folha pode não estar preenchido no cabeçalho antigo.
+    // Completa apenas a cópia impressa, preservando os dados da análise.
+    return Object.assign({}, sh, {header:Object.assign({}, h, {
+      empresa:origem && origem.empresa || h.empresa || a.f.name,
+      projeto:origem && origem.projeto || h.projeto || (a.independente ? 'Sem vínculo com projeto' : a.p.name)
+    })});
+  });
+  prepararPrint(folhasRelatorio);
+  var anexo = 0;
+  box.innerHTML = box.innerHTML.replace(/<div class="pa-h1">/g, function(){
+    var folha = folhasRelatorio[anexo++];
+    return '<div class="pa-h2">Relatório final · ' + esc(folha.header.projeto) + '</div>'
+      + '<div class="pa-note">Integra o planejamento: <b>' + esc(a.pl.name) + '</b>'
+      + ' · Projeto do planejamento: ' + esc(a.p.name) + '</div><div class="pa-h1">';
+  });
   box.innerHTML = html + box.innerHTML;
   return c;
 }
