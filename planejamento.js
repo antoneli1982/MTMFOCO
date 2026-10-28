@@ -1071,4 +1071,74 @@ function planRender(){
 }
 window.planRender = planRender;
 
+// Relatório independente do escopo do editor: apenas as folhas deste plano.
+function prepararPrintPlanejamento(){
+  var a = planAtual(), box = document.getElementById('print-area');
+  if(!a || !box) throw new Error('Planejamento indisponível.');
+  var c = planCalcular(a.pl, a.p), idx = indiceFolhas();
+  if(!c.itens.length || c.itens.length !== (a.pl.sheets || []).length){
+    box.innerHTML = '';
+    throw new Error('Selecione atividades válidas. Há folhas ausentes ou o planejamento está vazio.');
+  }
+  function n(v, d){ return Number(v).toLocaleString('pt-BR', {minimumFractionDigits:d == null ? 2 : d, maximumFractionDigits:d == null ? 2 : d}); }
+  function row(label, value){ return '<tr><th>' + esc(label) + '</th><td>' + esc(value) + '</td></tr>'; }
+  var r = c.recursos;
+  var html = '<div class="pa-folha"><div class="pa-h1">MTM em Foco · Relatório de Planejamento</div>'
+    + '<div class="pa-h2">' + esc(a.pl.name) + '</div><table class="pa-table"><tbody>'
+    + row('Empresa', a.f.name) + row('Projeto', a.p.name)
+    + row('Tipo', a.independente ? 'Independente' : 'Vinculado ao projeto')
+    + row('Identificação', a.pl.id || '') + row('Data do planejamento', a.pl.date || 'Não informada')
+    + row('Emissão', new Date().toLocaleString('pt-BR'))
+    + row('Tempo normal total', n(c.tn) + ' s')
+    + row('TEMPO TOTAL DO PLANEJAMENTO', n(c.tp) + ' s | ' + n(c.tp/60) + ' min | ' + n(c.tp/3600,4) + ' h')
+    + row('Takt Time', c.takt > 0 ? n(c.takt) + ' s' : 'Não informado')
+    + row('Operadores calculados', c.takt > 0 ? c.ops + ' (exato: ' + n(c.opsExato) + ')' : 'Não calculado: sem takt')
+    + row('Saturação média', c.takt > 0 ? n(c.saturacao) + '%' : 'Não calculada: sem takt')
+    + row('Folga no conjunto', c.takt > 0 ? n(c.folga) + ' s' : 'Não calculada: sem takt')
+    + row('Capacidade teórica sem recursos', n(c.pecasHora,0) + ' unidades do planejamento/h')
+    + '</tbody></table><div class="pa-h2">Atividades e memória de cálculo</div>'
+    + '<table class="pa-table"><thead><tr><th>#</th><th>Folha MTM / Processo / Origem</th><th>Tempo padrão unit. (s)</th><th>Qtd.</th><th>Subtotal (s)</th></tr></thead><tbody>';
+  c.itens.forEach(function(it, i){
+    var o = idx[it.sid];
+    html += '<tr><td>' + (i+1) + '</td><td><b>' + esc(it.label) + '</b><br>' + esc(it.processo)
+      + '<br>' + esc(o ? o.empresa + ' › ' + o.projeto : 'Origem não vinculada')
+      + '</td><td class="num">' + n(it.tpUnit,4) + '</td><td class="num">' + esc(it.qtd)
+      + '</td><td class="num">' + n(it.tpTotal,4) + '</td></tr>';
+  });
+  html += '<tr class="total-row"><td colspan="4">TOTAL</td><td class="num">' + n(c.tp,4)
+    + '</td></tr></tbody></table><p class="pa-note">Total = soma do tempo padrão de cada folha × quantidade no planejamento. '
+    + 'Cálculo sem arredondamento intermediário. Os anexos apresentam uma execução de cada folha, na ordem acima.</p>'
+    + '<div class="pa-h2">Recursos alocados</div><table class="pa-table"><thead><tr><th>Tipo</th><th>Nome</th><th>Dedicação (%)</th></tr></thead><tbody>';
+  r.lista.forEach(function(rec){
+    html += '<tr><td>' + (rec.tipo === 'maquina' ? 'Máquina' : 'Mão de obra') + '</td><td>'
+      + esc(rec.label || 'Não informado') + '</td><td>' + esc(rec.dedicacao) + '</td></tr>';
+  });
+  if(!r.lista.length) html += '<tr><td colspan="3">Nenhum recurso informado: padrão de 1 recurso a 100%.</td></tr>';
+  html += '</tbody></table><table class="pa-table"><tbody>'
+    + row('Fator de recursos', n(r.fator) + '×')
+    + row('Tempo efetivo simulado', r.fator > 0 ? n(r.tpEfetivo) + ' s | ' + n(r.tpEfetivo/60) + ' min' : 'Indisponível: dedicação total zero')
+    + row('Capacidade teórica com recursos', r.fator > 0 ? n(r.pecasHoraEfetiva,0) + ' unidades do planejamento/h' : 'Indisponível: dedicação total zero')
+    + row('Comparação com takt', c.takt > 0 && r.fator > 0 ? (r.tpEfetivo <= c.takt ? 'Atende na simulação' : 'Excede na simulação') : 'Não calculada')
+    + '</tbody></table><p class="pa-note">Simulação existente: tempo total ÷ soma das dedicações/100. '
+    + 'Pressupõe divisão proporcional do trabalho; a combinação de máquinas e pessoas não comprova paralelismo real.</p>'
+    + '<div class="pa-h2">Composição do tempo normal (com quantidades)</div><table class="pa-table"><tbody>'
+    + row('Agrega valor', n(c.va*0.036) + ' s') + row('Não agrega valor', n(c.nva*0.036) + ' s')
+    + row('Necessário', n(c.nnva*0.036) + ' s') + row('Não classificado', n(c.unc*0.036) + ' s')
+    + '</tbody></table></div>';
+  prepararPrint(c.itens.map(function(it){ return get(it.sid); }));
+  box.innerHTML = html + box.innerHTML;
+  return c;
+}
+window.prepararPrintPlanejamento = prepararPrintPlanejamento;
+window.planImprimir = function(){
+  try{
+    prepararPrintPlanejamento();
+    window._mtmPrintMode = 'planejamento';
+    window.print();
+  }catch(e){
+    window._mtmPrintMode = 'folhas';
+    alert('Não foi possível imprimir: ' + e.message);
+  }
+};
+
 })();

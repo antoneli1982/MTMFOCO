@@ -83,6 +83,31 @@ let browser;
   await page.getByRole('button',{name:'Máquina',exact:false}).click();
   await page.getByRole('button',{name:'Mão de obra',exact:false}).click();
   assert.equal(await page.evaluate(()=>planCalcular(pmData.f1.projects[0].plans[0]).recursos.tpEfetivo),51.3);
+  // A impressão reúne somente as folhas selecionadas, preserva ordem e cálculo TTP.
+  await page.evaluate(()=>{
+    window.print=()=>{window.dispatchEvent(new Event('beforeprint'));};
+    get('s2').header.conjuntoObs='Conjunto <teste> & observação';
+  });
+  await page.getByRole('button',{name:'Imprimir relatório / PDF',exact:false}).click();
+  const printed=await page.evaluate(()=>({
+    text:document.getElementById('print-area').textContent,
+    count:document.querySelectorAll('#print-area .pa-folha').length,
+    headings:Array.from(document.querySelectorAll('#print-area .pa-h1')).map(el=>el.textContent),
+    data:JSON.stringify(pmData.f1.projects[0].plans[0])
+  }));
+  assert.equal(printed.count,4);
+  assert.match(printed.text,/102,60 s/);
+  assert.match(printed.text,/51,30 s/);
+  assert.match(printed.text,/21,600/); // TTP 80%, mesma base do planejamento
+  assert.match(printed.text,/Conjunto <teste> & observação/);
+  assert.match(printed.headings[1],/Folha s2/);
+  assert.match(printed.headings[2],/Folha s1/);
+  assert.match(printed.headings[3],/Folha s3/);
+  await page.pdf({path:process.env.PLANNING_PDF || '/tmp/planejamento-teste.pdf',preferCSSPageSize:true});
+  assert.equal(await page.evaluate(()=>JSON.stringify(pmData.f1.projects[0].plans[0])),printed.data);
+  await page.evaluate(()=>window.dispatchEvent(new Event('afterprint')));
+  assert.equal(await page.evaluate(()=>window._mtmPrintMode),'folhas');
+  console.log('Impressão: resumo, ordem, TTP, quantidades, recursos e PDF OK.');
   await page.keyboard.press('Escape');
   await page.reload();
   await page.waitForTimeout(700);
@@ -93,6 +118,15 @@ let browser;
   await page.locator('#plj-sel-projeto').selectOption('0');
   await page.locator('#plj-sel-folha').selectOption('s1');
   assert.equal(await page.evaluate(()=>planCalcular(planIndependentes()[0]).tp),36);
+  await page.evaluate(()=>prepararPrintPlanejamento());
+  assert.equal(await page.locator('#print-area .pa-folha').count(),2);
+  assert.match(await page.locator('#print-area').textContent(),/Independente/);
+  assert.equal(await page.evaluate(()=>{
+    const pl=planIndependentes()[0];pl.sheets.push('ausente');
+    try{prepararPrintPlanejamento();return false;}catch(e){return true;}
+    finally{pl.sheets.pop();}
+  }),true);
+  assert.equal(await page.locator('#print-area').textContent(),'');
   await page.keyboard.press('Escape');
   await page.reload();
   await page.waitForTimeout(700);
