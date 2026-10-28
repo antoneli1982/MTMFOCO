@@ -1125,7 +1125,15 @@ function prepararPrintPlanejamento(){
     + row('Agrega valor', n(c.va*0.036) + ' s') + row('Não agrega valor', n(c.nva*0.036) + ' s')
     + row('Necessário', n(c.nnva*0.036) + ' s') + row('Não classificado', n(c.unc*0.036) + ' s')
     + '</tbody></table></div>';
-  prepararPrint(c.itens.map(function(it){ return get(it.sid); }));
+  prepararPrint(c.itens.map(function(it){
+    var sh = get(it.sid), origem = idx[it.sid], h = sh.header || {};
+    // O vínculo real da folha pode não estar preenchido no cabeçalho antigo.
+    // Completa apenas a cópia impressa, preservando os dados da análise.
+    return Object.assign({}, sh, {header:Object.assign({}, h, {
+      empresa:origem && origem.empresa || h.empresa || a.f.name,
+      projeto:origem && origem.projeto || h.projeto || (a.independente ? 'Sem vínculo com projeto' : a.p.name)
+    })});
+  }));
   box.innerHTML = html + box.innerHTML;
   return c;
 }
