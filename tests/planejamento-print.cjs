@@ -12,13 +12,14 @@ const sheet=(id,tmu,ttp=0)=>({id,label:'Folha '+id,header:{manualTTP:ttp,conjunt
 const sheets=[sheet('a',1000),sheet('b',500,80),sheet('c',250),sheet('fora',9999)];
 const plan={id:'pl1',name:'Teste',date:'28/10/2026',sheets:['b','a','c'],qtds:{a:2},takt:30,recursos:[{tipo:'operador',dedicacao:100},{tipo:'maquina',dedicacao:100}]};
 const ctx={console,Date,Math,JSON,Number,String,parseFloat,isFinite,
-  document:{getElementById:id=>id==='print-area'?box:null,addEventListener(){},querySelector(){return null;}},
+  document:{title:'MTM em Foco',getElementById:id=>id==='print-area'?box:null,addEventListener(){},querySelector(){return null;}},
   localStorage:{getItem:k=>storage[k]||null,setItem:(k,v)=>storage[k]=v},
   pmData:{f:{name:'Empresa',projects:[{name:'Projeto',sheets:['a','b'],plans:[plan]},{name:'Externo',sheets:['c']}] }},
   get:id=>sheets.find(s=>s.id===id),scopedSheets:()=>[sheets[3]],
   alert:msg=>{ctx.lastAlert=msg;},addEventListener:(name,fn)=>events[name]=fn};
 ctx.window=ctx;vm.createContext(ctx);
 vm.runInContext(html.slice(html.indexOf('function computeSheetMetrics(s){'),html.indexOf('function updateTotals(sid){')),ctx);
+vm.runInContext(html.slice(html.indexOf('var mtmTituloAntesPrint = null;'),html.indexOf('// Monta TODO o conteúdo formatado')),ctx);
 vm.runInContext(html.slice(html.indexOf('function prepararPrint(folhasPlanejamento){'),html.indexOf('// Categoriza código MTM-UAS')),ctx);
 vm.runInContext(fs.readFileSync(path.join(root,'planejamento.js'),'utf8'),ctx);
 ctx.planAbrir('f',0,0);
@@ -27,6 +28,7 @@ const sheetsBefore=JSON.stringify(sheets);
 let prints=0;ctx.print=()=>{prints++;events.beforeprint();};
 ctx.planImprimir();
 assert.equal(prints,1);assert.equal(ctx._mtmPrintMode,'planejamento');
+assert.equal(ctx.document.title,'Planejamento - Projeto');
 assert.match(box.innerHTML,/102,60 s/);assert.match(box.innerHTML,/51,30 s/);
 assert.match(box.innerHTML,/21,600/);assert.match(box.innerHTML,/Externo/);
 assert.match(box.innerHTML,/Texto &lt;teste&gt; &amp; seguro/);
@@ -44,12 +46,18 @@ assert.match(anexos[0],/Relatório final · Projeto/);
 assert.match(anexos[2],/Relatório final · Externo/);
 anexos.forEach(anexo=>assert.match(anexo,/Integra o planejamento: <b>Teste<\/b> · Projeto do planejamento: Projeto/));
 events.afterprint();assert.equal(ctx._mtmPrintMode,'folhas');
+assert.equal(ctx.document.title,'MTM em Foco');
+ctx.scopedSheets=()=>[sheets[0],sheets[2]];
+ctx.mtmDefinirNomePDF('Relatório final');
+assert.equal(ctx.document.title,'Relatório final - Projeto + Externo');
+ctx.mtmRestaurarTituloPDF();
 plan.recursos.forEach(r=>r.dedicacao=0);ctx.prepararPrintPlanejamento();
 assert.match(box.innerHTML,/Indisponível: dedicação total zero/);
 plan.sheets.push('ausente');ctx.planImprimir();assert.equal(prints,1);assert.equal(box.innerHTML,'');
 plan.sheets=[];ctx.planImprimir();assert.equal(prints,1);
 ctx.planIndepDefinir([{id:'ind',name:'Independente',sheets:['c'],qtds:{c:2.5}}]);
 ctx.planAbrirIndependente(0);ctx.planImprimir();
+assert.equal(ctx.document.title,'Planejamento - Independente');
 assert.equal(prints,2);assert.match(box.innerHTML,/22,50 s/);
 assert.equal((box.innerHTML.match(/class="pa-folha"/g)||[]).length,2);
 assert.match(box.innerHTML,/Independente/);

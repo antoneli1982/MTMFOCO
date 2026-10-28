@@ -1143,6 +1143,7 @@ function prepararPrintPlanejamento(){
       + ' · Projeto do planejamento: ' + esc(a.p.name) + '</div><div class="pa-h1">';
   });
   box.innerHTML = html + box.innerHTML;
+  mtmDefinirNomePDF('Planejamento', a.independente ? a.pl.name : a.p.name);
   return c;
 }
 window.prepararPrintPlanejamento = prepararPrintPlanejamento;
@@ -1153,6 +1154,7 @@ window.planImprimir = function(){
     window.print();
   }catch(e){
     window._mtmPrintMode = 'folhas';
+    mtmRestaurarTituloPDF();
     alert('Não foi possível imprimir: ' + e.message);
   }
 };
