@@ -6076,10 +6076,11 @@ function exportPDF(){
 
 // Monta TODO o conteúdo formatado para impressão dentro de #print-area
 // Filtra linhas vazias (TV com 0, MTM com desc/code/tmu vazios, CA zerado)
-function prepararPrint(){
+function prepararPrint(folhasPlanejamento){
   var box = document.getElementById('print-area');
   if(!box) return;
-  if(!scopedSheets().length){ box.innerHTML = ''; return; }
+  var folhasPrint = Array.isArray(folhasPlanejamento) ? folhasPlanejamento : scopedSheets();
+  if(!folhasPrint.length){ box.innerHTML = ''; return; }
 
   // ─── Helpers locais ───
   function esc(s){
@@ -6170,9 +6171,15 @@ function prepararPrint(){
   var html = '';
   var dataGer = new Date().toLocaleString('pt-BR');
 
-  scopedSheets().forEach(function(s, idx){
+  folhasPrint.forEach(function(s, idx){
     var h = s.header||{};
     var m = calcMetrics(s);
+    if(Array.isArray(folhasPlanejamento)){
+      var cm = computeSheetMetrics(s);
+      m = {tmu:cm.totalTmu, tn:cm.totalSec, ts:cm.stdSec,
+        allow:cm.manualTTP > 0 ? 100-cm.manualTTP : 0,
+        pcsCiclo:cm.pcsCiclo, pph:cm.stdSec > 0 ? Math.floor(3600/cm.stdSec*cm.pcsCiclo) : 0};
+    }
     var fad = calcFad(s.fadiga);
 
     html += '<div class="pa-folha">';
@@ -6210,6 +6217,10 @@ function prepararPrint(){
     html +=   '</div>';
     html += '</div>';
 
+    if(Array.isArray(folhasPlanejamento)){
+      html += '<div class="pa-note">Conjunto: '+esc(h.pcsCiclo || 1)+' · Observação: '+esc(h.conjuntoObs || 'Não informada')+' · TTP manual: '+esc(h.manualTTP || 0)+'%</div>';
+    }
+
     // ═══ TABELA MTM (filtrando linhas vazias) ═══
     var linhas = (s.rows||[]).filter(function(r){
       var desc = (r.desc||'').trim();
@@ -6242,7 +6253,7 @@ function prepararPrint(){
       html +=   '<td class="num">'+(r.q==null||r.q===''?'':fmtN(r.q,2))+'</td>';
       html +=   '<td class="num">'+(r.f==null||r.f===''?'':fmtN(r.f,2))+'</td>';
       html +=   '<td class="num">'+fmtN(r.ttmu,2)+'</td>';
-      html +=   '<td class="num">'+fmtN(r.tsec,3)+'</td>';
+      html +=   '<td class="num">'+fmtN(Array.isArray(folhasPlanejamento) ? (parseFloat(r.ttmu)||0)*0.036 : r.tsec,3)+'</td>';
       html += '</tr>';
     });
     html += '<tr class="total-row"><td colspan="7" style="text-align:right">TOTAL</td>';
@@ -6411,6 +6422,10 @@ function prepararPrint(){
 // Respeita o modo atual: 'relatorio' (consolidado) ou 'folhas' (padrão).
 window.addEventListener('beforeprint', function(){
   try{
+    if(window._mtmPrintMode === 'planejamento' && typeof prepararPrintPlanejamento === 'function'){
+      prepararPrintPlanejamento();
+      return;
+    }
     var repOpen = document.querySelector('#finalrep-overlay:not(.hidden) .res-modal');
     if((window._mtmPrintMode === 'relatorio' || repOpen) && typeof prepararPrintRelatorio === 'function'){
       prepararPrintRelatorio();
@@ -17993,6 +18008,7 @@ function balEsc(s){
         <div class="plj-titulo" id="plj-titulo">Planejamento</div>
         <div class="plj-subtitulo" id="plj-sub"></div>
       </div>
+      <button class="plj-btn-ghost" onclick="planImprimir()">🖨️ Imprimir relatório / PDF</button>
       <button class="plj-btn-ghost" onclick="planRenomear(PLJ_CTX().fid, PLJ_CTX().pi, PLJ_CTX().k)">✏️ Renomear</button>
       <button class="plj-btn-danger" onclick="planExcluir(PLJ_CTX().fid, PLJ_CTX().pi, PLJ_CTX().k)">✕ Excluir</button>
       <button class="plj-btn-ghost" onclick="planFechar()">Fechar</button>
@@ -18055,6 +18071,6 @@ function balEsc(s){
 })();
 </script>
 
-<script src="planejamento.js?v=1"></script>
+<script src="planejamento.js?v=2"></script>
 </body>
 </html>
