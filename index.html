@@ -6062,9 +6062,35 @@ function goBottom(){
   if(last)last.scrollIntoView({behavior:'smooth',block:'center'});
   else window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
 }
+// O navegador usa document.title como nome sugerido em Salvar como PDF.
+var mtmTituloAntesPrint = null;
+function mtmNomeProjetoPrint(){
+  var lista = typeof scopedSheets === 'function' ? scopedSheets() : [];
+  var indice = typeof indiceFolhas === 'function' ? indiceFolhas() : {};
+  var nomes = [];
+  lista.forEach(function(sh){
+    var nome = (indice[sh.id] && indice[sh.id].projeto) || (sh.header && sh.header.projeto);
+    if(nome && nomes.indexOf(nome) < 0) nomes.push(nome);
+  });
+  if(!nomes.length && typeof pmGetProject === 'function'){
+    var projeto = pmGetProject();
+    if(projeto && projeto.name) nomes.push(projeto.name);
+  }
+  return nomes.join(' + ') || 'Sem projeto';
+}
+function mtmDefinirNomePDF(tipo, projeto){
+  if(mtmTituloAntesPrint === null) mtmTituloAntesPrint = document.title;
+  document.title = (tipo + ' - ' + (projeto || mtmNomeProjetoPrint()))
+    .replace(/[<>:"/\\|?*\x00-\x1f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0,180);
+}
+function mtmRestaurarTituloPDF(){
+  if(mtmTituloAntesPrint !== null) document.title = mtmTituloAntesPrint;
+  mtmTituloAntesPrint = null;
+}
 function exportPDF(){
   try{
     window._mtmPrintMode = 'folhas';
+    mtmDefinirNomePDF('Folha MTM');
     prepararPrint();
     // Pequeno delay para o DOM renderizar antes do print
     setTimeout(function(){ window.print(); }, 80);
@@ -6430,13 +6456,17 @@ window.addEventListener('beforeprint', function(){
     if((window._mtmPrintMode === 'relatorio' || repOpen) && typeof prepararPrintRelatorio === 'function'){
       prepararPrintRelatorio();
     } else {
+      mtmDefinirNomePDF('Folha MTM');
       prepararPrint();
     }
   }
   catch(e){ console.error('beforeprint:', e); }
 });
 // Após imprimir, volta ao modo padrão (folhas individuais).
-window.addEventListener('afterprint', function(){ window._mtmPrintMode = 'folhas'; });
+window.addEventListener('afterprint', function(){
+  window._mtmPrintMode = 'folhas';
+  mtmRestaurarTituloPDF();
+});
 
 
 
@@ -13579,6 +13609,7 @@ var _mtmPrintMode = 'folhas';
 // Monta o RELATÓRIO FINAL CONSOLIDADO em #print-area (layout de PDF).
 // ════════════════════════════════════════════════════════════════
 function prepararPrintRelatorio(){
+  mtmDefinirNomePDF('Relatório final');
   // O PDF do Relatório Final agora é um CLONE FIEL do relatório exibido
   // na tela (mesmo conteúdo, mesma ordem, mesmas seções). Em vez de
   // reconstruir um layout separado, copiamos o conteúdo do modal para a
@@ -18071,6 +18102,6 @@ function balEsc(s){
 })();
 </script>
 
-<script src="planejamento.js?v=2"></script>
+<script src="planejamento.js?v=3"></script>
 </body>
 </html>
