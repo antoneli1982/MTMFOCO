@@ -5793,6 +5793,18 @@ function computeSheetMetrics(s){
   };
 }
 
+// Duração acumulada, arredondada uma única vez para décimos de segundo.
+function mtmFormatarDuracao(segundos){
+  var valor = Number(segundos);
+  if(!isFinite(valor) || valor < 0) return '—';
+  var decimos = Math.round(valor * 10);
+  var horas = Math.floor(decimos / 36000);
+  var minutos = Math.floor(decimos / 600) % 60;
+  var segundosInteiros = Math.floor(decimos / 10) % 60;
+  function dois(n){ return String(n).padStart(2, '0'); }
+  return dois(horas) + ':' + dois(minutos) + ':' + dois(segundosInteiros) + ',' + (decimos % 10);
+}
+
 function updateTotals(sid){
   const s=get(sid);
   if(!s) return;
@@ -12140,11 +12152,7 @@ function frpCalcTotal(sid, inputEl, stdSec, pcsCiclo, unitAbbr){
   if(qty > 0 && stdSec > 0){
     var ciclos = qty / (pcsCiclo || 1);
     var tTotal = ciclos * stdSec;
-    var display = tTotal >= 3600
-      ? (tTotal/3600).toFixed(2).replace('.',',') + ' h'
-      : tTotal >= 60
-        ? (tTotal/60).toFixed(1).replace('.',',') + ' min'
-        : tTotal.toFixed(1).replace('.',',') + ' s';
+    var display = mtmFormatarDuracao(tTotal);
     var formula = '('+qty.toLocaleString('pt-BR')+' '+unitAbbr
       +(pcsCiclo > 1 ? ' ÷ '+pcsCiclo+' '+unitAbbr+'/ciclo' : '')
       +') × '+stdSec.toFixed(2).replace('.',',')+' s = '+display;
@@ -13894,11 +13902,7 @@ function showFinalReport(){
                    ? (_qtdNum / _pcsCic) * x.stdSec : null;
     var _tDisplay = '', _tFormula = '';
     if(_tTotal){
-      _tDisplay = _tTotal >= 3600
-        ? (_tTotal/3600).toFixed(2).replace('.',',') + ' h'
-        : _tTotal >= 60
-          ? (_tTotal/60).toFixed(1).replace('.',',') + ' min'
-          : _tTotal.toFixed(1).replace('.',',') + ' s';
+      _tDisplay = mtmFormatarDuracao(_tTotal);
       _tFormula = '('+_qtdNum.toLocaleString('pt-BR')+' '+_unitAbbr
         +(_pcsCic > 1 ? ' ÷ '+_pcsCic+' '+_unitAbbr+'/ciclo' : '')
         +') × '+x.stdSec.toFixed(2).replace('.',',')+' s = '+_tDisplay;
@@ -18102,6 +18106,6 @@ function balEsc(s){
 })();
 </script>
 
-<script src="planejamento.js?v=3"></script>
+<script src="planejamento.js?v=4"></script>
 </body>
 </html>

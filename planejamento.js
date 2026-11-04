@@ -900,7 +900,7 @@ function planRenderResumo(){
   var html = ''
     + kpi('Atividades',   c.itens.length,            'var(--purple)', '')
     + kpi('Tempo Normal', seg(c.tn) + ' s',          'var(--text)',   minu(c.tn) + ' min')
-    + kpi('TEMPO TOTAL',  seg(c.tp) + ' s',          'var(--green)',  minu(c.tp) + ' min')
+    + kpi('Total em produção', mtmFormatarDuracao(c.tp), 'var(--green)', seg(c.tp) + ' s · ' + minu(c.tp) + ' min')
     + kpi('Takt Time',    c.takt > 0 ? seg(c.takt) + ' s' : '—', 'var(--accent)', '')
     + kpi('Operadores',   c.takt > 0 ? c.ops : '—',  'var(--blue)',
           c.takt > 0 ? 'calculado: ' + c.opsExato.toFixed(2) : 'informe o takt')
@@ -1090,6 +1090,7 @@ function prepararPrintPlanejamento(){
     + row('Identificação', a.pl.id || '') + row('Data do planejamento', a.pl.date || 'Não informada')
     + row('Emissão', new Date().toLocaleString('pt-BR'))
     + row('Tempo normal total', n(c.tn) + ' s')
+    + row('Total em produção (hh:mm:ss,d)', mtmFormatarDuracao(c.tp))
     + row('TEMPO TOTAL DO PLANEJAMENTO', n(c.tp) + ' s | ' + n(c.tp/60) + ' min | ' + n(c.tp/3600,4) + ' h')
     + row('Takt Time', c.takt > 0 ? n(c.takt) + ' s' : 'Não informado')
     + row('Operadores calculados', c.takt > 0 ? c.ops + ' (exato: ' + n(c.opsExato) + ')' : 'Não calculado: sem takt')

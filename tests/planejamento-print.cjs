@@ -19,6 +19,21 @@ const ctx={console,Date,Math,JSON,Number,String,parseFloat,isFinite,
   alert:msg=>{ctx.lastAlert=msg;},addEventListener:(name,fn)=>events[name]=fn};
 ctx.window=ctx;vm.createContext(ctx);
 vm.runInContext(html.slice(html.indexOf('function computeSheetMetrics(s){'),html.indexOf('function updateTotals(sid){')),ctx);
+// Formato acumulado e viradas por arredondamento, sem limite de 24 horas.
+for(const [seconds, expected] of [[0,'00:00:00,0'],[743.3,'00:12:23,3'],[59.96,'00:01:00,0'],[3599.96,'01:00:00,0'],[90061.2,'25:01:01,2'],[360000,'100:00:00,0']]){
+  assert.equal(ctx.mtmFormatarDuracao(seconds),expected);
+}
+const totalElements = {'tt-wrap-a':{style:{}},'tt-total-a':{},'tt-formula-a':{}};
+const originalGetElement = ctx.document.getElementById;
+ctx.document.getElementById=id=>totalElements[id] || originalGetElement(id);
+ctx.frpTppSave=()=>{};
+vm.runInContext(html.slice(html.indexOf('function frpCalcTotal('),html.indexOf('// Permite editar Peças por Ciclo')),ctx);
+ctx.frpCalcTotal('a',{value:'20'},74.33,2,'peças');
+assert.equal(totalElements['tt-total-a'].textContent,'00:12:23,3');
+assert.match(totalElements['tt-formula-a'].textContent,/00:12:23,3/);
+ctx.frpCalcTotal('a',{value:''},74.33,2,'peças');
+assert.equal(totalElements['tt-wrap-a'].style.display,'none');
+ctx.document.getElementById=originalGetElement;
 vm.runInContext(html.slice(html.indexOf('var mtmTituloAntesPrint = null;'),html.indexOf('// Monta TODO o conteúdo formatado')),ctx);
 vm.runInContext(html.slice(html.indexOf('function prepararPrint(folhasPlanejamento){'),html.indexOf('// Categoriza código MTM-UAS')),ctx);
 vm.runInContext(fs.readFileSync(path.join(root,'planejamento.js'),'utf8'),ctx);
@@ -29,6 +44,8 @@ let prints=0;ctx.print=()=>{prints++;events.beforeprint();};
 ctx.planImprimir();
 assert.equal(prints,1);assert.equal(ctx._mtmPrintMode,'planejamento');
 assert.equal(ctx.document.title,'Planejamento - Projeto');
+assert.match(box.innerHTML,/Total em produção \(hh:mm:ss,d\)/);
+assert.match(box.innerHTML,/00:01:42,6/);
 assert.match(box.innerHTML,/102,60 s/);assert.match(box.innerHTML,/51,30 s/);
 assert.match(box.innerHTML,/21,600/);assert.match(box.innerHTML,/Externo/);
 assert.match(box.innerHTML,/Texto &lt;teste&gt; &amp; seguro/);
