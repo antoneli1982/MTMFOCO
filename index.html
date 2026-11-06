@@ -1765,7 +1765,7 @@ window.FIREBASE_CONFIG = {
   appId:             "1:323473561940:web:ee9f4e4f1f9ea53c5210c1"
 };
 </script>
-<script type="module" src="firebase-mtm.js"></script>
+<script type="module" src="firebase-mtm.js?v=book-global-2"></script>
 
 
 <!-- ============================================================
@@ -6116,17 +6116,39 @@ function exportPDF(){
   }
 }
 
-function abrirBookAnalises(){
-  const folhas = sheets.slice();
-  const indice = typeof indiceFolhas === 'function' ? indiceFolhas() : {};
-  if(!folhas.length){
-    alert('Nenhuma análise disponível para imprimir.');
-    return;
-  }
+let consultaBook = 0;
+async function abrirBookAnalises(){
   const dialog = document.getElementById('mtm-pdf-dialog');
+  if(dialog.open) return;
+  const consulta = ++consultaBook;
   const lista = dialog.querySelector('.mtm-pdf-lista');
   const imprimir = dialog.querySelector('.mtm-pdf-imprimir');
+  const status = dialog.querySelector('output');
+  const aviso = dialog.querySelector('.mtm-book-aviso');
+  const todas = dialog.querySelector('.mtm-pdf-todas');
   lista.replaceChildren();
+  imprimir.disabled = todas.disabled = true;
+  status.textContent = 'Buscando análises de todas as pastas…';
+  aviso.textContent = '';
+  dialog.showModal();
+  const locais = loadSheets();
+  let nuvem = [];
+  try{
+    nuvem = await window.mtmLerFolhasDoBook();
+  }catch(erro){
+    if(consulta !== consultaBook || !dialog.open) return;
+    aviso.textContent = 'Consulta ao Firebase indisponível. Exibindo as análises disponíveis neste navegador.';
+  }
+  if(consulta !== consultaBook || !dialog.open) return;
+  const porId = new Map();
+  for(const folha of [...nuvem, ...locais, ...sheets]){
+    if(folha && folha.id) porId.set(folha.id, folha);
+  }
+  const folhas = Array.from(porId.values());
+  const indice = typeof indiceFolhas === 'function' ? indiceFolhas() : {};
+  const faltantes = Object.keys(indice).filter(id => !porId.has(id)).length;
+  if(faltantes) aviso.textContent += ' Há '+faltantes+' referência(s) de projeto sem folha disponível.';
+  todas.disabled = !folhas.length;
   const caixas = folhas.map(function(folha){
     const linha = document.createElement('label');
     const caixa = document.createElement('input');
@@ -6170,7 +6192,6 @@ function abrirBookAnalises(){
     }
   };
   atualizar();
-  dialog.showModal();
 }
 // Monta TODO o conteúdo formatado para impressão dentro de #print-area
 // Filtra linhas vazias (TV com 0, MTM com desc/code/tmu vazios, CA zerado)
@@ -18185,6 +18206,7 @@ function balEsc(s){
   <button type="button" class="btn btn-ghost mtm-pdf-todas">Marcar todas</button>
   <div class="mtm-pdf-lista"></div>
   <output aria-live="polite"></output>
+  <div class="mtm-book-aviso" role="status"></div>
   <footer>
     <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancelar</button>
     <button type="button" class="btn btn-green mtm-pdf-imprimir">Gerar Book em PDF</button>
