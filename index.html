@@ -3921,6 +3921,7 @@ body.home-clean .db-company-card::after{
   <div class="toolbar-actions" style="display:flex;align-items:center;gap:6px">
     <!-- ★ AÇÕES PRINCIPAIS — primeiro lugar para acesso rápido ★ -->
     <button class="btn btn-ghost" onclick="goHome()" title="Voltar à tela inicial (empresas e projetos)" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(0,212,255,.25);font-weight:800;font-size:12px;padding:7px 14px">🏠<span class="btn-lbl"> Início</span></button>
+    <button class="btn btn-green" onclick="abrirBookAnalises()" title="Imprimir as análises selecionadas em um único PDF">📚<span class="btn-lbl"> Book de análises</span></button>
     <button class="btn btn-primary" onclick="showFinalReport()" title="Relatório consolidado de todas as folhas — inclui o balanceamento" style="background:linear-gradient(135deg,#00e5a0,#00b87a);border:none;color:#001a12;font-weight:800;font-size:12px;padding:7px 16px">📋<span class="btn-lbl"> Relatório Final</span></button>
     <button class="btn btn-primary" onclick="openProjectManager()" title="Gerenciador de Projetos" style="background:linear-gradient(135deg,#4f8ef7,#6366f1);border:none;color:#fff;font-weight:800;font-size:12px;padding:7px 16px">📁<span class="btn-lbl"> Projetos</span></button>
     <!-- separador visual -->
@@ -4315,6 +4316,7 @@ body.home-clean .db-company-card::after{
       <span class="book-stat" id="book-stats">— palavras · — caracteres</span>
       <span style="flex:1"></span>
       <button class="btn btn-ghost" onclick="bookClearAll()" style="font-size:11px">🗑️ Limpar Tudo</button>
+      <button class="btn btn-green" onclick="abrirBookAnalises()">Book de análises (PDF)</button>
       <button class="btn btn-ghost" onclick="bookExportHtml()" style="font-size:11px">⬇ HTML</button>
       <button class="btn btn-ghost" onclick="bookExportDocx()" style="font-size:11px">⬇ Word</button>
       <button class="btn btn-primary" onclick="closeBook()" style="font-size:11px">✓ Concluído</button>
@@ -6101,6 +6103,19 @@ function mtmRestaurarTituloPDF(){
 }
 var folhasEscolhidasPDF = null;
 function exportPDF(){
+  try{
+    window._mtmPrintMode = 'folhas';
+    mtmDefinirNomePDF('Folha MTM');
+    prepararPrint();
+    // Pequeno delay para o DOM renderizar antes do print
+    setTimeout(function(){ window.print(); }, 80);
+  }catch(e){
+    console.error('Erro ao preparar PDF:', e);
+    window.print();
+  }
+}
+
+function abrirBookAnalises(){
   const folhas = scopedSheets();
   if(!folhas.length){
     alert('Nenhuma análise disponível para imprimir.');
@@ -6138,7 +6153,7 @@ function exportPDF(){
     folhasEscolhidasPDF = selecionadas;
     window._mtmPrintMode = 'selecao';
     try{
-      mtmDefinirNomePDF('Folha MTM');
+      mtmDefinirNomePDF('Book MTM');
       prepararPrint();
       window.print();
     } catch(erro){
@@ -18162,13 +18177,13 @@ function balEsc(s){
 @media print{#mtm-pdf-dialog{display:none!important}}
 </style>
 <dialog id="mtm-pdf-dialog" aria-labelledby="mtm-pdf-titulo">
-  <h2 id="mtm-pdf-titulo">Selecionar análises para o PDF</h2>
+  <h2 id="mtm-pdf-titulo">Book de análises MTM</h2>
   <button type="button" class="btn btn-ghost mtm-pdf-todas">Marcar todas</button>
   <div class="mtm-pdf-lista"></div>
   <output aria-live="polite"></output>
   <footer>
     <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancelar</button>
-    <button type="button" class="btn btn-green mtm-pdf-imprimir">Gerar PDF</button>
+    <button type="button" class="btn btn-green mtm-pdf-imprimir">Gerar Book em PDF</button>
   </footer>
 </dialog>
 <script src="planejamento.js?v=4"></script>
