@@ -31,7 +31,7 @@
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, collection, getDocs, doc, setDoc, deleteDoc, serverTimestamp
+  getFirestore, collection, getDocs, getDocsFromServer, doc, setDoc, deleteDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 (function () {
@@ -397,11 +397,20 @@ import {
 
   function boot() {
     patchLocalFunctions();
-    start().catch(function (err) {
+    const inicializacao = start().catch(function (err) {
       console.error('[MTM Firebase] erro crítico:', err);
       toast('Erro ao iniciar Firebase: ' + (err && err.message ? err.message : err), true);
       if (typeof window.showDashboard === 'function') window.showDashboard();
     });
+    window.mtmLerFolhasDoBook = async function () {
+      await inicializacao;
+      if (!db) throw new Error('Firestore indisponível.');
+      const snapshot = await getDocsFromServer(collection(db, COL_SHEETS));
+      return snapshot.docs.map(d => {
+        const folha = d.data();
+        return Object.assign({}, folha, { id: folha.id || d.id });
+      }).sort((a, b) => (a.order || 0) - (b.order || 0));
+    };
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
