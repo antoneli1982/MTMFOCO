@@ -3549,7 +3549,7 @@ body.home-clean .db-company-card::after{
     <div class="db-hdr-logo">MTM</div>
     <div class="db-hdr-user" id="db-user-name"></div>
     <div class="db-hdr-actions">
-      <button class="db-hdr-btn" onclick="abrirBookAnalises()">Book de análises</button>
+      <button class="db-hdr-btn" onclick="exportBookPDF()">Book de análises</button>
       <button class="db-hdr-btn db-hdr-btn-purple" onclick="openApostilas()">📚 Apostilas</button>
     </div>
   </div>
@@ -3922,7 +3922,7 @@ body.home-clean .db-company-card::after{
   <div class="toolbar-actions" style="display:flex;align-items:center;gap:6px">
     <!-- ★ AÇÕES PRINCIPAIS — primeiro lugar para acesso rápido ★ -->
     <button class="btn btn-ghost" onclick="goHome()" title="Voltar à tela inicial (empresas e projetos)" style="background:var(--accentGradSoft);color:var(--accent);border-color:rgba(0,212,255,.25);font-weight:800;font-size:12px;padding:7px 14px">🏠<span class="btn-lbl"> Início</span></button>
-    <button class="btn btn-green" onclick="abrirBookAnalises()" title="Imprimir as análises selecionadas em um único PDF">📚<span class="btn-lbl"> Book de análises</span></button>
+    <button class="btn btn-green" onclick="exportBookPDF()" title="Imprimir as análises selecionadas em um único PDF">📚<span class="btn-lbl"> Book de análises</span></button>
     <button class="btn btn-primary" onclick="showFinalReport()" title="Relatório consolidado de todas as folhas — inclui o balanceamento" style="background:linear-gradient(135deg,#00e5a0,#00b87a);border:none;color:#001a12;font-weight:800;font-size:12px;padding:7px 16px">📋<span class="btn-lbl"> Relatório Final</span></button>
     <button class="btn btn-primary" onclick="openProjectManager()" title="Gerenciador de Projetos" style="background:linear-gradient(135deg,#4f8ef7,#6366f1);border:none;color:#fff;font-weight:800;font-size:12px;padding:7px 16px">📁<span class="btn-lbl"> Projetos</span></button>
     <!-- separador visual -->
@@ -4179,6 +4179,7 @@ body.home-clean .db-company-card::after{
 </div><!-- /#bal-overlay -->
 
 <div class="float-nav">
+  <button class="float-btn" onclick="exportBookPDF()" title="Book PDF global">📕</button>
   <button class="float-btn" onclick="goTop()" title="Ir ao topo">▲</button>
   <button class="float-btn" onclick="goBottom()" title="Última linha">▼</button>
 </div>
@@ -4317,7 +4318,7 @@ body.home-clean .db-company-card::after{
       <span class="book-stat" id="book-stats">— palavras · — caracteres</span>
       <span style="flex:1"></span>
       <button class="btn btn-ghost" onclick="bookClearAll()" style="font-size:11px">🗑️ Limpar Tudo</button>
-      <button class="btn btn-green" onclick="abrirBookAnalises()">Book de análises (PDF)</button>
+      <button class="btn btn-green" onclick="exportBookPDF()">Book de análises (PDF)</button>
       <button class="btn btn-ghost" onclick="bookExportHtml()" style="font-size:11px">⬇ HTML</button>
       <button class="btn btn-ghost" onclick="bookExportDocx()" style="font-size:11px">⬇ Word</button>
       <button class="btn btn-primary" onclick="closeBook()" style="font-size:11px">✓ Concluído</button>
@@ -6102,7 +6103,6 @@ function mtmRestaurarTituloPDF(){
   if(mtmTituloAntesPrint !== null) document.title = mtmTituloAntesPrint;
   mtmTituloAntesPrint = null;
 }
-var folhasEscolhidasPDF = null;
 function exportPDF(){
   try{
     window._mtmPrintMode = 'folhas';
@@ -6116,89 +6116,513 @@ function exportPDF(){
   }
 }
 
-let consultaBook = 0;
-async function abrirBookAnalises(){
-  const dialog = document.getElementById('mtm-pdf-dialog');
-  if(dialog.open) return;
-  const consulta = ++consultaBook;
-  const lista = dialog.querySelector('.mtm-pdf-lista');
-  const imprimir = dialog.querySelector('.mtm-pdf-imprimir');
-  const status = dialog.querySelector('output');
-  const aviso = dialog.querySelector('.mtm-book-aviso');
-  const todas = dialog.querySelector('.mtm-pdf-todas');
-  lista.replaceChildren();
-  imprimir.disabled = todas.disabled = true;
-  status.textContent = 'Buscando análises de todas as pastas…';
-  aviso.textContent = '';
-  dialog.showModal();
-  const locais = loadSheets();
-  let nuvem = [];
-  try{
-    nuvem = await window.mtmLerFolhasDoBook();
-  }catch(erro){
-    if(consulta !== consultaBook || !dialog.open) return;
-    aviso.textContent = 'Consulta ao Firebase indisponível. Exibindo as análises disponíveis neste navegador.';
-  }
-  if(consulta !== consultaBook || !dialog.open) return;
-  const porId = new Map();
-  for(const folha of [...nuvem, ...locais, ...sheets]){
-    if(folha && folha.id) porId.set(folha.id, folha);
-  }
-  const folhas = Array.from(porId.values());
-  const indice = typeof indiceFolhas === 'function' ? indiceFolhas() : {};
-  const faltantes = Object.keys(indice).filter(id => !porId.has(id)).length;
-  if(faltantes) aviso.textContent += ' Há '+faltantes+' referência(s) de projeto sem folha disponível.';
-  todas.disabled = !folhas.length;
-  const caixas = folhas.map(function(folha){
-    const linha = document.createElement('label');
-    const caixa = document.createElement('input');
-    caixa.type = 'checkbox';
-    caixa.checked = true;
-    const cab = folha.header || {};
-    const origem = indice[folha.id] || {};
-    const titulo = [origem.empresa || cab.empresa, origem.projeto || cab.projeto, folha.label, cab.processo, cab.codigo].filter(Boolean).join(' · ');
-    linha.append(caixa, document.createTextNode(titulo || 'Folha MTM'));
-    lista.append(linha);
-    return caixa;
+function bkEsc(v){
+  return String(v==null?'':v).replace(/[&<>"]/g, function(c){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];
   });
-  function atualizar(){
-    const total = caixas.filter(caixa => caixa.checked).length;
-    dialog.querySelector('output').textContent = total + ' de ' + folhas.length + ' selecionadas';
-    imprimir.disabled = total === 0;
-  }
-  lista.onchange = atualizar;
-  dialog.querySelector('.mtm-pdf-todas').onclick = function(){
-    caixas.forEach(caixa => caixa.checked = true);
-    atualizar();
-  };
-  imprimir.onclick = function(){
-    const selecionadas = folhas.filter((folha, i) => caixas[i].checked);
-    if(!selecionadas.length) return;
-    dialog.close();
-    folhasEscolhidasPDF = selecionadas;
-    window._mtmPrintMode = 'selecao';
-    try{
-      const projetos = [...new Set(selecionadas.map(f => (indice[f.id] || {}).projeto || (f.header || {}).projeto || 'Sem projeto'))];
-      mtmDefinirNomePDF('Book MTM', projetos.join(' + '));
-      prepararPrint();
-      window.print();
-    } catch(erro){
-      console.error('Erro ao imprimir folhas MTM:', erro);
-      alert('Não foi possível gerar o PDF das análises selecionadas.');
-    } finally {
-      folhasEscolhidasPDF = null;
-      window._mtmPrintMode = 'folhas';
-      mtmRestaurarTituloPDF();
-    }
-  };
-  atualizar();
 }
+function bkImg(src, cls){
+  if(typeof src !== 'string' || !/^data:image\//i.test(src)) return '';
+  return '<img class="'+cls+'" src="'+bkEsc(src)+'">';
+}
+/* Folha "com conteúdo" = tem ao menos uma linha preenchida. */
+function bkTemConteudo(s){
+  if(!s) return false;
+  return (s.rows||[]).some(function(r){
+    return (r.desc||'').trim() || (r.code||'').trim() ||
+           (parseFloat(r.tmu)||0) > 0 || (parseFloat(r.ttmu)||0) > 0;
+  });
+}
+function bkChave(fid, pid, sid){ return fid+'||'+pid+'||'+sid; }
+
+/* Lê pastas → projetos → folhas, na mesma ordem da tela inicial. */
+function bkEstrutura(catalogo){
+  var dados = pmData || {};
+  var usados = {}, pastas = [], ausentes = [];
+  Object.keys(dados).forEach(function(fid){
+
+    var f = dados[fid];
+    if(!f || typeof f !== 'object') return;
+    var projetos = [];
+    (f.projects||[]).forEach(function(pr){
+      var vistos = {}, itens = [];
+      (pr.sheets||[]).forEach(function(sid){
+        if(vistos[sid]) return;
+        vistos[sid] = 1; usados[sid] = 1;
+        var sh = catalogo.get(sid);
+        if(!sh){ ausentes.push([f.name,pr.name,sid].filter(Boolean).join(' / ')); return; }
+        itens.push({sh:sh, vazia:!bkTemConteudo(sh), chave:bkChave(fid, pr.id, sid)});
+      });
+      if(itens.length) projetos.push({p:pr, itens:itens});
+    });
+    if(projetos.length) pastas.push({fid:fid, f:f, projetos:projetos});
+  });
+  var avulsas = [];
+  catalogo.forEach(function(sh){
+    if(usados[sh.id]) return;
+    avulsas.push({sh:sh, vazia:!bkTemConteudo(sh), chave:bkChave('__sem__','__sem__',sh.id)});
+  });
+  return {pastas:pastas, avulsas:avulsas, ausentes:ausentes};
+}
+
+/* ── Estado do painel ── */
+var bkOpts = {capa:true, sumario:true, divPasta:true, divProjeto:true, fotos:true};
+var bkSel  = {};      // { chave: true }
+var bkEst  = null;    // estrutura carregada
+var bkAberto = {};    // pastas expandidas no painel
+
+function bkCarregarOpts(){
+  try{
+    var o = JSON.parse(localStorage.getItem('mtm_book_opts_v1') || 'null');
+    if(o && typeof o === 'object'){
+      Object.keys(bkOpts).forEach(function(k){ if(typeof o[k] === 'boolean') bkOpts[k] = o[k]; });
+    }
+  }catch(e){}
+}
+function bkSalvarOpts(){
+  try{ localStorage.setItem('mtm_book_opts_v1', JSON.stringify(bkOpts)); }catch(e){}
+}
+function bkTodosItens(){
+  var lista = [];
+  if(!bkEst) return lista;
+  bkEst.pastas.forEach(function(pa){
+    pa.projetos.forEach(function(pj){ pj.itens.forEach(function(it){ lista.push(it); }); });
+  });
+  bkEst.avulsas.forEach(function(it){ lista.push(it); });
+  return lista;
+}
+
+/* ── Painel de opções ── */
+function exportBookPDF(){ bkAbrirPainel(); }
+
+async function bkAbrirPainel(){
+  const locais = loadSheets();
+  let remotas = [], aviso = '';
+  try{ remotas = await window.mtmLerFolhasDoBook(); }
+  catch(e){ aviso = 'Firebase indisponível. Exibindo as análises disponíveis neste navegador.'; }
+  const catalogo = new Map();
+  for(const folha of [...remotas, ...locais, ...sheets]){
+    if(folha && folha.id) catalogo.set(folha.id, folha);
+  }
+  bkCarregarOpts();
+  bkEst = bkEstrutura(catalogo);
+  bkEst.aviso = aviso;
+  var itens = bkTodosItens();
+  if(!itens.length && !bkEst.ausentes.length){
+    alert(aviso || 'Nenhuma folha encontrada para montar o Book PDF.');
+    return;
+  }
+  // Seleção inicial: tudo que tem conteúdo
+  bkSel = {};
+  itens.forEach(function(it){ bkSel[it.chave] = true; });
+  bkAberto = {};
+  bkEst.pastas.forEach(function(pa){
+    // Começa aberta só a pasta que tem alguma folha preenchida
+    bkAberto[pa.fid] = pa.projetos.some(function(pj){
+      return pj.itens.some(function(it){ return !it.vazia; });
+    });
+  });
+  bkAberto['__sem__'] = bkEst.avulsas.some(function(it){ return !it.vazia; });
+
+  var ov = document.getElementById('bko-overlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'bko-overlay';
+    ov.className = 'bko-overlay';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', function(ev){ if(ev.target === ov) bkFecharPainel(); });
+  }
+  ov.innerHTML = bkPainelHTML();
+  ov.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+
+  var corpo = document.getElementById('bko-corpo');
+  if(corpo){
+    corpo.addEventListener('change', bkOnChange);
+    corpo.addEventListener('click', function(ev){
+      var exp = ev.target.closest('.bko-exp');
+      if(!exp) return;
+      var fid = exp.getAttribute('data-fid');
+      bkAberto[fid] = !bkAberto[fid];
+      var pasta = exp.closest('.bko-pasta');
+      var box = pasta ? pasta.querySelector('.bko-projs') : null;
+      if(box) box.style.display = bkAberto[fid] ? '' : 'none';
+      exp.textContent = bkAberto[fid] ? '▾' : '▸';
+    });
+  }
+  var opcoes = document.getElementById('bko-opcoes');
+  if(opcoes) opcoes.addEventListener('change', function(ev){
+    var el = ev.target;
+    if(el && el.dataset && el.dataset.opt){
+      bkOpts[el.dataset.opt] = el.checked;
+      bkSalvarOpts();
+      bkAtualizarResumo();
+    }
+  });
+  bkAtualizarEstados();
+}
+
+function bkFecharPainel(){
+  var ov = document.getElementById('bko-overlay');
+  if(ov) ov.classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function bkPainelHTML(){
+  var op = function(chave, rotulo, dica){
+    return '<label class="bko-opt" title="'+bkEsc(dica||'')+'">'
+      + '<input type="checkbox" data-opt="'+chave+'"'+(bkOpts[chave]?' checked':'')+'>'
+      + '<span>'+bkEsc(rotulo)+'</span></label>';
+  };
+  var h = '<div class="bko-modal" role="dialog" aria-label="Opções do Book PDF">';
+  h += '<div class="bko-head">'
+     +   '<div><div class="bko-tit">📕 Book PDF</div>'
+     +   '<div class="bko-sub">Marque o que deve entrar no PDF</div></div>'
+     +   '<button class="bko-x" onclick="bkFecharPainel()" title="Fechar">✕</button>'
+     + '</div>';
+
+  h += '<div class="bko-opcoes" id="bko-opcoes">'
+     + op('capa','Capa','Página de abertura com os números do consolidado')
+     + op('sumario','Sumário','Índice com pastas, projetos e folhas')
+     + op('divPasta','Divisória de pasta','Página de abertura de cada pasta/empresa')
+     + op('divProjeto','Divisória de projeto','Página de abertura de cada projeto')
+     + op('fotos','Fotos nas divisórias','Logo da pasta e foto da peça do projeto')
+     + '</div>';
+
+  h += '<div class="bko-barra">'
+     +   '<button class="bko-mini" onclick="bkMarcarTudo(true)">Marcar tudo</button>'
+     +   '<button class="bko-mini" onclick="bkMarcarTudo(false)">Desmarcar tudo</button>'
+     +   '<button class="bko-mini" onclick="bkMarcarComConteudo()">Só as preenchidas</button>'
+     + '</div>';
+
+  h += '<div class="bko-corpo" id="bko-corpo">';
+  bkEst.pastas.forEach(function(pa, i){
+    var totItens = pa.projetos.reduce(function(a,pj){ return a + pj.itens.length; }, 0);
+    h += '<div class="bko-pasta">';
+    h +=   '<div class="bko-linha bko-l-pasta">'
+       +     '<button class="bko-exp" data-fid="'+bkEsc(pa.fid)+'">'+(bkAberto[pa.fid]?'▾':'▸')+'</button>'
+       +     '<label><input type="checkbox" data-tipo="pasta" data-fid="'+bkEsc(pa.fid)+'">'
+       +     '<b>'+bkEsc(pa.f.name||'Pasta')+'</b></label>'
+       +     '<span class="bko-cnt">'+pa.projetos.length+' proj · '+totItens+' folhas</span>'
+       +   '</div>';
+    h +=   '<div class="bko-projs" id="bko-projs-'+bkEsc(pa.fid)+'"'+(bkAberto[pa.fid]?'':' style="display:none"')+'>';
+    pa.projetos.forEach(function(pj){
+      h += '<div class="bko-proj">';
+      h +=   '<div class="bko-linha bko-l-proj">'
+         +     '<label><input type="checkbox" data-tipo="proj" data-fid="'+bkEsc(pa.fid)+'" data-pid="'+bkEsc(pj.p.id)+'">'
+         +     '<b>'+bkEsc(pj.p.name||'Projeto')+'</b></label>'
+         +     '<span class="bko-cnt">'+pj.itens.length+' folha(s)</span>'
+         +   '</div>';
+      pj.itens.forEach(function(it){
+        h += '<div class="bko-linha bko-l-folha'+(it.vazia?' bko-vazia':'')+'">'
+           +   '<label><input type="checkbox" data-tipo="folha" data-chave="'+bkEsc(it.chave)+'">'
+           +   '<span>'+bkEsc(it.sh.label||'Folha')+'</span></label>'
+           +   (it.vazia ? '<span class="bko-tag">sem conteúdo</span>' : '')
+           + '</div>';
+      });
+      h += '</div>';
+    });
+    h +=   '</div>';
+    h += '</div>';
+  });
+  if(bkEst.avulsas.length){
+    h += '<div class="bko-pasta">';
+    h +=   '<div class="bko-linha bko-l-pasta">'
+       +     '<button class="bko-exp" data-fid="__sem__">'+(bkAberto['__sem__']?'▾':'▸')+'</button>'
+       +     '<label><input type="checkbox" data-tipo="pasta" data-fid="__sem__"><b>Folhas sem projeto</b></label>'
+       +     '<span class="bko-cnt">'+bkEst.avulsas.length+' folha(s)</span>'
+       +   '</div>';
+    h +=   '<div class="bko-projs" id="bko-projs-__sem__"'+(bkAberto['__sem__']?'':' style="display:none"')+'>';
+    bkEst.avulsas.forEach(function(it){
+      h += '<div class="bko-linha bko-l-folha'+(it.vazia?' bko-vazia':'')+'">'
+         +   '<label><input type="checkbox" data-tipo="folha" data-chave="'+bkEsc(it.chave)+'">'
+         +   '<span>'+bkEsc(it.sh.label||'Folha')+'</span></label>'
+         +   (it.vazia ? '<span class="bko-tag">sem conteúdo</span>' : '')
+         + '</div>';
+    });
+    h +=   '</div>';
+    h += '</div>';
+  }
+  h += '</div>';
+
+  if(bkEst.aviso) h += '<p role="status">'+bkEsc(bkEst.aviso)+'</p>';
+  if(bkEst.ausentes.length) h += '<details><summary>'+bkEst.ausentes.length+' vínculo(s) sem folha disponível</summary>'+bkEst.ausentes.map(bkEsc).join('<br>')+'</details>';
+  h += '<div class="bko-pe">'
+     +   '<div class="bko-resumo" id="bko-resumo">—</div>'
+     +   '<div class="bko-botoes">'
+     +     '<button class="bko-btn bko-btn-ghost" onclick="bkFecharPainel()">Cancelar</button>'
+     +     '<button class="bko-btn bko-btn-ok" id="bko-gerar" onclick="bkGerar()">📕 Gerar PDF</button>'
+     +   '</div>'
+     + '</div>';
+  h += '</div>';
+  return h;
+}
+
+/* Marcar/desmarcar em cascata */
+function bkOnChange(ev){
+  var el = ev.target;
+  if(!el || el.type !== 'checkbox' || !el.dataset.tipo) return;
+  var tipo = el.dataset.tipo, marcado = el.checked;
+  if(tipo === 'folha'){
+    if(marcado) bkSel[el.dataset.chave] = true; else delete bkSel[el.dataset.chave];
+  } else if(tipo === 'proj'){
+    bkItensDoProjeto(el.dataset.fid, el.dataset.pid).forEach(function(it){
+      if(marcado) bkSel[it.chave] = true; else delete bkSel[it.chave];
+    });
+  } else if(tipo === 'pasta'){
+    bkItensDaPasta(el.dataset.fid).forEach(function(it){
+      if(marcado) bkSel[it.chave] = true; else delete bkSel[it.chave];
+    });
+  }
+  bkAtualizarEstados();
+}
+function bkItensDoProjeto(fid, pid){
+  var out = [];
+  if(!bkEst) return out;
+  bkEst.pastas.forEach(function(pa){
+    if(pa.fid !== fid) return;
+    pa.projetos.forEach(function(pj){
+      if(String(pj.p.id) === String(pid)) out = out.concat(pj.itens);
+    });
+  });
+  return out;
+}
+function bkItensDaPasta(fid){
+  if(fid === '__sem__') return (bkEst ? bkEst.avulsas : []);
+  var out = [];
+  if(!bkEst) return out;
+  bkEst.pastas.forEach(function(pa){
+    if(pa.fid !== fid) return;
+    pa.projetos.forEach(function(pj){ out = out.concat(pj.itens); });
+  });
+  return out;
+}
+function bkMarcarTudo(v){
+  bkTodosItens().forEach(function(it){ if(v) bkSel[it.chave] = true; else delete bkSel[it.chave]; });
+  bkAtualizarEstados();
+}
+function bkMarcarComConteudo(){
+  bkSel = {};
+  bkTodosItens().forEach(function(it){ if(!it.vazia) bkSel[it.chave] = true; });
+  bkAtualizarEstados();
+}
+/* Sincroniza os checkboxes da tela com a seleção (pai fica "traço" se parcial) */
+function bkAtualizarEstados(){
+  var corpo = document.getElementById('bko-corpo');
+  if(!corpo) return;
+  corpo.querySelectorAll('input[data-tipo="folha"]').forEach(function(el){
+    el.checked = !!bkSel[el.dataset.chave];
+  });
+  corpo.querySelectorAll('input[data-tipo="proj"]').forEach(function(el){
+    var itens = bkItensDoProjeto(el.dataset.fid, el.dataset.pid);
+    var n = itens.filter(function(it){ return bkSel[it.chave]; }).length;
+    el.checked = n > 0 && n === itens.length;
+    el.indeterminate = n > 0 && n < itens.length;
+  });
+  corpo.querySelectorAll('input[data-tipo="pasta"]').forEach(function(el){
+    var itens = bkItensDaPasta(el.dataset.fid);
+    var n = itens.filter(function(it){ return bkSel[it.chave]; }).length;
+    el.checked = n > 0 && n === itens.length;
+    el.indeterminate = n > 0 && n < itens.length;
+  });
+  bkAtualizarResumo();
+}
+function bkAtualizarResumo(){
+  var r = document.getElementById('bko-resumo');
+  if(!r) return;
+  var c = bkContagem();
+  var extras = [];
+  if(bkOpts.capa) extras.push('capa');
+  if(bkOpts.sumario) extras.push('sumário');
+  if(bkOpts.divPasta) extras.push('divisórias de pasta');
+  if(bkOpts.divProjeto) extras.push('divisórias de projeto');
+  r.innerHTML = '<b>'+c.folhas+'</b> folha(s) · <b>'+c.projetos+'</b> projeto(s) · <b>'+c.pastas+'</b> pasta(s)'
+    + (c.vazias ? ' <span class="bko-aviso">('+c.vazias+' sem conteúdo)</span>' : '')
+    + (extras.length ? '<div class="bko-extras">+ '+extras.join(' · ')+'</div>' : '');
+  var bt = document.getElementById('bko-gerar');
+  if(bt) bt.disabled = !c.folhas;
+}
+function bkContagem(){
+  var c = {pastas:0, projetos:0, folhas:0, vazias:0};
+  if(!bkEst) return c;
+  bkEst.pastas.forEach(function(pa){
+    var temPasta = false;
+    pa.projetos.forEach(function(pj){
+      var sel = pj.itens.filter(function(it){ return bkSel[it.chave]; });
+      if(sel.length){
+        c.projetos++; c.folhas += sel.length; temPasta = true;
+        c.vazias += sel.filter(function(it){ return it.vazia; }).length;
+      }
+    });
+    if(temPasta) c.pastas++;
+  });
+  var av = bkEst.avulsas.filter(function(it){ return bkSel[it.chave]; });
+  c.folhas += av.length;
+  c.vazias += av.filter(function(it){ return it.vazia; }).length;
+  c.avulsas = av.length;
+  return c;
+}
+
+/* ── Montagem das páginas do book ── */
+function bkMontar(){
+  if(!bkEst) return {itens:[],total:0};
+  var c = bkContagem();
+  if(!c.folhas) return {itens:[], total:0};
+
+  var blocos = [];
+  bkEst.pastas.forEach(function(pa){
+    var projetos = [];
+    pa.projetos.forEach(function(pj){
+      var sel = pj.itens.filter(function(it){ return bkSel[it.chave]; });
+      if(sel.length) projetos.push({p:pj.p, itens:sel});
+    });
+    if(projetos.length) blocos.push({pa:pa, projetos:projetos});
+  });
+  var avulsas = bkEst.avulsas.filter(function(it){ return bkSel[it.chave]; });
+  var hoje = new Date().toLocaleString('pt-BR');
+  var pre = '';
+
+  /* Capa */
+  if(bkOpts.capa){
+    pre += '<div class="bk-page bk-capa">'
+      + '<div class="marca">FERRAMENTA MTM · FOLHA PADRÃO DE PROCESSO</div>'
+      + '<h1>BOOK DE PROCESSOS MTM</h1>'
+      + '<div class="sub">Consolidado geral por pasta e projeto</div>'
+      + '<div class="bk-nums">'
+      +   '<div class="c"><b>'+blocos.length+'</b><span>Pastas</span></div>'
+      +   '<div class="c"><b>'+c.projetos+'</b><span>Projetos</span></div>'
+      +   '<div class="c"><b>'+c.folhas+'</b><span>Folhas</span></div>'
+      +   '<div class="c"><b>'+avulsas.length+'</b><span>Sem projeto</span></div>'
+      + '</div>'
+      + '<div class="rodape">Gerado em '+bkEsc(hoje)+'</div>'
+      + '</div>';
+  }
+  /* Sumário */
+  if(bkOpts.sumario){
+    var sum = '<div class="bk-page"><div class="bk-tit">SUMÁRIO</div>';
+    blocos.forEach(function(bl, i){
+      sum += '<div class="bk-sum-pasta">'+(i+1)+'. '+bkEsc(bl.pa.f.name||'Pasta')+'</div>';
+      bl.projetos.forEach(function(pj, j){
+        sum += '<div class="bk-sum-proj">'+(i+1)+'.'+(j+1)+' '+bkEsc(pj.p.name||'Projeto')
+             + (pj.p.date ? ' <span style="font-weight:400">· '+bkEsc(pj.p.date)+'</span>' : '')+'</div>';
+        pj.itens.forEach(function(it){
+          sum += '<div class="bk-sum-folha">'+bkEsc(it.sh.label||'Folha')
+               + (it.vazia ? ' <i class="bk-sum-vazia">(sem linhas preenchidas)</i>' : '')+'</div>';
+        });
+      });
+    });
+    if(avulsas.length){
+      sum += '<div class="bk-sum-pasta">Folhas sem projeto</div>';
+      avulsas.forEach(function(it){
+        sum += '<div class="bk-sum-folha">'+bkEsc(it.sh.label||'Folha')+'</div>';
+      });
+    }
+    sum += '</div>';
+    pre += sum;
+  }
+
+  var itens = [], pendente = pre;
+  function juntar(sh, empresa, projeto){
+    var copia = sh;
+    try{
+      var hh = Object.assign({}, sh.header||{});
+      if(!hh.empresa && empresa) hh.empresa = empresa;
+      if(!hh.projeto && projeto) hh.projeto = projeto;
+      copia = Object.assign({}, sh, {header:hh});
+    }catch(e){}
+    itens.push({s:copia, capa:pendente});
+    pendente = '';
+  }
+  blocos.forEach(function(bl, i){
+    var pa = bl.pa;
+    var totFolhas = bl.projetos.reduce(function(a,pj){ return a + pj.itens.length; }, 0);
+    if(bkOpts.divPasta){
+      var fotoPasta = bkOpts.fotos
+        ? (pa.f.logo || pa.f.img || (bl.projetos[0] && (bl.projetos[0].p.logo || bl.projetos[0].p.img)) || '')
+        : '';
+      pendente += '<div class="bk-page bk-div">'
+        + '<div class="etq">Pasta '+(i+1)+' de '+blocos.length+'</div>'
+        + '<h2>'+bkEsc(pa.f.name||'Pasta')+'</h2>'
+        + '<div class="meta">'+bl.projetos.length+' projeto(s) · '+totFolhas+' folha(s)</div>'
+        + bkImg(fotoPasta, 'bk-logo')
+        + '<div class="lista">'
+        +   bl.projetos.map(function(pj, j){
+              return '<div><b>'+(i+1)+'.'+(j+1)+'</b> '+bkEsc(pj.p.name||'Projeto')+' — '+pj.itens.length+' folha(s)</div>';
+            }).join('')
+        + '</div></div>';
+    }
+    bl.projetos.forEach(function(pj, j){
+      if(bkOpts.divProjeto){
+        pendente += '<div class="bk-page bk-div">'
+          + '<div class="etq">'+bkEsc(pa.f.name||'Pasta')+' · Projeto '+(j+1)+' de '+bl.projetos.length+'</div>'
+          + '<h2>'+bkEsc(pj.p.name||'Projeto')+'</h2>'
+          + '<div class="meta">'
+          +   (pj.p.client ? 'Cliente: '+bkEsc(pj.p.client)+' · ' : '')
+          +   (pj.p.date ? 'Data: '+bkEsc(pj.p.date)+' · ' : '')
+          +   pj.itens.length+' folha(s)'
+          + '</div>'
+          + (bkOpts.fotos ? bkImg(pj.p.img || pj.p.logo, 'bk-foto') : '')
+          + '<div class="lista">'
+          +   pj.itens.map(function(it){ return '<div>'+bkEsc(it.sh.label||'Folha')+'</div>'; }).join('')
+          + '</div></div>';
+      }
+      pj.itens.forEach(function(it){ juntar(it.sh, pa.f.name, pj.p.name); });
+    });
+  });
+  if(avulsas.length){
+    if(bkOpts.divPasta){
+      pendente += '<div class="bk-page bk-div">'
+        + '<div class="etq">Encerramento</div>'
+        + '<h2>Folhas sem projeto</h2>'
+        + '<div class="meta">'+avulsas.length+' folha(s) não vinculada(s) a nenhum projeto</div>'
+        + '</div>';
+    }
+    avulsas.forEach(function(it){ juntar(it.sh, '', ''); });
+  }
+  return {itens:itens, total:c.folhas, pastas:blocos.length, projetos:c.projetos};
+}
+
+/* Gera o PDF com o que foi marcado no painel */
+function bkGerar(){
+  var tituloAnterior = document.title;
+  try{
+    var r = bkMontar();
+    if(!r.itens.length){
+      alert('Marque ao menos uma folha para gerar o Book PDF.');
+      return;
+    }
+    bkFecharPainel();
+    window._mtmPrintMode = 'book';
+    window._mtmBookItens = r.itens;
+    prepararPrint();
+    document.title = 'BOOK MTM — ' + r.pastas + ' pastas · ' + r.projetos + ' projetos · ' + r.total + ' folhas';
+    var restaurar = function(){
+      document.title = tituloAnterior;
+      window.removeEventListener('afterprint', restaurar);
+    };
+    window.addEventListener('afterprint', restaurar);
+    setTimeout(restaurar, 120000);
+    setTimeout(function(){ window.print(); }, 150);
+  }catch(e){
+    console.error('Erro ao montar o Book PDF:', e);
+    document.title = tituloAnterior;
+    window._mtmPrintMode = 'folhas';
+    window._mtmBookItens = null;
+    alert('Não foi possível montar o Book PDF: ' + (e && e.message ? e.message : e));
+  }
+}
+window.exportBookPDF = exportBookPDF;
+window.bkGerar = bkGerar;
+window.bkFecharPainel = bkFecharPainel;
+window.bkMarcarTudo = bkMarcarTudo;
+window.bkMarcarComConteudo = bkMarcarComConteudo;
+
 // Monta TODO o conteúdo formatado para impressão dentro de #print-area
 // Filtra linhas vazias (TV com 0, MTM com desc/code/tmu vazios, CA zerado)
 function prepararPrint(folhasPlanejamento){
   var box = document.getElementById('print-area');
   if(!box) return;
-  var folhasPrint = Array.isArray(folhasPlanejamento) ? folhasPlanejamento : (folhasEscolhidasPDF || scopedSheets());
+  var folhasPrint = Array.isArray(folhasPlanejamento) ? folhasPlanejamento : (window._mtmPrintMode === 'book' && window._mtmBookItens ? window._mtmBookItens.map(item => item.s) : scopedSheets());
   if(!folhasPrint.length){ box.innerHTML = ''; return; }
 
   // ─── Helpers locais ───
@@ -6291,6 +6715,7 @@ function prepararPrint(folhasPlanejamento){
   var dataGer = new Date().toLocaleString('pt-BR');
 
   folhasPrint.forEach(function(s, idx){
+    if(window._mtmPrintMode === 'book' && window._mtmBookItens) html += window._mtmBookItens[idx].capa;
     var h = s.header||{};
     var m = calcMetrics(s);
     if(Array.isArray(folhasPlanejamento)){
@@ -6545,7 +6970,7 @@ window.addEventListener('beforeprint', function(){
       prepararPrintPlanejamento();
       return;
     }
-    if(window._mtmPrintMode === 'selecao' && folhasEscolhidasPDF){
+    if(window._mtmPrintMode === 'book' && window._mtmBookItens){
       prepararPrint();
       return;
     }
@@ -6561,6 +6986,7 @@ window.addEventListener('beforeprint', function(){
 });
 // Após imprimir, volta ao modo padrão (folhas individuais).
 window.addEventListener('afterprint', function(){
+  window._mtmBookItens = null;
   window._mtmPrintMode = 'folhas';
   mtmRestaurarTituloPDF();
 });
@@ -9529,6 +9955,7 @@ function dbRenderList(){
     + '<button onclick="openPlanning()" style="background:var(--greenBg);color:var(--green);border:1px solid var(--green);padding:8px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">📊 Planejamento</button>'
     + '<button onclick="dbNewFolder()" style="background:var(--accentGrad);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:var(--shadow-glow)">＋ Nova Pasta</button>'
     + '<button onclick="saveAllProjectsFile()" style="background:linear-gradient(135deg,#f5a623,#e07b00);color:#000;border:2px solid #f5a623;padding:7px 12px;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer">💾 Salvar Tudo</button>'
+    + '<button class="db-hdr-btn" onclick="exportBookPDF()">📕 Book PDF</button>'
     + '<button onclick="dbExportBackup()" style="background:var(--greenBg);color:var(--green);border:1px solid var(--green);padding:7px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">💾 Backup</button>'
     + '<button onclick="document.getElementById(\'dbBackupInput\').click()" style="background:var(--surface3);color:var(--text);border:1px solid var(--border2);padding:7px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">📥 Restaurar</button>'
     + '<input type="file" id="dbBackupInput" accept=".json" style="display:none" onchange="dbImportBackup(this)">'
@@ -18192,26 +18619,113 @@ function balEsc(s){
 </script>
 
 <style>
-#mtm-pdf-dialog{box-sizing:border-box;width:min(480px,94vw);max-height:88vh;overflow:auto;border:1px solid var(--border2);border-radius:12px;background:var(--surface);color:var(--text);padding:20px;margin:auto}
-#mtm-pdf-dialog::backdrop{background:rgba(0,0,0,.65)}
-#mtm-pdf-dialog h2{font-size:18px;margin:0 0 12px}
-#mtm-pdf-dialog .mtm-pdf-lista{margin:12px 0;max-height:48vh;overflow:auto}
-#mtm-pdf-dialog label{display:flex;align-items:center;gap:10px;padding:8px;cursor:pointer;overflow-wrap:anywhere}
-#mtm-pdf-dialog input{width:18px;height:18px;flex:none}
-#mtm-pdf-dialog footer{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
-@media print{#mtm-pdf-dialog{display:none!important}}
+.bko-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.66);backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);z-index:12800;
+  display:flex;align-items:center;justify-content:center;padding:16px;
+}
+.bko-overlay.hidden{display:none}
+.bko-modal{
+  background:var(--surface);border:1px solid var(--border3);border-radius:16px;
+  width:100%;max-width:720px;max-height:88vh;display:flex;flex-direction:column;
+  overflow:hidden;box-shadow:var(--shadow);
+}
+.bko-head{
+  display:flex;align-items:center;gap:10px;padding:16px 20px;
+  border-bottom:1px solid var(--border);background:var(--surface2);
+}
+.bko-tit{font-size:17px;font-weight:800;color:var(--text)}
+.bko-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.bko-head>div:first-child{flex:1;min-width:0}
+.bko-x{
+  background:var(--surface3);border:1px solid var(--border2);color:var(--text2);
+  width:34px;height:34px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:700;flex-shrink:0;
+}
+.bko-x:hover{border-color:var(--red);color:var(--red)}
+.bko-opcoes{
+  display:flex;flex-wrap:wrap;gap:6px 14px;padding:12px 20px;
+  border-bottom:1px solid var(--border);background:var(--surface2);
+}
+.bko-opt{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer}
+.bko-opt input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+.bko-barra{display:flex;gap:8px;padding:10px 20px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.bko-mini{
+  background:var(--surface3);border:1px solid var(--border2);color:var(--text2);
+  border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;
+  font-family:inherit;
+}
+.bko-mini:hover{border-color:var(--accent);color:var(--accent)}
+.bko-corpo{flex:1;overflow-y:auto;padding:8px 14px 14px;scrollbar-width:thin}
+.bko-pasta{margin-top:10px;border:1px solid var(--border2);border-radius:10px;overflow:hidden}
+.bko-linha{display:flex;align-items:center;gap:8px;padding:7px 10px}
+.bko-linha label{display:flex;align-items:center;gap:8px;flex:1;min-width:0;cursor:pointer;font-size:12.5px;color:var(--text)}
+.bko-linha input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+.bko-l-pasta{background:var(--surface2);border-bottom:1px solid var(--border)}
+.bko-l-pasta b{font-size:13px;font-weight:800;color:var(--accent)}
+.bko-l-proj{padding-left:22px;background:var(--surface3)}
+.bko-l-proj b{font-size:12px;font-weight:700;color:var(--text)}
+.bko-l-folha{padding-left:44px;border-top:1px solid var(--border)}
+.bko-l-folha span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bko-vazia label span{color:var(--text3)}
+.bko-tag{
+  font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+  background:var(--surface3);color:var(--text3);border-radius:5px;padding:2px 6px;flex-shrink:0;
+}
+.bko-cnt{font-size:10px;color:var(--text3);font-weight:700;flex-shrink:0}
+.bko-exp{
+  background:none;border:none;color:var(--text2);cursor:pointer;font-size:12px;
+  width:18px;flex-shrink:0;font-family:inherit;
+}
+.bko-pe{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:12px 20px;border-top:1px solid var(--border);background:var(--surface2);
+}
+.bko-resumo{flex:1;min-width:180px;font-size:12px;color:var(--text2)}
+.bko-resumo b{color:var(--text)}
+.bko-aviso{color:var(--orange);font-weight:700}
+.bko-extras{font-size:10.5px;color:var(--text3);margin-top:2px}
+.bko-botoes{display:flex;gap:8px}
+.bko-btn{border-radius:9px;padding:9px 16px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;border:1px solid transparent}
+.bko-btn-ghost{background:var(--surface3);border-color:var(--border2);color:var(--text2)}
+.bko-btn-ok{background:linear-gradient(135deg,#7c3aed,#4f8ef7);color:#fff}
+.bko-btn-ok:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:600px){
+  .bko-modal{max-height:92vh}
+  .bko-opcoes{gap:6px 10px;padding:10px 14px}
+  .bko-l-proj{padding-left:16px}
+  .bko-l-folha{padding-left:30px}
+  .bko-botoes{width:100%}
+  .bko-btn{flex:1}
+}
+@media print{.bko-overlay{display:none!important}}
+@media print{
+  .bk-page{page-break-after:always}
+  .bk-page,.bk-page *{color:#000 !important}
+  .bk-capa{text-align:center;padding-top:26mm}
+  .bk-capa .marca{font-size:10pt;font-weight:800;letter-spacing:4px;color:#555 !important}
+  .bk-capa h1{font-size:28pt;font-weight:800;margin:7mm 0 3mm;letter-spacing:.5px;line-height:1.1}
+  .bk-capa .sub{font-size:12pt;font-weight:600;color:#333 !important;margin-bottom:12mm}
+  .bk-nums{display:table;width:92%;margin:0 auto;border-collapse:collapse}
+  .bk-nums .c{display:table-cell;border:1px solid #000;padding:5mm 2mm;width:25%;text-align:center}
+  .bk-nums .c b{display:block;font-size:19pt;font-weight:800;line-height:1.1}
+  .bk-nums .c span{font-size:7.5pt;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#444 !important}
+  .bk-capa .rodape{font-size:9pt;color:#333 !important;margin-top:18mm;border-top:1px solid #888;padding-top:3mm;display:inline-block}
+  .bk-logo{max-width:40mm;max-height:26mm;border:1px solid #888;object-fit:contain}
+  .bk-tit{font-size:15pt;font-weight:800;background:#e8e8e8 !important;border:1px solid #000;padding:5pt 8pt;margin-bottom:6pt}
+  .bk-sum-pasta{font-size:11pt;font-weight:800;background:#d4d4d4 !important;border:1px solid #000;padding:3pt 6pt;margin-top:6pt}
+  .bk-sum-proj{font-size:9.5pt;font-weight:700;margin:3pt 0 1pt 6mm}
+  .bk-sum-folha{font-size:8.5pt;margin-left:12mm;border-bottom:1px dotted #aaa;padding:1pt 0}
+  .bk-sum-vazia{color:#777 !important;font-style:italic}
+  .bk-div{padding-top:30mm;text-align:center}
+  .bk-div .etq{font-size:9pt;font-weight:800;letter-spacing:3px;color:#555 !important;text-transform:uppercase}
+  .bk-div h2{font-size:22pt;font-weight:800;margin:5mm 0 3mm;line-height:1.15}
+  .bk-div .meta{font-size:10pt;color:#333 !important}
+  .bk-div .lista{display:inline-block;text-align:left;margin-top:8mm;font-size:9pt;border-top:1px solid #888;padding-top:3mm;max-width:130mm}
+  .bk-div .lista div{padding:1pt 0}
+  .bk-foto{max-width:110mm;max-height:70mm;border:1px solid #888;margin-top:7mm;object-fit:contain}
+
+}
 </style>
-<dialog id="mtm-pdf-dialog" aria-labelledby="mtm-pdf-titulo">
-  <h2 id="mtm-pdf-titulo">Book de análises MTM</h2>
-  <button type="button" class="btn btn-ghost mtm-pdf-todas">Marcar todas</button>
-  <div class="mtm-pdf-lista"></div>
-  <output aria-live="polite"></output>
-  <div class="mtm-book-aviso" role="status"></div>
-  <footer>
-    <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancelar</button>
-    <button type="button" class="btn btn-green mtm-pdf-imprimir">Gerar Book em PDF</button>
-  </footer>
-</dialog>
 <script src="planejamento.js?v=4"></script>
 </body>
 </html>
