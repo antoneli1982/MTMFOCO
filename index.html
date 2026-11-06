@@ -3549,6 +3549,7 @@ body.home-clean .db-company-card::after{
     <div class="db-hdr-logo">MTM</div>
     <div class="db-hdr-user" id="db-user-name"></div>
     <div class="db-hdr-actions">
+      <button class="db-hdr-btn" onclick="abrirBookAnalises()">Book de análises</button>
       <button class="db-hdr-btn db-hdr-btn-purple" onclick="openApostilas()">📚 Apostilas</button>
     </div>
   </div>
@@ -6116,7 +6117,8 @@ function exportPDF(){
 }
 
 function abrirBookAnalises(){
-  const folhas = scopedSheets();
+  const folhas = sheets.slice();
+  const indice = typeof indiceFolhas === 'function' ? indiceFolhas() : {};
   if(!folhas.length){
     alert('Nenhuma análise disponível para imprimir.');
     return;
@@ -6131,7 +6133,8 @@ function abrirBookAnalises(){
     caixa.type = 'checkbox';
     caixa.checked = true;
     const cab = folha.header || {};
-    const titulo = [folha.label, cab.processo, cab.codigo].filter(Boolean).join(' · ');
+    const origem = indice[folha.id] || {};
+    const titulo = [origem.empresa || cab.empresa, origem.projeto || cab.projeto, folha.label, cab.processo, cab.codigo].filter(Boolean).join(' · ');
     linha.append(caixa, document.createTextNode(titulo || 'Folha MTM'));
     lista.append(linha);
     return caixa;
@@ -6153,7 +6156,8 @@ function abrirBookAnalises(){
     folhasEscolhidasPDF = selecionadas;
     window._mtmPrintMode = 'selecao';
     try{
-      mtmDefinirNomePDF('Book MTM');
+      const projetos = [...new Set(selecionadas.map(f => (indice[f.id] || {}).projeto || (f.header || {}).projeto || 'Sem projeto'))];
+      mtmDefinirNomePDF('Book MTM', projetos.join(' + '));
       prepararPrint();
       window.print();
     } catch(erro){
