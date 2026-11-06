@@ -6099,25 +6099,66 @@ function mtmRestaurarTituloPDF(){
   if(mtmTituloAntesPrint !== null) document.title = mtmTituloAntesPrint;
   mtmTituloAntesPrint = null;
 }
+var folhasEscolhidasPDF = null;
 function exportPDF(){
-  try{
-    window._mtmPrintMode = 'folhas';
-    mtmDefinirNomePDF('Folha MTM');
-    prepararPrint();
-    // Pequeno delay para o DOM renderizar antes do print
-    setTimeout(function(){ window.print(); }, 80);
-  }catch(e){
-    console.error('Erro ao preparar PDF:', e);
-    window.print();
+  const folhas = scopedSheets();
+  if(!folhas.length){
+    alert('Nenhuma análise disponível para imprimir.');
+    return;
   }
+  const dialog = document.getElementById('mtm-pdf-dialog');
+  const lista = dialog.querySelector('.mtm-pdf-lista');
+  const imprimir = dialog.querySelector('.mtm-pdf-imprimir');
+  lista.replaceChildren();
+  const caixas = folhas.map(function(folha){
+    const linha = document.createElement('label');
+    const caixa = document.createElement('input');
+    caixa.type = 'checkbox';
+    caixa.checked = true;
+    const cab = folha.header || {};
+    const titulo = [folha.label, cab.processo, cab.codigo].filter(Boolean).join(' · ');
+    linha.append(caixa, document.createTextNode(titulo || 'Folha MTM'));
+    lista.append(linha);
+    return caixa;
+  });
+  function atualizar(){
+    const total = caixas.filter(caixa => caixa.checked).length;
+    dialog.querySelector('output').textContent = total + ' de ' + folhas.length + ' selecionadas';
+    imprimir.disabled = total === 0;
+  }
+  lista.onchange = atualizar;
+  dialog.querySelector('.mtm-pdf-todas').onclick = function(){
+    caixas.forEach(caixa => caixa.checked = true);
+    atualizar();
+  };
+  imprimir.onclick = function(){
+    const selecionadas = folhas.filter((folha, i) => caixas[i].checked);
+    if(!selecionadas.length) return;
+    dialog.close();
+    folhasEscolhidasPDF = selecionadas;
+    window._mtmPrintMode = 'selecao';
+    try{
+      mtmDefinirNomePDF('Folha MTM');
+      prepararPrint();
+      window.print();
+    } catch(erro){
+      console.error('Erro ao imprimir folhas MTM:', erro);
+      alert('Não foi possível gerar o PDF das análises selecionadas.');
+    } finally {
+      folhasEscolhidasPDF = null;
+      window._mtmPrintMode = 'folhas';
+      mtmRestaurarTituloPDF();
+    }
+  };
+  atualizar();
+  dialog.showModal();
 }
-
 // Monta TODO o conteúdo formatado para impressão dentro de #print-area
 // Filtra linhas vazias (TV com 0, MTM com desc/code/tmu vazios, CA zerado)
 function prepararPrint(folhasPlanejamento){
   var box = document.getElementById('print-area');
   if(!box) return;
-  var folhasPrint = Array.isArray(folhasPlanejamento) ? folhasPlanejamento : scopedSheets();
+  var folhasPrint = Array.isArray(folhasPlanejamento) ? folhasPlanejamento : (folhasEscolhidasPDF || scopedSheets());
   if(!folhasPrint.length){ box.innerHTML = ''; return; }
 
   // ─── Helpers locais ───
@@ -6462,6 +6503,10 @@ window.addEventListener('beforeprint', function(){
   try{
     if(window._mtmPrintMode === 'planejamento' && typeof prepararPrintPlanejamento === 'function'){
       prepararPrintPlanejamento();
+      return;
+    }
+    if(window._mtmPrintMode === 'selecao' && folhasEscolhidasPDF){
+      prepararPrint();
       return;
     }
     var repOpen = document.querySelector('#finalrep-overlay:not(.hidden) .res-modal');
@@ -18106,6 +18151,26 @@ function balEsc(s){
 })();
 </script>
 
+<style>
+#mtm-pdf-dialog{box-sizing:border-box;width:min(480px,94vw);max-height:88vh;overflow:auto;border:1px solid var(--border2);border-radius:12px;background:var(--surface);color:var(--text);padding:20px;margin:auto}
+#mtm-pdf-dialog::backdrop{background:rgba(0,0,0,.65)}
+#mtm-pdf-dialog h2{font-size:18px;margin:0 0 12px}
+#mtm-pdf-dialog .mtm-pdf-lista{margin:12px 0;max-height:48vh;overflow:auto}
+#mtm-pdf-dialog label{display:flex;align-items:center;gap:10px;padding:8px;cursor:pointer;overflow-wrap:anywhere}
+#mtm-pdf-dialog input{width:18px;height:18px;flex:none}
+#mtm-pdf-dialog footer{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+@media print{#mtm-pdf-dialog{display:none!important}}
+</style>
+<dialog id="mtm-pdf-dialog" aria-labelledby="mtm-pdf-titulo">
+  <h2 id="mtm-pdf-titulo">Selecionar análises para o PDF</h2>
+  <button type="button" class="btn btn-ghost mtm-pdf-todas">Marcar todas</button>
+  <div class="mtm-pdf-lista"></div>
+  <output aria-live="polite"></output>
+  <footer>
+    <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancelar</button>
+    <button type="button" class="btn btn-green mtm-pdf-imprimir">Gerar PDF</button>
+  </footer>
+</dialog>
 <script src="planejamento.js?v=4"></script>
 </body>
 </html>
