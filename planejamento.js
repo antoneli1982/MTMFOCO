@@ -129,18 +129,23 @@ window.planCalcular = planCalcular;
    ─────────────────────────────────────────────────────────────── */
 function planRecursosCalc(plano, tp){
   var lista = Array.isArray(plano.recursos) ? plano.recursos : [];
-  var fator = 0, nMaq = 0, nOp = 0;
+  var fator = 0, nMaq = 0, nOp = 0, fatorMO = 0;
   lista.forEach(function(r){
     var d = parseFloat(r.dedicacao);
     if(!isFinite(d) || d < 0) d = 0;
     if(d > 100) d = 100;
     fator += d / 100;
-    if(r.tipo === 'maquina') nMaq++; else nOp++;
+    if(r.tipo === 'maquina') nMaq++; else { nOp++; fatorMO += d / 100; }
   });
   if(!lista.length) fator = 1; // sem recursos informados: assume 1 recurso a 100%
   var tpEf = fator > 0 ? tp / fator : tp;
+  var takt = parseFloat(plano.takt);
+  var capacidadeMO = isFinite(takt) && takt > 0 ? takt * fatorMO : 0;
   return {
     lista:lista, fator:fator, nMaquinas:nMaq, nOperadores:nOp,
+    fatorMO:fatorMO, capacidadeMO:capacidadeMO,
+    saturacaoMO:capacidadeMO > 0 ? tp / capacidadeMO * 100 : null,
+    saldoMO:capacidadeMO > 0 ? capacidadeMO - tp : null,
     tpEfetivo:tpEf,
     pecasHoraEfetiva: tpEf > 0 ? Math.floor(3600 / tpEf) : 0
   };
@@ -248,6 +253,12 @@ function planRenderRecursosSum(){
   if(!a || !el) return;
   var c = planCalcular(a.pl, a.p);
   var rec = c.recursos;
+  var satMO = rec.saturacaoMO;
+  var notaMO = c.takt <= 0 ? 'Informe um Takt maior que zero para calcular a saturação da mão de obra.'
+    : rec.fatorMO <= 0 ? 'Sem capacidade de mão de obra: adicione pessoas com dedicação maior que zero.'
+    : 'Capacidade da equipe: <b>' + seg(rec.capacidadeMO) + ' s por Takt</b>. '
+      + (rec.saldoMO >= 0 ? 'Folga: <b>' + seg(rec.saldoMO) : 'Sobrecarga: <b>' + seg(-rec.saldoMO))
+      + ' s</b>. ' + (satMO > 100 ? 'A mão de obra alocada não atende à demanda.' : 'A mão de obra alocada atende à demanda.');
   var cmpHtml = '';
   if(c.takt > 0){
     var ok = rec.tpEfetivo <= c.takt;
@@ -262,7 +273,12 @@ function planRenderRecursosSum(){
           rec.lista.length ? (rec.nMaquinas + ' máq. · ' + rec.nOperadores + ' m.o.') : 'padrão: 1 recurso a 100%')
     + kpi('Tempo Efetivo', seg(rec.tpEfetivo) + ' s', 'var(--green)', minu(rec.tpEfetivo) + ' min')
     + kpi('Peças/hora', rec.pecasHoraEfetiva || '—', 'var(--accent)', 'com estes recursos')
-    + '</div>' + cmpHtml;
+    + kpi('Mão de obra equivalente', rec.fatorMO.toFixed(2), 'var(--purple)', rec.nOperadores + ' pessoa(s) · soma das dedicações')
+    + kpi('Saturação da mão de obra', satMO === null ? '—' : satMO.toFixed(1) + '%',
+          satMO === null ? 'var(--text3)' : satMO > 100 ? 'var(--red)' : 'var(--green)', 'conforme equipe alocada e dedicação')
+    + '</div>' + cmpHtml
+    + '<div class="plj-vered ' + (satMO !== null && satMO <= 100 ? 'plj-vered-ok' : 'plj-vered-alerta') + '" style="margin-top:9px">' + notaMO + '</div>'
+    + '<p class="plj-hint">Saturação da mão de obra = total em produção ÷ (Takt × soma das dedicações das pessoas) × 100. Máquinas não entram nesta capacidade. Estimativa com distribuição proporcional da carga entre as pessoas.</p>';
 }
 window.planRenderRecursosSum = planRenderRecursosSum;
 
@@ -1117,6 +1133,10 @@ function prepararPrintPlanejamento(){
   if(!r.lista.length) html += '<tr><td colspan="3">Nenhum recurso informado: padrão de 1 recurso a 100%.</td></tr>';
   html += '</tbody></table><table class="pa-table"><tbody>'
     + row('Fator de recursos', n(r.fator) + '×')
+    + row('Mão de obra equivalente', n(r.fatorMO) + ' pessoa(s) a 100%')
+    + row('Saturação da mão de obra alocada', r.saturacaoMO === null ? 'Não calculada: informe Takt e mão de obra com dedicação positiva' : n(r.saturacaoMO,1) + '%')
+    + row('Capacidade da mão de obra por Takt', r.saturacaoMO === null ? '—' : n(r.capacidadeMO) + ' s')
+    + row('Saldo da mão de obra (positivo = folga; negativo = sobrecarga)', r.saldoMO === null ? '—' : n(r.saldoMO) + ' s')
     + row('Tempo efetivo simulado', r.fator > 0 ? n(r.tpEfetivo) + ' s | ' + n(r.tpEfetivo/60) + ' min' : 'Indisponível: dedicação total zero')
     + row('Capacidade teórica com recursos', r.fator > 0 ? n(r.pecasHoraEfetiva,0) + ' unidades do planejamento/h' : 'Indisponível: dedicação total zero')
     + row('Comparação com takt', c.takt > 0 && r.fator > 0 ? (r.tpEfetivo <= c.takt ? 'Atende na simulação' : 'Excede na simulação') : 'Não calculada')
