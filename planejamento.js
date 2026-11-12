@@ -272,7 +272,6 @@ function planRenderRecursosSum(){
     + kpi('Fator de Recursos', rec.fator.toFixed(2) + '×', 'var(--purple)',
           rec.lista.length ? (rec.nMaquinas + ' máq. · ' + rec.nOperadores + ' m.o.') : 'padrão: 1 recurso a 100%')
     + kpi('Tempo Efetivo', seg(rec.tpEfetivo) + ' s', 'var(--green)', minu(rec.tpEfetivo) + ' min')
-    + kpi('Peças/hora', rec.pecasHoraEfetiva || '—', 'var(--accent)', 'com estes recursos')
     + kpi('Mão de obra equivalente', rec.fatorMO.toFixed(2), 'var(--purple)', rec.nOperadores + ' pessoa(s) · soma das dedicações')
     + kpi('Saturação da mão de obra', satMO === null ? '—' : satMO.toFixed(1) + '%',
           satMO === null ? 'var(--text3)' : satMO > 100 ? 'var(--red)' : 'var(--green)', 'conforme equipe alocada e dedicação')
