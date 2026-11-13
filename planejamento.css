@@ -117,6 +117,9 @@
 }
 .plj-mini:hover{ background:var(--accentBg);color:var(--accent);border-color:var(--accent); }
 
+.plj-tab-wrap{max-width:100%;overflow-x:auto;margin-top:12px;}
+.plj-tab-wrap tbody tr{cursor:default;}
+@media print{.plj-tab-wrap{overflow:visible}.plj-tab-wrap .plj-tab{min-width:0}}
 .plj-tab{ width:100%;border-collapse:collapse; }
 .plj-tab th{
   background:var(--header-bg);padding:8px 10px;text-align:left;

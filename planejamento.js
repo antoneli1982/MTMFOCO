@@ -9,6 +9,40 @@ function esc(v){
 }
 function seg(v){ return (Math.round((v||0)*100)/100).toFixed(2); }
 function minu(v){ return ((v||0)/60).toFixed(2); }
+function tempoMinSeg(v){
+  var cs = Math.round(Math.abs(v) * 100);
+  return (v < 0 ? '−' : '') + Math.floor(cs / 6000) + ' min '
+    + ((cs % 6000) / 100).toFixed(2).replace('.', ',') + ' s';
+}
+
+// Sem atribuição de atividades por pessoa, a carga individual é uma estimativa.
+function planSaturacaoHeads(tp, takt, heads){
+  var total = heads.reduce(function(s, h){ return s + h.dedicacao / 100; }, 0);
+  if(!(takt > 0) || !(total > 0)) return null;
+  var capacidade = takt * total;
+  return { carga:tp, capacidade:capacidade, saldo:capacidade-tp,
+    percentual:tp/capacidade*100,
+    heads:heads.map(function(h){
+      var cap = takt * h.dedicacao / 100;
+      var carga = tp * (h.dedicacao / 100) / total;
+      return {nome:h.nome, dedicacao:h.dedicacao, carga:carga, capacidade:cap,
+        saldo:cap-carga, percentual:cap > 0 ? carga/cap*100 : null};
+    }) };
+}
+window.planSaturacaoHeads = planSaturacaoHeads;
+function planSaturacaoTabela(sat){
+  if(!sat) return '';
+  function linha(nome, r){
+    return '<tr><td>' + esc(nome) + '</td><td>'
+      + (r.percentual === null ? '—' : r.percentual.toFixed(1) + '%')
+      + '</td><td>' + tempoMinSeg(r.carga) + '</td><td>' + tempoMinSeg(r.capacidade)
+      + '</td><td>' + (r.saldo < 0 ? 'Sobrecarga ' : 'Folga ') + tempoMinSeg(Math.abs(r.saldo)) + '</td></tr>';
+  }
+  return '<div class="plj-tab-wrap"><table class="plj-tab pa-table"><thead><tr><th>Global / Head</th>'
+    + '<th>Saturação</th><th>Carga (min e s)</th><th>Disponível (min e s)</th><th>Saldo (min e s)</th></tr></thead><tbody>'
+    + linha('Global', sat) + sat.heads.map(function(h){ return linha(h.nome + ' · ' + h.dedicacao + '% dedicação', h); }).join('')
+    + '</tbody></table></div><p class="plj-hint pa-note">Por ciclo/Takt. Carga por head estimada proporcionalmente à dedicação; não representa atividades atribuídas individualmente. A saturação global é carga total ÷ capacidade total. Com esta distribuição, heads com dedicação positiva têm o mesmo percentual.</p>';
+}
 
 // O planejamento usa o mesmo tempo padrão exibido na folha atual.
 function tempoPadrao(sh, m){ return m.stdSec; }
@@ -114,7 +148,10 @@ function planCalcular(plano, proj){
     ops:ops, opsExato:opsE, saturacao:satu, folga:sobra,
     va:va, nva:nva, nnva:nnva, unc:unc,
     pecasHora: tp > 0 ? Math.floor(3600 / tp) : 0,
-    recursos: planRecursosCalc(plano, tp)
+    recursos: planRecursosCalc(plano, tp),
+    saturacaoHeads: planSaturacaoHeads(tp, takt, Array.from({length:ops}, function(_, i){
+      return {nome:'Head ' + (i+1), dedicacao:100};
+    }))
   };
 }
 window.planCalcular = planCalcular;
@@ -146,6 +183,10 @@ function planRecursosCalc(plano, tp){
     fatorMO:fatorMO, capacidadeMO:capacidadeMO,
     saturacaoMO:capacidadeMO > 0 ? tp / capacidadeMO * 100 : null,
     saldoMO:capacidadeMO > 0 ? capacidadeMO - tp : null,
+    saturacaoHeads:planSaturacaoHeads(tp, takt, lista.filter(function(r){ return r.tipo !== 'maquina'; }).map(function(r, i){
+      var d = parseFloat(r.dedicacao);
+      return {nome:r.label || 'Head ' + (i+1), dedicacao:isFinite(d) ? Math.max(0, Math.min(100, d)) : 0};
+    })),
     tpEfetivo:tpEf,
     pecasHoraEfetiva: tpEf > 0 ? Math.floor(3600 / tpEf) : 0
   };
@@ -204,6 +245,7 @@ function planRecursoSetLabel(id, v){
   if(!r) return;
   r.label = v;
   planPersist(a);
+  planRenderRecursosSum();
 }
 window.planRecursoSetLabel = planRecursoSetLabel;
 
@@ -256,9 +298,9 @@ function planRenderRecursosSum(){
   var satMO = rec.saturacaoMO;
   var notaMO = c.takt <= 0 ? 'Informe um Takt maior que zero para calcular a saturação da mão de obra.'
     : rec.fatorMO <= 0 ? 'Sem capacidade de mão de obra: adicione pessoas com dedicação maior que zero.'
-    : 'Capacidade da equipe: <b>' + seg(rec.capacidadeMO) + ' s por Takt</b>. '
-      + (rec.saldoMO >= 0 ? 'Folga: <b>' + seg(rec.saldoMO) : 'Sobrecarga: <b>' + seg(-rec.saldoMO))
-      + ' s</b>. ' + (satMO > 100 ? 'A mão de obra alocada não atende à demanda.' : 'A mão de obra alocada atende à demanda.');
+    : 'Capacidade da equipe: <b>' + tempoMinSeg(rec.capacidadeMO) + ' por Takt</b>. '
+      + (rec.saldoMO >= 0 ? 'Folga: <b>' + tempoMinSeg(rec.saldoMO) : 'Sobrecarga: <b>' + tempoMinSeg(-rec.saldoMO))
+      + '</b>. ' + (satMO > 100 ? 'A mão de obra alocada não atende à demanda.' : 'A mão de obra alocada atende à demanda.');
   var cmpHtml = '';
   if(c.takt > 0){
     var ok = rec.tpEfetivo <= c.takt;
@@ -277,7 +319,8 @@ function planRenderRecursosSum(){
           satMO === null ? 'var(--text3)' : satMO > 100 ? 'var(--red)' : 'var(--green)', 'conforme equipe alocada e dedicação')
     + '</div>' + cmpHtml
     + '<div class="plj-vered ' + (satMO !== null && satMO <= 100 ? 'plj-vered-ok' : 'plj-vered-alerta') + '" style="margin-top:9px">' + notaMO + '</div>'
-    + '<p class="plj-hint">Saturação da mão de obra = total em produção ÷ (Takt × soma das dedicações das pessoas) × 100. Máquinas não entram nesta capacidade. Estimativa com distribuição proporcional da carga entre as pessoas.</p>';
+    + '<p class="plj-hint">Saturação da mão de obra = total em produção ÷ (Takt × soma das dedicações das pessoas) × 100. Máquinas não entram nesta capacidade.</p>'
+    + planSaturacaoTabela(rec.saturacaoHeads);
 }
 window.planRenderRecursosSum = planRenderRecursosSum;
 
@@ -919,10 +962,14 @@ function planRenderResumo(){
     + kpi('Takt Time',    c.takt > 0 ? seg(c.takt) + ' s' : '—', 'var(--accent)', '')
     + kpi('Operadores',   c.takt > 0 ? c.ops : '—',  'var(--blue)',
           c.takt > 0 ? 'calculado: ' + c.opsExato.toFixed(2) : 'informe o takt')
-    + kpi('Saturação',    c.takt > 0 ? c.saturacao.toFixed(1) + '%' : '—', corSat,
-          c.takt > 0 ? (c.folga >= 0 ? 'folga ' + seg(c.folga) + ' s' : 'excede ' + seg(-c.folga) + ' s') : '');
+    + kpi('Saturação global', c.saturacaoHeads ? c.saturacao.toFixed(1) + '%' : '—', corSat,
+          c.saturacaoHeads ? 'folga ' + tempoMinSeg(c.folga) : '')
+    + kpi('Saturação por head', c.saturacaoHeads ? c.saturacao.toFixed(1) + '%' : '—', corSat,
+          c.saturacaoHeads ? 'carga ' + tempoMinSeg(c.tp/c.ops) + '<br>folga ' + tempoMinSeg(c.folga/c.ops) : '');
 
-  el.innerHTML = '<div class="plj-kpis">' + html + '</div>' + planVeredito(c);
+  el.innerHTML = '<div class="plj-kpis">' + html + '</div>' + planVeredito(c)
+    + '<p class="plj-hint">Base: operadores calculados, com 100% de dedicação. A equipe alocada é apresentada separadamente em Recursos.</p>'
+    + planSaturacaoTabela(c.saturacaoHeads);
 }
 window.planRenderResumo = planRenderResumo;
 
@@ -941,13 +988,13 @@ function planVeredito(c){
   var txt, cls;
   if(c.tp <= c.takt){
     txt = 'O processo cabe no takt com <b>1 operador</b>. Sobram '
-        + seg(c.takt - c.tp) + ' s por ciclo.';
+        + tempoMinSeg(c.takt - c.tp) + ' por ciclo.';
     cls = 'ok';
   } else {
     txt = 'O tempo total excede o takt. São necessários <b>' + c.ops + ' operadores</b> '
         + '(' + c.opsExato.toFixed(2) + ' pelo cálculo). '
         + 'Saturação média de <b>' + c.saturacao.toFixed(1) + '%</b>'
-        + (c.folga >= 0 ? ', com folga de ' + seg(c.folga) + ' s no conjunto.' : '.');
+        + (c.folga >= 0 ? ', com folga de ' + tempoMinSeg(c.folga) + ' no conjunto.' : '.');
     cls = c.saturacao > 100 ? 'alerta' : 'ok';
   }
   return '<div class="plj-vered plj-vered-' + cls + '">' + txt + '</div>';
@@ -1110,9 +1157,11 @@ function prepararPrintPlanejamento(){
     + row('Takt Time', c.takt > 0 ? n(c.takt) + ' s' : 'Não informado')
     + row('Operadores calculados', c.takt > 0 ? c.ops + ' (exato: ' + n(c.opsExato) + ')' : 'Não calculado: sem takt')
     + row('Saturação média', c.takt > 0 ? n(c.saturacao) + '%' : 'Não calculada: sem takt')
-    + row('Folga no conjunto', c.takt > 0 ? n(c.folga) + ' s' : 'Não calculada: sem takt')
+    + row('Folga no conjunto', c.takt > 0 ? tempoMinSeg(c.folga) : 'Não calculada: sem takt')
     + row('Capacidade teórica sem recursos', n(c.pecasHora,0) + ' unidades do planejamento/h')
-    + '</tbody></table><div class="pa-h2">Atividades e memória de cálculo</div>'
+    + '</tbody></table><div class="pa-h2">Saturação global e por head · operadores calculados</div>'
+    + planSaturacaoTabela(c.saturacaoHeads)
+    + '<div class="pa-h2">Atividades e memória de cálculo</div>'
     + '<table class="pa-table"><thead><tr><th>#</th><th>Folha MTM / Processo / Origem</th><th>Tempo padrão unit. (s)</th><th>Qtd.</th><th>Subtotal (s)</th></tr></thead><tbody>';
   c.itens.forEach(function(it, i){
     var o = idx[it.sid];
@@ -1134,13 +1183,14 @@ function prepararPrintPlanejamento(){
     + row('Fator de recursos', n(r.fator) + '×')
     + row('Mão de obra equivalente', n(r.fatorMO) + ' pessoa(s) a 100%')
     + row('Saturação da mão de obra alocada', r.saturacaoMO === null ? 'Não calculada: informe Takt e mão de obra com dedicação positiva' : n(r.saturacaoMO,1) + '%')
-    + row('Capacidade da mão de obra por Takt', r.saturacaoMO === null ? '—' : n(r.capacidadeMO) + ' s')
-    + row('Saldo da mão de obra (positivo = folga; negativo = sobrecarga)', r.saldoMO === null ? '—' : n(r.saldoMO) + ' s')
+    + row('Capacidade da mão de obra por Takt', r.saturacaoMO === null ? '—' : tempoMinSeg(r.capacidadeMO))
+    + row('Saldo da mão de obra (positivo = folga; negativo = sobrecarga)', r.saldoMO === null ? '—' : tempoMinSeg(r.saldoMO))
     + row('Tempo efetivo simulado', r.fator > 0 ? n(r.tpEfetivo) + ' s | ' + n(r.tpEfetivo/60) + ' min' : 'Indisponível: dedicação total zero')
     + row('Capacidade teórica com recursos', r.fator > 0 ? n(r.pecasHoraEfetiva,0) + ' unidades do planejamento/h' : 'Indisponível: dedicação total zero')
     + row('Comparação com takt', c.takt > 0 && r.fator > 0 ? (r.tpEfetivo <= c.takt ? 'Atende na simulação' : 'Excede na simulação') : 'Não calculada')
     + '</tbody></table><p class="pa-note">Simulação existente: tempo total ÷ soma das dedicações/100. '
     + 'Pressupõe divisão proporcional do trabalho; a combinação de máquinas e pessoas não comprova paralelismo real.</p>'
+    + '<div class="pa-h2">Saturação global e por head · equipe alocada</div>' + planSaturacaoTabela(r.saturacaoHeads)
     + '<div class="pa-h2">Composição do tempo normal (com quantidades)</div><table class="pa-table"><tbody>'
     + row('Agrega valor', n(c.va*0.036) + ' s') + row('Não agrega valor', n(c.nva*0.036) + ' s')
     + row('Necessário', n(c.nnva*0.036) + ' s') + row('Não classificado', n(c.unc*0.036) + ' s')
