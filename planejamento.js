@@ -44,6 +44,90 @@ function planSaturacaoTabela(sat){
     + '</tbody></table></div><p class="plj-hint pa-note">Por ciclo/Takt. Carga por head estimada proporcionalmente à dedicação; não representa atividades atribuídas individualmente. A saturação global é carga total ÷ capacidade total. Com esta distribuição, heads com dedicação positiva têm o mesmo percentual.</p>';
 }
 
+// Cenário opcional por turno: independente do dimensionamento teórico por takt.
+function planOcupacaoCalc(plano){
+  var posicoes = Array.isArray(plano.ocupacaoPosicoes) ? plano.ocupacaoPosicoes : [];
+  var grupos = Object.create(null), linhas = [];
+  posicoes.forEach(function(p, i){
+    var turno = String(p.turno || '').trim();
+    var pessoa = String(p.pessoaId || '').trim();
+    var chave = JSON.stringify([turno, pessoa ? 'pessoa' : 'posicao', pessoa || i]);
+    var cap = Number(p.capacidadeSeg), carga = 0, atribuidas = 0, erros = [];
+    if(!(isFinite(cap) && cap > 0)) erros.push('Capacidade líquida inválida');
+    if(!turno) erros.push('Informe o turno');
+    Object.keys(p.atividades || {}).forEach(function(sid){
+      var qtd = Number(p.atividades[sid]);
+      if(qtd === 0) return;
+      if(!(isFinite(qtd) && qtd > 0)){ erros.push('Quantidade inválida'); return; }
+      var sh = typeof get === 'function' ? get(sid) : null;
+      var m = sh && typeof computeSheetMetrics === 'function' ? computeSheetMetrics(sh) : null;
+      if((plano.sheets || []).indexOf(sid) < 0 || !m || !isFinite(m.stdSec) || m.stdSec < 0){
+        erros.push('Atividade ausente ou fora do planejamento'); return;
+      }
+      carga += m.stdSec * qtd; atribuidas++;
+    });
+    if(!atribuidas) erros.push('Sem atribuição');
+    var g = grupos[chave];
+    if(!g) g = grupos[chave] = {nome:pessoa || p.posicao || 'Posição ' + (i+1), turno:turno, capacidade:cap, carga:0, erros:[], postos:[]};
+    else if(g.capacidade !== cap) erros.push('Capacidades divergentes para a mesma pessoa/turno');
+    g.carga += carga; g.erros = g.erros.concat(erros); g.postos.push(p.posicao || 'Posição ' + (i+1));
+    linhas.push({posicao:p.posicao || 'Posição ' + (i+1), turno:turno, carga:carga, grupo:g});
+  });
+  var totais = Object.keys(grupos).map(function(k){
+    var g = grupos[k];
+    // Sem atribuição não equivale a ociosidade observada. Não emitir percentual.
+    g.percentual = g.erros.length ? null : g.carga / g.capacidade * 100;
+    g.saldo = g.percentual === null ? null : g.capacidade - g.carga;
+    return g;
+  });
+  return {linhas:linhas, grupos:totais};
+}
+window.planOcupacaoCalc = planOcupacaoCalc;
+function planOcupacaoResumo(plano){
+  var c = planOcupacaoCalc(plano);
+  var h = '<h3>Ocupação planejada por turno</h3><p>Estimativa do cenário, não medição de desempenho individual. Carga = tempo padrão × quantidade atribuída no turno. Capacidade líquida informada, já descontadas indisponibilidades, sem reaplicar descontos. Não substitui validação de método, segurança, sequência e simultaneidade nem determina decisão de pessoal ou cadência.</p>';
+  if(!c.grupos.length) return h + '<p>Sem posições configuradas. O rateio estimado existente permanece separado.</p>';
+  h += '<div class="plj-tab-wrap"><table class="plj-tab"><thead><tr><th>Pessoa/posição · turno</th><th>Postos atendidos</th><th>Carga</th><th>Capacidade líquida única</th><th>Ocupação</th><th>Saldo / alerta</th></tr></thead><tbody>';
+  c.grupos.forEach(function(g){
+    h += '<tr><td>' + esc(g.nome + ' · ' + g.turno) + '</td><td>' + esc(g.postos.join(', ')) + '</td><td>' + tempoMinSeg(g.carga) + '</td><td>' + (isFinite(g.capacidade) && g.capacidade > 0 ? tempoMinSeg(g.capacidade) : '—') + '</td><td>' + (g.percentual === null ? '—' : g.percentual.toFixed(1) + '%') + '</td><td>' + (g.erros.length ? esc(Array.from(new Set(g.erros)).join('; ')) : (g.saldo < 0 ? 'Sobrecarga ' : 'Saldo planejado ') + tempoMinSeg(Math.abs(g.saldo))) + '</td></tr>';
+  });
+  h += '</tbody></table></div><p>O mesmo ID de pessoa no mesmo turno soma as cargas dos postos, mas conta a capacidade uma única vez. Esta consolidação não cruza outros planejamentos. Turnos devem identificar períodos não sobrepostos.</p><ul>';
+  c.linhas.forEach(function(l){ h += '<li>' + esc(l.posicao + ' · ' + l.turno) + ': carga atribuída ' + tempoMinSeg(l.carga) + (l.grupo.percentual === null ? '' : ' · ' + (l.carga / l.grupo.capacidade * 100).toFixed(1) + '% da capacidade líquida compartilhada do turno') + '</li>'; });
+  return h + '</ul>';
+}
+function planOcupacaoRender(){
+  var a = planAtual(), host = document.getElementById('plj-ocupacao');
+  if(!a || !host) return;
+  var h = planOcupacaoResumo(a.pl) + '<button type="button" onclick="planOcupacaoEdit(-1,\'adicionar\')">Adicionar posição</button>';
+  (a.pl.ocupacaoPosicoes || []).forEach(function(p,i){
+    function campo(rotulo, campo, tipo, valor){
+      return '<label style="display:inline-block;margin:8px">' + rotulo + '<input type="' + tipo + '" ' + (tipo === 'number' ? 'min="0" step="any" ' : '') + 'value="' + esc(valor == null ? '' : valor) + '" onchange="planOcupacaoEdit(' + i + ',\'' + campo + '\',this.value)"></label>';
+    }
+    h += '<fieldset><legend>Posição ' + (i+1) + '</legend>' + campo('Identificador do posto', 'posicao','text',p.posicao) + campo('Turno / período', 'turno','text',p.turno) + campo('ID da pessoa (opcional, sem nome)', 'pessoaId','text',p.pessoaId) + campo('Capacidade líquida do turno (s)', 'capacidadeSeg','number',p.capacidadeSeg);
+    h += '<p>Quantidades abaixo são volumes deste turno, não quantidades por ciclo. Deixe zero para não atribuir. Não replique todo o volume em cada posto; distribua as execuções entre eles.</p>';
+    (a.pl.sheets || []).forEach(function(sid,j){
+      var sh = typeof get === 'function' ? get(sid) : null;
+      h += campo(esc(sh ? sh.label : sid) + ' · qtd./turno', 'atividade:' + j, 'number', (p.atividades || {})[sid] || 0);
+    });
+    h += '<button type="button" onclick="planOcupacaoEdit(' + i + ',\'remover\')">Remover posição</button></fieldset>';
+  });
+  host.innerHTML = h;
+}
+function planOcupacaoEdit(i, campo, valor){
+  var a = planAtual(); if(!a) return;
+  var ps = a.pl.ocupacaoPosicoes || [];
+  if(campo === 'adicionar') ps.push({posicao:'Posição ' + (ps.length+1),turno:'',pessoaId:'',capacidadeSeg:0,atividades:{}});
+  else if(!ps[i]) return;
+  else if(campo === 'remover') ps.splice(i,1);
+  else if(campo.indexOf('atividade:') === 0){
+    var sid = (a.pl.sheets || [])[Number(campo.split(':')[1])];
+    if(!sid) return;
+    ps[i].atividades = ps[i].atividades || {}; ps[i].atividades[sid] = valor;
+  }else if(['posicao','turno','pessoaId','capacidadeSeg'].indexOf(campo) >= 0) ps[i][campo] = valor;
+  a.pl.ocupacaoPosicoes = ps; planPersist(a); planOcupacaoRender();
+}
+window.planOcupacaoEdit = planOcupacaoEdit;
+
 // O planejamento usa o mesmo tempo padrão exibido na folha atual.
 function tempoPadrao(sh, m){ return m.stdSec; }
 window.tempoPadraoFolha = tempoPadrao;
@@ -92,6 +176,11 @@ function planRemapImport(lista, sidMap, novosIds){
       Object.keys(pl.qtds).forEach(function(id){ q[sidMap[id] || id] = pl.qtds[id]; });
       pl.qtds = q;
     }
+    (pl.ocupacaoPosicoes || []).forEach(function(p){
+      var atividades = {};
+      Object.keys(p.atividades || {}).forEach(function(id){ atividades[sidMap[id] || id] = p.atividades[id]; });
+      p.atividades = atividades;
+    });
     return pl;
   });
 }
@@ -944,6 +1033,7 @@ function planSetTakt(v){
 window.planSetTakt = planSetTakt;
 
 function planRenderResumo(){
+  planOcupacaoRender();
   var a = planAtual();
   var el = document.getElementById('plj-resumo');
   if(!a || !el) return;
@@ -1127,7 +1217,8 @@ function planRender(){
        + '</div>';
   html += '</div>';
 
-  box.innerHTML = html;
+  box.innerHTML = html + '<section class="plj-secao" id="plj-ocupacao"></section>';
+  planOcupacaoRender();
   planRenderResumo();
   planRenderRecursos();
 }
@@ -1212,7 +1303,7 @@ function prepararPrintPlanejamento(){
       + '<div class="pa-note">Integra o planejamento: <b>' + esc(a.pl.name) + '</b>'
       + ' · Projeto do planejamento: ' + esc(a.p.name) + '</div><div class="pa-h1">';
   });
-  box.innerHTML = html + box.innerHTML;
+  box.innerHTML = html + '<section class="pa-page">' + planOcupacaoResumo(a.pl) + '</section>' + box.innerHTML;
   mtmDefinirNomePDF('Planejamento', a.independente ? a.pl.name : a.p.name);
   return c;
 }
