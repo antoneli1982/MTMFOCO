@@ -98,7 +98,7 @@ function planOcupacaoResumo(plano){
 function planOcupacaoRender(){
   var a = planAtual(), host = document.getElementById('plj-ocupacao');
   if(!a || !host) return;
-  var h = planOcupacaoResumo(a.pl) + '<button type="button" onclick="planOcupacaoEdit(-1,\'adicionar\')">Adicionar posição</button>';
+  var h = '<div id="plj-ocupacao-resumo">' + planOcupacaoResumo(a.pl) + '</div><button type="button" onclick="planOcupacaoEdit(-1,\'adicionar\')">Adicionar posição</button>';
   (a.pl.ocupacaoPosicoes || []).forEach(function(p,i){
     function campo(rotulo, campo, tipo, valor){
       return '<label style="display:inline-block;margin:8px">' + rotulo + '<input type="' + tipo + '" ' + (tipo === 'number' ? 'min="0" step="any" ' : '') + 'value="' + esc(valor == null ? '' : valor) + '" onchange="planOcupacaoEdit(' + i + ',\'' + campo + '\',this.value)"></label>';
@@ -124,7 +124,9 @@ function planOcupacaoEdit(i, campo, valor){
     if(!sid) return;
     ps[i].atividades = ps[i].atividades || {}; ps[i].atividades[sid] = valor;
   }else if(['posicao','turno','pessoaId','capacidadeSeg'].indexOf(campo) >= 0) ps[i][campo] = valor;
-  a.pl.ocupacaoPosicoes = ps; planPersist(a); planOcupacaoRender();
+  a.pl.ocupacaoPosicoes = ps; planPersist(a);
+  if(campo === 'adicionar' || campo === 'remover') planOcupacaoRender();
+  else { var resumo = document.getElementById('plj-ocupacao-resumo'); if(resumo) resumo.innerHTML = planOcupacaoResumo(a.pl); }
 }
 window.planOcupacaoEdit = planOcupacaoEdit;
 
@@ -1303,7 +1305,7 @@ function prepararPrintPlanejamento(){
       + '<div class="pa-note">Integra o planejamento: <b>' + esc(a.pl.name) + '</b>'
       + ' · Projeto do planejamento: ' + esc(a.p.name) + '</div><div class="pa-h1">';
   });
-  box.innerHTML = html + '<section class="pa-page">' + planOcupacaoResumo(a.pl) + '</section>' + box.innerHTML;
+  box.innerHTML = html + ((a.pl.ocupacaoPosicoes || []).length ? '<section class="pa-page">' + planOcupacaoResumo(a.pl) + '</section>' : '') + box.innerHTML;
   mtmDefinirNomePDF('Planejamento', a.independente ? a.pl.name : a.p.name);
   return c;
 }
