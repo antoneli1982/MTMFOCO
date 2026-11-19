@@ -79,3 +79,47 @@ assert.equal(prints,2);assert.match(box.innerHTML,/22,50 s/);
 assert.equal((box.innerHTML.match(/class="pa-folha"/g)||[]).length,2);
 assert.match(box.innerHTML,/Independente/);
 console.log('OK: sintaxe, relatório completo, ordem, escopo, TTP, quantidades fracionadas, recursos, independente, folhas ausentes, plano vazio, eventos e preservação de dados.');
+
+// Regressão: retirar/desmarcar/limpar não deixa atribuições ocultas nem as ressuscita.
+ctx.computeSheetMetrics = () => ({stdSec:1800,totalSec:1800,va:0,nva:0,nnva:0,unc:0});
+function cenario(){
+  return {id:'reg',name:'Regressão de atribuições',sheets:['a','b'],takt:3600,
+    ocupacaoPosicoes:[{posicao:'P1',turno:'T1',capacidadeSeg:3600,atividades:{a:1,b:1}}]};
+}
+for(const independente of [false,true]){
+  for(const acao of ['remover','desmarcar','limpar']){
+    let p = cenario(), salvo;
+    ctx.pmSave = () => { salvo = JSON.stringify(p); };
+    if(independente){ctx.planIndepDefinir([p]);ctx.planAbrirIndependente(0);}
+    else {ctx.pmData.f.projects[0].plans=[p];ctx.planAbrir('f',0,0);}
+    assert.equal(ctx.planOcupacaoCalc(p).grupos[0].percentual,100);
+    if(acao==='remover') ctx.planSheetRemove('b');
+    if(acao==='desmarcar') ctx.planToggleFolha('b');
+    if(acao==='limpar') ctx.planTodas(false);
+    assert.equal(Object.hasOwn(p.ocupacaoPosicoes[0].atividades,'b'),false);
+    if(acao==='limpar'){
+      assert.equal(Object.keys(p.ocupacaoPosicoes[0].atividades).length,0);
+      assert.throws(()=>ctx.prepararPrintPlanejamento(),/Selecione atividades válidas/);
+    }else{
+      assert.equal(ctx.planOcupacaoCalc(p).grupos[0].percentual,50);
+      ctx.prepararPrintPlanejamento();assert.match(box.innerHTML,/50\.0%/);
+      assert.doesNotMatch(box.innerHTML,/Atividade ausente ou fora do planejamento/);
+    }
+    // Reabrir de uma cópia persistida, não apenas do mesmo objeto em memória.
+    ctx.planFechar();
+    if(independente){ctx.planIndependentes(true);p=ctx.planIndependentes()[0];ctx.planAbrirIndependente(0);}
+    else {p=JSON.parse(salvo);ctx.pmData.f.projects[0].plans=[p];ctx.planAbrir('f',0,0);}
+    ctx.planToggleFolha('b');
+    assert.equal(Object.hasOwn(p.ocupacaoPosicoes[0].atividades,'b'),false);
+    assert.equal(ctx.planOcupacaoCalc(p).grupos[0].percentual,acao==='limpar'?null:50);
+    ctx.prepararPrintPlanejamento();
+    if(acao==='limpar') assert.match(box.innerHTML,/Sem atribuição/);
+    else assert.match(box.innerHTML,/50\.0%/);
+  }
+}
+// Marcar todas pode retirar folhas externas; também deve retirar essas atribuições.
+const externo=cenario();externo.sheets=['a','c'];externo.ocupacaoPosicoes[0].atividades={a:1,c:1};
+ctx.pmData.f.projects[0].plans=[externo];ctx.pmSave=()=>{};ctx.planAbrir('f',0,0);ctx.planTodas(true);
+assert.equal(Object.hasOwn(externo.ocupacaoPosicoes[0].atividades,'c'),false);
+assert.equal(ctx.planOcupacaoCalc(externo).grupos[0].percentual,50);
+console.log('OK: remover, desmarcar, limpar, recolocar, persistir/reabrir, impressão e folhas externas; projeto e independente.');
