@@ -933,12 +933,24 @@ function planAtual(){
   return pl ? { f:alvo.f, p:alvo.p, pl:pl, independente:false } : null;
 }
 
+// A exclusão da seleção também exclui suas atribuições, antes de salvar.
+// Recolocar uma folha começa sem volume atribuído, nunca ressuscita carga antiga.
+function planOcupacaoLimparForaDaSelecao(plano){
+  var selecionadas = new Set(plano.sheets || []);
+  (plano.ocupacaoPosicoes || []).forEach(function(p){
+    Object.keys(p.atividades || {}).forEach(function(sid){
+      if(!selecionadas.has(sid)) delete p.atividades[sid];
+    });
+  });
+}
+
 function planToggleFolha(sid){
   var a = planAtual();
   if(!a) return;
   var arr = a.pl.sheets = a.pl.sheets || [];
   var i = arr.indexOf(sid);
   if(i === -1) arr.push(sid); else arr.splice(i, 1);
+  planOcupacaoLimparForaDaSelecao(a.pl);
   planPersist(a);
   planRender();
   planRefreshFundo();
@@ -949,6 +961,7 @@ function planTodas(marcar){
   var a = planAtual();
   if(!a) return;
   a.pl.sheets = marcar ? (a.independente ? (a.pl.sheets || []).slice() : (a.p.sheets || []).slice()) : [];
+  planOcupacaoLimparForaDaSelecao(a.pl);
   planPersist(a);
   planRender();
   planRefreshFundo();
@@ -992,6 +1005,7 @@ function planSheetRemove(sid){
   if(i !== -1){
     arr.splice(i, 1);
     if(a.pl.qtds) delete a.pl.qtds[sid];
+    planOcupacaoLimparForaDaSelecao(a.pl);
     planPersist(a);
     planRender();
     planRefreshFundo();
