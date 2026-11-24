@@ -1,4 +1,4 @@
-/* MTM em Foco — Análise por vídeo (offline) · v4 */
+/* MTM em Foco — Análise por vídeo (offline) · v5 */
 (() => {
 'use strict';
 /* Núcleo de leitura de movimento — sem dependência de navegador (testável em Node) */
@@ -312,6 +312,174 @@ function stepFreq(st) {
   const n = Number(a); return n > 0 ? '1/' + (Number.isInteger(n) ? n : a) : null;
 }
 
+/* ── Leitura de postura (MediaPipe Pose, offline) → descrição e código por trecho ── */
+const TORSO_M = 0.5;   // comprimento médio ombro–quadril (m), usado para estimar distâncias
+const STEP_M = 0.7;    // passo médio (m)
+const OBJ_WORDS = ['tampa', 'peça', 'peca', 'caixa', 'saco', 'embalagem', 'pallet', 'palete', 'produto', 'item', 'etiqueta', 'divisória', 'divisoria', 'bandeja', 'fardo', 'frasco', 'garrafa', 'componente'];
+
+function poseFeatures(samples, W, H) {
+  const out = [];
+  let prev = null;
+  for (const s of samples) {
+    const lm = s.lm;
+    const f = { t: s.t, ok: false };
+    if (lm && lm.length >= 29) {
+      const P = i => ({ x: lm[i][0] * W, y: lm[i][1] * H, v: lm[i][2] });
+      const ls = P(11), rs = P(12), lh = P(23), rh = P(24), lw = P(15), rw = P(16);
+      const sh = { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 }, hp = { x: (lh.x + rh.x) / 2, y: (lh.y + rh.y) / 2 };
+      const sc = Math.hypot(sh.x - hp.x, sh.y - hp.y);
+      if (sc > 8 && Math.min(ls.v, rs.v, lh.v, rh.v) > 0.3) {
+        f.ok = true; f.sc = sc;
+        f.tilt = Math.atan2(Math.abs(sh.x - hp.x), Math.max(1e-6, hp.y - sh.y)) * 180 / Math.PI;
+        if (hp.y < sh.y) f.tilt = 90;
+        f.hip = hp;
+        const hand = (w, s0) => ({ dy: (w.y - hp.y) / sc, dist: Math.hypot(w.x - s0.x, w.y - s0.y) / sc, x: w.x / sc, y: w.y / sc, v: w.v });
+        f.lw = hand(lw, ls); f.rw = hand(rw, rs);
+        if (prev && prev.ok) {
+          const dt = Math.max(0.05, s.t - prev.t), scm = (sc + prev.sc) / 2;
+          f.hipSp = Math.abs(hp.x - prev.hip.x) / scm / dt;
+          f.hipDx = (hp.x - prev.hip.x) / scm;
+          f.scaleJump = Math.abs(sc - prev.sc) / scm;
+          const wsp = (a, b) => Math.hypot((a.x - b.x), (a.y - b.y)) / dt;
+          f.lsp = wsp({ x: lw.x / scm, y: lw.y / scm }, { x: prev.lwAbs.x / scm, y: prev.lwAbs.y / scm }) - f.hipSp * 0; // velocidade das mãos
+          f.rsp = wsp({ x: rw.x / scm, y: rw.y / scm }, { x: prev.rwAbs.x / scm, y: prev.rwAbs.y / scm });
+        }
+        f.lwAbs = { x: lw.x, y: lw.y }; f.rwAbs = { x: rw.x, y: rw.y };
+      }
+    }
+    out.push(f); if (f.ok) prev = f; else prev = null;
+  }
+  return out;
+}
+
+const mean = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : NaN;
+const fmtN = (v, d) => String(Math.round(v * Math.pow(10, d || 0)) / Math.pow(10, d || 0)).replace('.', ',');
+
+/* Classifica um trecho [start,end) a partir das amostras de postura */
+function classifySegment(F, start, end, objWord, prevCls) {
+  const sub = F.filter(f => f.t >= start && f.t < end);
+  const ok = sub.filter(f => f.ok);
+  const obj = objWord || 'material';
+  const res = { cls: 'sem_leitura', desc: '', code: '', q: '', obs: '', metrics: {} };
+  if (!sub.length || ok.length / sub.length < 0.5 || ok.length < 1) {
+    res.desc = ''; res.obs = 'Operador não identificado com segurança neste trecho (fora do quadro ou encoberto) — descrever manualmente';
+    return res;
+  }
+  const moving = ok.filter(f => f.hipSp != null && !(f.scaleJump > 0.25));
+  const hipSp = mean(moving.map(f => f.hipSp));
+  const path = moving.reduce((s, f) => s + Math.abs(f.hipDx), 0);
+  const tiltMax = Math.max(...ok.map(f => f.tilt)), tilt0 = ok[0].tilt, tiltMean = mean(ok.map(f => f.tilt));
+  const dyMean = mean(ok.map(f => (f.lw.dy + f.rw.dy) / 2));
+  const reachMax = Math.max(...ok.map(f => Math.max(f.lw.dist, f.rw.dist)));
+  const reachMean = mean(ok.map(f => Math.max(f.lw.dist, f.rw.dist)));
+  const lsp = mean(ok.filter(f => f.lsp != null).map(f => f.lsp)), rsp = mean(ok.filter(f => f.rsp != null).map(f => f.rsp));
+  const handSp = Math.max(isFinite(lsp) ? lsp : 0, isFinite(rsp) ? rsp : 0);
+  const bothHands = isFinite(lsp) && isFinite(rsp) && Math.min(lsp, rsp) > 0.45 * Math.max(lsp, rsp);
+  const hands = bothHands ? 'com as duas mãos' : (lsp > rsp ? 'com a mão esquerda' : 'com a mão direita');
+  const dur = end - start;
+  res.metrics = { hipSp, path, tiltMax, tiltMean, dyMean, reachMax, reachMean, handSp, n: ok.length };
+  const bent = tiltMax >= 35 ? ', tronco curvado (~' + Math.round(tiltMax / 5) * 5 + '°)' : '';
+  const kbNote = (tilt0 < 25 && tiltMax >= 40) ? 'Postura: curvar o tronco (~' + Math.round(tiltMax / 5) * 5 + '°) — avaliar KB (60 TMU) se houver curvar e voltar à posição ereta neste trecho' : '';
+
+  // 1) Andar: deslocamento do quadril sustentado
+  const walking = moving.length >= 1 && (hipSp >= 0.6 || (tiltMean < 30 && ((hipSp >= 0.35 && path >= 0.4) || (hipSp >= 0.22 && path >= 0.45 && reachMean < 1.25))));
+  if (walking) {
+    const m = Math.max(0.5, Math.round(path * TORSO_M * 2) / 2);
+    const passos = Math.max(1, Math.round(m / STEP_M));
+    const carrying = prevCls === 'manusear' || (reachMean < 1.0 && dyMean > -0.8 && dyMean < 0.2);
+    res.cls = 'andar';
+    res.desc = 'Andar ~' + fmtN(m, 1) + ' m (≈' + passos + (passos > 1 ? ' passos' : ' passo') + ')' + (carrying ? ' carregando ' + obj + ' com as mãos junto ao corpo' : ' sem carga nas mãos');
+    res.code = 'KA'; res.q = String(m);
+    res.obs = 'Distância estimada pelo deslocamento do quadril no vídeo (só o componente lateral à câmera) — medir em campo';
+    return res;
+  }
+  // 2) Manusear à frente do tronco (mãos acima do quadril, perto do corpo)
+  if (dyMean < -0.15 && reachMean < 1.0) {
+    res.cls = 'manusear';
+    res.desc = 'Apanhar/separar ' + obj + ' à frente do tronco, ' + hands + ', mãos à altura do tórax' + bent;
+    res.code = 'AC2'; res.q = '1';
+    res.obs = ['Mãos junto ao corpo e acima do quadril: pega/separação de itens (ex.: retirar da pilha). Conferir peso e nº de pegas', kbNote].filter(Boolean).join('; ');
+    return res;
+  }
+  // 3) Mãos baixas: apanhar e colocar (alcance/velocidade) ou pressionar/ajustar
+  const rc = reachMax < 0.9 ? 1 : reachMax < 1.4 ? 2 : 3;
+  const faixa = ['', '≤20 cm', '20–50 cm', '50–80 cm'][rc];
+  if (reachMax >= 1.3 || handSp >= 1.6) {
+    res.cls = 'colocar';
+    res.desc = 'Apanhar e colocar ' + obj + ' ' + hands + ', braços estendidos (alcance ' + faixa + ')' + bent;
+    res.code = 'AC' + rc; res.q = '1';
+    res.obs = ['Alcance estimado pela postura (faixa ' + rc + '). Conferir peso (≤1 daN para AC) e se há código específico para o objeto', kbNote].filter(Boolean).join('; ');
+    return res;
+  }
+  // pressionar/ajustar: conta "descidas" das mãos
+  const ys = ok.map(f => (f.lw.y + f.rw.y) / 2);
+  let presses = 0;
+  for (let i = 1; i < ys.length - 1; i++) if (ys[i] > ys[i - 1] && ys[i] >= ys[i + 1] && ys[i] - Math.min(ys[i - 1], ys[i + 1]) > 0.05) presses++;
+  presses = Math.max(1, presses);
+  res.cls = 'pressionar';
+  res.desc = 'Pressionar/ajustar ' + obj + ' ' + hands + ' sobre a superfície de trabalho (' + presses + (presses > 1 ? ' pressões visíveis' : ' pressão visível') + ')' + bent;
+  res.code = 'BA2'; res.q = String(presses);
+  res.obs = ['Mãos baixas e próximas, com pouco deslocamento: pressão/ajuste. Q = nº de pressões estimado pela oscilação das mãos (amostragem de 2,5/s) — conferir no vídeo', kbNote].filter(Boolean).join('; ');
+  return res;
+}
+
+/* Compatibilidade classe ↔ etapa do roteiro */
+function stepClass(st) {
+  const t = noAcc(st.text), c = st.code || '';
+  if (/^KA$|^HF[FV]|^WF/.test(c) || /\b(andar|caminhar|voltar|retornar|levar|ir ate|deslocar|conduzir|transportar)\b/.test(t)) return 'andar';
+  if (/^B[AB]\d/.test(c) || /\b(pressionar|encaixar|apertar|travar|ajustar|alinhar)\b/.test(t)) return 'pressionar';
+  if (/\b(separar|buscar)\b/.test(t) || (/\b(pegar|apanhar|retirar|tirar)\b/.test(t) && /\b(lote|pilha|varias|\d+)\b/.test(t))) return 'manusear';
+  if (/^SAD|^PAD|^A[A-Z]\d|^P[ABC]\d/.test(c) || /\b(colocar|posicionar|apoiar|depositar|pegar|apanhar|tampar)\b/.test(t)) return 'colocar';
+  return '';
+}
+const FAMILY = { colocar: 'baixas', pressionar: 'baixas', manusear: 'manusear', andar: 'andar' };
+/* Associa trechos às etapas do roteiro em ordem cíclica (o processo se repete):
+   1º procura a próxima etapa da mesma classe; se não houver, aceita a mesma família (mãos baixas: colocar/pressionar) */
+function alignToSteps(classes, steps) {
+  const sc = steps.map(stepClass);
+  const n = steps.length; let p = 0;
+  const used = new Set(); // etapas acíclicas já usadas neste abastecimento
+  // o vídeo pode começar no meio: até ver a pega do lote, não usa as etapas acíclicas que vêm depois dela
+  const firstPick = sc.indexOf('manusear');
+  if (firstPick >= 0) steps.forEach((x, j) => { if (x.acyclic && j > firstPick) used.add(j); });
+  return classes.map((c, idx) => {
+    if (!n || !c || c === 'sem_leitura') return -1;
+    const pickSoon = classes.slice(idx + 1, idx + 3).includes('manusear');
+    for (const test of [j => sc[j] === c, j => sc[j] && FAMILY[sc[j]] === FAMILY[c]]) {
+      for (let k = 0; k < n; k++) {
+        const j = (p + k) % n;
+        if (steps[j].acyclic && used.has(j)) continue;
+        if (steps[j].acyclic && firstPick >= 0 && j < firstPick && !pickSoon) continue; // ida ao abastecimento só se a pega vem em seguida
+        if (test(j)) {
+          if (sc[j] === 'manusear') used.clear();
+          if (steps[j].acyclic) used.add(j);
+          p = (j + 1) % n; return j;
+        }
+      }
+    }
+    return -1;
+  });
+}
+/* Classifica todos os trechos e une trechos consecutivos de andar ou de manusear (mesma atividade contínua) */
+function classifyAll(F, segs, objWord) {
+  const out = [];
+  for (const sg of segs) {
+    const c = classifySegment(F, sg.start, sg.end, objWord, out.length ? out[out.length - 1].cls : '');
+    const last = out[out.length - 1];
+    if (last && last.cls === c.cls && (c.cls === 'andar' || c.cls === 'manusear')) {
+      const m = classifySegment(F, last.start, sg.end, objWord, out.length > 1 ? out[out.length - 2].cls : '');
+      if (m.cls === c.cls) { Object.assign(last, m, { start: last.start, end: sg.end, merged: (last.merged || 1) + 1 }); continue; }
+    }
+    out.push(Object.assign(c, { start: sg.start, end: sg.end, kind: sg.kind, camera: sg.camera, features: sg.features }));
+  }
+  return out;
+}
+function findObjWord(text) {
+  const t = noAcc(text);
+  for (const w of OBJ_WORDS) { const m = new RegExp('\\b' + noAcc(w) + 's?\\b').exec(t); if (m) return w.replace('peca', 'peça').replace('divisoria', 'divisória'); }
+  return '';
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    ANÁLISE POR VÍDEO — MTM em Foco (100% offline)
    O vídeo é lido no próprio computador (nada é enviado). O sistema mede
@@ -385,7 +553,7 @@ function defaultSource(code, sys) {
 /* ── Estado ───────────────────────────────────────────────────────── */
 function freshState() {
   return { unit: '', unitRef: '', unitsPerCycle: 1, process: '', system: 'UAS', filename: '', duration: 0, coverage: '',
-           analysis: null, samples: [], events: [], lines: [], improvements: [], sources: {}, refRange: 'auto', readMode: 'precisa', prompt: '', steps: [], premises: [], params: [] };
+           analysis: null, samples: [], events: [], lines: [], improvements: [], sources: {}, refRange: 'auto', readMode: 'precisa', prompt: '', steps: [], premises: [], params: [], usePose: 'sim', pose: null };
 }
 function lineCalc(l) {
   const it = library()[l.code];
@@ -483,6 +651,51 @@ async function sampleVideo(video, signal, fast, progress) {
   return out;
 }
 
+
+/* ── Leitura de postura no navegador (MediaPipe Pose, arquivos locais em mtm-pose/) ── */
+let poseLib = null;
+function loadPoseLib() {
+  if (poseLib) return poseLib;
+  poseLib = new Promise((resolve, reject) => {
+    if (location.protocol === 'file:') return reject(new Error('abra o sistema por http(s) ou localhost para carregar o modelo de postura'));
+    const go = () => {
+      try {
+        const pose = new window.Pose({ locateFile: f => SCRIPT_BASE + 'mtm-pose/' + f });
+        pose.setOptions({ modelComplexity: 1, smoothLandmarks: false, staticImageMode: true, minDetectionConfidence: 0.4, minTrackingConfidence: 0.4 });
+        let cb = null; pose.onResults(r => { cb && cb(r); });
+        const run = async img => { let out = null; cb = r => { out = r.poseLandmarks || null; }; await pose.send({ image: img }); cb = null; return out; };
+        resolve({ run });
+      } catch (e) { reject(e); }
+    };
+    if (window.Pose) return go();
+    const sc = document.createElement('script'); sc.src = SCRIPT_BASE + 'mtm-pose/pose.js';
+    sc.onload = go; sc.onerror = () => reject(new Error('pasta mtm-pose não encontrada junto ao sistema'));
+    document.head.append(sc);
+  });
+  poseLib.catch(() => { poseLib = null; });
+  return poseLib;
+}
+async function samplePose(video, signal, progress) {
+  const lib = await Promise.race([loadPoseLib(), new Promise((_, rej) => setTimeout(() => rej(new Error('o modelo de postura demorou para carregar')), 60000))]);
+  const dur = video.duration, rate = dur <= 300 ? 2.5 : dur <= 900 ? 2 : 1;
+  const n = Math.max(2, Math.ceil(dur * rate));
+  const W = 480, H = Math.round(480 * (video.videoHeight || 9) / (video.videoWidth || 16));
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  const samples = [];
+  for (let i = 0; i < n; i++) {
+    if (signal.aborted) throw new DOMException('abort', 'AbortError');
+    const t = (i + 0.5) * dur / n;
+    const p = waitEvent(video, 'seeked', signal, 15000); video.currentTime = t; await p;
+    ctx.drawImage(video, 0, 0, W, H);
+    let lm = null;
+    try { const r = await lib.run(cv); if (r) lm = r.map(q => [q.x, q.y, q.visibility == null ? 1 : q.visibility]); } catch (e) { lm = null; }
+    samples.push({ t, lm });
+    if (i % 3 === 0) progress(i / n);
+  }
+  return { samples, W, H, rate };
+}
+
 /* ── Interface ───────────────────────────────────────────────────── */
 const CSS = `
 dialog.mv{box-sizing:border-box;width:min(1500px,98vw);height:min(960px,96vh);max-width:none;max-height:none;margin:auto;padding:0;border:1px solid #344c66;border-radius:14px;background:#0d2034;color:#edf5ff;font:13px/1.4 Poppins,system-ui,sans-serif;box-shadow:0 20px 64px #0008}
@@ -549,6 +762,7 @@ function openDialog() {
           <div><label>Qual embalagem é a referência?</label><input data-k="unitRef" placeholder="ex.: caixa de destino"></div>
           <div><label>Unidades por ciclo observado</label><input data-k="unitsPerCycle" inputmode="decimal" placeholder="1"></div>
           <div><label>Sistema MTM</label><select data-k="system"><option>UAS</option><option>MEK</option><option>Logística</option></select></div>
+          <div style="grid-column:1/-1"><label>Descrever os movimentos automaticamente</label><select data-k="usePose"><option value="sim">Sim — ler a postura do operador (offline, pasta mtm-pose)</option><option value="nao">Não — só cortar os trechos</option></select></div>
           <div style="grid-column:1/-1"><label>Leitura do vídeo</label><select data-k="readMode"><option value="precisa">Precisa — mesmo resultado a cada leitura (≈ duração do vídeo)</option><option value="rapida">Rápida — cerca de 4× mais rápida, cortes podem variar</option></select></div>
           <div style="grid-column:1/-1"><label>Processo</label><input data-k="process" placeholder="ex.: Tampar caixas no pallet"></div>
         </div>
@@ -687,13 +901,21 @@ function openDialog() {
       barEl.style.width = '100%';
       st.samples = samples;
       st.analysis = CORE.analyze(samples, st.duration);
+      st.pose = null; let poseMsg = '';
+      if (st.usePose !== 'nao') {
+        try {
+          st.pose = await samplePose(video, signal, f => { barEl.style.width = Math.min(100, f * 100).toFixed(1) + '%'; setStatus('Lendo a postura do operador: ' + Math.round(f * 100) + '%'); });
+          const okN = st.pose.samples.filter(x => x.lm).length;
+          poseMsg = ' Postura identificada em ' + Math.round(100 * okN / Math.max(1, st.pose.samples.length)) + '% dos quadros.';
+        } catch (err) { if (err && err.name === 'AbortError') throw err; st.pose = null; poseMsg = ' Descrição automática indisponível: ' + (err && err.message || err); }
+      }
       video.controls = true; video.muted = false; video.currentTime = 0;
       if (!keep) seedFromAnalysis();
       renderAll();
       const a = st.analysis;
       setStatus('Leitura concluída em ' + ((performance.now() - t0) / 1000).toFixed(0) + ' s: ' + a.segments.length + ' trechos'
         + (a.period ? ', repetição sugerida a cada ~' + fmtS(a.period) + ' s (confiança ' + Math.round(a.confidence * 100) + '%).' : ', sem repetição clara.')
-        + ' Confira cada trecho no vídeo e preencha atividade e código.');
+        + poseMsg + (st.pose ? ' Linhas descritas e codificadas automaticamente (origem Estimado) — confira cada uma no vídeo.' : ' Confira cada trecho no vídeo e preencha atividade e código.'));
     } catch (err) {
       video.controls = true;
       if (err && err.name === 'AbortError') return;
@@ -710,12 +932,22 @@ function openDialog() {
     st.coverage = 'Filmagem de ' + mmss(0) + ' a ' + mmss(st.duration) + '. Verificar se começa e termina em limite de ciclo.';
     buildLines(0, st.duration);
   }
+  function objWord() { return findObjWord((st.prompt || '') + ' ' + (st.process || '')) || ''; }
   function buildLines(t0, t1) {
     const a = st.analysis; if (!a) return;
     const upc = CORE.num(st.unitsPerCycle, 1);
-    st.lines = a.segments.filter(s => s.end > t0 && s.start < t1).map(s => {
-      const l = { id: uid(), start: Math.max(t0, s.start), end: Math.min(t1, s.end), desc: '', agrega: '', code: '', q: '1', f: upc > 1 ? '1/' + upc : '1',
-        origin: 'Observado', simul: false, simulWith: '', etapa: '', dist: '', obs: '', features: s.features, kind: s.kind };
+    const segs = a.segments.filter(s => s.end > t0 && s.start < t1).map(s => Object.assign({}, s, { start: Math.max(t0, s.start), end: Math.min(t1, s.end) }));
+    const blank = s => ({ id: uid(), start: s.start, end: s.end, desc: '', agrega: '', code: '', q: '1', f: upc > 1 ? '1/' + upc : '1',
+      origin: 'Observado', simul: false, simulWith: '', etapa: '', dist: '', obs: '', features: s.features, kind: s.kind });
+    if (st.pose) {
+      const F = poseFeatures(st.pose.samples, st.pose.W, st.pose.H);
+      const C = classifyAll(F, segs, objWord());
+      st.lines = C.map(c => { const l = blank(c); l.cls = c.cls; l.camera = c.camera; l.auto = { cls: c.cls, desc: c.desc, code: c.code, q: c.q, obs: c.obs }; return l; });
+      applyAuto();
+      return;
+    }
+    st.lines = segs.map(s => {
+      const l = blank(s);
       if (s.kind === 'pausa') l.obs = 'Baixa movimentação visível — confirmar se é espera, pausa ou movimento fino/distante';
       if (s.camera > 0.3) l.obs = (l.obs ? l.obs + '; ' : '') + 'câmera em movimento neste trecho';
       if (histFeat.length && s.features) {
@@ -724,6 +956,37 @@ function openDialog() {
         if (best) { l.desc = best.desc; l.code = best.code; l.agrega = best.agrega || ''; l.origin = 'Estimado'; l.obs = (l.obs ? l.obs + '; ' : '') + 'sugerido por semelhança com "' + best.sheet + '" — conferir no vídeo'; }
       }
       return l;
+    });
+  }
+  /* Preenche as linhas automáticas: roteiro (se houver) + leitura de postura */
+  const CLS_NAME = { andar: 'andar', manusear: 'apanhar/separar à frente do tronco', colocar: 'apanhar e colocar', pressionar: 'pressionar/ajustar' };
+  function applyAuto() {
+    const autoLines = st.lines.filter(l => l.auto && !l.userEdited);
+    if (!autoLines.length) return;
+    const al = st.steps.length ? alignToSteps(autoLines.map(l => l.cls), st.steps) : autoLines.map(() => -1);
+    autoLines.forEach((l, i) => {
+      const c = l.auto, j = al[i];
+      l.stepId = ''; l.qParam = ''; l.fParam = ''; l.code = ''; l.q = '1'; l.f = defaultF(); l.desc = ''; l.etapa = ''; l.obs = '';
+      l.origin = 'Estimado';
+      l.agrega = { colocar: 'Sim', pressionar: 'Sim', manusear: 'Necessário', andar: 'Necessário' }[c.cls] || '';
+      const extra = [];
+      if (l.kind === 'pausa') extra.push('baixa movimentação visível');
+      if (l.camera > 0.3) extra.push('câmera em movimento');
+      if (j >= 0) {
+        linkLine(l, st.steps[j]);
+        if (!l.code && c.code && lib[c.code]) { l.code = c.code; if (c.q && !l.qParam) l.q = c.q; }
+        const pq = l.qParam && paramById(l.qParam);
+        if (pq && String(pq.value).trim() === '' && c.cls === 'andar' && c.q) { l.q = c.q; l.obs = (l.obs ? l.obs + '; ' : '') + 'Distância provisória ~' + String(c.q).replace('.', ',') + ' m estimada pelo vídeo — informar a medida na aba Roteiro'; }
+        l.origin = 'Estimado';
+        const kb = (c.obs || '').split('; ').filter(x => /^Postura:/.test(x));
+        l.obs = [(l.obs || ''), 'Reconhecido pela postura como “' + (CLS_NAME[c.cls] || c.cls) + '” e associado à etapa ' + (j + 1) + ' do roteiro — conferir no vídeo', ...kb, ...extra].filter(Boolean).join('; ');
+      } else if (c.cls === 'sem_leitura') {
+        l.obs = [c.obs, ...extra].filter(Boolean).join('; ');
+      } else {
+        l.desc = c.desc; l.code = lib[c.code] ? c.code : ''; l.q = c.q || '1';
+        l.etapa = { andar: 'Deslocamento', manusear: 'Pega', colocar: 'Colocação', pressionar: 'Fixação / encaixe' }[c.cls] || '';
+        l.obs = ['Descrição automática pela postura — conferir no vídeo', c.obs, ...extra].filter(Boolean).join('; ');
+      }
     });
   }
 
@@ -846,6 +1109,7 @@ function openDialog() {
     st.steps = r.steps; st.premises = r.premises; st.params = st.params.filter(p => !/^p[qf]_/.test(p.id)); syncParams();
     if (r.processName && !String(st.process || '').trim()) { st.process = r.processName; syncForm(); }
     const pend = st.steps.filter(x => x.acyclic && !stepFreq(x)).length;
+    if (st.lines.some(l => l.auto && !l.userEdited)) applyAuto();
     setStatus('Roteiro com ' + st.steps.length + ' etapas; ' + st.steps.filter(x => x.acyclic).length + ' acíclicas' + (pend ? ', ' + pend + ' com rateio a responder.' : '.'));
     renderAll(); showTab('rot');
   };
@@ -920,6 +1184,7 @@ function openDialog() {
   }
   function addStep() { st.steps.push({ id: 'st' + Date.now(), text: 'Nova etapa', code: '', note: '', q: '', acyclic: false, answer: '', source: '' }); renderAll(); showTab('rot'); }
   function useStepsInLines() {
+    if (st.lines.some(l => l.auto && !l.userEdited)) { applyAuto(); renderAll(); showTab('mov'); setStatus('Roteiro associado aos trechos pela postura reconhecida. Confira cada linha no vídeo.'); return; }
     let k = 0;
     for (const l of st.lines) { if (k >= st.steps.length) break; if (String(l.desc || '').trim()) continue; linkLine(l, st.steps[k++]); }
     for (; k < st.steps.length; k++) { const l = { id: uid(), start: 0, end: 0, desc: '', agrega: '', code: '', q: '1', f: defaultF(), origin: 'Informado', simul: false, simulWith: '', etapa: '', dist: '', obs: 'sem minutagem — marcar no vídeo' }; linkLine(l, st.steps[k]); st.lines.push(l); }
@@ -936,13 +1201,13 @@ function openDialog() {
       <button data-gen>Gerar linhas dos trechos detectados</button>
       <button data-add>+ Linha</button>
     </div>
-    <table class="lines"><thead><tr><th>Nº</th><th>Minutagem (s)</th><th style="min-width:210px">Atividade / movimento observado</th><th>AGREGA</th><th style="min-width:90px">Código</th><th class="num">TMU</th><th>Qtd.</th><th>Freq.</th><th>Dist. (m)</th><th>Origem</th><th title="Executado ao mesmo tempo que outra linha; não soma no total">Simult.</th><th class="num">Total TMU</th><th class="num">Total (s)</th><th class="num">Vídeo (s)</th><th style="min-width:90px">Etapa</th><th style="min-width:220px">Descrição técnica / conteúdo</th><th style="min-width:130px">Evidência</th><th style="min-width:220px">Observação técnica / premissa</th><th></th></tr></thead><tbody>`;
+    <table class="lines"><thead><tr><th>Nº</th><th>Minutagem (s)</th><th style="min-width:340px">Atividade / movimento observado</th><th>AGREGA</th><th style="min-width:90px">Código</th><th class="num">TMU</th><th>Qtd.</th><th>Freq.</th><th>Dist. (m)</th><th>Origem</th><th title="Executado ao mesmo tempo que outra linha; não soma no total">Simult.</th><th class="num">Total TMU</th><th class="num">Total (s)</th><th class="num">Vídeo (s)</th><th style="min-width:90px">Etapa</th><th style="min-width:220px">Descrição técnica / conteúdo</th><th style="min-width:130px">Evidência</th><th style="min-width:220px">Observação técnica / premissa</th><th></th></tr></thead><tbody>`;
     st.lines.forEach((l, i) => {
       const it = lib[l.code];
       h += `<tr data-i="${i}" class="${l.kind === 'pausa' ? 'low' : ''}">
         <td>${i + 1}</td>
         <td class="mm mut"><input data-f="start" value="${r2(l.start)}" style="width:58px" title="início (s) — ${mmss(l.start)}"> a <input data-f="end" value="${r2(l.end)}" style="width:58px" title="fim (s) — ${mmss(l.end)}"></td>
-        <td><input data-f="desc" list="mv-hist" value="${esc(l.desc)}" placeholder="ex.: Apanhar 1 tampa da pilha com 2 mãos"></td>
+        <td><input data-f="desc" list="mv-hist" value="${esc(l.desc)}" placeholder="descreva a atividade"></td>
         <td><select data-f="agrega" style="width:100px"><option value=""></option>${AGREGA_OPTS.map(o => `<option${o === l.agrega ? ' selected' : ''}>${o}</option>`).join('')}</select></td>
         <td><input data-f="code" list="mv-codes" value="${esc(l.code)}" title="${esc(it ? it.desc : 'código não encontrado na biblioteca')}"><div class="mut" data-o="cdesc" style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it ? it.family + ' · ' + it.desc : (l.code ? 'não está na biblioteca' : ''))}</div></td>
         <td class="num" data-o="tmu"></td>
@@ -980,6 +1245,7 @@ function openDialog() {
   function onLineInput(e) {
     const el = e.target, tr = el.closest('tr[data-i]'); if (!tr || !el.dataset.f) return;
     const l = st.lines[+tr.dataset.i], k = el.dataset.f;
+    if (['desc', 'code', 'q', 'f', 'agrega'].includes(k)) l.userEdited = true;
     if (k === 'simul') l.simul = el.checked;
     else if (k === 'start' || k === 'end') { const v = CORE.num(el.value, NaN); if (isFinite(v)) l[k] = v; }
     else l[k] = el.value;
