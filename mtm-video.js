@@ -63,8 +63,52 @@
     const folderId=activeProjectCtx.folderId, projectId=project.id;
     const sameProject=()=>activeProjectCtx?.folderId===folderId && getActiveProject()?.id===projectId;
     const dialog=document.createElement('dialog');
-    dialog.style.cssText='width:min(720px,92vw);max-height:88vh;overflow:auto;border:1px solid #777;border-radius:12px;padding:20px;background:var(--surface,#fff);color:var(--text,#111)';
-    dialog.innerHTML='<form><button type="button" data-close style="float:right">Fechar</button><h3>Análise por vídeo</h3><p data-scope></p><label>Senha da atividade <input type="password" required autocomplete="off"></label> <button>Entrar</button></form><section hidden><label>Vídeo da operação <input type="file" accept="video/*"></label><video playsinline controls style="display:block;width:100%;max-height:220px;margin:12px 0"></video><div data-review></div></section><p role="status"></p>';
+    dialog.className='video-access';
+    dialog.setAttribute('aria-labelledby','video-access-title');
+    dialog.innerHTML=`
+      <style>
+        dialog.video-access {
+          box-sizing:border-box; margin:auto; width:min(420px,calc(100% - 24px)); max-height:88vh;
+          overflow:auto; padding:clamp(18px,4vw,28px); border:1px solid #344c66; border-radius:16px;
+          background:#0d2034; color:#edf5ff; box-shadow:0 20px 64px #0006; font:inherit;
+        }
+        dialog.video-access[data-open] { width:min(720px,calc(100% - 24px)) }
+        .video-access::backdrop { background:rgba(3,12,24,.74) }
+        .video-access header { position:static; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; background:none; padding:0 }
+        .video-access h3 { margin:0; font-size:1.3rem }
+        .video-access [data-scope] { margin:6px 0 20px; color:#b8cbe0; overflow-wrap:anywhere }
+        .video-access button { cursor:pointer; font:inherit }
+        .video-access [data-close] { background:transparent; color:#c2d6eb; border:0; padding:6px; border-radius:6px }
+        .video-access form { display:grid; gap:8px }
+        .video-access form[hidden] { display:none }
+        .video-access label { font-weight:600 }
+        .video-access .password-box { display:flex; background:#091827; border:1px solid #617b95; border-radius:9px; overflow:hidden }
+        .video-access .password-box:focus-within { outline:2px solid #78c6ff; outline-offset:2px }
+        .video-access .password-box input { min-width:0; width:100%; padding:12px; font:inherit; color:#fff; background:transparent; border:0; outline:none }
+        .video-access [data-eye] { display:grid; place-items:center; flex:0 0 46px; background:transparent; color:#c9dcf0; border:0 }
+        .video-access button:focus-visible { outline:2px solid #94d6ff; outline-offset:-3px }
+        .video-access [data-eye][aria-pressed="false"] line { display:none }
+        .video-access [type=submit] { margin-top:8px; min-height:44px; border:0; border-radius:9px; background:#89ceff; color:#081c30; font-weight:700 }
+        .video-access [role=status] { margin:12px 0 0 }
+        .video-access [role=status]:empty { margin:0 }
+        .video-access form:not([hidden]) ~ [role=status] { color:#ffbbb5 }
+      </style>
+      <header><h3 id="video-access-title">Análise por vídeo</h3><button type="button" data-close>Fechar</button></header>
+      <p data-scope></p>
+      <form>
+        <label for="video-access-password">Senha da atividade</label>
+        <div class="password-box">
+          <input id="video-access-password" type="password" required autocomplete="off" autofocus aria-describedby="video-access-status">
+          <button type="button" data-eye aria-label="Mostrar senha" title="Mostrar senha" aria-pressed="false">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><line x1="3" y1="3" x2="21" y2="21"/>
+            </svg>
+          </button>
+        </div>
+        <button type="submit">Entrar</button>
+      </form>
+      <section hidden><label>Vídeo da operação <input type="file" accept="video/*"></label><video playsinline controls style="display:block;width:100%;max-height:220px;margin:12px 0"></video><div data-review></div></section>
+      <p id="video-access-status" role="status"></p>`;
     document.body.append(dialog);
     dialog.querySelector('[data-scope]').textContent=pmData[folderId].name+' / '+project.name;
     const form=dialog.querySelector('form'), section=dialog.querySelector('section'), status=dialog.querySelector('[role=status]');
@@ -73,10 +117,18 @@
     const lock=new AbortController();
     dialog.querySelector('[data-close]').onclick=()=>dialog.close();
     dialog.onclose=()=>{lock.abort();controller?.abort();video.pause();video.removeAttribute('src');video.load();if(url) URL.revokeObjectURL(url);dialog.remove();};
+    const field=form.querySelector('input'), eye=form.querySelector('[data-eye]');
+    function showPassword(visible){
+      field.type=visible?'text':'password';
+      eye.setAttribute('aria-pressed',String(visible));
+      eye.title=visible?'Ocultar senha':'Mostrar senha';
+    }
+    eye.onclick=()=>showPassword(field.type==='password');
+    field.oninput=()=>{status.textContent='';};
     form.onsubmit=async e=>{
       e.preventDefault();
       if(!crypto.subtle){status.textContent='Abra o sistema por HTTPS ou localhost para usar a senha.';return;}
-      const field=form.querySelector('input');
+      showPassword(false);
       const bytes = value => Uint8Array.from(atob(value), c=>c.charCodeAt(0));
       try {
         const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(field.value),'PBKDF2',false,['deriveKey']);
@@ -90,7 +142,7 @@
         field.focus();return;
       }
       if(lock.signal.aborted)return;
-      form.querySelector('label').hidden=true;form.querySelector('button:not([type])').hidden=true;
+      form.hidden=true;dialog.setAttribute('data-open','');
       section.hidden=false;status.textContent='Selecione o vídeo para iniciar.';
       for(const sheet of scopedSheets()){
         const report=sheet.header?.videoMtm;
