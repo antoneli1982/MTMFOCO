@@ -1,4 +1,4 @@
-/* MTM em Foco — Análise por vídeo (offline) · v3 */
+/* MTM em Foco — Análise por vídeo (offline) · v4 */
 (() => {
 'use strict';
 /* Núcleo de leitura de movimento — sem dependência de navegador (testável em Node) */
@@ -170,20 +170,24 @@ const PROMPT_EXAMPLE = 'Ex.: Tampar caixas plásticas no pallet. Andar 2 m até 
 const noAcc = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 function stem(w) { w = noAcc(w).trim(); if (/oes$/.test(w)) return w.slice(0, -3) + 'ao'; if (/aes$/.test(w)) return w.slice(0, -3) + 'ao'; if (/(r|z|l)es$/.test(w)) return w.slice(0, -2); if (/s$/.test(w) && w.length > 3) return w.slice(0, -1); return w; }
 const sameWord = (a, b) => !!a && !!b && stem(a) === stem(b);
-const VERBS = 'andar|caminhar|deslocar|ir|voltar|retornar|levar|carregar|pegar|apanhar|separar|buscar|retirar|tirar|remover|colocar|posicionar|tampar|depositar|apoiar|soltar|pressionar|encaixar|apertar|travar|curvar|abaixar|agachar|ajoelhar|abrir|fechar|cortar|trocar|abastecer|repor|identificar|etiquetar|ler|bipar|escanear|conferir|inspecionar|montar|empilhar|desempilhar|girar|virar|alinhar|ajustar|dobrar|filmar|amarrar|lacrar|registrar|anotar|aguardar|esperar';
+const VERBS = 'conduzir|dirigir|empurrar|puxar|transportar|mover|inserir|engatar|frear|guardar|acomodar|erguer|levantar|verticalizar|arrastar|deslizar|desembalar|embalar|andar|caminhar|deslocar|ir|voltar|retornar|levar|carregar|pegar|apanhar|separar|buscar|retirar|tirar|remover|colocar|posicionar|tampar|depositar|apoiar|soltar|pressionar|encaixar|apertar|travar|curvar|abaixar|agachar|ajoelhar|abrir|fechar|cortar|trocar|abastecer|repor|identificar|etiquetar|ler|bipar|escanear|conferir|inspecionar|montar|empilhar|desempilhar|girar|virar|alinhar|ajustar|dobrar|filmar|amarrar|lacrar|registrar|anotar|aguardar|esperar';
 const VERB_RE = new RegExp('^(?:' + VERBS + ')', 'i');
 const ACYCLIC_VERBS = /\b(abrir|abertura|abastecer|abastecimento|buscar|busca|repor|reposicao|trocar|troca|identificar|etiquetar|filmar|amarrar|lacrar|montar o pallet|levar o pallet|registrar|anotar|retirar (a )?divisoria)\b/;
 const EVENT_WORDS = 'pallet|palete|camada|lote|embalagem|embalagem de origem|caixa de origem|saco|fardo|rolo|bobina|turno|hora|viagem|carrinho|pilha|ordem|pedido';
 
 /* Regras de sugestão de código: só sugere códigos que existem na biblioteca */
 const CODE_RULES = [
-  { re: /\b(retirar|tirar|remover)\b.*\b(tampa|cobertura|divisoria)\b/, code: m => sizeCode('PAD', m), note: 'Retirar tampa/cobertura: conferir dimensão' },
-  { re: /\b(colocar|posicionar|por)\b.*\b(tampa|cobertura|divisoria)\b|\btampar\b/, code: m => sizeCode('SAD', m), note: 'Colocar tampa/cobertura: conferir dimensão e se o código já inclui apanhar' },
-  { re: /\b(pressionar|encaixar|apertar|travar)\b/, code: () => 'BA2', note: 'Acionamento simples por pressão: quantidade = nº de pressões' },
-  { re: /\b(curvar|abaixar|agachar|ajoelhar)\b/, code: () => 'KB', note: 'Curvar e voltar' },
-  { re: /\b(andar|caminhar|deslocar|ir ate|voltar|retornar|levar|carregar)\b/, code: () => 'KA', note: 'Quantidade = metros percorridos', dist: true },
-  { re: /\b(apoiar|depositar|soltar)\b/, code: () => 'PA2', note: 'Colocar no lugar aproximado: conferir distância' },
-  { re: /\b(pegar|apanhar|separar|buscar)\b/, code: () => 'AC2', note: 'Apanhar e colocar: conferir peso, pega e faixa de distância' },
+  { re: /\b(apanhar|pegar|inserir|engatar)\b.*\b(pallet|palete)\b.*\b(paleteira|transpaleteira)\b|\b(paleteira|transpaleteira)\b.*\b(apanhar|pegar|inserir)\b.*\b(pallet|palete)\b/, code: m => (/acert|alinh|90/.test(m) ? 'HAM' : 'HAO') + (/>\s*500|acima de 500|pesad/.test(m) ? 'B' : 'A'), note: 'Apanhar pallet com transpaleteira: confirmar se precisa acertar (HAM) ou não (HAO)', etapa: 'Retirada mecanizada' },
+  { re: /\b(iniciar|parar|partida|arrancar|frear)\b.*\b(paleteira|transpaleteira)\b|\b(paleteira|transpaleteira)\b.*\b(iniciar|parar|partida)\b/, code: m => /pesad|>\s*500/.test(m) ? 'HFVB' : 'HFVA', note: 'Retardamento: apanhar alça e partida/parada', etapa: 'Transporte' },
+  { re: /\bcurva\b.*\b(paleteira|transpaleteira)\b|\b(paleteira|transpaleteira)\b.*\bcurva\b/, code: m => /pesad|>\s*500/.test(m) ? 'HFKB' : 'HFKA', note: 'Curva de 90° da transpaleteira', etapa: 'Transporte' },
+  { re: /\b(conduzir|dirigir|empurrar|puxar|transportar|levar|mover)\b.*\b(paleteira|transpaleteira)\b|\b(paleteira|transpaleteira)\b.*\b(\d+[.,]?\d*)\s*m\b/, code: m => /pesad|>\s*500/.test(m) ? 'HFFB' : 'HFFA', note: 'Transpaleteira por metro: Q = metros', dist: true, etapa: 'Transporte' },
+  { re: /\b(retirar|tirar|remover)\b.*\b(tampa|cobertura|divisoria)\b/, code: m => sizeCode('PAD', m), note: 'Retirar tampa/cobertura: conferir dimensão', etapa: 'Retirada' },
+  { re: /\b(colocar|posicionar|por)\b.*\b(tampa|cobertura|divisoria)\b|\btampar\b/, code: m => sizeCode('SAD', m), note: 'Colocar tampa/cobertura: conferir dimensão e se o código já inclui apanhar', etapa: 'Colocação' },
+  { re: /\b(pressionar|encaixar|apertar|travar)\b/, code: () => 'BA2', note: 'Acionamento simples por pressão: quantidade = nº de pressões', etapa: 'Fixação / encaixe' },
+  { re: /\b(curvar|abaixar|agachar|ajoelhar)\b/, code: () => 'KB', note: 'Curvar e voltar', etapa: 'Postura' },
+  { re: /\b(andar|caminhar|deslocar|ir ate|voltar|retornar|levar|carregar)\b/, code: () => 'KA', note: 'Quantidade = metros percorridos', dist: true, etapa: 'Deslocamento' },
+  { re: /\b(apoiar|depositar|soltar)\b/, code: () => 'PA2', note: 'Colocar no lugar aproximado: conferir distância', etapa: 'Colocação' },
+  { re: /\b(pegar|apanhar|separar|buscar)\b/, code: () => 'AC2', note: 'Apanhar e colocar: conferir peso, pega e faixa de distância', etapa: 'Pega' },
 ];
 function plural(w) { w = String(w || '').trim(); if (!w) return w; const n = noAcc(w); if (/s$/.test(n)) return w; if (/ao$/.test(n)) return w.slice(0, -2) + 'ões'; if (/(r|z)$/.test(n)) return w + 'es'; if (/l$/.test(n)) return w.slice(0, -1) + 'is'; if (/m$/.test(n)) return w.slice(0, -1) + 'ns'; return w + 's'; }
 function fem(w) { const n = noAcc(w).trim(); return /(a|agem|cao|dade)$/.test(n); }
@@ -230,7 +234,7 @@ function parsePrompt(text, unit, lib) {
     let acc = '', accVerb = '';
     for (const piece of pieces) {
       const v = noAcc(piece).trim().split(/\s+/)[0] || '';
-      const pair = /^(pegar|apanhar)/.test(accVerb) && /^(colocar|depositar|posicionar|por)$/.test(v);
+      const pair = (/^(pegar|apanhar)/.test(accVerb) && /^(colocar|depositar|posicionar|por)$/.test(v)) || (/^(alinhar|inserir|engatar)/.test(accVerb) && /^(apanhar|pegar)$/.test(v) && /paleteira|pallet|palete/.test(noAcc(piece)));
       if (acc && VERB_RE.test(v) && !pair) { steps.push(acc); acc = piece; accVerb = v; }
       else { acc = acc ? acc + ' e ' + piece : piece; if (!accVerb) accVerb = v; }
     }
@@ -242,7 +246,7 @@ function parsePrompt(text, unit, lib) {
     const st = { id: 'st' + i + '_' + Math.random().toString(36).slice(2, 6), text: s.charAt(0).toUpperCase() + s.slice(1), code: '', note: '', q: '', acyclic: false, event: '', n: null, answer: '', freq: '', source: '', question: '' };
     for (const r of CODE_RULES) {
       const mm = r.re.exec(t);
-      if (mm) { const c = r.code(t); if (lib[c]) { st.code = c; st.note = r.note; } if (r.dist) { const d = /(\d+(?:[.,]\d+)?)\s*(m|metros?)\b/.exec(t); if (d) st.q = d[1].replace(',', '.'); } break; }
+      if (mm) { const c = r.code(t); if (lib[c]) { st.code = c; st.note = r.note; st.etapa = r.etapa || ''; } if (r.dist) { const d = /(\d+(?:[.,]\d+)?)\s*(m|metros?)\b/.exec(t); if (d) st.q = d[1].replace(',', '.'); } break; }
     }
     // Rateio: "a cada N X"
     let mm2 = /\ba cada\s+(\d+(?:[.,]\d+)?)\s+([a-z]+(?: de (?:origem|destino))?)/.exec(t);
@@ -282,7 +286,8 @@ function parsePrompt(text, unit, lib) {
   out.forEach((st, i) => {
     if (!st.lot && !(st.acyclic && /\b(buscar|busca|abastecer|repor)\b/.test(noAcc(st.text)))) return;
     const join = o => { if (o.acyclic) return; o.acyclic = true; o.groupOf = st.id; o.n = st.n; o.freq = st.freq; o.answer = st.answer;
-      o.source = 'mesmo rateio de "' + st.text + '"'; o.needsConfirm = true; };
+      o.source = 'mesmo rateio de "' + st.text + '"'; o.needsConfirm = true; o.etapa = 'Abastecimento'; };
+    st.etapa = 'Abastecimento';
     const prev = out[i - 1];
     if (prev && prev.code === 'KA') join(prev);
     for (let j = i + 1; j < out.length; j++) {
@@ -352,7 +357,7 @@ function library() {
   } catch (e) { }
   for (const it of Object.values(LIB)) {
     const d = (it.desc || '').toLowerCase();
-    it.unit = it.code === 'PT' ? 'minuto (1666,67 TMU = 60 s)' : /por metro|\/m\b|metro percorrido/.test(d) ? 'metro' : /por grau|\bgrau/.test(d) ? 'conforme descrição' : 'ocorrência';
+    it.unit = it.code === 'PT' ? 'minuto (1666,67 TMU = 60 s)' : /por metro|\/\s*m\b|metro percorrido/.test(d) ? 'metro' : /por grau|\bgrau/.test(d) ? 'conforme descrição' : 'ocorrência';
     it.family = it.grp || familyName(it.code);
   }
   return LIB;
@@ -380,7 +385,7 @@ function defaultSource(code, sys) {
 /* ── Estado ───────────────────────────────────────────────────────── */
 function freshState() {
   return { unit: '', unitRef: '', unitsPerCycle: 1, process: '', system: 'UAS', filename: '', duration: 0, coverage: '',
-           analysis: null, samples: [], events: [], lines: [], improvements: [], sources: {}, refRange: 'auto', readMode: 'precisa', prompt: '', steps: [], premises: [] };
+           analysis: null, samples: [], events: [], lines: [], improvements: [], sources: {}, refRange: 'auto', readMode: 'precisa', prompt: '', steps: [], premises: [], params: [] };
 }
 function lineCalc(l) {
   const it = library()[l.code];
@@ -506,7 +511,7 @@ dialog.mv::backdrop{background:rgba(3,12,24,.78)}
 .mv .tabs{display:flex;gap:4px;padding:8px 12px 0;border-bottom:1px solid #26405c;flex-wrap:wrap}
 .mv .tabs button{border-radius:8px 8px 0 0;border-bottom:0}.mv .tabs button[aria-selected=true]{background:#2e75b6;border-color:#2e75b6}
 .mv .pane{flex:1;overflow:auto;padding:10px 12px}
-.mv table{border-collapse:collapse;width:100%;font-size:12px}.mv table.lines{min-width:1480px}.mv td.mm{white-space:nowrap;font-size:11px}
+.mv table{border-collapse:collapse;width:100%;font-size:12px}.mv table.lines{min-width:1900px}.mv td.mm{white-space:nowrap;font-size:11px}
 .mv th{position:sticky;top:0;background:#2e75b6;color:#fff;padding:5px;text-align:left;z-index:1;font-weight:600;white-space:nowrap}
 .mv td{border-bottom:1px solid #22384f;padding:3px 4px;vertical-align:top}
 .mv td input,.mv td select{width:100%;padding:3px 5px}
@@ -575,12 +580,14 @@ function openDialog() {
         <button role="tab" data-tab="rot" aria-selected="false">Roteiro e rateios <span data-pend></span></button>
         <button role="tab" data-tab="mov" aria-selected="true">Movimentos (MTM)</button>
         <button role="tab" data-tab="cro" aria-selected="false">Cronoanálise</button>
+        <button role="tab" data-tab="pre" aria-selected="false">Premissas</button>
         <button role="tab" data-tab="cod" aria-selected="false">Códigos e fontes</button>
         <button role="tab" data-tab="mel" aria-selected="false">Melhorias</button>
       </div>
       <div class="pane" data-pane="rot" hidden></div>
       <div class="pane" data-pane="mov"></div>
       <div class="pane" data-pane="cro" hidden></div>
+      <div class="pane" data-pane="pre" hidden></div>
       <div class="pane" data-pane="cod" hidden></div>
       <div class="pane" data-pane="mel" hidden></div>
     </div>
@@ -590,7 +597,7 @@ function openDialog() {
   const $ = s => dlg.querySelector(s);
   $('.scope').textContent = (pmData[folderId] ? pmData[folderId].name : '') + ' / ' + project.name;
   const video = $('video'), canvas = $('canvas.tl'), statusEl = $('.status'), barEl = $('.bar>i');
-  const panes = { rot: $('[data-pane=rot]'), mov: $('[data-pane=mov]'), cro: $('[data-pane=cro]'), cod: $('[data-pane=cod]'), mel: $('[data-pane=mel]') };
+  const panes = { rot: $('[data-pane=rot]'), mov: $('[data-pane=mov]'), cro: $('[data-pane=cro]'), pre: $('[data-pane=pre]'), cod: $('[data-pane=cod]'), mel: $('[data-pane=mel]') };
   const setStatus = (t, err) => { statusEl.textContent = t || ''; statusEl.classList.toggle('err', !!err); };
 
   // Códigos da biblioteca e histórico do projeto
@@ -647,6 +654,7 @@ function openDialog() {
     for (const k in panes) panes[k].hidden = k !== b.dataset.tab;
     if (b.dataset.tab === 'cod') renderCodes();
     if (b.dataset.tab === 'rot') renderRot();
+    if (b.dataset.tab === 'pre') renderPre();
   });
   const showTab = k => dlg.querySelector('[data-tab=' + k + ']').click();
 
@@ -779,11 +787,43 @@ function openDialog() {
     const src = x.edited ? 'informado pelo usuário' : (x.source || 'informado') + (x.needsConfirm ? (x.confirmed ? ', confirmado pelo usuário' : ', a confirmar') : '');
     return 'Rateio: frequência ' + f + ' por ' + (st.unit || 'unidade') + ' (' + src + ')';
   }
+  const paramById = id => st.params.find(p => p.id === id);
   function linkLine(l, x) {
     l.stepId = x.id; l.desc = x.text;
     if (!l.code && x.code) l.code = x.code;
+    if (x.etapa && !l.etapa) l.etapa = x.etapa;
     if ((!l.q || l.q === '1') && x.q) l.q = x.q;
     applyStepToLine(l, x);
+  }
+  /* Cria/atualiza os parâmetros (aba Premissas) a partir do roteiro: distâncias e rateios */
+  function syncParams() {
+    const u = st.unit || 'unidade', used = new Set();
+    st.steps.forEach(x => {
+      const it = lib[x.code];
+      if (it && it.unit === 'metro') {
+        const id = 'pq_' + x.id; let p = paramById(id);
+        if (!p) { p = { id, name: 'Percurso — ' + x.text, value: x.q || '', unit: 'm', origin: x.q ? 'Informado na descrição da operação' : 'A informar' }; st.params.push(p); }
+        x.qParam = id; used.add(id);
+      } else x.qParam = '';
+    });
+    st.steps.forEach(x => {
+      if (!x.acyclic) { x.fParam = ''; return; }
+      const root = (x.groupOf && st.steps.find(o => o.id === x.groupOf && o.acyclic)) || x;
+      const a = String(root.answer || '').trim().replace(',', '.');
+      if (!a || /\//.test(a) || !(Number(a) > 0)) { x.fParam = ''; return; }
+      const id = 'pf_' + root.id; let p = paramById(id);
+      const origin = root.edited ? 'Informado pelo usuário' : (root.source || 'Informado') + (root.needsConfirm ? (root.confirmed ? ', confirmado pelo usuário' : ' — a confirmar') : '');
+      if (!p) { p = { id, name: plural(u).charAt(0).toUpperCase() + plural(u).slice(1) + ' atendidas por ocorrência — ' + root.text, value: a, unit: plural(u), origin }; st.params.push(p); }
+      else if (!p.userEdited) { p.value = a; p.origin = origin; }
+      x.fParam = id; used.add(id);
+    });
+    st.params = st.params.filter(p => !/^p[qf]_/.test(p.id) || used.has(p.id));
+    // propaga para as linhas
+    st.lines.forEach(l => {
+      const x = l.stepId && st.steps.find(o => o.id === l.stepId); if (!x) return;
+      l.qParam = x.qParam || ''; l.fParam = x.fParam || '';
+      const pq = l.qParam && paramById(l.qParam); if (pq && String(pq.value).trim() !== '') l.q = String(pq.value);
+    });
   }
   function applyStepToLine(l, x) {
     const f = stepFreq(x);
@@ -792,6 +832,7 @@ function openDialog() {
     else if (!l.f || CORE.num(l.f, 1) < 1 / Math.max(1, CORE.num(st.unitsPerCycle, 1)) - 1e-9) l.f = defaultF();
   }
   function applyStep(x) {
+    syncParams();
     st.lines.filter(l => l.stepId === x.id).forEach(l => applyStepToLine(l, x));
     // etapas do mesmo grupo (ex.: deslocamentos para buscar o lote) seguem a resposta, se não foram editadas
     st.steps.filter(o => o.groupOf === x.id && o.acyclic && !o.edited && o.answer !== x.answer).forEach(o => { o.answer = x.answer; o.source = 'mesmo rateio de "' + x.text + '"'; applyStep(o); });
@@ -802,7 +843,7 @@ function openDialog() {
     if (st.steps.some(x => x.answer || st.lines.some(l => l.stepId === x.id)) && !confirm('Interpretar de novo substitui o roteiro atual e desfaz o vínculo das linhas. Continuar?')) return;
     const r = parsePrompt(txt, st.unit || 'unidade', lib);
     st.lines.forEach(l => { l.stepId = ''; });
-    st.steps = r.steps; st.premises = r.premises;
+    st.steps = r.steps; st.premises = r.premises; st.params = st.params.filter(p => !/^p[qf]_/.test(p.id)); syncParams();
     if (r.processName && !String(st.process || '').trim()) { st.process = r.processName; syncForm(); }
     const pend = st.steps.filter(x => x.acyclic && !stepFreq(x)).length;
     setStatus('Roteiro com ' + st.steps.length + ' etapas; ' + st.steps.filter(x => x.acyclic).length + ' acíclicas' + (pend ? ', ' + pend + ' com rateio a responder.' : '.'));
@@ -811,11 +852,13 @@ function openDialog() {
   function renderRot() {
     const u = st.unit || 'unidade';
     const pend = st.steps.filter(x => x.acyclic && (!stepFreq(x) || (x.needsConfirm && !x.confirmed)));
-    const badge = dlg.querySelector('[data-pend]'); if (badge) badge.textContent = pend.length ? '(' + pend.length + ')' : '';
+    const pendDist = st.steps.filter(x => x.qParam && paramById(x.qParam) && String(paramById(x.qParam).value).trim() === '');
+    const badge = dlg.querySelector('[data-pend]'); if (badge) badge.textContent = (pend.length + pendDist.length) ? '(' + (pend.length + pendDist.length) + ')' : '';
     let h = '';
     if (!st.steps.length) { panes.rot.innerHTML = '<p class="mut">Escreva a descrição da operação no campo à esquerda e clique em "Interpretar descrição". As etapas aparecem aqui, com o código sugerido e as perguntas de rateio das etapas acíclicas.</p><div class="tb"><button data-st-add>+ Etapa manual</button></div>'; panes.rot.querySelector('[data-st-add]').onclick = addStep; return; }
-    if (pend.length) {
-      h += '<div class="warn" style="white-space:normal"><b>Preciso destes dados para o rateio:</b>';
+    if (pend.length || pendDist.length) {
+      h += '<div class="warn" style="white-space:normal"><b>Preciso destes dados para o cálculo:</b>';
+      pendDist.forEach(x => { h += `<div style="margin-top:8px" data-qd="${esc(x.qParam)}">Qual a distância percorrida em “${esc(x.text)}” (m)?<br><input data-qa placeholder="metros" style="width:120px;margin-top:4px"> <button data-qok>Responder</button></div>`; });
       pend.forEach(x => { const i = st.steps.indexOf(x);
         h += `<div style="margin-top:8px" data-q="${i}">${esc(stepQuestion(x, u))}${x.needsConfirm ? ' <span class="mut">(lido no texto: ' + esc(x.answer) + ' — confirme)</span>' : ''}<br>
         <input data-qa value="${esc(x.answer)}" placeholder="nº de ${esc(u)} ou fração (ex.: 6/420)" style="width:220px;margin-top:4px"> <button data-qok>${x.answer ? 'Confirmar' : 'Responder'}</button></div>`; });
@@ -841,6 +884,12 @@ function openDialog() {
     panes.rot.innerHTML = h;
     panes.rot.querySelector('[data-st-add]').onclick = addStep;
     panes.rot.querySelector('[data-st-lines]').onclick = useStepsInLines;
+    panes.rot.querySelectorAll('[data-qd]').forEach(div => {
+      const p = paramById(div.dataset.qd), inp = div.querySelector('[data-qa]');
+      const ok = () => { const v = CORE.num(inp.value, NaN); if (!(v > 0)) { setStatus('Informe a distância em metros (número maior que zero).', true); return; }
+        p.value = String(v); p.origin = 'Informado pelo usuário'; p.userEdited = true; st.steps.forEach(x => { if (x.qParam === p.id) x.q = String(v); }); syncParams(); renderAll(); };
+      div.querySelector('[data-qok]').onclick = ok; inp.onkeydown = e => { if (e.key === 'Enter') ok(); };
+    });
     panes.rot.querySelectorAll('[data-q]').forEach(div => {
       const x = st.steps[+div.dataset.q], inp = div.querySelector('[data-qa]');
       const ok = () => { const v = inp.value.trim(); if (!v) return; if (v !== x.answer) { x.answer = v; x.edited = true; } x.confirmed = true;
@@ -857,6 +906,8 @@ function openDialog() {
       else if (k === 'code') x.code = el.value.trim().toUpperCase();
       else if (k === 'text') { const old = x.text; x.text = el.value; st.lines.forEach(l => { if (l.stepId === x.id && l.desc === old) l.desc = x.text; }); }
       else x[k] = el.value;
+      if (k === 'q' && x.qParam && paramById(x.qParam)) { const p = paramById(x.qParam); p.value = el.value; p.origin = 'Informado pelo usuário'; p.userEdited = true; }
+      if (k === 'code') syncParams();
       applyStep(x); renderAll();
     });
     tb.addEventListener('click', e => {
@@ -885,7 +936,7 @@ function openDialog() {
       <button data-gen>Gerar linhas dos trechos detectados</button>
       <button data-add>+ Linha</button>
     </div>
-    <table class="lines"><thead><tr><th>Nº</th><th>Minutagem (s)</th><th style="min-width:210px">Atividade / movimento observado</th><th>AGREGA</th><th style="min-width:90px">Código</th><th class="num">TMU</th><th>Qtd.</th><th>Freq.</th><th>Dist. (m)</th><th>Origem</th><th title="Executado ao mesmo tempo que outra linha; não soma no total">Simult.</th><th class="num">Total TMU</th><th class="num">Total (s)</th><th class="num">Vídeo (s)</th><th style="min-width:90px">Etapa</th><th style="min-width:220px">Observação técnica</th><th></th></tr></thead><tbody>`;
+    <table class="lines"><thead><tr><th>Nº</th><th>Minutagem (s)</th><th style="min-width:210px">Atividade / movimento observado</th><th>AGREGA</th><th style="min-width:90px">Código</th><th class="num">TMU</th><th>Qtd.</th><th>Freq.</th><th>Dist. (m)</th><th>Origem</th><th title="Executado ao mesmo tempo que outra linha; não soma no total">Simult.</th><th class="num">Total TMU</th><th class="num">Total (s)</th><th class="num">Vídeo (s)</th><th style="min-width:90px">Etapa</th><th style="min-width:220px">Descrição técnica / conteúdo</th><th style="min-width:130px">Evidência</th><th style="min-width:220px">Observação técnica / premissa</th><th></th></tr></thead><tbody>`;
     st.lines.forEach((l, i) => {
       const it = lib[l.code];
       h += `<tr data-i="${i}" class="${l.kind === 'pausa' ? 'low' : ''}">
@@ -893,7 +944,7 @@ function openDialog() {
         <td class="mm mut"><input data-f="start" value="${r2(l.start)}" style="width:58px" title="início (s) — ${mmss(l.start)}"> a <input data-f="end" value="${r2(l.end)}" style="width:58px" title="fim (s) — ${mmss(l.end)}"></td>
         <td><input data-f="desc" list="mv-hist" value="${esc(l.desc)}" placeholder="ex.: Apanhar 1 tampa da pilha com 2 mãos"></td>
         <td><select data-f="agrega" style="width:100px"><option value=""></option>${AGREGA_OPTS.map(o => `<option${o === l.agrega ? ' selected' : ''}>${o}</option>`).join('')}</select></td>
-        <td><input data-f="code" list="mv-codes" value="${esc(l.code)}" title="${esc(it ? it.desc : 'código não encontrado na biblioteca')}"><div class="mut" data-o="cdesc" style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it ? it.desc : (l.code ? 'não está na biblioteca' : ''))}</div></td>
+        <td><input data-f="code" list="mv-codes" value="${esc(l.code)}" title="${esc(it ? it.desc : 'código não encontrado na biblioteca')}"><div class="mut" data-o="cdesc" style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it ? it.family + ' · ' + it.desc : (l.code ? 'não está na biblioteca' : ''))}</div></td>
         <td class="num" data-o="tmu"></td>
         <td><input data-f="q" value="${esc(l.q)}" style="width:56px"></td>
         <td><input data-f="f" value="${esc(l.f)}" style="width:66px"></td>
@@ -902,11 +953,11 @@ function openDialog() {
         <td class="mm"><input type="checkbox" data-f="simul"${l.simul ? ' checked' : ''}> <input data-f="simulWith" value="${esc(l.simulWith)}" placeholder="Nº" style="width:40px"></td>
         <td class="num" data-o="ttmu"></td><td class="num" data-o="sec"></td>
         <td class="num">${fmtS(l.end - l.start)}</td>
-        <td><input data-f="etapa" value="${esc(l.etapa)}"></td><td><input data-f="obs" value="${esc(l.obs)}" placeholder="observação / justificativa" title="${esc(l.obs)}"></td>
+        <td><input data-f="etapa" value="${esc(l.etapa)}" placeholder="ex.: Busca"></td><td><input data-f="tecnica" value="${esc(l.tecnica || '')}" placeholder="${esc(defaultTech(l.code))}" title="${esc(lineTech(l))}"></td><td><input data-f="evid" value="${esc(l.evid || '')}" placeholder="${esc(autoEvid(l, st.params))}"></td><td><input data-f="obs" value="${esc(l.obs)}" placeholder="observação / justificativa" title="${esc(l.obs)}"></td>
         <td><div class="acts"><button data-a="play" title="Ver trecho">▶</button><button data-a="s0" title="Início = ponto atual do vídeo">⇤</button><button data-a="s1" title="Fim = ponto atual do vídeo">⇥</button><button data-a="up" title="Subir">↑</button><button data-a="merge" title="Unir ao próximo">Unir</button><button data-a="dup" title="Duplicar">⧉</button><button data-a="del" title="Excluir">✕</button></div></td>
       </tr>`;
     });
-    h += `</tbody><tfoot><tr class="tot"><td colspan="11">TOTAL DO PROCESSO POR ${esc(u.toUpperCase())}</td><td class="num" data-o="TT"></td><td class="num" data-o="TS"></td><td colspan="4"></td></tr></tfoot></table>`;
+    h += `</tbody><tfoot><tr class="tot"><td colspan="11">TOTAL DO PROCESSO POR ${esc(u.toUpperCase())}</td><td class="num" data-o="TT"></td><td class="num" data-o="TS"></td><td colspan="6"></td></tr></tfoot></table>`;
     if (!st.lines.length) h += `<p class="mut">Selecione o vídeo: os trechos detectados viram linhas para você descrever e codificar. Também é possível incluir linhas manualmente.</p>`;
     panes.mov.innerHTML = h;
     const tb = panes.mov.querySelector('tbody');
@@ -932,6 +983,8 @@ function openDialog() {
     if (k === 'simul') l.simul = el.checked;
     else if (k === 'start' || k === 'end') { const v = CORE.num(el.value, NaN); if (isFinite(v)) l[k] = v; }
     else l[k] = el.value;
+    if (k === 'q') l.qParam = '';
+    if (k === 'f') l.fParam = '';
     if (k === 'desc' && e.type === 'change') {
       const sp = st.steps.find(x => x.text === l.desc);
       if (sp) { linkLine(l, sp); renderLines(); renderRot(); renderSummary(); return; }
@@ -942,7 +995,7 @@ function openDialog() {
       l.obs = (l.obs ? l.obs + '; ' : '') + 'código do histórico ("' + h.sheet + '") — conferir enquadramento';
       renderLines(); return;
     }
-    if (k === 'code') { l.code = el.value.trim().toUpperCase(); const it = lib[l.code]; tr.querySelector('[data-o=cdesc]').textContent = it ? it.desc : (l.code ? 'não está na biblioteca' : '');
+    if (k === 'code') { l.code = el.value.trim().toUpperCase(); const it = lib[l.code]; tr.querySelector('[data-o=cdesc]').textContent = it ? (it.family + ' · ' + it.desc) : (l.code ? 'não está na biblioteca' : ''); tr.querySelector('[data-f=tecnica]').placeholder = defaultTech(l.code);
       if (l.code === 'PT' && e.type === 'change' && (!l.q || l.q === '1') && l.end > l.start) { l.q = String(r2((l.end - l.start) / 60 * 10000) / 10000); tr.querySelector('[data-f=q]').value = l.q; l.obs = l.obs || 'PT: tempo medido no vídeo ' + fmtS(l.end - l.start) + ' s (' + mmss(l.start) + '–' + mmss(l.end) + '); justificar ausência de código aplicável'; tr.querySelector('[data-f=obs]').value = l.obs; } }
     updateRow(tr, l); renderLinesTotals(); renderSummary();
     if (k === 'start' || k === 'end') drawTimeline();
@@ -1043,17 +1096,65 @@ function openDialog() {
     panes.cod.querySelectorAll('[data-src]').forEach(el => el.oninput = () => { st.sources[el.dataset.src] = el.value; });
   }
 
-  /* ── Aba Melhorias ── */
+
+  /* ── Aba Premissas (alimenta Q e F por fórmula no Excel) ── */
+  function renderPre() {
+    const u = st.unit || 'unidade';
+    let h = `<p class="mut">Os valores em amarelo vão para a aba Premissas do Excel. As linhas ligadas a um parâmetro usam fórmula (Q = Premissas!B…, F = 1/Premissas!B…): ao mudar o valor aqui ou na planilha, o cálculo acompanha.</p>
+    <div class="tb"><button data-p-add>+ Parâmetro</button></div>
+    <table><thead><tr><th style="min-width:300px">Parâmetro</th><th>Valor</th><th>Unidade</th><th style="min-width:300px">Origem / critério</th><th class="num">Linhas ligadas</th><th></th></tr></thead><tbody>
+    <tr><td>Unidade de referência do relatório</td><td>${esc(u)}</td><td>-</td><td class="mut">Pergunta obrigatória</td><td></td><td></td></tr>
+    <tr><td>Unidades por ciclo observado</td><td>${esc(st.unitsPerCycle)}</td><td>${esc(plural(u))}</td><td class="mut">Informado</td><td></td><td></td></tr>`;
+    st.params.forEach((p, i) => {
+      const nl = st.lines.filter(l => l.qParam === p.id || l.fParam === p.id).length;
+      h += `<tr data-p="${i}"><td><input data-pf="name" value="${esc(p.name)}"></td><td><input data-pf="value" value="${esc(p.value)}" style="width:80px;background:#3a3410"></td><td><input data-pf="unit" value="${esc(p.unit)}" style="width:70px"></td><td><input data-pf="origin" value="${esc(p.origin)}"></td><td class="num">${nl}</td><td><button data-p-del>✕</button></td></tr>`;
+    });
+    h += `<tr><td>TMU para segundo</td><td>0,036</td><td>s/TMU</td><td class="mut">Conversão padrão MTM</td><td></td><td></td></tr></tbody></table>`;
+    const P = pendencias(st);
+    h += `<h4 style="margin:14px 0 4px">Atenção (gerado pela análise)</h4><table><thead><tr><th>Ponto</th><th>Status</th><th>Efeito</th><th>Como resolver</th></tr></thead><tbody>${P.length ? P.map(x => `<tr>${x.map(v => `<td>${esc(v)}</td>`).join('')}</tr>`).join('') : '<tr><td colspan="4" class="mut">Nenhuma pendência.</td></tr>'}</tbody></table>`;
+    panes.pre.innerHTML = h;
+    panes.pre.querySelector('[data-p-add]').onclick = () => { st.params.push({ id: 'pu_' + Date.now(), name: 'Novo parâmetro', value: '', unit: '', origin: 'Informado pelo usuário' }); renderPre(); };
+    const tb = panes.pre.querySelector('tbody');
+    tb.addEventListener('change', e => {
+      const tr = e.target.closest('tr[data-p]'); if (!tr || !e.target.dataset.pf) return;
+      const p = st.params[+tr.dataset.p], k = e.target.dataset.pf; p[k] = e.target.value;
+      if (k === 'value') {
+        p.userEdited = true; if (!/usu[aá]rio/i.test(p.origin)) p.origin = 'Informado pelo usuário';
+        if (/^pf_/.test(p.id)) { const root = st.steps.find(x => 'pf_' + x.id === p.id); if (root) { root.answer = p.value; root.edited = true; root.confirmed = true; st.steps.filter(o => o.groupOf === root.id).forEach(o => { o.answer = p.value; o.confirmed = true; }); } }
+        if (/^pq_/.test(p.id)) st.steps.forEach(x => { if (x.qParam === p.id) x.q = p.value; });
+        st.lines.forEach(l => { if (l.qParam === p.id) l.q = p.value; });
+        st.steps.forEach(x => applyStep(x));
+        renderAll(); return;
+      }
+    });
+    tb.addEventListener('click', e => { const b = e.target.closest('[data-p-del]'); if (!b) return; const p = st.params[+b.closest('tr').dataset.p]; st.lines.forEach(l => { if (l.qParam === p.id) l.qParam = ''; if (l.fParam === p.id) l.fParam = ''; }); st.params.splice(st.params.indexOf(p), 1); renderAll(); });
+  }
+
+  /* ── Aba Melhorias (padrão: ponto / proposta / impacto / prioridade) ── */
   function renderMel() {
-    let h = `<div class="tb"><button data-m-add>+ Oportunidade</button><span class="mut">Registre apenas o que o vídeo sustenta. O ganho estimado fica separado do tempo do método atual.</span></div>
-    <table><thead><tr><th>Nº mov.</th><th style="min-width:260px">Oportunidade</th><th>Evidência (minutagem)</th><th>Ganho estimado (s)</th><th></th></tr></thead><tbody>`;
+    let h = `<div class="tb"><button data-m-add>+ Ponto</button><button data-m-auto>Sugerir pontos a partir da análise</button><span class="mut">Registre só o que o vídeo sustenta. Ganho estimado fica fora do tempo do método atual.</span></div>
+    <table><thead><tr><th>Nº mov.</th><th style="min-width:240px">Ponto observado / risco</th><th style="min-width:240px">Proposta / validação</th><th style="min-width:200px">Impacto no MTM</th><th>Prioridade</th><th>Evidência</th><th>Ganho est. (s)</th><th></th></tr></thead><tbody>`;
     st.improvements.forEach((m, i) => {
-      h += `<tr data-m="${i}"><td><input data-h="ref" value="${esc(m.ref)}" style="width:60px"></td><td><input data-h="text" value="${esc(m.text)}"></td><td><input data-h="evid" value="${esc(m.evid)}"></td><td><input data-h="gain" value="${esc(m.gain)}" style="width:80px"></td><td><button data-m-del>✕</button></td></tr>`;
+      h += `<tr data-m="${i}"><td><input data-h="ref" value="${esc(m.ref)}" style="width:54px"></td><td><input data-h="ponto" value="${esc(m.ponto || m.text || '')}"></td><td><input data-h="proposta" value="${esc(m.proposta || '')}"></td><td><input data-h="impacto" value="${esc(m.impacto || '')}"></td>
+      <td><select data-h="prioridade">${['', 'Alta', 'Média', 'Baixa'].map(o => `<option${o === (m.prioridade || '') ? ' selected' : ''}>${o}</option>`).join('')}</select></td><td><input data-h="evid" value="${esc(m.evid)}" style="width:90px"></td><td><input data-h="gain" value="${esc(m.gain)}" style="width:60px"></td><td><button data-m-del>✕</button></td></tr>`;
     });
     h += '</tbody></table>';
     panes.mel.innerHTML = h;
-    panes.mel.querySelector('[data-m-add]').onclick = () => { const cur = st.lines.findIndex(l => video.currentTime >= l.start && video.currentTime < l.end); st.improvements.push({ ref: cur >= 0 ? String(cur + 1) : '', text: '', evid: mmss(video.currentTime || 0), gain: '' }); renderMel(); };
-    panes.mel.querySelector('tbody').addEventListener('input', e => { const tr = e.target.closest('tr[data-m]'); if (tr) st.improvements[+tr.dataset.m][e.target.dataset.h] = e.target.value; });
+    panes.mel.querySelector('[data-m-add]').onclick = () => { const cur = st.lines.findIndex(l => video.currentTime >= l.start && video.currentTime < l.end); st.improvements.push({ ref: cur >= 0 ? String(cur + 1) : '', ponto: '', proposta: '', impacto: '', prioridade: '', evid: mmss(video.currentTime || 0), gain: '' }); renderMel(); };
+    panes.mel.querySelector('[data-m-auto]').onclick = () => {
+      const have = new Set(st.improvements.map(m => m.ponto));
+      const add = m => { if (!have.has(m.ponto)) { st.improvements.push(Object.assign({ ref: '', evid: '', gain: '' }, m)); have.add(m.ponto); } };
+      st.lines.forEach((l, i) => {
+        const it = lib[l.code] || {};
+        if (it.unit === 'metro' && CORE.num(l.q, 0) >= 3) add({ ref: String(i + 1), ponto: 'Deslocamento de ' + l.q + ' m em “' + l.desc + '”' + (isAcyclic(l) ? ' (rateado ' + l.f + ')' : ' a cada ' + (st.unit || 'unidade')), proposta: 'Aproximar o ponto de abastecimento ou aumentar o lote por viagem', impacto: 'Reduz ' + l.code + ' (' + it.tmu + ' TMU/m)', prioridade: 'Média' });
+        if (/^B[AB]\d$/.test(l.code) && CORE.num(l.q, 1) > 2) add({ ref: String(i + 1), ponto: l.q + ' pressões para encaixar em “' + l.desc + '”', proposta: 'Verificar tolerância de encaixe e estado das tampas/caixas', impacto: 'Reduz Q do acionamento', prioridade: 'Média' });
+        if (l.kind === 'pausa') add({ ref: String(i + 1), ponto: 'Trecho de baixa movimentação em “' + (l.desc || 'linha ' + (i + 1)) + '”', proposta: 'Confirmar se é espera, procura ou movimento fino; eliminar causa de espera', impacto: 'Pode alterar código ou gerar PT justificado', prioridade: 'Média', evid: mmss(l.start) + '–' + mmss(l.end) });
+      });
+      pendencias(st).forEach(x => add({ ponto: x[0] + ': ' + x[2], proposta: x[3], impacto: 'Pode alterar código, Q ou F', prioridade: x[1] === 'Pendente' ? 'Alta' : 'Média' }));
+      renderMel();
+    };
+    panes.mel.querySelector('tbody').addEventListener('input', e => { const tr = e.target.closest('tr[data-m]'); if (tr && e.target.dataset.h) st.improvements[+tr.dataset.m][e.target.dataset.h] = e.target.value; });
+    panes.mel.querySelector('tbody').addEventListener('change', e => { const tr = e.target.closest('tr[data-m]'); if (tr && e.target.dataset.h) st.improvements[+tr.dataset.m][e.target.dataset.h] = e.target.value; });
     panes.mel.querySelector('tbody').addEventListener('click', e => { if (e.target.closest('[data-m-del]')) { st.improvements.splice(+e.target.closest('tr').dataset.m, 1); renderMel(); } });
   }
 
@@ -1093,6 +1194,7 @@ function openDialog() {
       if (!stepFreq(x)) p.push('Rateio pendente (roteiro ' + (i + 1) + '): ' + stepQuestion(x, st.unit || 'unidade'));
       else if (x.needsConfirm && !x.confirmed) p.push('Confirme o rateio deduzido do texto (roteiro ' + (i + 1) + '): ' + x.text);
     });
+    st.params.forEach(pp => { if ((st.lines.some(l => l.qParam === pp.id || l.fParam === pp.id)) && !(CORE.num(pp.value, NaN) > 0)) p.push('Premissa sem valor: ' + pp.name + '.'); });
     usedCodes().forEach(c => { if (lib[c] && !String(sourceOf(c)).trim()) p.push('Código ' + c + ': informe a fonte.'); });
     st.events.forEach((e, i) => { if (e.end < e.start) p.push('Evento ' + (i + 1) + ': fim antes do início.'); if ((e.exclude || e.use) && !String(e.reason).trim()) p.push('Evento ' + (i + 1) + ': informe o motivo/critério.'); });
     return p;
@@ -1101,7 +1203,7 @@ function openDialog() {
     $('.check').innerHTML = p.length ? `<div class="warn">Antes de liberar, corrija:\n• ${p.slice(0, 14).map(esc).join('\n• ')}${p.length > 14 ? '\n… e mais ' + (p.length - 14) : ''}</div>` : (okMsg ? `<div class="ok">${okMsg}</div>` : '');
   }
 
-  function renderAll() { renderRot(); fillDescList(); renderLines(); renderCro(); renderCodes(); renderMel(); renderSummary(); drawTimeline(); }
+  function renderAll() { renderRot(); renderPre(); fillDescList(); renderLines(); renderCro(); renderCodes(); renderMel(); renderSummary(); drawTimeline(); }
 
   /* ── Gravar na folha do projeto ── */
   $('[data-save]').onclick = () => {
@@ -1167,205 +1269,314 @@ function loadStyledXlsx() {
   });
 }
 
-/* ── Montagem da planilha ─────────────────────────────────────────── */
+
+/* ── Notas técnicas padrão por código (o que o código cobre / o que não somar) ── */
+function codeNote(code) {
+  const it = library()[code] || {};
+  if (code === 'PT') return 'Tempo medido (1666,67 TMU = 60 s); Q = minutos. Usar só sem código aplicável, com justificativa.';
+  if (/^SAD/.test(code)) return 'Inclui apanhar e posicionar a tampa/cobertura; não somar AC/PA para a mesma tampa.';
+  if (/^PAD/.test(code)) return 'Inclui apanhar e depor a tampa/cobertura retirada; não somar AC para a mesma peça.';
+  if (/^HA[MO]/.test(code)) return 'Inserir garfos, bombear, retirar e orientar incluídos no módulo; não somar HRZ junto com HAM.';
+  if (/^HFV/.test(code)) return 'Apanhar a alça e partida/parada incluídos; não somar EH para a alça.';
+  if (/^HFK/.test(code)) return 'Contar só curvas de 90° fora do módulo de apanhar.';
+  if (it.unit === 'metro') return 'Por metro: Q = metros; não aplicar outro código de deslocamento aos mesmos metros.';
+  if (/^A[A-Z]\d$/.test(code)) return 'Apanhar e colocar no mesmo código; não somar PA/PC para a mesma colocação.';
+  if (/^P[ABC]\d$/.test(code)) return 'Colocar no lugar com objeto já dominado; somente colocação/ajuste distinto.';
+  if (/^B[AB]\d$/.test(code)) return 'Acionamento; Q = nº de acionamentos/pressões observados.';
+  if (code === 'KB') return 'Movimento completo: curvar e voltar à postura normal.';
+  if (code === 'EH') return 'Apanhar e depor meio auxiliar; não somar quando o módulo já inclui a pega.';
+  return '';
+}
+function defaultTech(code) {
+  const it = library()[code]; if (!it) return '';
+  const n = codeNote(code);
+  return it.desc + (n ? '. ' + n : '');
+}
+function autoEvid(l, params) {
+  if (l.end > l.start) return 'Filmado ~' + String(r2(l.start)).replace('.', ',') + '–' + String(r2(l.end)).replace('.', ',') + ' s';
+  const p = params && l.qParam && params.find(x => x.id === l.qParam);
+  if (l.origin === 'Informado') return 'Informado' + (p && p.value !== '' ? ': ' + p.value + ' ' + (p.unit || '') : '');
+  if (l.origin === 'Estimado') return 'Estimado / premissa';
+  return 'Não filmado — confirmar';
+}
+const lineFamily = l => l.familia || ((library()[l.code] || {}).family) || '';
+const lineTech = l => (l.tecnica && l.tecnica.trim()) || defaultTech(l.code);
+const lineEvid = (l, params) => (l.evid && l.evid.trim()) || autoEvid(l, params);
+
+/* Pendências (ATENÇÃO) geradas a partir do estado */
+function pendencias(st) {
+  const P = [];
+  const u = st.unit || 'unidade';
+  (st.steps || []).forEach(x => { if (x.acyclic && x.needsConfirm && !x.confirmed) P.push(['Rateio de “' + x.text + '”', 'Pendente', 'Frequência ' + (stepFreq(x) || '?') + ' por ' + u + ' deduzida do texto', 'Confirmar quantas ' + plural(u) + ' cada ocorrência atende']); });
+  (st.params || []).forEach(p => { if (p.origin && /estimad/i.test(p.origin)) P.push([p.name, 'Estimado', 'Valor ' + p.value + ' ' + (p.unit || '') + ' usado no cálculo', 'Medir em campo e alterar o valor na aba Premissas']); });
+  const seen = new Set();
+  st.lines.forEach(l => {
+    if (!l.code || seen.has(l.code)) return;
+    if (/^SAD|^PAD/.test(l.code)) { seen.add(l.code); P.push(['Dimensão da tampa/cobertura (' + l.code + ')', 'Pendente', 'Faixa A/B/C depende da maior dimensão (≤30 / ≤50 / ≤80 cm)', 'Medir e confirmar o código']); }
+    if (/^A[A-Z]\d$|^AL|^AK|^AH/.test(l.code)) { seen.add(l.code); P.push(['Peso, pega e distância (' + l.code + ')', 'Conferir', 'Classe do apanhar depende do peso (≤1 / ≤8 / ≤22 daN) e da faixa de alcance', 'Pesar o objeto e confirmar a faixa no vídeo']); }
+    if (/^HA[MO]/.test(l.code)) { seen.add(l.code); P.push(['Geometria para apanhar com paleteira (' + l.code + ')', 'Pendente', 'HAM (com acertar) e HAO (sem acertar) são alternativas; não acumular', 'Confirmar se é necessário acertar antes da inserção']); }
+  });
+  if (st.lines.some(l => l.origin === 'Estimado')) P.push(['Linhas estimadas', 'Conferir', st.lines.filter(l => l.origin === 'Estimado').length + ' linha(s) com origem Estimado', 'Confirmar no vídeo ou com o processo']);
+  if (st.lines.some(l => l.kind === 'pausa')) P.push(['Trechos de baixa movimentação', 'Conferir', 'Podem ser espera, pausa ou movimento fino', 'Assistir ao trecho e classificar']);
+  const ob = observed(st);
+  if (!ob.n) P.push(['Ciclo completo observado', 'Pendente', 'Sem ciclo completo confirmado, a comparação por ' + u + ' fica limitada ao trecho filmado', 'Marcar início e fim de um ciclo completo ou filmar o ciclo inteiro']);
+  return P;
+}
+
+/* ── Montagem da planilha no padrão REV03 (Upload + Análise Completa + Premissas + Cronoanálise + Confronto + Biblioteca + Melhorias) ── */
 function buildWorkbook(X, st, ctx) {
   CUR_UPC = Math.max(1e-9, CORE.num(st.unitsPerCycle, 1));
-  const NAVY = '1F3864', BLUE = '2E75B6', LIGHT = 'D9E1F2', FONT = 'Poppins';
-  const bd = { style: 'thin', color: { rgb: 'A6A6A6' } }, border = { top: bd, bottom: bd, left: bd, right: bd };
+  const NAVY = '102B4F', TOT = '16365A', TXT = '1D2B39', SUBT = '536679', SUBF = 'E6F0FA', CALC = 'E9F5EE', EDIT = 'FFF2CF', ZEB = 'F2F6FA', FONT = 'Poppins';
+  const base = { name: FONT, sz: 10, color: { rgb: TXT } };
   const S = {
-    title: { font: { name: FONT, sz: 14, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: NAVY } }, alignment: { vertical: 'center', horizontal: 'left' } },
-    sub: { font: { name: FONT, sz: 9, color: { rgb: '1F3864' } } },
-    subk: { font: { name: FONT, sz: 9, bold: true, color: { rgb: '1F3864' } } },
-    th: { font: { name: FONT, sz: 10, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: BLUE } }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, border },
-    td: { font: { name: FONT, sz: 10 }, border, alignment: { vertical: 'top', wrapText: true } },
-    tdc: { font: { name: FONT, sz: 10 }, border, alignment: { vertical: 'top', horizontal: 'center' } },
-    tot: { font: { name: FONT, sz: 10, bold: true, color: { rgb: NAVY } }, fill: { fgColor: { rgb: LIGHT } }, border, alignment: { vertical: 'center' } },
-    key: { font: { name: FONT, sz: 10, bold: true }, fill: { fgColor: { rgb: LIGHT } }, border, alignment: { vertical: 'top', wrapText: true } },
-    note: { font: { name: FONT, sz: 9, italic: true, color: { rgb: '595959' } }, alignment: { wrapText: true, vertical: 'top' } },
+    title: { font: { name: FONT, sz: 15, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: NAVY } }, alignment: { vertical: 'center' } },
+    sub: { font: { name: FONT, sz: 10, color: { rgb: SUBT } }, fill: { fgColor: { rgb: SUBF } }, alignment: { wrapText: true, vertical: 'center' } },
+    th: { font: { name: FONT, sz: 10, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: NAVY } }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true } },
+    td: { font: base, alignment: { wrapText: true, vertical: 'center' } },
+    calc: { font: base, fill: { fgColor: { rgb: CALC } }, alignment: { wrapText: true, vertical: 'center' } },
+    edit: { font: base, fill: { fgColor: { rgb: EDIT } }, alignment: { wrapText: true, vertical: 'center' } },
+    zeb: { font: base, fill: { fgColor: { rgb: ZEB } }, alignment: { wrapText: true, vertical: 'center' } },
+    tot: { font: { name: FONT, sz: 11, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: TOT } }, alignment: { vertical: 'center' } },
+    totU: { font: { name: FONT, sz: 10, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: TOT } }, alignment: { vertical: 'center' } },
+    sec: { font: { name: FONT, sz: 11, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: TOT } }, alignment: { vertical: 'center' } },
   };
-  const numFmt = { tmu: '#,##0.00', s: '0.00', f: '0.0000', q: '0.####' };
   const wb = X.utils.book_new();
-  const unitUp = String(st.unit).toUpperCase();
+  const U = String(st.unit || 'unidade'), UP = U.toUpperCase();
+  const pend = pendencias(st);
+  const prelim = pend.length > 0;
+  const params = (st.params || []).filter(p => p && p.name);
 
-  function sheet(name, build, cols, aux) {
-    const ws = {}, merges = []; let maxR = 0, maxC = 0;
-    const off = aux ? 1 : 0, XR = r => r + 1 + off; // nº da linha no Excel
+  function sheet(name, build, cols, opt) {
+    opt = opt || {};
+    const ws = {}, merges = [], rows = []; let maxR = 0, maxC = 0;
+    const off = opt.aux ? 1 : 0, XR = r => r + 1 + off;
     const put = (r, c, v, style, fmt) => {
       r += off;
       let cell;
-      if (v && typeof v === 'object' && 'f' in v) cell = { t: 'n', f: v.f, v: isFinite(v.v) ? v.v : 0 };
+      if (v && typeof v === 'object' && 'f' in v) cell = (typeof v.v === 'string') ? { t: 's', f: v.f, v: v.v } : { t: 'n', f: v.f, v: isFinite(v.v) ? v.v : 0 };
       else if (typeof v === 'number') cell = { t: 'n', v: isFinite(v) ? v : 0 };
       else cell = { t: 's', v: v == null ? '' : String(v) };
-      if (style) cell.s = Object.assign({}, style, fmt ? { numFmt: fmt } : {});
-      else if (fmt) cell.z = fmt;
+      cell.s = Object.assign({}, style || S.td, fmt ? { numFmt: fmt } : {});
       ws[X.utils.encode_cell({ r, c })] = cell; maxR = Math.max(maxR, r); maxC = Math.max(maxC, c);
     };
     const merge = (r0, c0, r1, c1, style) => { r0 += off; r1 += off; merges.push({ s: { r: r0, c: c0 }, e: { r: r1, c: c1 } }); if (style) for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const a = X.utils.encode_cell({ r, c }); if (!ws[a]) ws[a] = { t: 's', v: '', s: style }; } };
-    if (aux) { // linha oculta: o importador do sistema ignora abas marcadas como resumo
-      ws.A1 = { t: 's', v: 'MTM_RESUMO_V1', s: { font: { name: FONT, sz: 6, color: { rgb: 'FFFFFF' } } } };
-      ws['!rows'] = [{ hidden: true, hpt: 2 }];
-    }
-    build(put, merge, XR);
+    const height = (r, h) => { rows[r + off] = { hpt: h }; };
+    if (opt.aux) { ws.A1 = { t: 's', v: 'MTM_RESUMO_V1', s: { font: { name: FONT, sz: 6, color: { rgb: 'FFFFFF' } } } }; rows[0] = { hidden: true, hpt: 2 }; }
+    build(put, merge, XR, height);
     ws['!ref'] = X.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: maxR, c: maxC } });
     ws['!merges'] = merges; ws['!cols'] = cols.map(w => ({ wch: w }));
+    for (let r = 0; r <= maxR; r++) if (!rows[r]) rows[r] = { hpt: 30 };
+    ws['!rows'] = rows;
+    if (opt.freeze) ws['!freeze'] = opt.freeze;
     X.utils.book_append_sheet(wb, ws, name);
-    return ws;
   }
   const L = st.lines.map((l, i) => Object.assign({ n: i + 1 }, l, { c: lineCalc(l) }));
-  const qExpr = l => /\//.test(String(l.q)) ? String(l.q).replace(',', '.').replace(/\s/g, '') : null;
-  const fExpr = l => l.simul ? null : (/\//.test(String(l.f)) ? String(l.f).replace(',', '.').replace(/\s/g, '') : null);
+  const fracExpr = v => /\//.test(String(v)) ? String(v).replace(',', '.').replace(/\s/g, '') : null;
 
-  // 1) Análise MTM (upload)
-  const firstRow = 3; // linha (0-based) da 1ª atividade
-  const totRow = firstRow + L.length;
-  sheet('Análise MTM', (put, merge) => {
-    put(0, 0, 'ANÁLISE MTM', S.title); merge(0, 0, 0, 8, S.title);
-    put(1, 0, 'Processo', S.subk); put(1, 1, st.process || '', S.sub); put(1, 2, 'Projeto', S.subk); put(1, 3, ctx.project, S.sub);
-    put(1, 4, 'Unidade de referência', S.subk); put(1, 5, st.unit + (st.unitRef ? ' (' + st.unitRef + ')' : ''), S.sub); put(1, 6, 'Vídeo', S.subk); put(1, 7, st.filename, S.sub);
-    ['Nº', 'Atividade / Movimento Observado', 'AGREGA', 'Código', 'TMU', 'Quantidade', 'Frequência', 'Total TMU', 'Total (s)'].forEach((h, c) => put(2, c, h, S.th));
+  /* Premissas: posição de cada parâmetro (linha Excel) */
+  const pRow = {}; // id -> excel row
+  const PR0 = 4; // 0-based row of first param (after hidden marker: XR handles)
+  const allParams = [
+    { id: '_unit', name: 'Unidade de referência do relatório', value: U + (st.unitRef ? ' (' + st.unitRef + ')' : ''), unit: '-', origin: 'Informado pelo usuário (pergunta obrigatória)' },
+    { id: '_upc', name: 'Unidades por ciclo observado', value: CORE.num(st.unitsPerCycle, 1), unit: plural(U), origin: 'Informado pelo usuário' },
+    ...params,
+    { id: '_tmu', name: 'TMU para segundo', value: 0.036, unit: 's/TMU', origin: 'Conversão padrão MTM' },
+  ];
+  allParams.forEach((p, i) => { pRow[p.id] = PR0 + i + 2; }); // +1 marker row, +1 1-based
+  const TMU_S = 'Premissas!$B$' + pRow._tmu;
+  const pVal = id => { const p = allParams.find(x => x.id === id); return p ? CORE.num(p.value, NaN) : NaN; };
+
+  /* 1) MTM Upload — ligado à Análise Completa */
+  const AC0 = 4; // 0-based linha da 1ª atividade na Análise Completa (antes do marcador)
+  const acRow = i => AC0 + i + 2; // linha Excel na Análise Completa (marcador oculto + 1-based)
+  const acTot = acRow(L.length);
+  sheet('MTM Upload', (put, merge, XR, height) => {
+    ['Nº', 'DESCRIÇÃO', 'AGREGA', 'CÓDIGO', 'TMU', 'Q', 'F', 'TOTAL TMU', 'TOTAL (S)'].forEach((h, c) => put(0, c, h, S.th));
+    height(0, 39);
+    const ref = (col, r) => `'Analise Completa'!${col}${r}`;
     L.forEach((l, i) => {
-      const r = firstRow + i, R = r + 1;
-      put(r, 0, l.n, S.tdc);
-      put(r, 1, l.desc + (l.simul ? ' (simultâneo ao Nº ' + l.simulWith + ' — não soma)' : ''), S.td);
-      put(r, 2, l.agrega || '', S.tdc); put(r, 3, l.code, S.tdc);
-      put(r, 4, l.c.tmu, S.tdc, numFmt.tmu);
-      put(r, 5, qExpr(l) ? { f: qExpr(l), v: l.c.q } : l.c.q, S.tdc, numFmt.q);
-      put(r, 6, fExpr(l) ? { f: fExpr(l), v: l.c.fEff } : l.c.fEff, S.tdc, numFmt.f);
-      put(r, 7, { f: `E${R}*F${R}*G${R}`, v: l.c.ttmu }, S.tdc, numFmt.tmu);
-      put(r, 8, { f: `H${R}*0.036`, v: l.c.sec }, S.tdc, numFmt.s);
+      const r = i + 1, R = acRow(i);
+      put(r, 0, { f: ref('A', R), v: l.n }, S.td);
+      put(r, 1, { f: ref('C', R), v: l.desc + (l.simul ? ' (simultâneo ao Nº ' + l.simulWith + ' — não soma)' : '') }, S.td);
+      put(r, 2, { f: ref('D', R), v: l.agrega || '' }, S.td);
+      put(r, 3, { f: ref('F', R), v: l.code }, S.td);
+      put(r, 4, { f: ref('H', R), v: l.c.tmu }, S.td, '0.00');
+      put(r, 5, { f: ref('I', R), v: l.c.q }, S.td, '0.00');
+      put(r, 6, { f: ref('K', R), v: l.c.fEff }, S.td, '0.0000');
+      put(r, 7, { f: ref('L', R), v: l.c.ttmu }, S.calc, '0.00');
+      put(r, 8, { f: ref('M', R), v: l.c.sec }, S.calc, '0.00');
+      height(r, 39);
     });
-    const R = totRow + 1;
-    put(totRow, 0, 'TOTAL DO PROCESSO POR ' + unitUp, S.tot); merge(totRow, 0, totRow, 6, S.tot);
-    put(totRow, 7, { f: `SUM(H${firstRow + 1}:H${totRow})`, v: ctx.totals.tmu }, S.tot, numFmt.tmu);
-    put(totRow, 8, { f: `SUM(I${firstRow + 1}:I${totRow})`, v: ctx.totals.sec }, S.tot, numFmt.s);
-  }, [6, 58, 12, 11, 10, 12, 12, 13, 11]);
-  const TOT_TMU = `'Análise MTM'!H${totRow + 1}`, TOT_S = `'Análise MTM'!I${totRow + 1}`;
+    const t = L.length + 1;
+    put(t, 0, 'TOTAL DO PROCESSO POR ' + UP + (prelim ? ' - CENÁRIO PRELIMINAR' : ''), S.totU); merge(t, 0, t, 6, S.totU);
+    put(t, 7, { f: `'Analise Completa'!L${acTot}`, v: ctx.totals.tmu }, S.totU, '0.00');
+    put(t, 8, { f: `'Analise Completa'!M${acTot}`, v: ctx.totals.sec }, S.totU, '0.00');
+    height(t, 39);
+  }, [7, 100, 19, 17, 14, 13, 11, 19, 14], { freeze: { xSplit: 0, ySplit: 1 } });
 
-  // 2) Resumo
-  const o = ctx.observed;
-  const ref = o.per[0];
-  sheet('Resumo', (put, merge, XR) => {
-    put(0, 0, 'RESUMO DA ANÁLISE MTM POR VÍDEO', S.title); merge(0, 0, 0, 2, S.title);
-    let r = 2;
-    const kv = (k, v, fmt, note) => { put(r, 0, k, S.key); put(r, 1, v, S.td, fmt); if (note) put(r, 2, note, S.note); r++; };
-    kv('Pasta', ctx.folder); kv('Projeto', ctx.project); kv('Processo', st.process || '');
-    kv('Unidade de referência', st.unit + (st.unitRef ? ' — ' + st.unitRef : ''));
-    kv('Unidades por ciclo observado', o.upc, numFmt.q);
-    kv('Sistema MTM', st.system); kv('Vídeo', st.filename); kv('Leitura do vídeo', st.readMode === 'rapida' ? 'rápida (reprodução acelerada)' : 'precisa (quadro a quadro, 5 amostras/s)');
-    kv('Descrição da operação (informada)', st.prompt || '');
-    kv('Cobertura da filmagem', st.coverage || '');
-    kv('Início do ciclo de referência', ref ? ref.start : 'sem ciclo completo confirmado', ref ? numFmt.s : null, ref ? 's de vídeo' : '');
-    kv('Fim do ciclo de referência', ref ? ref.end : '—', ref ? numFmt.s : null, ref ? 's de vídeo' : '');
-    kv('Ciclos completos observados (usados na média)', o.n);
-    r++;
-    const rT = r; kv('TMU total por ' + st.unit, { f: TOT_TMU, v: ctx.totals.tmu }, numFmt.tmu, 'soma da aba Análise MTM');
-    const rS = r; kv('Segundos calculados por ' + st.unit, { f: TOT_S, v: ctx.totals.sec }, numFmt.s, 'TMU × 0,036');
-    kv('Tempo bruto filmado (s)', st.duration, numFmt.s);
-    const rM = r; kv('Média líquida dos ciclos (s)', o.meanNet == null ? 'n/d' : o.meanNet, numFmt.s, 'ver aba Cronoanálise Observada');
-    const rC = r; kv('Média cíclica dos ciclos (s)', o.meanCyclic == null ? 'n/d' : o.meanCyclic, numFmt.s, 'média líquida sem a duração bruta das atividades acíclicas filmadas dentro dos ciclos');
-    const rU = r; kv('Unidades por ciclo', o.upc, numFmt.q);
-    const rA = r; kv('Atividades acíclicas rateadas (s)', o.acycRateado, numFmt.s, 'duração observada × frequência da linha (mesmo rateio do MTM)');
-    const rO = r; kv('Tempo observado comparável por ' + st.unit + ' (s)', o.comparable == null ? 'n/d' : { f: `B${XR(rC)}/B${XR(rU)}+B${XR(rA)}`, v: o.comparable }, numFmt.s, 'média cíclica ÷ unidades por ciclo + acíclicas rateadas');
-    if (o.comparable != null) {
-      kv('Diferença (s)', { f: `B${XR(rS)}-B${XR(rO)}`, v: ctx.totals.sec - o.comparable }, numFmt.s, 'MTM − observado comparável');
-      kv('Diferença (%)', { f: `(B${XR(rS)}-B${XR(rO)})/B${XR(rO)}*100`, v: (ctx.totals.sec - o.comparable) / o.comparable * 100 }, '0.0', 'diferença ÷ observado × 100');
-    } else { kv('Diferença (s)', 'comparação indisponível — nenhum ciclo completo confirmado'); kv('Diferença (%)', '—'); }
-    r++;
-    put(r++, 0, 'Linhas observadas / informadas / estimadas', S.key);
-    put(r - 1, 1, ORIGENS.map(k => k + ': ' + st.lines.filter(l => l.origin === k).length).join(' · '), S.td);
-  }, [44, 30, 46], true);
-
-  // 3) Cronoanálise Observada
-  sheet('Cronoanálise Observada', (put, merge, XR) => {
-    put(0, 0, 'CRONOANÁLISE OBSERVADA — ' + st.filename, S.title); merge(0, 0, 0, 9, S.title);
-    ['Vídeo', 'Ciclo / evento', 'Tipo', 'Início (s)', 'Fim (s)', 'Duração (s)', 'Exclusões no ciclo (s)', 'Líquido (s)', 'Pausas / ocorrências', 'Critério de inclusão ou exclusão'].forEach((h, c) => put(2, c, h, S.th));
-    let r = 3; const netCells = [];
-    const excl = st.events.filter(e => e.type !== 'Ciclo completo' && e.type !== 'Ciclo parcial' && e.exclude);
-    st.events.forEach((e, i) => {
-      const R = XR(r), p = o.per.find(x => x.id === e.id);
-      put(r, 0, st.filename, S.td); put(r, 1, (e.type.startsWith('Ciclo') ? 'Ciclo ' : 'Evento ') + (i + 1), S.tdc); put(r, 2, e.type, S.td);
-      put(r, 3, e.start, S.tdc, numFmt.s); put(r, 4, e.end, S.tdc, numFmt.s); put(r, 5, { f: `E${R}-D${R}`, v: e.end - e.start }, S.tdc, numFmt.s);
-      if (p) { put(r, 6, p.exc, S.tdc, numFmt.s); put(r, 7, { f: `F${R}-G${R}`, v: p.net }, S.tdc, numFmt.s); netCells.push('H' + R);
-        put(r, 8, excl.filter(x => Math.min(x.end, e.end) > Math.max(x.start, e.start)).map(x => x.type + ' ' + r2(x.start) + '–' + r2(x.end) + ' s').join('; ') || 'nenhuma', S.td); }
-      else { put(r, 6, '', S.tdc); put(r, 7, '', S.tdc); put(r, 8, '', S.td); }
-      const crit = e.type === 'Ciclo completo' ? (e.use ? 'Incluído na média' : 'Não incluído') : e.type === 'Ciclo parcial' ? 'Ciclo parcial — não entra na média' : (e.exclude ? 'Excluído do tempo' : 'Mantido no tempo');
-      put(r, 9, crit + (e.reason ? ' — ' + e.reason : ''), S.td);
-      r++;
+  /* 2) Análise Completa */
+  sheet('Analise Completa', (put, merge, XR, height) => {
+    put(0, 0, 'MTM  |  ' + String(st.process || 'ANÁLISE POR VÍDEO').toUpperCase(), S.title); merge(0, 0, 0, 14, S.title); height(0, 38);
+    const resumo = (prelim ? 'Análise preliminar: ' : 'Análise concluída: ') + 'sequência observada no vídeo ' + (st.filename || '') + '; resultado por ' + U + '. '
+      + (prelim ? pend.length + ' ponto(s) a confirmar na aba Premissas.' : 'Sem pendências registradas.');
+    put(1, 0, resumo, S.sub); merge(1, 0, 1, 14, S.sub); height(1, 29);
+    ['Nº', 'Etapa', 'Movimento / atividade', 'AGREGA', 'Família MTM', 'Código MTM', 'Descrição técnica / conteúdo', 'TMU base', 'Q', 'Distância (m)', 'F', 'Total TMU', 'Total (s)', 'Evidência', 'Observação técnica / premissa'].forEach((h, c) => put(3, c, h, S.th));
+    height(3, 38);
+    L.forEach((l, i) => {
+      const r = AC0 + i, R = XR(r), it = library()[l.code] || {};
+      put(r, 0, l.n); put(r, 1, l.etapa || ''); put(r, 2, l.desc + (l.simul ? ' (simultâneo ao Nº ' + l.simulWith + ' — não soma)' : ''));
+      put(r, 3, l.agrega || ''); put(r, 4, lineFamily(l)); put(r, 5, l.code); put(r, 6, lineTech(l));
+      put(r, 7, l.c.tmu);
+      // Q: ligado à premissa quando houver
+      if (l.qParam && pRow[l.qParam] && isFinite(pVal(l.qParam))) put(r, 8, { f: 'Premissas!B' + pRow[l.qParam], v: l.c.q }, S.td, '0.00');
+      else put(r, 8, fracExpr(l.q) ? { f: fracExpr(l.q), v: l.c.q } : l.c.q, S.td, '0.00');
+      // Distância: igual a Q nos códigos por metro; senão o valor informado
+      if (it.unit === 'metro') put(r, 9, { f: 'I' + R, v: l.c.q }, S.td, '0.00');
+      else put(r, 9, l.dist === '' || l.dist == null ? '' : CORE.num(l.dist, 0), S.td, '0.00');
+      // F: 0 se simultâneo; 1/premissa quando o rateio vem de um parâmetro; fração literal; ou número
+      if (l.simul) put(r, 10, 0, S.td, '0.0000');
+      else if (l.fParam && pRow[l.fParam] && pVal(l.fParam) > 0) put(r, 10, { f: '1/Premissas!B' + pRow[l.fParam], v: l.c.f }, S.td, '0.0000');
+      else put(r, 10, fracExpr(l.f) ? { f: fracExpr(l.f), v: l.c.f } : l.c.f, S.td, '0.0000');
+      put(r, 11, { f: `H${R}*I${R}*K${R}`, v: l.c.ttmu }, S.calc, '0.00');
+      put(r, 12, { f: `L${R}*${TMU_S}`, v: l.c.sec }, S.calc, '0.00');
+      put(r, 13, lineEvid(l, allParams));
+      const obs = [];
+      if (l.simul) obs.push('Simultâneo ao Nº ' + l.simulWith + ' (frequência real ' + l.f + '): não soma no total.');
+      if (l.obs) obs.push(l.obs);
+      put(r, 14, obs.join(' '));
+      height(r, 39);
     });
-    if (!st.events.length) { put(r, 0, 'Nenhum ciclo ou evento marcado.', S.note); r++; }
-    r++;
-    put(r, 0, 'Tempo bruto filmado (s)', S.key); merge(r, 0, r, 4, S.key); put(r, 5, st.duration, S.tot, numFmt.s); r++;
-    put(r, 0, 'Média líquida dos ciclos usados (s)', S.key); merge(r, 0, r, 4, S.key); put(r, 5, netCells.length ? { f: `AVERAGE(${netCells.join(',')})`, v: o.meanNet } : 'n/d', S.tot, numFmt.s); r++;
-    put(r, 0, 'Ciclos completos que sustentam a média', S.key); merge(r, 0, r, 4, S.key); put(r, 5, netCells.length, S.tot); r += 2;
-    // Linhas de movimento com minutagem (para localizar no vídeo)
-    put(r, 0, 'MINUTAGEM DOS MOVIMENTOS', S.title); merge(r, 0, r, 9, S.title); r++;
-    ['Vídeo', 'Nº movimento', 'Atividade', 'Início (s)', 'Fim (s)', 'Duração (s)', 'Origem', 'Frequência', 'Duração rateada (s)', 'Observação'].forEach((h, c) => put(r, c, h, S.th)); r++;
-    L.forEach(l => { const R = XR(r);
-      put(r, 0, st.filename, S.td); put(r, 1, l.n, S.tdc); put(r, 2, l.desc, S.td); put(r, 3, l.start, S.tdc, numFmt.s); put(r, 4, l.end, S.tdc, numFmt.s);
-      put(r, 5, { f: `E${R}-D${R}`, v: l.end - l.start }, S.tdc, numFmt.s); put(r, 6, l.origin, S.tdc);
-      put(r, 7, fExpr(l) ? { f: fExpr(l), v: l.c.f } : l.c.f, S.tdc, numFmt.f); put(r, 8, { f: `F${R}*H${R}`, v: (l.end - l.start) * l.c.f }, S.tdc, numFmt.s);
-      put(r, 9, (isAcyclic(l) ? 'Acíclica — rateio aplicado também ao tempo observado. ' : '') + (l.obs || ''), S.td); r++; });
-  }, [26, 13, 30, 11, 11, 12, 14, 12, 30, 52], true);
+    const t = AC0 + L.length;
+    put(t, 0, 'TOTAL DO PROCESSO POR ' + UP + (prelim ? ' - CENÁRIO PRELIMINAR' : ''), S.tot); merge(t, 0, t, 10, S.tot);
+    put(t, 11, { f: `SUM(L${XR(AC0)}:L${XR(t - 1)})`, v: ctx.totals.tmu }, S.tot, '0.00');
+    put(t, 12, { f: `SUM(M${XR(AC0)}:M${XR(t - 1)})`, v: ctx.totals.sec }, S.tot, '0.00');
+    put(t, 13, '', S.tot); put(t, 14, '', S.tot);
+    height(t, 39);
+  }, [7, 24, 65, 18, 25, 16, 95, 12, 13, 17, 10, 18, 16, 33, 90], { aux: true, freeze: { xSplit: 0, ySplit: 5 } });
 
-  // 4) Folha de Processo
-  sheet('Folha de Processo', (put, merge, XR) => {
-    put(0, 0, 'FOLHA DE PROCESSO — ' + (st.process || '') + ' — POR ' + unitUp, S.title); merge(0, 0, 0, 16, S.title);
-    ['Nº', 'Etapa', 'Atividade observada', 'Início (s)', 'Fim (s)', 'Minutagem', 'Origem', 'Família MTM', 'Código', 'Descrição técnica', 'TMU base', 'Quantidade', 'Distância (m)', 'Frequência', 'TMU efetivo', 'Segundos', 'Observação técnica'].forEach((h, c) => put(2, c, h, S.th));
-    let r = 3;
-    L.forEach(l => { const R = XR(r), it = library()[l.code] || {};
-      put(r, 0, l.n, S.tdc); put(r, 1, l.etapa || '', S.td); put(r, 2, l.desc, S.td); put(r, 3, l.start, S.tdc, numFmt.s); put(r, 4, l.end, S.tdc, numFmt.s);
-      put(r, 5, mmss(l.start) + ' – ' + mmss(l.end), S.tdc); put(r, 6, l.origin, S.tdc); put(r, 7, it.family || '', S.td); put(r, 8, l.code, S.tdc); put(r, 9, it.desc || '', S.td);
-      put(r, 10, l.c.tmu, S.tdc, numFmt.tmu); put(r, 11, qExpr(l) ? { f: qExpr(l), v: l.c.q } : l.c.q, S.tdc, numFmt.q);
-      put(r, 12, l.dist === '' || l.dist == null ? '' : CORE.num(l.dist, 0), S.tdc, numFmt.q);
-      put(r, 13, fExpr(l) ? { f: fExpr(l), v: l.c.fEff } : l.c.fEff, S.tdc, numFmt.f);
-      put(r, 14, { f: `K${R}*L${R}*N${R}`, v: l.c.ttmu }, S.tdc, numFmt.tmu); put(r, 15, { f: `O${R}*0.036`, v: l.c.sec }, S.tdc, numFmt.s);
-      const notes = [];
-      if (l.simul) notes.push('Simultâneo ao Nº ' + l.simulWith + ': frequência real ' + l.f + ', não soma no total (sobreposição pela minutagem).');
-      if (isAcyclic(l)) notes.push('Rateio: frequência ' + l.f + ' por ' + st.unit + '.');
-      if (l.obs) notes.push(l.obs);
-      put(r, 16, notes.join(' '), S.td); r++; });
-    put(r, 0, 'TOTAL POR ' + unitUp, S.tot); merge(r, 0, r, 13, S.tot);
-    put(r, 14, { f: `SUM(O${XR(3)}:O${XR(r - 1)})`, v: ctx.totals.tmu }, S.tot, numFmt.tmu); put(r, 15, { f: `SUM(P${XR(3)}:P${XR(r - 1)})`, v: ctx.totals.sec }, S.tot, numFmt.s); put(r, 16, '', S.tot);
+  /* 3) Premissas */
+  sheet('Premissas', (put, merge, XR, height) => {
+    put(0, 0, 'PREMISSAS  |  ' + String(st.process || '').toUpperCase(), S.title); merge(0, 0, 0, 5, S.title); height(0, 38);
+    put(1, 0, 'Amarelo = editável | parâmetros informados, extraídos do vídeo ou assumidos. Alterar o valor recalcula a Análise Completa.', S.sub); merge(1, 0, 1, 5, S.sub); height(1, 29);
+    ['Parâmetro', 'Valor', 'Unidade', 'Origem / critério'].forEach((h, c) => put(3, c, h, S.th)); height(3, 29);
+    allParams.forEach((p, i) => {
+      const r = PR0 + i; const v = CORE.num(p.value, NaN);
+      put(r, 0, p.name); put(r, 1, isFinite(v) && String(p.value).trim() !== '' && !/[a-z]/i.test(String(p.value)) ? v : String(p.value), S.edit, p.id === '_tmu' ? '0.000' : '0.0##');
+      put(r, 2, p.unit || ''); put(r, 3, p.origin || ''); height(r, 39);
+    });
+    let r = PR0 + allParams.length + 1;
+    ['ATENÇÃO', 'Status', 'Efeito', 'Como resolver'].forEach((h, c) => put(r, c, h, S.th)); height(r, 29); r++;
+    if (!pend.length) { put(r, 0, 'Nenhuma pendência registrada.'); r++; }
+    pend.forEach(p => { p.forEach((v, c) => put(r, c, v)); height(r, 39); r++; });
+    r++;
+    put(r, 0, 'Descrição da operação informada', S.th); merge(r, 0, r, 3, S.th); r++;
+    put(r, 0, String(st.prompt || '—').replace(/\s+/g, ' ').trim()); merge(r, 0, r, 3); height(r, 60); r++;
+    (st.premises || []).forEach(t => { put(r, 0, 'Premissa do texto: ' + t); merge(r, 0, r, 3); r++; });
+  }, [39, 22, 16, 85, 12], { aux: true });
+
+  /* 4) Cronoanálise */
+  const filmed = L.filter(l => l.end > l.start).sort((a, b) => a.start - b.start);
+  const ob = ctx.observed;
+  sheet('Cronoanalise', (put, merge, XR, height) => {
+    put(0, 0, 'CRONOANÁLISE  |  O QUE O VÍDEO REALMENTE MOSTRA', S.title); merge(0, 0, 0, 6, S.title); height(0, 38);
+    put(1, 0, 'Vídeo ' + (st.filename || '') + ': ' + String(r2(st.duration || 0)).replace('.', ',') + ' s. ' + (st.coverage || '') + (ob.n ? ' Ciclos completos usados na média: ' + ob.n + '.' : ' Nenhum ciclo completo confirmado.'), S.sub); merge(1, 0, 1, 6, S.sub); height(1, 29);
+    ['Nº', 'Início (s)', 'Fim (s)', 'Duração (s)', 'Etapa observada', 'Tratamento no MTM', 'Limitação / evidência'].forEach((h, c) => put(3, c, h, S.th)); height(3, 29);
+    let r = 4;
+    filmed.forEach(l => {
+      const R = XR(r);
+      put(r, 0, l.n); put(r, 1, l.start, S.td, '0.00'); put(r, 2, l.end, S.td, '0.00'); put(r, 3, { f: `C${R}-B${R}`, v: l.end - l.start }, S.calc, '0.00');
+      put(r, 4, l.desc);
+      put(r, 5, l.code + (l.c.q !== 1 ? ' × ' + String(r2(l.c.q)).replace('.', ',') : '') + (l.simul ? ' (simultâneo ao Nº ' + l.simulWith + ', não soma)' : '') + (isAcyclic(l) ? ' · rateio ' + l.f : ''));
+      put(r, 6, [l.kind === 'pausa' ? 'Baixa movimentação visível' : '', l.obs || ''].filter(Boolean).join('; ') || 'Tempos aproximados pela leitura do vídeo (5 amostras/s)');
+      height(r, 39); r++;
+    });
+    const r0 = 4, r1 = r - 1;
+    put(r, 0, 'TOTAL DOS TRECHOS', S.totU); merge(r, 0, r, 2, S.totU);
+    put(r, 3, filmed.length ? { f: `SUM(D${XR(r0)}:D${XR(r1)})`, v: filmed.reduce((s, l) => s + l.end - l.start, 0) } : 0, S.totU, '0.00');
     r += 2;
-    put(r, 0, 'PREMISSAS E RATEIOS', S.title); merge(r, 0, r, 16, S.title); r++;
-    const prem = [
-      'Unidade de referência: ' + st.unit + (st.unitRef ? ' (' + st.unitRef + ')' : '') + '. Unidades por ciclo observado: ' + st.unitsPerCycle + '.',
-      'TMU efetivo = TMU base × quantidade × frequência; segundos = TMU efetivo × 0,036. Frações mantidas nas fórmulas.',
-      'Quantidade = unidades às quais o TMU base se aplica em uma ocorrência; frequência = ocorrências por ' + st.unit + '.',
-      'Códigos por faixa de distância: a distância só escolhe o código. Códigos por metro: a distância entra na quantidade.',
-      'Linhas simultâneas recebem frequência 0 no total, com a frequência real registrada na observação.',
-      'Origem: Observado = visto no vídeo; Informado = dado pelo usuário; Estimado = sugerido (histórico ou premissa) e conferido pelo analista.',
-      'Cobertura da filmagem: ' + (st.coverage || 'não informada') + '.',
-    ];
-    if (st.prompt) prem.push('Descrição da operação informada: ' + String(st.prompt).replace(/\s+/g, ' ').trim());
-    (st.premises || []).forEach(t => prem.push('Premissa do texto: ' + t));
-    L.filter(isAcyclic).forEach(l => prem.push('Nº ' + l.n + ' (' + l.desc + '): rateio ' + l.f + ' por ' + st.unit + ' — ' + (l.obs || 'evento gerador conforme observado')));
-    prem.forEach(t => { put(r, 0, t, S.td); merge(r, 0, r, 16, S.td); r++; });
-  }, [6, 14, 40, 10, 10, 18, 11, 18, 10, 40, 10, 11, 11, 12, 12, 10, 50], true);
+    put(r, 0, 'CICLOS E EVENTOS', S.sec); merge(r, 0, r, 6, S.sec); r++;
+    ['Nº', 'Início (s)', 'Fim (s)', 'Duração (s)', 'Tipo', 'Uso no tempo observado', 'Critério / motivo'].forEach((h, c) => put(r, c, h, S.th)); r++;
+    if (!st.events.length) { put(r, 0, 'Nenhum ciclo ou evento marcado.'); merge(r, 0, r, 6); r++; }
+    st.events.forEach((e, i) => {
+      const R = XR(r);
+      put(r, 0, i + 1); put(r, 1, e.start, S.td, '0.00'); put(r, 2, e.end, S.td, '0.00'); put(r, 3, { f: `C${R}-B${R}`, v: e.end - e.start }, S.calc, '0.00');
+      put(r, 4, e.type);
+      put(r, 5, e.type === 'Ciclo completo' ? (e.use ? 'Incluído na média' : 'Não incluído') : e.type === 'Ciclo parcial' ? 'Não entra na média' : (e.exclude ? 'Excluído do tempo' : 'Mantido no tempo'));
+      put(r, 6, e.reason || ''); height(r, 39); r++;
+    });
+    r++;
+    const kv = (k, v, fmt) => { put(r, 0, k, S.th); merge(r, 0, r, 2, S.th); put(r, 3, v, S.calc, fmt); r++; };
+    kv('Tempo bruto filmado (s)', st.duration || 0, '0.00');
+    kv('Média líquida dos ciclos (s)', ob.meanNet == null ? 'n/d' : ob.meanNet, '0.00');
+    kv('Ciclos completos na média', ob.n);
+  }, [11, 18, 14, 22, 73, 46, 94], { aux: true });
 
-  // 5) Tabela de Códigos
+  /* 5) Confronto */
+  sheet('Confronto', (put, merge, XR, height) => {
+    put(0, 0, 'CONFRONTO  |  MTM × CRONOANÁLISE', S.title); merge(0, 0, 0, 5, S.title); height(0, 38);
+    put(1, 0, ob.n ? 'Comparação por ' + U + ' com o mesmo rateio do MTM aplicado ao tempo filmado.' : 'Sem ciclo completo confirmado: comparar apenas as ocorrências filmadas, sem rateio. Não comparar o processo completo com o tempo do vídeo.', S.sub); merge(1, 0, 1, 5, S.sub); height(1, 29);
+    ['Indicador', 'Valor', 'Observação'].forEach((h, c) => put(3, c, h, S.th)); height(3, 29);
+    let r = 4; const at = {};
+    const row = (key, k, v, note, fmt) => { at[key] = XR(r); put(r, 0, k); put(r, 1, v, typeof v === 'string' ? S.td : S.calc, fmt); put(r, 2, note || ''); height(r, 39); r++; };
+    row('mtm', 'Tempo MTM do processo por ' + U + ' (s)', { f: `'Analise Completa'!M${acTot}`, v: ctx.totals.sec }, 'Total da Análise Completa (com rateios)', '0.00');
+    const fl = filmed.filter(l => !l.simul);
+    const occ = fl.reduce((s, l) => s + l.c.tmu * l.c.q * SEC_PER_TMU, 0), obsF = fl.reduce((s, l) => s + l.end - l.start, 0);
+    row('mtmF', 'Tempo MTM das ocorrências filmadas, sem rateio (s)', fl.length ? { f: '(' + fl.map(l => `'Analise Completa'!H${acRow(l.n - 1)}*'Analise Completa'!I${acRow(l.n - 1)}`).join('+') + ')*' + TMU_S, v: occ } : 0, 'Nº ' + (fl.map(l => l.n).join(', ') || '—') + ': TMU base × Q de cada ocorrência vista no vídeo', '0.00');
+    row('obsF', 'Tempo observado das mesmas ocorrências (s)', obsF, 'Soma das durações filmadas dessas linhas (aba Cronoanalise)', '0.00');
+    row('dF', 'Diferença MTM − observado, ocorrências filmadas (s)', fl.length ? { f: `B${at.mtmF}-B${at.obsF}`, v: occ - obsF } : 'n/d', 'Negativo: filme maior do que a decomposição MTM', '0.00');
+    row('pF', 'Diferença percentual, ocorrências filmadas (%)', fl.length && obsF ? { f: `IF(B${at.obsF}=0,0,B${at.dF}/B${at.obsF}*100)`, v: (occ - obsF) / obsF * 100 } : 'n/d', '(MTM − observado) ÷ observado × 100', '0.0');
+    if (ob.n) {
+      row('obs', 'Tempo observado comparável por ' + U + ' (s)', ob.comparable, 'Média cíclica ÷ ' + String(ob.upc).replace('.', ',') + ' ' + (ob.upc === 1 ? U : plural(U)) + ' por ciclo + acíclicas rateadas (' + String(r2(ob.acycRateado)).replace('.', ',') + ' s)', '0.00');
+      row('d', 'Diferença MTM − observado por ' + U + ' (s)', { f: `B${at.mtm}-B${at.obs}`, v: ctx.totals.sec - ob.comparable }, 'MTM − observado comparável', '0.00');
+      row('p', 'Diferença percentual por ' + U + ' (%)', { f: `IF(B${at.obs}=0,0,B${at.d}/B${at.obs}*100)`, v: ob.comparable ? (ctx.totals.sec - ob.comparable) / ob.comparable * 100 : 0 }, 'Diferença ÷ observado comparável × 100', '0.0');
+    }
+    row('v', 'Tempo observado do vídeo completo (s)', st.duration || 0, 'Não equivale ao processo por ' + U + ' quando há rateios ou trechos informados', '0.00');
+    const notFilmed = L.filter(l => !(l.end > l.start));
+    row('nf', 'Linhas sem filmagem', notFilmed.length ? notFilmed.map(l => l.n).join(', ') : 'nenhuma', notFilmed.length ? 'Tempo reconstruído por premissas; não medido no vídeo' : '');
+    row('ok', 'Comparação válida por ' + U + '?', ob.n ? 'SIM' : 'NÃO', ob.n ? ob.n + ' ciclo(s) completo(s) confirmado(s)' : 'NÃO: não há ciclo completo confirmado; usar a comparação das ocorrências filmadas');
+    row('st', 'Status do cálculo', prelim ? 'PRELIMINAR' : 'CONCLUÍDO', prelim ? 'PRELIMINAR: ' + pend.map(p => p[0]).slice(0, 4).join('; ') + (pend.length > 4 ? '…' : '') : 'Sem pendências registradas');
+    r++;
+    put(r, 0, 'Diagnóstico de divergência', S.sec); merge(r, 0, r, 5, S.sec); r++;
+    const top = [...L].filter(l => l.c.valid).sort((a, b) => b.c.sec - a.c.sec).slice(0, 3);
+    const diag = [];
+    if (top.length) diag.push('Maiores contribuições ao tempo MTM: ' + top.map(l => 'Nº ' + l.n + ' ' + l.code + ' (' + String(r2(l.c.sec)).replace('.', ',') + ' s)').join(', ') + '. Revisar primeiro distâncias, frequências e enquadramento destas linhas.');
+    const big = fl.filter(l => (l.end - l.start) > 0 && l.c.tmu * l.c.q * SEC_PER_TMU > 0).map(l => ({ l, d: (l.end - l.start) - l.c.tmu * l.c.q * SEC_PER_TMU })).sort((a, b) => Math.abs(b.d) - Math.abs(a.d)).slice(0, 3);
+    if (big.length) diag.push('Maiores diferenças entre filmado e MTM por ocorrência: ' + big.map(x => 'Nº ' + x.l.n + ' (' + (x.d > 0 ? 'filme +' : 'MTM +') + String(r2(Math.abs(x.d))).replace('.', ',') + ' s)').join(', ') + '. Verificar omissões, esperas, dificuldade de pega e simultaneidade.');
+    diag.push('Não foi acrescentado tempo artificial para coincidir com a filmagem. Os TMU são os da biblioteca; a diferença orienta a revisão do método e das premissas.');
+    diag.forEach(t => { put(r, 0, t); merge(r, 0, r, 5); height(r, 39); r++; });
+  }, [46, 24, 95, 18, 12, 20], { aux: true });
+
+  /* 6) Biblioteca */
   const codes = [...new Set(L.map(l => l.code))];
-  sheet('Tabela de Códigos', (put, merge) => {
-    put(0, 0, 'TABELA DE CÓDIGOS UTILIZADOS', S.title); merge(0, 0, 0, 7, S.title);
-    ['Sistema', 'Família', 'Código completo', 'Descrição', 'TMU base', 'Unidade de aplicação', 'Documento', 'Página / tabela'].forEach((h, c) => put(2, c, h, S.th));
-    codes.forEach((c, i) => { const it = library()[c] || {}, src = ctx.sourceOf(c), parts = src.split(' · ');
-      put(3 + i, 0, systemOf(c), S.td); put(3 + i, 1, it.family || '', S.td); put(3 + i, 2, c, S.tdc); put(3 + i, 3, it.desc || '', S.td);
-      put(3 + i, 4, c === 'PT' ? 1666.67 : it.tmu, S.tdc, numFmt.tmu); put(3 + i, 5, it.unit || '', S.td); put(3 + i, 6, parts[0] || '', S.td); put(3 + i, 7, parts.slice(1).join(' · '), S.td); });
-  }, [20, 22, 15, 50, 10, 22, 40, 52], true);
+  const docs = [...new Set(codes.map(c => (ctx.sourceOf(c) || '').split(' · ')[0]).filter(Boolean))];
+  sheet('Biblioteca', (put, merge, XR, height) => {
+    put(0, 0, 'BIBLIOTECA MTM  |  CÓDIGOS DA REVISÃO', S.title); merge(0, 0, 0, 4, S.title); height(0, 38);
+    put(1, 0, 'Fontes: ' + (docs.join('; ') || 'Biblioteca do sistema') + '.', S.sub); merge(1, 0, 1, 4, S.sub); height(1, 29);
+    ['Código', 'Família', 'Descrição técnica da fonte', 'TMU', 'Fonte / parâmetros'].forEach((h, c) => put(3, c, h, S.th)); height(3, 29);
+    codes.forEach((c, i) => { const it = library()[c] || {}, src = ctx.sourceOf(c) || '';
+      put(4 + i, 0, c); put(4 + i, 1, it.family || ''); put(4 + i, 2, (it.desc || '') + (codeNote(c) ? ' — ' + codeNote(c) : ''));
+      put(4 + i, 3, c === 'PT' ? 1666.67 : it.tmu, S.td, '0.0'); put(4 + i, 4, src.split(' · ').slice(1).join(' · ') || src); height(4 + i, 39); });
+  }, [14, 26, 88, 12, 70], { aux: true });
 
-  // 6) Melhorias
-  sheet('Melhorias', (put, merge) => {
-    put(0, 0, 'OPORTUNIDADES DE MELHORIA (NÃO ALTERAM O TEMPO DO MÉTODO ATUAL)', S.title); merge(0, 0, 0, 4, S.title);
-    ['Nº movimento', 'Oportunidade', 'Evidência no vídeo', 'Ganho estimado (s)', 'Observação'].forEach((h, c) => put(2, c, h, S.th));
-    st.improvements.forEach((m, i) => { put(3 + i, 0, m.ref, S.tdc); put(3 + i, 1, m.text, S.td); put(3 + i, 2, m.evid, S.td); put(3 + i, 3, m.gain === '' ? '' : CORE.num(m.gain, 0), S.tdc, numFmt.s); put(3 + i, 4, 'Estimativa separada do tempo do método atual', S.note); });
-    if (!st.improvements.length) put(3, 0, 'Nenhuma oportunidade registrada.', S.note);
-  }, [14, 60, 22, 18, 40], true);
+  /* 7) Melhorias */
+  sheet('Melhorias', (put, merge, XR, height) => {
+    put(0, 0, 'MELHORIAS E PONTOS DE CONFIRMAÇÃO', S.title); merge(0, 0, 0, 4, S.title); height(0, 38);
+    ['Nº', 'Ponto observado / risco', 'Proposta / validação', 'Impacto no MTM', 'Prioridade'].forEach((h, c) => put(2, c, h, S.th)); height(2, 29);
+    const items = st.improvements.filter(m => (m.ponto || m.text || '').trim());
+    if (!items.length) put(3, 0, 'Nenhum ponto registrado.');
+    items.forEach((m, i) => {
+      const z = i % 2 ? S.zeb : S.td, ref = m.ref ? ' (mov. ' + m.ref + (m.evid ? ', ' + m.evid : '') + ')' : (m.evid ? ' (' + m.evid + ')' : '');
+      put(3 + i, 0, i + 1, z); put(3 + i, 1, (m.ponto || m.text || '') + ref, z); put(3 + i, 2, m.proposta || '', z);
+      put(3 + i, 3, (m.impacto || '') + (m.gain ? (m.impacto ? '; ' : '') + 'ganho estimado ' + m.gain + ' s (fora do tempo do método atual)' : ''), z); put(3 + i, 4, m.prioridade || '', z); height(3 + i, 39);
+    });
+  }, [8, 79, 100, 87, 16], { aux: true });
 
   const check = [
     L.length + ' movimentos com código',
     codes.length + ' códigos com fonte',
-    'rateios por ' + st.unit,
-    'total da planilha ' + ctx.totals.tmu.toFixed(2) + ' TMU = resumo',
+    'rateios por ' + U,
+    'total ' + ctx.totals.tmu.toFixed(2) + ' TMU = resumo',
+    prelim ? 'status PRELIMINAR (' + pend.length + ' pendência(s))' : 'status CONCLUÍDO',
   ];
   return { wb, check };
 }
